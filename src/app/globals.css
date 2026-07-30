@@ -1,0 +1,222 @@
+@import 'tailwindcss';
+
+/*
+ * Nexa design system.
+ *
+ * Two layers, on purpose:
+ *   1. Raw palette   — the actual colors. Never referenced by components.
+ *   2. Semantic tokens — `--bg`, `--surface`, `--border`, `--text-muted`.
+ *      Components only ever use these, which is what makes dark mode a
+ *      12-line override instead of an audit of every file.
+ *
+ * The brand blue from README Parte 3 (#2563EB) measures 5.2:1 on white: it
+ * passes WCAG AA for normal text but fails AAA, so it is used for surfaces,
+ * buttons and headings — and `--brand-text` (a darker step) is used whenever
+ * brand color carries small text. In dark mode the brand LIGHTENS, because
+ * #2563EB on a near-black surface is far too dim to read.
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Backgrounds and surfaces */
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --surface-hover: #eceff3;
+  --border: #e3e7ec;
+  --border-strong: #cfd5dd;
+
+  /* Text */
+  --text: #0f1219;
+  --text-muted: #59626f;
+  --text-subtle: #8a93a1;
+
+  /* Brand */
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --brand-text: #1d4ed8; /* brand color carrying small text */
+  --brand-soft: #eaf1fe;
+  --brand-fg: #ffffff;
+
+  /* Status */
+  --success: #15803d;
+  --success-soft: #e7f6ec;
+  --warning: #b45309;
+  --warning-soft: #fdf3e3;
+  --danger: #c2261f;
+  --danger-soft: #fdecea;
+
+  /* Focus */
+  --ring: #2563eb;
+}
+
+.dark {
+  --bg: #0a0c11;
+  --surface: #12151c;
+  --surface-2: #191d26;
+  --surface-hover: #1f242f;
+  --border: #242a35;
+  --border-strong: #333b48;
+
+  --text: #f2f4f8;
+  --text-muted: #9aa4b2;
+  --text-subtle: #6b7481;
+
+  --brand: #4d86f7;
+  --brand-hover: #6b9bf9;
+  --brand-text: #85aefa;
+  --brand-soft: #141e33;
+  --brand-fg: #06101f;
+
+  --success: #4ade80;
+  --success-soft: #10261a;
+  --warning: #fbbf24;
+  --warning-soft: #2a1f0c;
+  --danger: #f87171;
+  --danger-soft: #2b1414;
+
+  --ring: #4d86f7;
+}
+
+/*
+ * Expose the semantic tokens to Tailwind so `bg-surface`, `text-muted`,
+ * `border-border` work as utilities. `inline` keeps them as var() references,
+ * which is what lets `.dark` override them at runtime with no rebuild.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-text: var(--brand-text);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-fg: var(--brand-fg);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Shape scale. Literal values rather than references to :root — radii do not
+ * change between themes, and a `@theme` entry pointing at a same-named custom
+ * property would be self-referential.
+ */
+@theme {
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    /* Landing on an anchor should not jump on iOS. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    /* App, not website: no rubber-band scroll past the ends of the page. */
+    overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Removes the blue flash on tap while keeping :focus-visible intact. */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Numbers in tables and grade lists must not shift width as they change. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* README Parte 3: "evitar animações exageradas" — and honour the OS setting. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /*
+   * iPhone safe areas. The bottom navigation and any fixed footer must sit
+   * above the home indicator, or the primary navigation of the app is partly
+   * untappable on every notched device.
+   */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right);
+  }
+  .h-safe-bottom {
+    height: env(safe-area-inset-bottom);
+  }
+  /* Bottom nav height + home indicator, for the main scroll container. */
+  .pb-nav {
+    padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
+  }
+
+  /* Minimum comfortable touch target (Apple HIG: 44pt). */
+  .touch-target {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
