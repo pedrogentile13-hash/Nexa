@@ -24,16 +24,17 @@ que foi construído estão registradas — com justificativa — em
 
 ## Estado atual
 
-**Etapa 1 de 5 concluída** — fundação, banco de dados e motor de cálculo.
+**Etapas 0 a 3 concluídas** — fundação, banco, motor de cálculo, autenticação,
+onboarding e a tela **Hoje** funcionando.
 
-| Etapa | Escopo                                                             | Status |
-| ----- | ------------------------------------------------------------------ | ------ |
-| 0     | Scaffold, TypeScript estrito, Tailwind, design tokens, PWA, testes | ✅     |
-| 1     | Schema completo + RLS + views de cálculo + motor de notas testado  | ✅     |
-| 2     | Auth + onboarding de 60s + shell de navegação                      | ⏳     |
-| 3     | Tela **Hoje** (algoritmo de foco, checklist, timer, progresso)     | ⏳     |
-| 4     | Disciplinas + lançamento de notas + solver "quanto preciso tirar"  | ⏳     |
-| 5     | Agenda + Desempenho + Perfil + gamificação                         | ⏳     |
+| Etapa | Escopo                                                              | Status |
+| ----- | ------------------------------------------------------------------- | ------ |
+| 0     | Scaffold, TypeScript estrito, Tailwind, design tokens, PWA, testes  | ✅     |
+| 1     | Schema completo + RLS + views de cálculo + motor de notas testado   | ✅     |
+| 2     | Auth (magic link + Google) + onboarding de 60s + shell de navegação | ✅     |
+| 3     | Tela **Hoje** (algoritmo de foco, checklist, timer, progresso)      | ✅     |
+| 4     | Disciplinas + lançamento de notas + solver "quanto preciso tirar"   | ⏳     |
+| 5     | Agenda + Desempenho + Perfil + gamificação                          | ⏳     |
 
 O que já está pronto e verificável:
 
@@ -42,8 +43,22 @@ O que já está pronto e verificável:
 - **5 views** de cálculo de média, todas `security_invoker`.
 - **`bootstrap_student()`** — onboarding completo em uma transação.
 - **Motor de notas** em TypeScript, espelho das views, com solver de meta.
-- **104 verificações**: 73 asserções SQL contra um Postgres real + 31 testes
+- **Login com magic link e Google**, com guarda contra open redirect.
+- **Onboarding de 3 passos** que já sai com tudo pré-preenchido.
+- **Tela Hoje** com algoritmo de foco explicável, checklist otimista e
+  cronômetro de estudo.
+- **139 verificações**: 73 asserções SQL contra um Postgres real + 66 testes
   unitários.
+
+### O que ainda não existe
+
+- **Agenda** e os gráficos de **Desempenho** (Etapa 5) — as telas existem e dizem
+  o que virá, em vez de mostrar layout vazio.
+- **Lançamento de notas** pela interface (Etapa 4). O motor e o banco já
+  suportam; falta o formulário.
+- **Edição de perfil e metas** (Etapa 5).
+- **Ícones raster do PWA** — o manifest lista só o SVG; PNG 180/192/512 e
+  maskable são ativo de design ainda por produzir.
 
 ---
 

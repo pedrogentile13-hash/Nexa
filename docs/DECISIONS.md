@@ -223,3 +223,56 @@ de graça, enquanto retrofitar depois é auditar cada arquivo.
 **Pendência conhecida.** Ícones raster (180/192/512 + maskable) ainda não
 existem — o manifest lista só o SVG, porque listar arquivo inexistente
 invalidaria o manifest silenciosamente.
+
+---
+
+## ADR-016 · O "Foco de hoje" é um algoritmo explicável, não uma lista por data
+
+**Divergência da spec** (ausência). A Parte 1 dedica a tela mais importante do
+produto à pergunta "o que preciso fazer hoje?" e não define como responder.
+
+**Contexto.** Ordenar por data não responde. A PB que vale 35% da média daqui a
+três dias importa mais que a lição de amanhã, e o aluno sabe disso — se o app
+não souber, ele para de confiar na ordem e volta a decidir sozinho, que é
+exatamente o problema que o Nexa existe para resolver.
+
+**Decisão.** `score = urgência × (1 + impacto) × (1 + risco)`, com no máximo
+três itens na tela.
+
+- **urgência** decai com a distância da data; atrasado pesa mais que hoje.
+- **impacto** é o peso da categoria na média × o peso do item, saturado — peso 7
+  não vale sete vezes peso 1.
+- **risco** é a distância entre a média atual da disciplina e a aprovação (ou a
+  meta que o próprio aluno definiu).
+
+A multiplicação é intencional: um item pesado sem urgência não sobe sozinho, e
+um item urgente de disciplina tranquila não afoga um item urgente de disciplina
+em risco.
+
+**Cada item carrega o motivo em uma frase** — "Em 3 dias · PB vale 35% da média ·
+disciplina abaixo da média". Um ranking que ninguém entende é um ranking em que
+ninguém confia.
+
+**Sem nota lançada, o risco é neutro.** Uma disciplina sem dados nunca é
+apresentada como problema: a Parte 3 é explícita sobre o aluno nunca sentir
+cobrança, e chamar de crítico o que é apenas desconhecido é cobrança sem
+fundamento.
+
+---
+
+## ADR-017 · `?next=` sempre passa por `safeNext`
+
+**Contexto.** Um `next` não validado numa página de login é um open redirect — o
+buraco exato que um link de phishing quer: `nexa.app/login?next=https://nexa-falso.app`
+leva o aluno para outro lugar _depois_ de um login genuíno, então o fluxo inteiro
+parece legítimo.
+
+**Decisão.** Um único `safeNext`, usado pela Server Action, pelo callback do
+OAuth e pelo confirm do magic link. Ele valida por _parsing_ contra uma origem
+descartável, não por regex: os ataques interessantes são truques de codificação
+que um regex perde e um parser de URL normaliza — `//host`, barras invertidas que
+alguns navegadores dobram, caracteres de controle.
+
+**Testado pela invariante, não pela string.** A suíte roda uma lista de entradas
+hostis e afirma que o resultado, resolvido contra a origem real, nunca sai dela.
+Isso continua valendo conforme a implementação fica mais estrita.

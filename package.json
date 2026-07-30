@@ -13,12 +13,13 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:types": "supabase gen types typescript --local > src/types/database.types.ts",
     "db:reset": "supabase db reset",
-    "verify": "npm run typecheck && npm run lint && npm run test"
+    "verify": "npm run typecheck && npm run lint && npm run test",
+    "typegen": "next typegen"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

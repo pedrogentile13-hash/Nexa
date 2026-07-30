@@ -1,0 +1,109 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { BookOpen, CalendarDays, Sun, TrendingUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+/**
+ * Navegação principal.
+ *
+ * Quatro itens, não seis. Dashboard e Desempenho respondiam a mesma pergunta
+ * ("como estou?"), e seis alvos numa barra de iPhone deixa cada um estreito
+ * demais para acertar com o polegar em movimento. Perfil vive no avatar do
+ * cabeçalho, que é onde todo mundo já procura.
+ *
+ * Some no desktop — lá a mesma navegação vira sidebar.
+ */
+
+const ITEMS = [
+  { href: '/hoje', label: 'Hoje', Icon: Sun },
+  { href: '/agenda', label: 'Agenda', Icon: CalendarDays },
+  { href: '/disciplinas', label: 'Disciplinas', Icon: BookOpen },
+  { href: '/desempenho', label: 'Desempenho', Icon: TrendingUp },
+] as const;
+
+export function BottomNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      aria-label="Navegação principal"
+      className={cn(
+        'border-border bg-surface/85 fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-lg',
+        'pb-safe md:hidden',
+      )}
+    >
+      <ul className="mx-auto flex max-w-lg">
+        {ITEMS.map(({ href, label, Icon }) => {
+          const active = pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <li key={href} className="flex-1">
+              <Link
+                href={href}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex h-16 flex-col items-center justify-center gap-1 transition-colors',
+                  active ? 'text-brand-text' : 'text-subtle hover:text-muted',
+                )}
+              >
+                <Icon
+                  className={cn('size-[22px] transition-transform', active && 'scale-110')}
+                  aria-hidden
+                  strokeWidth={active ? 2.4 : 1.9}
+                />
+                <span className={cn('text-[11px]', active ? 'font-semibold' : 'font-medium')}>
+                  {label}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/** A mesma navegação em coluna, para telas largas. */
+export function SideNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      aria-label="Navegação principal"
+      className="border-border bg-surface hidden w-56 shrink-0 border-r md:block"
+    >
+      <div className="sticky top-0 flex flex-col gap-1 p-3">
+        <Link href="/hoje" className="mb-4 flex items-center gap-2.5 px-2 py-2">
+          <span
+            aria-hidden
+            className="bg-brand text-brand-fg grid size-8 place-items-center rounded-lg text-sm font-bold"
+          >
+            N
+          </span>
+          <span className="text-base font-semibold">Nexa</span>
+        </Link>
+
+        {ITEMS.map(({ href, label, Icon }) => {
+          const active = pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors',
+                active
+                  ? 'bg-brand-soft text-brand-text font-semibold'
+                  : 'text-muted hover:bg-surface-2 hover:text-text font-medium',
+              )}
+            >
+              <Icon className="size-[18px]" aria-hidden strokeWidth={active ? 2.4 : 1.9} />
+              {label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}

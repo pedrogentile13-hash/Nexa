@@ -67,7 +67,9 @@ export function ThemeToggle({ className }: { className?: string }) {
           title={label}
           onClick={() => choose(value)}
           className={cn(
-            'grid size-9 place-items-center rounded-full transition-colors',
+            // 44px: mínimo confortável de toque (Apple HIG). O ícone continua
+            // pequeno; é a área tocável que precisa ser grande.
+            'grid size-11 place-items-center rounded-full transition-colors',
             theme === value ? 'bg-surface text-text shadow-sm' : 'text-subtle hover:text-muted',
           )}
         >
