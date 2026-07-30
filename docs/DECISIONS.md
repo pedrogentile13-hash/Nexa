@@ -276,3 +276,44 @@ alguns navegadores dobram, caracteres de controle.
 **Testado pela invariante, não pela string.** A suíte roda uma lista de entradas
 hostis e afirma que o resultado, resolvido contra a origem real, nunca sai dela.
 Isso continua valendo conforme a implementação fica mais estrita.
+
+---
+
+## ADR-018 · A agenda é uma projeção, não uma tabela
+
+**Contexto.** O caminho óbvio para "Agenda" é uma tabela `events`.
+
+**Decisão.** Não existe. A agenda projeta o que já está modelado: `activities`,
+`tasks` e `study_sessions`.
+
+**Motivo.** Uma tabela paralela significaria duas verdades sobre a mesma prova —
+a linha em `activities` que calcula a média e a linha em `events` que aparece no
+calendário. Elas divergem no primeiro dia em que alguém edita uma e esquece a
+outra, e aí o aluno vê uma prova na agenda que não conta na média.
+
+**Consequência.** Sessões de estudo do mesmo dia colapsam em uma linha só na
+lista: quinze entradas de "estudou Matemática" não são informação, são ruído.
+
+---
+
+## ADR-019 · A paleta dos gráficos tem duas cores, não quatro
+
+**Contexto.** O instinto era colorir as barras com os quatro status do design
+system (ok / atenção / abaixo da meta / abaixo da média).
+
+**Decisão.** Duas: `--chart-line` e `--chart-alert`. A nuance "abaixo da meta"
+vira rótulo de texto e tooltip.
+
+**Motivo.** O validador de paleta reprovou o par `warning` (#b45309) ×
+`danger` (#c2261f): **ΔE 8.0 para visão normal** — abaixo do piso de 15, ou
+seja, indistinguível mesmo por quem enxerga todas as cores; e ΔE 2.5 em
+deuteranopia. Um aluno não conseguiria diferenciar "atenção" de "abaixo da
+média" olhando o gráfico, que é a única coisa que o gráfico precisava comunicar.
+
+Os tokens de gráfico vivem separados dos tokens de UI porque respondem a outro
+critério: separação perceptual entre marcas adjacentes, não legibilidade de
+texto sobre superfície. O tema escuro tem passos próprios (`#ef5350`, não um
+espelho do claro), validados contra a superfície escura.
+
+**Como isso é verificado.** `node scripts/validate_palette.js "<hex,...>"` da
+skill `dataviz`, em `--mode light` e `--mode dark`. Não se avalia ΔE no olho.

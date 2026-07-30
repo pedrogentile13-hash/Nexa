@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { signOut } from '@/features/auth/server/actions';
+import { ProfileForm } from '@/features/profile/components/profile-form';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -26,7 +27,9 @@ export default async function ProfilePage() {
     await Promise.all([
       supabase
         .from('profiles')
-        .select('full_name, grade_level, class_name, timezone, daily_study_goal_minutes')
+        .select(
+          'full_name, grade_level, class_name, timezone, daily_study_goal_minutes, weekly_study_goal_minutes',
+        )
         .eq('id', user.id)
         .maybeSingle(),
       supabase.from('user_stats').select('*').eq('user_id', user.id).maybeSingle(),
@@ -54,25 +57,18 @@ export default async function ProfilePage() {
           <CardHeader>
             <CardTitle>Seus dados</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <dl className="divide-border divide-y text-sm">
-              <Row label="Nome" value={profile?.full_name} />
               <Row label="E-mail" value={user.email} />
-              <Row label="Série" value={profile?.grade_level} />
-              <Row label="Turma" value={profile?.class_name} />
-              <Row label="Fuso horário" value={profile?.timezone} />
-              <Row
-                label="Meta diária"
-                value={
-                  profile?.daily_study_goal_minutes
-                    ? `${profile.daily_study_goal_minutes} min`
-                    : undefined
-                }
-              />
             </dl>
-            <p className="text-subtle mt-3 text-xs">
-              A edição destes campos chega na Etapa 5, junto com as metas por disciplina.
-            </p>
+            <ProfileForm
+              fullName={profile?.full_name ?? ''}
+              gradeLevel={profile?.grade_level ?? null}
+              className={profile?.class_name ?? null}
+              dailyGoal={profile?.daily_study_goal_minutes ?? 45}
+              weeklyGoal={profile?.weekly_study_goal_minutes ?? 300}
+              timezone={profile?.timezone ?? 'America/Sao_Paulo'}
+            />
           </CardContent>
         </Card>
 

@@ -24,8 +24,9 @@ que foi construído estão registradas — com justificativa — em
 
 ## Estado atual
 
-**Etapas 0 a 3 concluídas** — fundação, banco, motor de cálculo, autenticação,
-onboarding e a tela **Hoje** funcionando.
+**Todas as 5 etapas da v1.0 concluídas.** O Nexa está funcional de ponta a ponta:
+login, onboarding, tela Hoje, lançamento de notas, agenda, gráficos de desempenho
+e perfil editável.
 
 | Etapa | Escopo                                                              | Status |
 | ----- | ------------------------------------------------------------------- | ------ |
@@ -33,8 +34,8 @@ onboarding e a tela **Hoje** funcionando.
 | 1     | Schema completo + RLS + views de cálculo + motor de notas testado   | ✅     |
 | 2     | Auth (magic link + Google) + onboarding de 60s + shell de navegação | ✅     |
 | 3     | Tela **Hoje** (algoritmo de foco, checklist, timer, progresso)      | ✅     |
-| 4     | Disciplinas + lançamento de notas + solver "quanto preciso tirar"   | ⏳     |
-| 5     | Agenda + Desempenho + Perfil + gamificação                          | ⏳     |
+| 4     | Disciplinas + lançamento de notas + solver "quanto preciso tirar"   | ✅     |
+| 5     | Agenda + Desempenho + Perfil + gamificação                          | ✅     |
 
 O que já está pronto e verificável:
 
@@ -47,16 +48,26 @@ O que já está pronto e verificável:
 - **Onboarding de 3 passos** que já sai com tudo pré-preenchido.
 - **Tela Hoje** com algoritmo de foco explicável, checklist otimista e
   cronômetro de estudo.
+- **Caderno de notas** com média recalculada a cada tecla e salvamento automático.
+- **Solver de meta** — "você precisa de 8,6 em cada avaliação que falta".
+- **Agenda** com grade mensal e lista contínua, projetada sobre as tabelas
+  existentes (não há tabela `events`).
+- **Gráficos de desempenho** com paleta validada para daltonismo, mais uma
+  tabela equivalente para quem não lê gráfico.
+- **Perfil editável**, incluindo o fuso horário.
 - **139 verificações**: 73 asserções SQL contra um Postgres real + 66 testes
   unitários.
 
 ### O que ainda não existe
 
-- **Agenda** e os gráficos de **Desempenho** (Etapa 5) — as telas existem e dizem
-  o que virá, em vez de mostrar layout vazio.
-- **Lançamento de notas** pela interface (Etapa 4). O motor e o banco já
-  suportam; falta o formulário.
-- **Edição de perfil e metas** (Etapa 5).
+- **Conquistas desbloqueiam sozinhas** — as definições estão no banco e a tela
+  as lista, mas ninguém avalia os critérios ainda. Precisa de um gatilho por
+  métrica (`streak_days`, `study_minutes`, `grades_logged`…).
+- **Upload de arquivos e resumos** por disciplina — tabela `attachments` e o
+  bucket do Storage estão prontos; falta a interface.
+- **Grade horária editável** — `timetable_slots` alimenta a tela Hoje, mas ainda
+  não há tela para preencher.
+- **Criar e arquivar disciplinas** depois do onboarding.
 - **Ícones raster do PWA** — o manifest lista só o SVG; PNG 180/192/512 e
   maskable são ativo de design ainda por produzir.
 

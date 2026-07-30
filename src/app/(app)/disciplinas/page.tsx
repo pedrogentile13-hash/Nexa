@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, ChevronRight } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -73,51 +74,67 @@ export default async function SubjectsPage() {
             const badge = RISK_BADGE[risk];
 
             return (
-              <Card key={subject.subject_term_id} style={subjectColorVars(subject.subject_color)}>
-                <CardContent className="space-y-3 pt-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <span
-                        aria-hidden
-                        className="size-3 shrink-0 rounded-full"
-                        style={{ backgroundColor: 'var(--subject-base)' }}
+              <Link
+                key={subject.subject_term_id}
+                href={`/disciplinas/${subject.subject_id}?st=${subject.subject_term_id}`}
+                className="block"
+              >
+                <Card
+                  style={subjectColorVars(subject.subject_color)}
+                  className="hover:border-border-strong transition-colors"
+                >
+                  <CardContent className="space-y-3 pt-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span
+                          aria-hidden
+                          className="size-3 shrink-0 rounded-full"
+                          style={{ backgroundColor: 'var(--subject-base)' }}
+                        />
+                        <h2 className="truncate text-sm font-semibold">{subject.subject_name}</h2>
+                        <ChevronRight className="text-subtle size-4 shrink-0" aria-hidden />
+                      </div>
+
+                      <div className="flex shrink-0 items-baseline gap-2">
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                        <span className="tabular text-2xl leading-none font-semibold">
+                          {formatGrade(
+                            subject.final_grade,
+                            subject.decimals,
+                            subject.rounding_mode,
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-subtle mb-1 flex items-center justify-between text-xs">
+                        <span>
+                          {subject.pending_count > 0
+                            ? `${subject.pending_count} avaliação${subject.pending_count === 1 ? '' : 'ões'} por lançar`
+                            : 'tudo lançado'}
+                        </span>
+                        <span className="tabular">{Math.round(subject.coverage_percent)}%</span>
+                      </div>
+                      <Progress
+                        value={subject.coverage_percent}
+                        label={`Percentual do período lançado em ${subject.subject_name}`}
+                        size="sm"
+                        tone={
+                          risk === 'critical' ? 'danger' : risk === 'watch' ? 'warning' : 'brand'
+                        }
                       />
-                      <h2 className="truncate text-sm font-semibold">{subject.subject_name}</h2>
                     </div>
 
-                    <div className="flex shrink-0 items-baseline gap-2">
-                      <Badge variant={badge.variant}>{badge.label}</Badge>
-                      <span className="tabular text-2xl leading-none font-semibold">
-                        {formatGrade(subject.final_grade, subject.decimals, subject.rounding_mode)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-subtle mb-1 flex items-center justify-between text-xs">
-                      <span>
-                        {subject.pending_count > 0
-                          ? `${subject.pending_count} avaliação${subject.pending_count === 1 ? '' : 'ões'} por lançar`
-                          : 'tudo lançado'}
-                      </span>
-                      <span className="tabular">{Math.round(subject.coverage_percent)}%</span>
-                    </div>
-                    <Progress
-                      value={subject.coverage_percent}
-                      label={`Percentual do período lançado em ${subject.subject_name}`}
-                      size="sm"
-                      tone={risk === 'critical' ? 'danger' : risk === 'watch' ? 'warning' : 'brand'}
-                    />
-                  </div>
-
-                  {subject.target_grade !== null && (
-                    <p className="text-subtle text-xs">
-                      Meta {formatGrade(subject.target_grade, 1)} · aprovação{' '}
-                      {formatGrade(subject.passing_grade, 1)}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+                    {subject.target_grade !== null && (
+                      <p className="text-subtle text-xs">
+                        Meta {formatGrade(subject.target_grade, 1)} · aprovação{' '}
+                        {formatGrade(subject.passing_grade, 1)}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })
         )}

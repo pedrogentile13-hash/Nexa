@@ -49,6 +49,17 @@
 
   /* Focus */
   --ring: #2563eb;
+
+  /*
+   * Cores de gráfico. Separadas dos tokens de UI porque respondem a outro
+   * critério: separação perceptual entre marcas adjacentes, inclusive para
+   * daltonismo. Validadas com scripts/validate_palette.js da skill dataviz —
+   * o par warning/danger da UI reprovou (ΔE 8.0, indistinguível até com visão
+   * normal), então o gráfico usa duas cores em vez de três.
+   */
+  --chart-line: #2563eb;
+  --chart-alert: #c2261f;
+  --chart-grid: #e3e7ec;
 }
 
 .dark {
@@ -77,6 +88,11 @@
   --danger-soft: #2b1414;
 
   --ring: #4d86f7;
+
+  /* Passos próprios do tema escuro, não um espelho do claro. */
+  --chart-line: #4d86f7;
+  --chart-alert: #ef5350;
+  --chart-grid: #242a35;
 }
 
 /*
@@ -110,6 +126,10 @@
   --color-danger-soft: var(--danger-soft);
 
   --color-ring: var(--ring);
+
+  --color-chart-line: var(--chart-line);
+  --color-chart-alert: var(--chart-alert);
+  --color-chart-grid: var(--chart-grid);
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
