@@ -97,7 +97,24 @@ cp .env.example .env.local     # preencha com os valores do seu projeto Supabase
 npm run dev
 ```
 
-Banco local (requer [Supabase CLI](https://supabase.com/docs/guides/cli) e Docker):
+### Preparar o banco no Supabase (sem instalar nada)
+
+1. Crie um projeto em [supabase.com](https://supabase.com)
+2. No projeto: **SQL Editor → New query**
+3. Cole todo o conteúdo de [`supabase/setup-completo.sql`](supabase/setup-completo.sql) e **Run**
+
+Isso cria as 20 tabelas, as políticas de RLS, as 5 views de cálculo, as funções e
+os dados de catálogo. Depois, copie de **Project Settings → API**:
+
+| Variável                        | De onde vem           |
+| ------------------------------- | --------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Project URL           |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | chave `anon` `public` |
+
+A chave `anon` é pública por definição — quem protege os dados é a RLS. Nunca use
+a `service_role`.
+
+### Banco local (alternativa, requer [Supabase CLI](https://supabase.com/docs/guides/cli) e Docker)
 
 ```bash
 supabase start                 # aplica migrations + seed automaticamente
