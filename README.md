@@ -28,14 +28,14 @@ que foi construído estão registradas — com justificativa — em
 login, onboarding, tela Hoje, lançamento de notas, agenda, gráficos de desempenho
 e perfil editável.
 
-| Etapa | Escopo                                                              | Status |
-| ----- | ------------------------------------------------------------------- | ------ |
-| 0     | Scaffold, TypeScript estrito, Tailwind, design tokens, PWA, testes  | ✅     |
-| 1     | Schema completo + RLS + views de cálculo + motor de notas testado   | ✅     |
-| 2     | Auth (magic link + Google) + onboarding de 60s + shell de navegação | ✅     |
-| 3     | Tela **Hoje** (algoritmo de foco, checklist, timer, progresso)      | ✅     |
-| 4     | Disciplinas + lançamento de notas + solver "quanto preciso tirar"   | ✅     |
-| 5     | Agenda + Desempenho + Perfil + gamificação                          | ✅     |
+| Etapa | Escopo                                                                | Status |
+| ----- | --------------------------------------------------------------------- | ------ |
+| 0     | Scaffold, TypeScript estrito, Tailwind, design tokens, PWA, testes    | ✅     |
+| 1     | Schema completo + RLS + views de cálculo + motor de notas testado     | ✅     |
+| 2     | Auth (senha + link + Google) + onboarding de 60s + shell de navegação | ✅     |
+| 3     | Tela **Hoje** (algoritmo de foco, checklist, timer, progresso)        | ✅     |
+| 4     | Disciplinas + lançamento de notas + solver "quanto preciso tirar"     | ✅     |
+| 5     | Agenda + Desempenho + Perfil + gamificação                            | ✅     |
 
 O que já está pronto e verificável:
 
@@ -44,7 +44,7 @@ O que já está pronto e verificável:
 - **5 views** de cálculo de média, todas `security_invoker`.
 - **`bootstrap_student()`** — onboarding completo em uma transação.
 - **Motor de notas** em TypeScript, espelho das views, com solver de meta.
-- **Login com magic link e Google**, com guarda contra open redirect.
+- **Login com e-mail e senha, link por e-mail e Google**, com guarda contra open redirect.
 - **Onboarding de 3 passos** que já sai com tudo pré-preenchido.
 - **Tela Hoje** com algoritmo de foco explicável, checklist otimista e
   cronômetro de estudo.
@@ -113,6 +113,36 @@ os dados de catálogo. Depois, copie de **Project Settings → API**:
 
 A chave `anon` é pública por definição — quem protege os dados é a RLS. Nunca use
 a `service_role`.
+
+### Configurar a autenticação (Authentication → no painel do Supabase)
+
+O app oferece três formas de entrar, e elas exigem coisas diferentes do projeto.
+**E-mail e senha funciona sem configuração nenhuma** — é o caminho que sempre
+existe. Os outros dois dependem de um ajuste no painel:
+
+| Forma           | O que precisa no painel                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| E-mail + senha  | nada — já vem habilitado                                                                                   |
+| Link por e-mail | um SMTP que entregue: o remetente padrão do Supabase é limitado a poucos e-mails por hora e só para o time |
+| Google          | **Authentication → Providers → Google** habilitado, com Client ID e Secret                                 |
+
+Duas configurações valem para todos:
+
+1. **Authentication → URL Configuration**
+   - _Site URL_: a URL do seu deploy (ex.: `https://seu-site.netlify.app`)
+   - _Redirect URLs_: adicione `https://seu-site.netlify.app/auth/**` e, para
+     desenvolvimento, `http://localhost:3000/auth/**`
+
+   Sem isso o Supabase recusa o retorno e o aluno volta para o login sem entrar.
+
+2. **Authentication → Providers → Email → Confirm email**
+   - **Desligado**: a conta já entra no ato de criar. É o recomendado enquanto
+     não houver SMTP próprio configurado.
+   - **Ligado**: o aluno precisa clicar num link antes de entrar — e aí o envio
+     de e-mail passa a ser obrigatório para qualquer conta nova.
+
+O app trata os dois casos: com confirmação ligada, a tela avisa que falta
+confirmar o e-mail em vez de tentar entrar e falhar em silêncio.
 
 ### Banco local (alternativa, requer [Supabase CLI](https://supabase.com/docs/guides/cli) e Docker)
 

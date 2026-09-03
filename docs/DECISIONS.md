@@ -317,3 +317,88 @@ espelho do claro), validados contra a superfície escura.
 
 **Como isso é verificado.** `node scripts/validate_palette.js "<hex,...>"` da
 skill `dataviz`, em `--mode light` e `--mode dark`. Não se avalia ΔE no olho.
+
+---
+
+## ADR-020 · E-mail e senha é o caminho principal de entrada
+
+**Contexto.** A v1.0 saiu com dois caminhos de autenticação: link mágico e
+Google. Os dois pareciam mais modernos que uma senha, e o link mágico dispensa
+o aluno de lembrar de mais uma.
+
+No primeiro deploy real, nenhum dos dois funcionava — e não por bug de código:
+
+- o **link mágico** depende do remetente padrão do Supabase, que entrega poucos
+  e-mails por hora e, em projeto novo, só para endereços do próprio time;
+- o **Google** só existe depois de alguém habilitar o provider no painel e
+  colar Client ID e Secret.
+
+O resultado é a pior falha possível numa tela de login: um projeto recém-criado
+onde **não existe nenhuma forma de criar conta**, e a tela não diz por quê.
+
+**Decisão.** Adicionar e-mail + senha como caminho padrão, com o link mágico
+rebaixado a alternativa ("prefiro receber um link") e o Google mantido no topo.
+`signInWithPassword` e `signUp` não tocam em SMTP nem em provider externo:
+funcionam com o projeto no estado em que ele nasce.
+
+**Motivo.** Uma decisão de produto não pode depender de configuração que o dono
+do projeto talvez nunca faça. O caminho que sempre funciona precisa ser o
+caminho padrão; os que dependem de infraestrutura de terceiros são o extra.
+
+**Consequências.**
+
+- Com _Confirm email_ ligado, `signUp` devolve usuário **sem sessão**. Mandar
+  para `/hoje` nesse caso faria o middleware devolver para `/login` sem
+  explicação — exatamente o "não funciona" mudo. A ação devolve
+  `status: 'confirm'` e a tela avisa o que falta.
+- Um `AuthFormState` com `mode` acompanha o erro, para a mensagem aparecer sob
+  o formulário que a causou depois do round-trip ao servidor.
+
+---
+
+## ADR-021 · As duas rotas de retorno aceitam os três formatos de link
+
+**Contexto.** `/auth/confirm` lia só `token_hash` + `type`; `/auth/callback`
+lia só `code`. O formato do link, porém, não é decisão do app: é do template de
+e-mail do projeto Supabase, que varia por painel e por versão.
+
+Com o template padrão, o e-mail leva o aluno para `/auth/confirm?code=…`. A
+rota não entendia `code`, respondia "link inválido" e devolvia para o login. A
+conta existia, o link era legítimo, e entrar era impossível.
+
+**Decisão.** Um handler único, `completeSignIn`, usado pelas duas rotas, que
+aceita:
+
+- `?token_hash=…&type=…` → `verifyOtp`
+- `?code=…` → `exchangeCodeForSession`
+- `#access_token=…` → fragmento não chega ao servidor; redireciona para
+  `/auth/finalizar`, que termina no browser com `setSession` e limpa o
+  fragmento do histórico
+
+**Motivo.** O app não controla qual formato chega. Aceitar todos custa trinta
+linhas e elimina uma classe inteira de falha em que o usuário não tem nenhuma
+pista do que deu errado.
+
+**Consequência.** `/auth/confirm` e `/auth/callback` viram nomes diferentes
+para o mesmo comportamento — mantidos separados porque os dois já estão em
+templates e allowlists existentes, e renomear quebraria links já enviados.
+
+---
+
+## ADR-022 · O erro do Supabase é traduzido, não engolido
+
+**Contexto.** As ações de auth colapsavam qualquer falha em "não consegui
+enviar o link agora, tente novamente em instantes".
+
+**Decisão.** `authErrorMessage` mapeia código e texto do erro para uma frase que
+indica a ação: senha errada, e-mail já cadastrado, confirmação pendente, limite
+de envio atingido, provider desabilitado.
+
+**Motivo.** "Tente de novo" é a resposta certa para quase nenhuma dessas causas.
+Para limite de envio, tentar de novo piora; para provider desabilitado, tentar
+mil vezes não resolve — a ação é no painel. Esconder a causa transforma um
+problema de configuração de dois minutos numa tarde de tentativa e erro.
+
+**Como isso é verificado.** `src/features/auth/lib/auth-errors.test.ts` — o
+mapeador é puro, então cada caso é um teste, incluindo a garantia de que
+nenhuma entrada produz string vazia.

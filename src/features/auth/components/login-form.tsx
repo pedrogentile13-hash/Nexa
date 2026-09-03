@@ -1,15 +1,16 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Loader2, Mail, MailCheck } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Lock, LogIn, Mail, MailCheck, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { signInWithGoogle, signInWithMagicLink } from '../server/actions';
-import type { AuthFormState } from '../schemas';
+import { cn } from '@/lib/utils';
+import { authenticate, signInWithGoogle } from '../server/actions';
+import type { AuthFormState, AuthMode } from '../schemas';
 
-/** Google's mark. Inline because the CSP blocks external assets. */
+/** A marca do Google. Inline porque a CSP bloqueia asset externo. */
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden className="size-5">
@@ -33,20 +34,27 @@ function GoogleIcon() {
   );
 }
 
-function SubmitButton() {
+const LABELS: Record<AuthMode, { cta: string; pending: string; icon: typeof LogIn }> = {
+  signin: { cta: 'Entrar', pending: 'Entrando…', icon: LogIn },
+  signup: { cta: 'Criar minha conta', pending: 'Criando…', icon: UserPlus },
+  magic: { cta: 'Enviar link de acesso', pending: 'Enviando…', icon: Mail },
+};
+
+function SubmitButton({ mode }: { mode: AuthMode }) {
   const { pending } = useFormStatus();
+  const { cta, pending: pendingLabel, icon: Icon } = LABELS[mode];
   return (
     <Button type="submit" size="lg" className="w-full" disabled={pending}>
-      {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Mail aria-hidden />}
-      {pending ? 'Enviando…' : 'Enviar link de acesso'}
+      {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Icon aria-hidden />}
+      {pending ? pendingLabel : cta}
     </Button>
   );
 }
 
 /**
- * Must be a child of the form, not the component that renders it —
- * `useFormStatus` reads the nearest form *above* it, so calling it in the
- * wrapper would report the status of some other form (or none at all).
+ * Precisa ser filho do form, não do componente que o renderiza —
+ * `useFormStatus` lê o form *acima* dele, então chamar no wrapper reportaria o
+ * estado de outro form (ou de nenhum).
  */
 function GoogleSubmit() {
   const { pending } = useFormStatus();
@@ -67,32 +75,124 @@ function GoogleButton({ next }: { next: string }) {
   );
 }
 
+/** Alternador Entrar / Criar conta. Um toque, sem trocar de tela. */
+function ModeTabs({ mode, onChange }: { mode: AuthMode; onChange: (mode: AuthMode) => void }) {
+  const tabs: Array<{ value: AuthMode; label: string }> = [
+    { value: 'signin', label: 'Entrar' },
+    { value: 'signup', label: 'Criar conta' },
+  ];
+  const active = mode === 'signup' ? 'signup' : 'signin';
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Entrar ou criar conta"
+      className="bg-surface-2 flex rounded-md p-1"
+    >
+      {tabs.map((tab) => (
+        <button
+          key={tab.value}
+          type="button"
+          role="tab"
+          aria-selected={active === tab.value}
+          onClick={() => onChange(tab.value)}
+          className={cn(
+            'h-11 flex-1 rounded-sm text-sm font-medium transition-colors',
+            active === tab.value ? 'bg-surface text-text shadow-sm' : 'text-muted hover:text-text',
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PasswordField({
+  mode,
+  invalid,
+  describedBy,
+}: {
+  mode: AuthMode;
+  invalid: boolean;
+  describedBy?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <Label htmlFor="password">Senha</Label>
+        {mode === 'signup' && <span className="text-subtle text-xs">mínimo 8 caracteres</span>}
+      </div>
+      <div className="relative">
+        <Input
+          id="password"
+          name="password"
+          type={visible ? 'text' : 'password'}
+          autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+          minLength={mode === 'signup' ? 8 : undefined}
+          placeholder="••••••••"
+          required
+          className="pr-12"
+          aria-describedby={describedBy}
+          aria-invalid={invalid ? true : undefined}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
+          className="text-subtle hover:text-text absolute inset-y-0 right-0 grid w-12 place-items-center"
+        >
+          {visible ? (
+            <EyeOff className="size-5" aria-hidden />
+          ) : (
+            <Eye className="size-5" aria-hidden />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const INITIAL: AuthFormState = { status: 'idle' };
 
 export function LoginForm({ next, initialError }: { next: string; initialError?: string }) {
-  const [state, formAction] = useActionState(signInWithMagicLink, INITIAL);
+  const [state, formAction] = useActionState(authenticate, INITIAL);
+  const [mode, setMode] = useState<AuthMode>('signin');
 
-  // The e-mail was sent: replace the form entirely. Leaving it on screen invites
-  // a second submit, which only trips Supabase's rate limit.
+  // Se a ação falhou em outro modo (voltar do servidor demora), o formulário
+  // volta para aquele modo — senão o erro apareceria embaixo do form errado.
+  useEffect(() => {
+    if (state.status === 'error' && state.mode && state.mode !== mode) setMode(state.mode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
   if (state.status === 'sent') {
     return (
-      <div className="text-center">
-        <div className="bg-success-soft text-success mx-auto mb-4 grid size-14 place-items-center rounded-full">
-          <MailCheck className="size-6" aria-hidden />
-        </div>
-        <h2 className="text-lg font-semibold">Link enviado</h2>
-        <p className="text-muted mx-auto mt-2 max-w-xs text-sm leading-relaxed">
-          Enviei um link de acesso para <strong className="text-text">{state.email}</strong>. Abra o
-          e-mail neste mesmo aparelho e você já entra.
-        </p>
-        <p className="text-subtle mt-4 text-xs">
-          Não chegou? Confira o spam — ou espere um minuto e peça outro.
-        </p>
-      </div>
+      <Confirmation
+        title="Link enviado"
+        email={state.email}
+        body="Abra o e-mail neste mesmo aparelho e você já entra."
+        hint="Não chegou? Confira o spam — ou crie a conta com e-mail e senha, que funciona na hora."
+      />
+    );
+  }
+
+  if (state.status === 'confirm') {
+    return (
+      <Confirmation
+        title="Conta criada"
+        email={state.email}
+        body="Falta só confirmar o e-mail: abra o link que enviamos e depois volte para entrar."
+        hint="Não chegou? Confira o spam — o link vale por uma hora."
+      />
     );
   }
 
   const error = state.status === 'error' ? state.message : initialError;
+  const errorId = error ? 'login-error' : undefined;
+  const fieldWithError = state.status === 'error' ? state.field : undefined;
 
   return (
     <div className="space-y-5">
@@ -104,8 +204,12 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
         <span className="bg-border h-px flex-1" />
       </div>
 
+      {mode !== 'magic' && <ModeTabs mode={mode} onChange={setMode} />}
+
       <form action={formAction} className="space-y-3">
         <input type="hidden" name="next" value={next} />
+        <input type="hidden" name="mode" value={mode} />
+
         <div>
           <Label htmlFor="email">E-mail</Label>
           <Input
@@ -118,23 +222,81 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
             spellCheck={false}
             placeholder="voce@escola.com.br"
             required
-            aria-describedby={error ? 'login-error' : undefined}
-            aria-invalid={error ? true : undefined}
+            aria-describedby={errorId}
+            aria-invalid={fieldWithError === 'email' ? true : undefined}
           />
         </div>
 
+        {mode !== 'magic' && (
+          <PasswordField
+            mode={mode}
+            invalid={fieldWithError === 'password'}
+            describedBy={errorId}
+          />
+        )}
+
         {error && (
-          <p id="login-error" role="alert" className="text-danger text-sm">
+          <p id="login-error" role="alert" className="text-danger text-sm leading-relaxed">
             {error}
           </p>
         )}
 
-        <SubmitButton />
+        <SubmitButton mode={mode} />
       </form>
 
+      <div className="text-center">
+        {mode === 'magic' ? (
+          <button
+            type="button"
+            onClick={() => setMode('signin')}
+            className="text-muted hover:text-text inline-flex h-11 items-center gap-1.5 text-sm underline-offset-4 hover:underline"
+          >
+            <Lock className="size-4" aria-hidden />
+            Entrar com e-mail e senha
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMode('magic')}
+            className="text-muted hover:text-text inline-flex h-11 items-center gap-1.5 text-sm underline-offset-4 hover:underline"
+          >
+            <Mail className="size-4" aria-hidden />
+            Prefiro receber um link por e-mail
+          </button>
+        )}
+      </div>
+
       <p className="text-subtle text-center text-xs leading-relaxed">
-        Sem senha para lembrar. Enviamos um link e você entra com um toque.
+        {mode === 'signup'
+          ? 'Sua conta guarda notas, rotina e agenda — só você enxerga.'
+          : 'Uma conta, todos os aparelhos. Seus dados ficam sincronizados.'}
       </p>
+    </div>
+  );
+}
+
+/** Tela de "pronto, olha o e-mail". Substitui o form inteiro para não convidar a um segundo envio. */
+function Confirmation({
+  title,
+  email,
+  body,
+  hint,
+}: {
+  title: string;
+  email: string;
+  body: string;
+  hint: string;
+}) {
+  return (
+    <div className="text-center">
+      <div className="bg-success-soft text-success mx-auto mb-4 grid size-14 place-items-center rounded-full">
+        <MailCheck className="size-6" aria-hidden />
+      </div>
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="text-muted mx-auto mt-2 max-w-xs text-sm leading-relaxed">
+        {body} Enviado para <strong className="text-text">{email}</strong>.
+      </p>
+      <p className="text-subtle mt-4 text-xs leading-relaxed">{hint}</p>
     </div>
   );
 }
