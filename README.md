@@ -45,6 +45,10 @@ O que já está pronto e verificável:
 - **`bootstrap_student()`** — onboarding completo em uma transação.
 - **Motor de notas** em TypeScript, espelho das views, com solver de meta.
 - **Login com e-mail e senha, link por e-mail e Google**, com guarda contra open redirect.
+- **Aba Estudar** com sete formatos de material: resumos, simulados, quiz, podcasts, vídeos,
+  imagens (com modo flashcard) e músicas — mais trilha gamificada por matéria.
+- **Painel `/admin`** para cadastrar tudo isso, com biblioteca própria por escola.
+- **Instalável na tela inicial** (PWA), com instruções próprias para iOS.
 - **Onboarding de 3 passos** que já sai com tudo pré-preenchido.
 - **Tela Hoje** com algoritmo de foco explicável, checklist otimista e
   cronômetro de estudo.
@@ -150,6 +154,54 @@ confirmar o e-mail em vez de tentar entrar e falhar em silêncio.
 supabase start                 # aplica migrations + seed automaticamente
 npm run db:types               # regenera src/types/database.types.ts
 ```
+
+### Virar administrador do painel
+
+O painel `/admin` é onde as escolas, as matérias, os resumos, os simulados, os
+podcasts, os vídeos, as imagens e as trilhas são cadastrados. Ele só abre para
+quem tem papel de administrador — e o PRIMEIRO administrador precisa ser nomeado
+pelo SQL Editor, porque não existe administrador anterior para nomeá-lo.
+
+1. Crie sua conta normalmente pela tela de login do app
+2. No Supabase: **SQL Editor → New query**, cole e rode:
+
+```sql
+update public.profiles set role = 'admin'
+where id = (select id from auth.users where email = 'SEU-EMAIL-AQUI');
+```
+
+3. Recarregue o app e acesse `/admin`
+
+Daí em diante, novos administradores são criados pelo próprio painel, em
+**Pessoas**. Há dois papéis:
+
+| Papel               | Alcance                                                       |
+| ------------------- | ------------------------------------------------------------- |
+| **Admin geral**     | tudo: escolas, catálogo de matérias, papéis e todo o conteúdo |
+| **Admin da escola** | só o conteúdo da escola dele — não vê nem edita as outras     |
+
+Um aluno não consegue se promover: há uma trava no banco que recusa a mudança de
+papel vinda de quem não é administrador.
+
+### Como o conteúdo chega ao aluno
+
+Um item publicado sem escola (`school_id` nulo) é **global** — todo aluno vê. Um
+item preso a uma escola só aparece para os alunos dela. O aluno enxerga a união
+das duas coisas, então uma escola ganha biblioteca própria sem perder o acervo
+compartilhado.
+
+Nada aparece enquanto o interruptor **Publicado** estiver desligado.
+
+### Enviar áudio, vídeo e imagem
+
+O upload acontece dentro do formulário de conteúdo e vai direto para o bucket
+`nexa-content`, criado pelo `setup-completo.sql`. Ele é público para leitura e
+restrito a administradores na escrita — material de estudo publicado não é
+segredo, e URL assinada expiraria no meio de um podcast de 20 minutos.
+
+O que **não** deve subir ali: prova antes da aplicação, gabarito em PDF, ou
+qualquer arquivo cujo vazamento importe. O gabarito de quiz e simulado vive em
+tabelas fechadas, que nem o aluno consegue ler.
 
 ### Verificação
 

@@ -402,3 +402,124 @@ problema de configuração de dois minutos numa tarde de tentativa e erro.
 **Como isso é verificado.** `src/features/auth/lib/auth-errors.test.ts` — o
 mapeador é puro, então cada caso é um teste, incluindo a garantia de que
 nenhuma entrada produz string vazia.
+
+---
+
+## ADR-023 · Um `kind` para sete formatos, não sete tabelas
+
+**Contexto.** O kit pede resumo, simulado, quiz, podcast, vídeo, imagem e
+música. O caminho óbvio seria uma tabela por formato.
+
+**Decisão.** Uma tabela `resources` com uma coluna `kind`. As cargas úteis
+específicas ficam em colunas anuláveis (`body` para o resumo, `storage_path` para
+mídia) e em tabelas satélites (`questions`, `resource_chapters`).
+
+**Motivo.** Os sete compartilham tudo o que importa: título, matéria, assunto,
+escola, publicação, ordenação, progresso do aluno. O que muda é um campo. Sete
+tabelas significariam sete telas de painel, sete consultas de biblioteca, sete
+policies de RLS — e sete lugares para esquecer a mesma regra. O que separa os
+formatos é a TELA, não o armazenamento, e a tela já é escolhida por `kind`.
+
+**Consequência.** Um formato novo é uma linha no `check` da coluna e um caso no
+`ResourceViewer`. Nenhuma migration de tabela.
+
+---
+
+## ADR-024 · O gabarito nunca chega ao navegador
+
+**Contexto.** `questions.explanation` e `question_options.is_correct` são o
+gabarito. Simulado e quiz precisam mostrar enunciado e alternativas.
+
+**Decisão.** As duas tabelas não têm policy de SELECT para o aluno. Ele lê as
+questões por `quiz_questions()`, responde por `answer_quiz_question()` e só
+recebe a resposta certa DEPOIS que a dele foi registrada. `quiz_attempt_review()`
+libera o gabarito completo apenas com a tentativa encerrada.
+
+**Motivo.** RLS no Postgres é por linha, não por coluna: não existe policy que
+libere o enunciado e esconda a resposta na mesma tabela. Com leitura direta,
+bastaria o DevTools para gabaritar qualquer simulado — e um simulado gabaritável
+não mede nada, o que destrói o único propósito da funcionalidade.
+
+**Como isso é verificado.** `supabase/tests/20_content.test.sql` afirma que uma
+aluna lê **zero** linhas de `question_options` e zero de `questions`, e que
+`quiz_questions()` devolve as alternativas sem `is_correct`. A suíte roda como
+`authenticated`, não como superusuário, então as policies são exercitadas de
+verdade.
+
+---
+
+## ADR-025 · `school_id NULL` significa global
+
+**Contexto.** Cada escola pode ter a própria biblioteca, e existe um acervo
+comum que serve a todas.
+
+**Decisão.** `school_id` anulável em `resources`, `content_topics` e `tracks`.
+Nulo é global; preenchido é exclusivo. O aluno enxerga a união: `is_published and
+(school_id is null or school_id = current_school_id())`.
+
+**Motivo.** A alternativa — duplicar o acervo comum para cada escola — faria uma
+correção em um resumo virar N correções, e a divergência apareceria primeiro nos
+alunos que menos têm como reclamar. Nulo-como-global também torna o caso mais
+comum (conteúdo para todos) o caso que não exige nenhuma decisão de quem cadastra.
+
+**Consequência.** O `school_id` de uma escrita vem sempre do PERFIL de quem
+escreve, nunca de um campo do formulário — senão um administrador de escola
+publicaria para outra mandando um id diferente.
+
+---
+
+## ADR-026 · O middleware mora em `src/`
+
+**Contexto.** `middleware.ts` estava na raiz do repositório. O projeto usa
+diretório `src/`.
+
+**Decisão.** Movido para `src/middleware.ts`, com um teste que falha se voltar.
+
+**Motivo.** Projetos com `src/` fazem o Next procurar o middleware dentro dele.
+Na raiz o arquivo é ignorado — sem erro, sem aviso, com o build passando. O
+sintoma é o pior tipo possível: tudo parece funcionar, porque a RLS continua
+devolvendo vazio para quem não entrou e nenhum dado escapa. O que some é o
+portão: rota protegida respondia 200 em vez de mandar para o login, a sessão
+nunca era renovada e o desvio para o onboarding nunca acontecia.
+
+**Como isso é verificado.** `src/lib/middleware-location.test.ts`, porque nem
+typecheck, nem lint, nem build apontam esse erro. Na dúvida:
+`.next/server/middleware-manifest.json` precisa listar o middleware — com
+`"middleware": {}` ele não está rodando.
+
+---
+
+## ADR-027 · Duas larguras de página, e a diferença não é estética
+
+**Contexto.** O kit cobre só o celular. No desktop, a escolha era esticar tudo ou
+deixar uma coluna estreita no meio de uma tela vazia.
+
+**Decisão.** `PageMain` com `reading` (672px fixo) e `board` (até 1120px).
+
+**Motivo.** Texto corrido tem medida de linha ótima entre 60 e 75 caracteres.
+Esticar um resumo até 1400px não aproveita o espaço: piora a leitura, porque o
+olho perde a linha ao voltar para a esquerda. Já Hoje, Estudar, Matérias e
+Desempenho são feitas de cartões independentes, e ali o espaço extra vira uma
+segunda coluna de conteúdo — mais informação visível, mesma legibilidade.
+
+**Armadilha encontrada.** Trocar `space-y` por `grid` nas listas trouxe 38px de
+rolagem horizontal no celular: item de grid nasce com `min-width: auto`, e um
+título com `truncate` (nowrap) tem min-content igual à largura inteira do texto.
+`min-w-0` em cada item resolve. Vale para todo `grid` que contenha texto truncado.
+
+---
+
+## ADR-028 · O degradê do kit foi corrigido por contraste
+
+**Contexto.** O kit especifica cabeçalho em degradê azul→ciano, terminando em
+#0ea5e9, com título em branco.
+
+**Decisão.** O fim virou #0369a1. O tema escuro segue o kit sem ajuste.
+
+**Motivo.** Branco sobre #0ea5e9 mede **2,77:1** — reprova até no critério de
+texto grande (3:1). O título ficaria ilegível na metade clara da faixa, que é
+justamente onde ele fica no desenho. Com #0369a1, o PIOR ponto ao longo de toda
+a extensão do degradê fica em 5,17:1, e a passagem azul→ciano continua visível.
+
+Um degradê precisa ser avaliado ao longo da faixa inteira, não nas pontas: o
+texto atravessa todos os pontos intermediários.
