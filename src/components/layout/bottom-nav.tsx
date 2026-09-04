@@ -2,16 +2,20 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, CalendarDays, Sun, TrendingUp } from 'lucide-react';
+import { BookOpen, CalendarDays, GraduationCap, Sun, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
  * Navegação principal.
  *
- * Quatro itens, não seis. Dashboard e Desempenho respondiam a mesma pergunta
- * ("como estou?"), e seis alvos numa barra de iPhone deixa cada um estreito
- * demais para acertar com o polegar em movimento. Perfil vive no avatar do
- * cabeçalho, que é onde todo mundo já procura.
+ * CINCO itens, e cinco é o teto. Dashboard e Desempenho respondiam a mesma
+ * pergunta ("como estou?") e viraram um; Estudar entrou porque responde uma
+ * pergunta que nenhuma outra tela respondia ("com o que eu estudo isso?").
+ *
+ * Daqui para frente, todo formato novo — podcast, vídeo, o que vier — entra
+ * DENTRO de Estudar, nunca na barra: em 390px, seis alvos deixam cada um com
+ * 65px, estreito demais para o polegar de quem anda enquanto usa. Perfil vive
+ * no avatar do cabeçalho, que é onde todo mundo já procura.
  *
  * Some no desktop — lá a mesma navegação vira sidebar.
  */
@@ -19,7 +23,8 @@ import { cn } from '@/lib/utils';
 const ITEMS = [
   { href: '/hoje', label: 'Hoje', Icon: Sun },
   { href: '/agenda', label: 'Agenda', Icon: CalendarDays },
-  { href: '/disciplinas', label: 'Disciplinas', Icon: BookOpen },
+  { href: '/estudar', label: 'Estudar', Icon: GraduationCap },
+  { href: '/disciplinas', label: 'Matérias', Icon: BookOpen },
   { href: '/desempenho', label: 'Desempenho', Icon: TrendingUp },
 ] as const;
 
@@ -52,7 +57,12 @@ export function BottomNav() {
                   aria-hidden
                   strokeWidth={active ? 2.4 : 1.9}
                 />
-                <span className={cn('text-[11px]', active ? 'font-semibold' : 'font-medium')}>
+                <span
+                  className={cn(
+                    'text-[10.5px] leading-none',
+                    active ? 'font-semibold' : 'font-medium',
+                  )}
+                >
                   {label}
                 </span>
               </Link>
