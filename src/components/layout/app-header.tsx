@@ -26,7 +26,10 @@ export function AppHeader({
 
   return (
     <header className="pt-safe bg-bg/85 sticky top-0 z-30 backdrop-blur-lg">
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
+      {/* A largura acompanha a do conteúdo (PageMain "board"): com o
+          cabeçalho preso em 672px e o conteúdo em 1120px, o título flutuaria no
+          meio da tela em vez de alinhar com a primeira coluna. */}
+      <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3 lg:max-w-5xl">
         <div className="min-w-0">
           <h1 className="truncate text-xl leading-tight font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="text-muted truncate text-sm">{subtitle}</p>}

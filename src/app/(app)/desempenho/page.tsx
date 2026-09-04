@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
+import { PageMain } from '@/components/layout/page-main';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatGrade } from '@/features/grades';
 import {
@@ -29,7 +30,7 @@ export default async function PerformancePage() {
     <>
       <AppHeader title="Desempenho" subtitle={data.currentTermName ?? 'Período atual'} />
 
-      <main className="mx-auto w-full max-w-2xl space-y-4 px-4 pb-6">
+      <PageMain className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* Como estou agora ------------------------------------------------ */}
         <div className="grid grid-cols-2 gap-2">
           <Stat label="Média geral" value={formatGrade(data.overallAverage, 1)} tone="brand" />
@@ -135,7 +136,7 @@ export default async function PerformancePage() {
             </CardContent>
           </Card>
         )}
-      </main>
+      </PageMain>
     </>
   );
 }

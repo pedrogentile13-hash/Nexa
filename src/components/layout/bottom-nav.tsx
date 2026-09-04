@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, CalendarDays, GraduationCap, Sun, TrendingUp } from 'lucide-react';
+import { BookOpen, CalendarDays, Flame, GraduationCap, Sun, TrendingUp, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -74,16 +74,31 @@ export function BottomNav() {
   );
 }
 
-/** A mesma navegação em coluna, para telas largas. */
-export function SideNav() {
+/**
+ * A mesma navegação em coluna, para telas largas.
+ *
+ * Carrega também o perfil e a sequência, que no celular vivem no cabeçalho.
+ * No desktop o cabeçalho de cada tela é só título — repetir avatar e sequência
+ * em toda página seria a mesma informação seis vezes na mesma sessão.
+ */
+export function SideNav({
+  streak,
+  name,
+  avatarUrl,
+}: {
+  streak?: number;
+  name?: string | null;
+  avatarUrl?: string | null;
+} = {}) {
   const pathname = usePathname();
+  const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
 
   return (
     <nav
       aria-label="Navegação principal"
       className="border-border bg-surface hidden w-56 shrink-0 border-r md:block"
     >
-      <div className="sticky top-0 flex flex-col gap-1 p-3">
+      <div className="sticky top-0 flex h-dvh flex-col gap-1 p-3">
         <Link href="/hoje" className="mb-4 flex items-center gap-2.5 px-2 py-2">
           <span
             aria-hidden
@@ -113,6 +128,41 @@ export function SideNav() {
             </Link>
           );
         })}
+
+        <div className="mt-auto">
+          {typeof streak === 'number' && streak > 0 && (
+            <p className="bg-warning-soft text-warning mb-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold tabular-nums">
+              <Flame className="size-4 shrink-0" aria-hidden />
+              {streak} {streak === 1 ? 'dia seguido' : 'dias seguidos'}
+            </p>
+          )}
+
+          <Link
+            href="/perfil"
+            aria-current={pathname === '/perfil' ? 'page' : undefined}
+            className={cn(
+              'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors',
+              pathname === '/perfil'
+                ? 'bg-brand-soft text-brand-text font-semibold'
+                : 'text-muted hover:bg-surface-2 hover:text-text font-medium',
+            )}
+          >
+            <span
+              aria-hidden
+              className="border-border bg-surface-2 grid size-[18px] shrink-0 place-items-center overflow-hidden rounded-full border"
+            >
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" className="size-full object-cover" />
+              ) : initial ? (
+                <span className="text-[9px] font-semibold">{initial}</span>
+              ) : (
+                <User className="size-3" />
+              )}
+            </span>
+            {name?.trim().split(/\s+/)[0] ?? 'Perfil'}
+          </Link>
+        </div>
       </div>
     </nav>
   );

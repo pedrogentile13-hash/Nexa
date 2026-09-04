@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
+import { PageMain } from '@/components/layout/page-main';
 import { GradeSheet } from '@/features/grades/components/grade-sheet';
 import { TargetSolver } from '@/features/grades/components/target-solver';
 import { getCurrentSubjectTermId, getSubjectTermDetail } from '@/features/grades/server/queries';
@@ -36,7 +37,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Params
     <div style={subjectColorVars(detail.subjectColor)}>
       <AppHeader title={detail.subjectName} subtitle={detail.termName} />
 
-      <main className="mx-auto w-full max-w-2xl space-y-4 px-4 pb-6">
+      <PageMain className="space-y-4">
         <Link
           href="/disciplinas"
           className="text-muted hover:text-text -mt-1 inline-flex items-center gap-1.5 text-sm"
@@ -82,7 +83,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Params
           activities={detail.activities}
           initialTarget={detail.targetGrade}
         />
-      </main>
+      </PageMain>
     </div>
   );
 }

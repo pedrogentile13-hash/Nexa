@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Award, Clock, Flame, LogOut, Trophy, Zap } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
+import { PageMain } from '@/components/layout/page-main';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { InstallCard } from '@/features/install/components/install-card';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +46,7 @@ export default async function ProfilePage() {
     <>
       <AppHeader title="Perfil" subtitle={profile?.full_name ?? user.email ?? undefined} />
 
-      <main className="mx-auto w-full max-w-2xl space-y-4 px-4 pb-6">
+      <PageMain className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* Números que o aluno conquistou --------------------------------- */}
         <div className="grid grid-cols-3 gap-2">
           <MiniStat Icon={Flame} label="Sequência" value={String(stats?.current_streak ?? 0)} />
@@ -144,7 +145,7 @@ export default async function ProfilePage() {
             Sair da conta
           </Button>
         </form>
-      </main>
+      </PageMain>
     </>
   );
 }

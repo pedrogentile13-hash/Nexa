@@ -54,7 +54,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
   const visible = kindFilter ? data.items.filter((i) => i.kind === kindFilter) : data.items;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 pb-8">
+    <div className="mx-auto max-w-2xl space-y-6 px-4 pb-8 lg:max-w-5xl">
       {/* ---------------------------------------------------- matérias -- */}
       {data.subjects.length > 0 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -122,12 +122,12 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Formatos
           </h2>
-          <ul className="grid grid-cols-2 gap-3">
+          <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             {KIND_ORDER.filter((kind) => data.countsByKind[kind] > 0).map((kind) => {
               const Icon = ICONS[kind];
               const count = data.countsByKind[kind];
               return (
-                <li key={kind}>
+                <li key={kind} className="min-w-0">
                   <Link
                     href={{ pathname: '/estudar', query: { formato: kind } }}
                     className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
@@ -160,9 +160,14 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Trilhas por matéria
           </h2>
-          <ul className="space-y-2">
+          {/* `min-w-0` em cada item não é decoração: item de grid nasce com
+              `min-width: auto`, e o título usa `truncate` (nowrap), cujo
+              min-content é a largura INTEIRA do texto. Sem isso a lista estoura
+              a viewport no celular — foi assim que 38px de rolagem horizontal
+              apareceram ao trocar `space-y` por `grid`. */}
+          <ul className="grid gap-2 lg:grid-cols-2">
             {data.tracks.map((track) => (
-              <li key={track.id}>
+              <li key={track.id} className="min-w-0">
                 <Link
                   href={`/estudar/trilha/${track.id}`}
                   className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
@@ -212,12 +217,12 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
         {visible.length === 0 ? (
           <EmptyLibrary filtered={Boolean(subjectFilter || kindFilter)} />
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 lg:grid-cols-2">
             {visible.slice(0, 60).map((item) => {
               const Icon = ICONS[item.kind];
               const duration = humanDuration(item.durationSeconds);
               return (
-                <li key={item.id} style={subjectColorVars(item.subjectColor)}>
+                <li key={item.id} className="min-w-0" style={subjectColorVars(item.subjectColor)}>
                   <Link
                     href={`/estudar/${item.id}`}
                     className="border-border bg-surface hover:bg-surface-2 relative flex items-center gap-3 overflow-hidden rounded-lg border p-3.5 transition-colors"

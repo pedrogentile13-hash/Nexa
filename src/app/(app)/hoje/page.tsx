@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { CalendarClock, Clock, Target } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
+import { PageMain } from '@/components/layout/page-main';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -54,9 +55,13 @@ export default async function TodayPage() {
         name={snapshot.greetingName}
       />
 
-      <main className="mx-auto w-full max-w-2xl space-y-4 px-4 pb-6">
+      {/* No desktop os cartões viram duas colunas: eles são independentes
+          entre si, então a coluna extra vira mais conteúdo visível em vez de
+          linha mais longa. `items-start` impede que um cartão curto estique
+          para acompanhar a altura do vizinho. */}
+      <PageMain className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* Progresso do dia ------------------------------------------------ */}
-        <Card>
+        <Card className="lg:col-span-2">
           <CardContent className="space-y-4 pt-4">
             <div className="flex items-end justify-between gap-4">
               <div>
@@ -89,7 +94,7 @@ export default async function TodayPage() {
         </Card>
 
         {/* Foco do dia ------------------------------------------------------ */}
-        <section aria-labelledby="foco">
+        <section aria-labelledby="foco" className="lg:col-span-2">
           <h2 id="foco" className="mb-2 px-1 text-base font-semibold">
             Foco de hoje
           </h2>
@@ -186,7 +191,7 @@ export default async function TodayPage() {
             </CardContent>
           </Card>
         )}
-      </main>
+      </PageMain>
     </>
   );
 }

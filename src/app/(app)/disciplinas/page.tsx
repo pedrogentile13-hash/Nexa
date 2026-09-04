@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { BookOpen, ChevronRight } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
+import { PageMain } from '@/components/layout/page-main';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -55,7 +56,7 @@ export default async function SubjectsPage() {
     <>
       <AppHeader title="Disciplinas" subtitle={termName} />
 
-      <main className="mx-auto w-full max-w-2xl space-y-2 px-4 pb-6">
+      <PageMain className="space-y-2">
         {ordered.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center">
@@ -138,7 +139,7 @@ export default async function SubjectsPage() {
             );
           })
         )}
-      </main>
+      </PageMain>
     </>
   );
 }
