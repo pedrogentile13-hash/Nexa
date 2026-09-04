@@ -6,12 +6,17 @@
 --   2. Menu lateral → SQL Editor → New query
 --   3. Cole TUDO isto e clique em Run
 --
--- É seguro rodar em um projeto novo e vazio. Cria as 20 tabelas, as políticas
--- de RLS, as 5 views de cálculo, as funções e os dados de catálogo
--- (disciplinas e conquistas).
+-- É seguro rodar em um projeto novo e vazio, e também em um já configurado:
+-- tudo é idempotente. Cria as 35 tabelas, as políticas de RLS, as 7 views,
+-- as funções e o conteúdo inicial (disciplinas, conquistas e biblioteca).
 --
--- Gerado a partir de supabase/migrations/ + supabase/seed.sql — não edite aqui,
--- edite os arquivos originais e gere de novo.
+-- DEPOIS DE RODAR, para virar administrador do painel /admin, rode também:
+--
+--   update public.profiles set role = 'admin'
+--   where id = (select id from auth.users where email = 'SEU-EMAIL-AQUI');
+--
+-- Gerado por scripts/build-setup-sql.sh a partir de supabase/migrations/ +
+-- supabase/seed.sql — não edite aqui, edite os originais e gere de novo.
 -- ============================================================================
 
 
@@ -1589,7 +1594,1128 @@ end;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────
--- seed.sql — disciplinas e conquistas
+-- 20260904000100_content.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — 0100 (v2) · Conteúdo de estudo, escolas e papéis administrativos
+--
+-- O que muda de conceito aqui
+--
+--  * Até agora todo dado do Nexa era do ALUNO: as notas dele, a rotina dele.
+--    Conteúdo de estudo é o oposto — é escrito uma vez pela administração e
+--    lido por milhares. Isso inverte a RLS: em vez de `user_id = auth.uid()`,
+--    a regra passa a ser "publicado E (global OU da minha escola)".
+--
+--  * O conteúdo se prende ao `subject_catalog`, NUNCA à tabela `subjects`.
+--    `subjects` é a instância do aluno; um resumo preso a ela serviria a um
+--    aluno só. Preso ao catálogo, o mesmo resumo de Física alcança todo mundo
+--    que tem Física — que é a razão de o catálogo existir.
+--
+--  * `school_id NULL` significa GLOBAL. Uma escola pode ter a própria
+--    biblioteca sem perder a biblioteca compartilhada: o aluno enxerga a união
+--    das duas. É o requisito de "cada escola pode ter o próprio sistema de
+--    resumo" sem duplicar o acervo comum para cada escola nova.
+--
+--  * Um tipo só de recurso (`resources`) com `kind`, em vez de seis tabelas.
+--    Resumo, podcast, vídeo, imagem, música, quiz e simulado compartilham
+--    título, matéria, assunto, escola, publicação e ordenação; o que muda é a
+--    carga útil. Seis tabelas significariam seis telas de admin, seis
+--    consultas de biblioteca e seis lugares para esquecer a mesma regra de RLS.
+-- ============================================================================
+
+-- ------------------------------------------------------------------ papéis --
+alter table public.profiles
+  add column if not exists role text not null default 'student'
+    check (role in ('student', 'school_admin', 'admin'));
+
+comment on column public.profiles.role is
+  'student = aluno; school_admin = gerencia o conteúdo da própria escola; admin = gerencia tudo.';
+
+-- SECURITY DEFINER de propósito: chamada de dentro das policies de `profiles`,
+-- uma função normal reentraria na própria policy e recursionaria para sempre.
+create or replace function public.is_admin(p_user_id uuid default auth.uid())
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select p.role = 'admin' from public.profiles p where p.id = p_user_id), false);
+$$;
+
+create or replace function public.current_school_id(p_user_id uuid default auth.uid())
+returns uuid language sql stable security definer set search_path = public as $$
+  select p.school_id from public.profiles p where p.id = p_user_id;
+$$;
+
+-- Admin global gerencia qualquer escola; school_admin só a sua.
+create or replace function public.can_manage_school(p_school_id uuid, p_user_id uuid default auth.uid())
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = p_user_id
+      and (p.role = 'admin' or (p.role = 'school_admin' and p_school_id is not null and p.school_id = p_school_id))
+  );
+$$;
+
+/**
+ * Ninguém promove a si mesmo.
+ *
+ * A policy `profiles_update_own` libera a linha inteira, e escrever uma policy
+ * por coluna não é possível no Postgres. Sem esta trava, qualquer aluno faria
+ * `update profiles set role = 'admin'` com a chave anon e ganharia o painel.
+ *
+ * A exceção é `auth.uid() is null`: ninguém autenticado, ou seja, SQL Editor e
+ * `service_role`. É por ali que o PRIMEIRO admin é nomeado — não haveria como,
+ * de outro modo, existir um admin para nomear o primeiro. E quem tem essas
+ * duas portas já tem o banco inteiro; a trava não perde nada por abri-las.
+ */
+create or replace function public.guard_profile_role()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.role is distinct from old.role and auth.uid() is not null and not public.is_admin() then
+    raise exception 'apenas um administrador pode alterar o papel de um perfil'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_guard_role on public.profiles;
+create trigger profiles_guard_role before update on public.profiles
+  for each row execute function public.guard_profile_role();
+
+-- Escolas passam a ser gerenciáveis pelo painel.
+drop policy if exists schools_manage_admin on public.schools;
+create policy schools_manage_admin on public.schools
+  for all to authenticated
+  using (public.can_manage_school(id)) with check (public.can_manage_school(id));
+
+-- Catálogo de matérias também: o admin cria matérias novas pelo painel.
+drop policy if exists subject_catalog_manage_admin on public.subject_catalog;
+create policy subject_catalog_manage_admin on public.subject_catalog
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- Admin precisa enxergar as linhas despublicadas/inativas que ele mesmo edita.
+drop policy if exists subject_catalog_select_admin on public.subject_catalog;
+create policy subject_catalog_select_admin on public.subject_catalog
+  for select to authenticated using (public.is_admin());
+
+-- ------------------------------------------------------------- assuntos ----
+-- "Cinemática" dentro de Física. É o que liga o erro do simulado ao resumo
+-- certo na tela de resultado — sem assunto, "o que revisar" não existe.
+create table public.content_topics (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid references public.schools (id) on delete cascade,
+  subject_catalog_id uuid not null references public.subject_catalog (id) on delete cascade,
+  name text not null check (length(btrim(name)) between 1 and 120),
+  slug text not null check (slug ~ '^[a-z0-9-]+$'),
+  description text,
+  grade_levels text[] not null default '{}',
+  sort_order integer not null default 100,
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index content_topics_scope_slug_uq
+  on public.content_topics (subject_catalog_id, coalesce(school_id, '00000000-0000-0000-0000-000000000000'::uuid), slug);
+create index content_topics_subject_idx on public.content_topics (subject_catalog_id, sort_order);
+
+create trigger content_topics_set_updated_at before update on public.content_topics
+  for each row execute function public.set_updated_at();
+
+alter table public.content_topics enable row level security;
+
+create policy content_topics_select_visible on public.content_topics
+  for select to authenticated
+  using (school_id is null or school_id = public.current_school_id() or public.can_manage_school(school_id));
+
+create policy content_topics_manage on public.content_topics
+  for all to authenticated
+  using (public.can_manage_school(school_id) or public.is_admin())
+  with check (public.can_manage_school(school_id) or public.is_admin());
+
+-- ------------------------------------------------------------- recursos ----
+create table public.resources (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid references public.schools (id) on delete cascade,
+  subject_catalog_id uuid not null references public.subject_catalog (id) on delete cascade,
+  topic_id uuid references public.content_topics (id) on delete set null,
+
+  kind text not null check (kind in ('resumo', 'podcast', 'video', 'imagem', 'musica', 'quiz', 'simulado')),
+
+  title text not null check (length(btrim(title)) between 2 and 200),
+  subtitle text,
+  description text,
+
+  -- Resumo: markdown. Nos demais é opcional (transcrição, legenda, enunciado).
+  body text,
+
+  -- Mídia: caminho no bucket `nexa-content` OU URL externa (YouTube, RSS).
+  storage_path text,
+  external_url text,
+  thumbnail_url text,
+
+  duration_seconds integer check (duration_seconds is null or duration_seconds between 0 and 86400),
+  difficulty text not null default 'medio' check (difficulty in ('facil', 'medio', 'dificil')),
+  grade_levels text[] not null default '{}',
+  tags text[] not null default '{}',
+
+  -- Quiz e simulado: limite de tempo e nota de corte.
+  time_limit_seconds integer check (time_limit_seconds is null or time_limit_seconds > 0),
+  xp_reward integer not null default 0 check (xp_reward between 0 and 1000),
+
+  is_published boolean not null default false,
+  published_at timestamptz,
+  sort_order integer not null default 100,
+
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  -- Um recurso precisa ter de onde tirar o conteúdo. Quiz e simulado carregam
+  -- as questões em outra tabela, então são a exceção legítima.
+  constraint resources_has_payload check (
+    kind in ('quiz', 'simulado')
+    or body is not null
+    or storage_path is not null
+    or external_url is not null
+  )
+);
+
+create index resources_library_idx
+  on public.resources (subject_catalog_id, kind, sort_order) where is_published;
+create index resources_school_idx on public.resources (school_id) where school_id is not null;
+create index resources_topic_idx on public.resources (topic_id) where topic_id is not null;
+create index resources_title_trgm_idx on public.resources using gin (title gin_trgm_ops);
+
+create trigger resources_set_updated_at before update on public.resources
+  for each row execute function public.set_updated_at();
+
+-- `published_at` acompanha o botão de publicar sozinho: uma data preenchida à
+-- mão no painel é uma data que vai divergir do estado real.
+create or replace function public.stamp_published_at()
+returns trigger language plpgsql as $$
+begin
+  if new.is_published and (tg_op = 'INSERT' or not old.is_published) then
+    new.published_at := coalesce(new.published_at, now());
+  elsif not new.is_published then
+    new.published_at := null;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger resources_stamp_published before insert or update on public.resources
+  for each row execute function public.stamp_published_at();
+
+alter table public.resources enable row level security;
+
+create policy resources_select_visible on public.resources
+  for select to authenticated
+  using (
+    (is_published and (school_id is null or school_id = public.current_school_id()))
+    or public.can_manage_school(school_id)
+    or public.is_admin()
+  );
+
+create policy resources_manage on public.resources
+  for all to authenticated
+  using (public.can_manage_school(school_id) or public.is_admin())
+  with check (public.can_manage_school(school_id) or public.is_admin());
+
+-- --------------------------------------------------------- capítulos -------
+-- Marcadores de tempo do podcast e do vídeo ("Estado Novo · 7:40").
+create table public.resource_chapters (
+  id uuid primary key default gen_random_uuid(),
+  resource_id uuid not null references public.resources (id) on delete cascade,
+  position integer not null check (position >= 0),
+  label text not null check (length(btrim(label)) between 1 and 160),
+  starts_at_seconds integer not null check (starts_at_seconds >= 0),
+  created_at timestamptz not null default now()
+);
+
+create unique index resource_chapters_pos_uq on public.resource_chapters (resource_id, position);
+
+alter table public.resource_chapters enable row level security;
+
+create policy resource_chapters_select_visible on public.resource_chapters
+  for select to authenticated
+  using (exists (select 1 from public.resources r where r.id = resource_id));
+
+create policy resource_chapters_manage on public.resource_chapters
+  for all to authenticated
+  using (exists (
+    select 1 from public.resources r
+    where r.id = resource_id and (public.can_manage_school(r.school_id) or public.is_admin())
+  ))
+  with check (exists (
+    select 1 from public.resources r
+    where r.id = resource_id and (public.can_manage_school(r.school_id) or public.is_admin())
+  ));
+
+-- --------------------------------------------------------- questões --------
+create table public.questions (
+  id uuid primary key default gen_random_uuid(),
+  resource_id uuid not null references public.resources (id) on delete cascade,
+  topic_id uuid references public.content_topics (id) on delete set null,
+  position integer not null check (position > 0),
+  statement text not null check (length(btrim(statement)) >= 3),
+  -- Aparece DEPOIS de responder. É o que transforma erro em aprendizado.
+  explanation text,
+  difficulty text not null default 'medio' check (difficulty in ('facil', 'medio', 'dificil')),
+  points numeric(5, 2) not null default 1 check (points > 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index questions_position_uq on public.questions (resource_id, position);
+create index questions_topic_idx on public.questions (topic_id) where topic_id is not null;
+
+create trigger questions_set_updated_at before update on public.questions
+  for each row execute function public.set_updated_at();
+
+alter table public.questions enable row level security;
+
+-- Sem policy de SELECT para aluno, de propósito. `explanation` entrega a
+-- resposta, e RLS é por linha, não por coluna: qualquer leitura direta da
+-- tabela seria o gabarito disponível antes de responder. O aluno recebe as
+-- questões pela função `quiz_questions()`, que devolve enunciado e
+-- alternativas sem o gabarito. A policy abaixo (FOR ALL) cobre o admin.
+create policy questions_manage on public.questions
+  for all to authenticated
+  using (exists (
+    select 1 from public.resources r
+    where r.id = resource_id and (public.can_manage_school(r.school_id) or public.is_admin())
+  ))
+  with check (exists (
+    select 1 from public.resources r
+    where r.id = resource_id and (public.can_manage_school(r.school_id) or public.is_admin())
+  ));
+
+-- ------------------------------------------------------- alternativas ------
+create table public.question_options (
+  id uuid primary key default gen_random_uuid(),
+  question_id uuid not null references public.questions (id) on delete cascade,
+  position integer not null check (position > 0),
+  body text not null check (length(btrim(body)) >= 1),
+  is_correct boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create unique index question_options_position_uq on public.question_options (question_id, position);
+-- Uma questão de múltipla escolha tem exatamente uma resposta certa. Índice
+-- parcial único: o banco recusa a segunda antes que ela vire um bug de correção.
+create unique index question_options_single_correct_uq
+  on public.question_options (question_id) where is_correct;
+
+alter table public.question_options enable row level security;
+
+-- Mesma razão: `is_correct` nesta tabela É o gabarito.
+create policy question_options_manage on public.question_options
+  for all to authenticated
+  using (exists (
+    select 1 from public.questions q join public.resources r on r.id = q.resource_id
+    where q.id = question_id and (public.can_manage_school(r.school_id) or public.is_admin())
+  ))
+  with check (exists (
+    select 1 from public.questions q join public.resources r on r.id = q.resource_id
+    where q.id = question_id and (public.can_manage_school(r.school_id) or public.is_admin())
+  ));
+
+-- --------------------------------------------------------- trilhas ---------
+create table public.tracks (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid references public.schools (id) on delete cascade,
+  subject_catalog_id uuid not null references public.subject_catalog (id) on delete cascade,
+  title text not null check (length(btrim(title)) between 2 and 160),
+  description text,
+  grade_levels text[] not null default '{}',
+  is_published boolean not null default false,
+  sort_order integer not null default 100,
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index tracks_subject_idx on public.tracks (subject_catalog_id) where is_published;
+
+create trigger tracks_set_updated_at before update on public.tracks
+  for each row execute function public.set_updated_at();
+
+alter table public.tracks enable row level security;
+
+create policy tracks_select_visible on public.tracks
+  for select to authenticated
+  using (
+    (is_published and (school_id is null or school_id = public.current_school_id()))
+    or public.can_manage_school(school_id) or public.is_admin()
+  );
+
+create policy tracks_manage on public.tracks
+  for all to authenticated
+  using (public.can_manage_school(school_id) or public.is_admin())
+  with check (public.can_manage_school(school_id) or public.is_admin());
+
+create table public.track_sections (
+  id uuid primary key default gen_random_uuid(),
+  track_id uuid not null references public.tracks (id) on delete cascade,
+  position integer not null check (position > 0),
+  title text not null check (length(btrim(title)) between 1 and 160),
+  created_at timestamptz not null default now()
+);
+
+create unique index track_sections_position_uq on public.track_sections (track_id, position);
+
+alter table public.track_sections enable row level security;
+
+create policy track_sections_select_visible on public.track_sections
+  for select to authenticated
+  using (exists (select 1 from public.tracks t where t.id = track_id));
+
+create policy track_sections_manage on public.track_sections
+  for all to authenticated
+  using (exists (
+    select 1 from public.tracks t
+    where t.id = track_id and (public.can_manage_school(t.school_id) or public.is_admin())
+  ))
+  with check (exists (
+    select 1 from public.tracks t
+    where t.id = track_id and (public.can_manage_school(t.school_id) or public.is_admin())
+  ));
+
+-- O nó da trilha. `unlock_after_lesson_id` é o que desenha o caminho: sem ele
+-- a trilha vira uma lista, e "bloqueado · conclua MUV antes" não tem como ser
+-- calculado.
+create table public.track_lessons (
+  id uuid primary key default gen_random_uuid(),
+  section_id uuid not null references public.track_sections (id) on delete cascade,
+  position integer not null check (position > 0),
+  title text not null check (length(btrim(title)) between 1 and 160),
+  description text,
+  estimated_minutes integer check (estimated_minutes is null or estimated_minutes between 1 and 600),
+  xp_reward integer not null default 20 check (xp_reward between 0 and 1000),
+  unlock_after_lesson_id uuid references public.track_lessons (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index track_lessons_position_uq on public.track_lessons (section_id, position);
+
+create trigger track_lessons_set_updated_at before update on public.track_lessons
+  for each row execute function public.set_updated_at();
+
+alter table public.track_lessons enable row level security;
+
+create policy track_lessons_select_visible on public.track_lessons
+  for select to authenticated
+  using (exists (select 1 from public.track_sections s where s.id = section_id));
+
+create policy track_lessons_manage on public.track_lessons
+  for all to authenticated
+  using (exists (
+    select 1 from public.track_sections s join public.tracks t on t.id = s.track_id
+    where s.id = section_id and (public.can_manage_school(t.school_id) or public.is_admin())
+  ))
+  with check (exists (
+    select 1 from public.track_sections s join public.tracks t on t.id = s.track_id
+    where s.id = section_id and (public.can_manage_school(t.school_id) or public.is_admin())
+  ));
+
+-- A lição é uma sequência de recursos: resumo → vídeo → quiz.
+create table public.track_lesson_resources (
+  id uuid primary key default gen_random_uuid(),
+  lesson_id uuid not null references public.track_lessons (id) on delete cascade,
+  resource_id uuid not null references public.resources (id) on delete cascade,
+  position integer not null check (position > 0),
+  is_required boolean not null default true
+);
+
+create unique index track_lesson_resources_position_uq on public.track_lesson_resources (lesson_id, position);
+create unique index track_lesson_resources_pair_uq on public.track_lesson_resources (lesson_id, resource_id);
+
+alter table public.track_lesson_resources enable row level security;
+
+create policy track_lesson_resources_select_visible on public.track_lesson_resources
+  for select to authenticated
+  using (exists (select 1 from public.track_lessons l where l.id = lesson_id));
+
+create policy track_lesson_resources_manage on public.track_lesson_resources
+  for all to authenticated
+  using (exists (
+    select 1 from public.track_lessons l
+    join public.track_sections s on s.id = l.section_id
+    join public.tracks t on t.id = s.track_id
+    where l.id = lesson_id and (public.can_manage_school(t.school_id) or public.is_admin())
+  ))
+  with check (exists (
+    select 1 from public.track_lessons l
+    join public.track_sections s on s.id = l.section_id
+    join public.tracks t on t.id = s.track_id
+    where l.id = lesson_id and (public.can_manage_school(t.school_id) or public.is_admin())
+  ));
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260904000200_content_progress.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — 0200 (v2) · Progresso do aluno sobre o conteúdo
+--
+-- Separado da migration de conteúdo por uma razão de segurança, não de
+-- organização: aqui a RLS volta a ser `user_id = auth.uid()`. Misturar as duas
+-- lógicas no mesmo arquivo é como se perde de vista qual regra vale para qual
+-- tabela — e uma tabela de progresso com a policy de conteúdo vazaria o
+-- desempenho de um aluno para a escola inteira.
+-- ============================================================================
+
+-- --------------------------------------------------- progresso genérico ----
+-- Serve resumo (percentual lido), podcast/vídeo (segundo em que parou) e
+-- imagem (visto). Uma linha por aluno × recurso.
+create table public.resource_progress (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  resource_id uuid not null references public.resources (id) on delete cascade,
+  progress_percent numeric(5, 2) not null default 0 check (progress_percent between 0 and 100),
+  position_seconds integer not null default 0 check (position_seconds >= 0),
+  completed_at timestamptz,
+  last_seen_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index resource_progress_pair_uq on public.resource_progress (user_id, resource_id);
+-- "Continuar de onde parou" é uma consulta por aluno ordenada por recência.
+create index resource_progress_recent_idx on public.resource_progress (user_id, last_seen_at desc);
+
+create trigger resource_progress_set_updated_at before update on public.resource_progress
+  for each row execute function public.set_updated_at();
+
+alter table public.resource_progress enable row level security;
+
+create policy resource_progress_all_own on public.resource_progress
+  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ------------------------------------------------------- tentativas --------
+create table public.quiz_attempts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  resource_id uuid not null references public.resources (id) on delete cascade,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  correct_count integer not null default 0 check (correct_count >= 0),
+  total_count integer not null default 0 check (total_count >= 0),
+  duration_seconds integer not null default 0 check (duration_seconds >= 0),
+  created_at timestamptz not null default now(),
+  constraint quiz_attempts_count_sane check (correct_count <= total_count)
+);
+
+create index quiz_attempts_user_idx on public.quiz_attempts (user_id, resource_id, started_at desc);
+
+alter table public.quiz_attempts enable row level security;
+
+create policy quiz_attempts_all_own on public.quiz_attempts
+  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create table public.quiz_answers (
+  id uuid primary key default gen_random_uuid(),
+  attempt_id uuid not null references public.quiz_attempts (id) on delete cascade,
+  question_id uuid not null references public.questions (id) on delete cascade,
+  option_id uuid references public.question_options (id) on delete set null,
+  is_correct boolean not null default false,
+  answered_at timestamptz not null default now()
+);
+
+create unique index quiz_answers_pair_uq on public.quiz_answers (attempt_id, question_id);
+
+alter table public.quiz_answers enable row level security;
+
+-- A tentativa é do aluno, logo a resposta também é. A checagem sobe pelo
+-- attempt para não repetir `user_id` numa segunda coluna que pode divergir.
+create policy quiz_answers_all_own on public.quiz_answers
+  for all to authenticated
+  using (exists (select 1 from public.quiz_attempts a where a.id = attempt_id and a.user_id = auth.uid()))
+  with check (exists (select 1 from public.quiz_attempts a where a.id = attempt_id and a.user_id = auth.uid()));
+
+-- ------------------------------------------------ progresso na trilha ------
+create table public.lesson_progress (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  lesson_id uuid not null references public.track_lessons (id) on delete cascade,
+  -- Os cinco estados do nó no design. `locked` não é armazenado: é derivado da
+  -- ausência de progresso na lição anterior, senão desbloquear uma lição
+  -- exigiria reescrever a linha de todos os alunos.
+  state text not null default 'available' check (state in ('available', 'in_progress', 'done', 'mastered')),
+  correct_streak integer not null default 0 check (correct_streak >= 0),
+  started_at timestamptz,
+  completed_at timestamptz,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create unique index lesson_progress_pair_uq on public.lesson_progress (user_id, lesson_id);
+
+create trigger lesson_progress_set_updated_at before update on public.lesson_progress
+  for each row execute function public.set_updated_at();
+
+alter table public.lesson_progress enable row level security;
+
+create policy lesson_progress_all_own on public.lesson_progress
+  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ------------------------------------------------------- marcações ---------
+create table public.highlights (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  resource_id uuid not null references public.resources (id) on delete cascade,
+  quote text not null check (length(btrim(quote)) between 1 and 2000),
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index highlights_user_resource_idx on public.highlights (user_id, resource_id);
+
+alter table public.highlights enable row level security;
+
+create policy highlights_all_own on public.highlights
+  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- --------------------------------------------------- flashcards ------------
+create table public.flashcard_reviews (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  resource_id uuid not null references public.resources (id) on delete cascade,
+  knows boolean not null,
+  reviewed_at timestamptz not null default now()
+);
+
+create index flashcard_reviews_user_idx on public.flashcard_reviews (user_id, resource_id, reviewed_at desc);
+
+alter table public.flashcard_reviews enable row level security;
+
+create policy flashcard_reviews_all_own on public.flashcard_reviews
+  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ============================================================================
+-- Views · a biblioteca como o aluno a enxerga
+--
+-- `security_invoker` em todas: a view roda com a RLS de quem consulta, não com
+-- a de quem a criou. Sem isso uma view seria um buraco por onde o acervo de
+-- outra escola sairia inteiro.
+-- ============================================================================
+
+create or replace view public.v_resource_library
+with (security_invoker = true) as
+select
+  r.id,
+  r.kind,
+  r.title,
+  r.subtitle,
+  r.description,
+  r.thumbnail_url,
+  r.duration_seconds,
+  r.difficulty,
+  r.xp_reward,
+  r.school_id,
+  r.subject_catalog_id,
+  sc.name  as subject_name,
+  sc.slug  as subject_slug,
+  sc.default_color as subject_color,
+  r.topic_id,
+  t.name   as topic_name,
+  r.sort_order,
+  r.published_at,
+  -- Contagem de questões: o card do simulado promete "20 questões" e essa
+  -- promessa não pode vir de um campo digitado à mão que envelhece.
+  (select count(*) from public.questions q where q.resource_id = r.id) as question_count
+from public.resources r
+join public.subject_catalog sc on sc.id = r.subject_catalog_id
+left join public.content_topics t on t.id = r.topic_id
+where r.is_published;
+
+comment on view public.v_resource_library is
+  'Biblioteca publicada e visível para quem consulta, já com matéria e assunto resolvidos.';
+
+-- Progresso do aluno na trilha, com o estado derivado de cada lição.
+create or replace view public.v_track_lessons_resolved
+with (security_invoker = true) as
+select
+  l.id            as lesson_id,
+  l.section_id,
+  s.track_id,
+  t.subject_catalog_id,
+  t.school_id,
+  s.title         as section_title,
+  s.position      as section_position,
+  l.position      as lesson_position,
+  l.title,
+  l.description,
+  l.estimated_minutes,
+  l.xp_reward,
+  l.unlock_after_lesson_id,
+  coalesce(p.state, 'available') as raw_state,
+  p.correct_streak,
+  p.completed_at,
+  -- Uma lição está bloqueada quando a anterior exigida não foi concluída.
+  case
+    when l.unlock_after_lesson_id is null then false
+    else not exists (
+      select 1 from public.lesson_progress pp
+      where pp.lesson_id = l.unlock_after_lesson_id
+        and pp.user_id = auth.uid()
+        and pp.state in ('done', 'mastered')
+    )
+  end as is_locked,
+  (select count(*) from public.track_lesson_resources lr where lr.lesson_id = l.id) as resource_count
+from public.track_lessons l
+join public.track_sections s on s.id = l.section_id
+join public.tracks t on t.id = s.track_id
+left join public.lesson_progress p on p.lesson_id = l.id and p.user_id = auth.uid();
+
+comment on view public.v_track_lessons_resolved is
+  'Lições da trilha com o estado do aluno e o bloqueio já calculado.';
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260904000300_content_functions.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — 0300 (v2) · Funções de conteúdo, gabarito e progresso
+--
+-- Por que quiz e simulado passam por função em vez de tabela
+--
+-- `questions.explanation` e `question_options.is_correct` SÃO o gabarito. RLS
+-- no Postgres é por linha, não por coluna: não existe policy que libere o
+-- enunciado e esconda a resposta na mesma tabela. Se o aluno pudesse
+-- selecionar as alternativas direto, bastaria abrir o DevTools para gabaritar
+-- qualquer simulado — e um simulado gabaritável não mede nada.
+--
+-- Então: as tabelas ficam fechadas para o aluno, e ele chega ao conteúdo por
+-- funções SECURITY DEFINER que devolvem só o que se pode ver naquele momento.
+-- A correção acontece no banco, com o gabarito nunca saindo dele.
+-- ============================================================================
+
+-- XP agora também vem de conteúdo.
+alter table public.xp_events drop constraint if exists xp_events_source_type_check;
+alter table public.xp_events add constraint xp_events_source_type_check check (
+  source_type in ('task', 'routine', 'study_session', 'activity', 'achievement',
+                  'system', 'quiz', 'lesson', 'resource')
+);
+
+-- --------------------------------------------------- visibilidade ----------
+-- Um recurso é visível se está publicado e é global ou da escola do aluno.
+-- Centralizado aqui porque três funções diferentes precisam da mesma resposta.
+create or replace function public.can_view_resource(p_resource_id uuid, p_user_id uuid default auth.uid())
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.resources r
+    where r.id = p_resource_id
+      and (
+        (r.is_published and (r.school_id is null or r.school_id = public.current_school_id(p_user_id)))
+        or public.can_manage_school(r.school_id, p_user_id)
+      )
+  );
+$$;
+
+-- ------------------------------------------------------ quiz: leitura ------
+create or replace function public.quiz_questions(p_resource_id uuid)
+returns table (
+  question_id uuid,
+  question_position integer,
+  statement text,
+  difficulty text,
+  points numeric,
+  topic_name text,
+  options jsonb
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    q.id,
+    q.position,
+    q.statement,
+    q.difficulty,
+    q.points,
+    t.name,
+    -- Sem `is_correct`. A ordem é a de cadastro: embaralhar aqui faria a
+    -- posição divergir entre a tela e a correção.
+    coalesce(
+      (select jsonb_agg(jsonb_build_object('id', o.id, 'position', o.position, 'body', o.body)
+              order by o.position)
+       from public.question_options o where o.question_id = q.id),
+      '[]'::jsonb
+    )
+  from public.questions q
+  left join public.content_topics t on t.id = q.topic_id
+  where q.resource_id = p_resource_id
+    and public.can_view_resource(p_resource_id)
+  order by q.position;
+$$;
+
+comment on function public.quiz_questions is
+  'Questões de um quiz/simulado SEM o gabarito. Única porta de leitura para o aluno.';
+
+-- ------------------------------------------------------ quiz: execução -----
+create or replace function public.start_quiz_attempt(p_resource_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_attempt uuid;
+  v_total integer;
+begin
+  if not public.can_view_resource(p_resource_id) then
+    raise exception 'recurso indisponível' using errcode = '42501';
+  end if;
+
+  select count(*) into v_total from public.questions where resource_id = p_resource_id;
+  if v_total = 0 then
+    raise exception 'este simulado ainda não tem questões' using errcode = '23514';
+  end if;
+
+  insert into public.quiz_attempts (user_id, resource_id, total_count)
+  values (auth.uid(), p_resource_id, v_total)
+  returning id into v_attempt;
+
+  return v_attempt;
+end;
+$$;
+
+/**
+ * Responde uma questão e devolve o veredito.
+ *
+ * A correção é aqui, não no cliente: o cliente nunca recebeu o gabarito e não
+ * teria como corrigir nada. Devolve a alternativa certa e a explicação DEPOIS
+ * de registrar a resposta — que é o momento em que revelar vira aprendizado em
+ * vez de cola.
+ */
+create or replace function public.answer_quiz_question(
+  p_attempt_id uuid,
+  p_question_id uuid,
+  p_option_id uuid
+)
+returns table (is_correct boolean, correct_option_id uuid, explanation text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_correct_option uuid;
+  v_is_correct boolean;
+begin
+  if not exists (
+    select 1 from public.quiz_attempts a
+    where a.id = p_attempt_id and a.user_id = auth.uid() and a.finished_at is null
+  ) then
+    raise exception 'tentativa inválida ou já encerrada' using errcode = '42501';
+  end if;
+
+  if not exists (
+    select 1 from public.questions q join public.quiz_attempts a on a.resource_id = q.resource_id
+    where q.id = p_question_id and a.id = p_attempt_id
+  ) then
+    raise exception 'esta questão não pertence a esta tentativa' using errcode = '23514';
+  end if;
+
+  select o.id into v_correct_option
+  from public.question_options o where o.question_id = p_question_id and o.is_correct;
+
+  v_is_correct := p_option_id is not null and p_option_id = v_correct_option;
+
+  -- Trocar de alternativa antes de encerrar é permitido; a última vale.
+  insert into public.quiz_answers (attempt_id, question_id, option_id, is_correct)
+  values (p_attempt_id, p_question_id, p_option_id, v_is_correct)
+  on conflict (attempt_id, question_id) do update
+    set option_id = excluded.option_id,
+        is_correct = excluded.is_correct,
+        answered_at = now();
+
+  return query
+    select v_is_correct, v_correct_option, q.explanation
+    from public.questions q where q.id = p_question_id;
+end;
+$$;
+
+create or replace function public.finish_quiz_attempt(p_attempt_id uuid)
+returns table (correct_count integer, total_count integer, duration_seconds integer, xp_awarded integer)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_attempt public.quiz_attempts;
+  v_correct integer;
+  v_duration integer;
+  v_xp integer := 0;
+  v_reward integer;
+begin
+  select * into v_attempt from public.quiz_attempts a
+  where a.id = p_attempt_id and a.user_id = auth.uid();
+
+  if v_attempt.id is null then
+    raise exception 'tentativa não encontrada' using errcode = '42501';
+  end if;
+
+  -- Encerrar duas vezes não pode pagar XP duas vezes nem reescrever o tempo.
+  if v_attempt.finished_at is not null then
+    return query select v_attempt.correct_count, v_attempt.total_count, v_attempt.duration_seconds, 0;
+    return;
+  end if;
+
+  select count(*) into v_correct from public.quiz_answers where attempt_id = p_attempt_id and is_correct;
+  v_duration := greatest(0, extract(epoch from (now() - v_attempt.started_at))::integer);
+
+  update public.quiz_attempts
+  set finished_at = now(), correct_count = v_correct, duration_seconds = v_duration
+  where id = p_attempt_id;
+
+  -- XP proporcional ao acerto, e uma vez só por tentativa — a chave de
+  -- idempotência de `award_xp` é (source_type, source_id, reason).
+  select r.xp_reward into v_reward from public.resources r where r.id = v_attempt.resource_id;
+  if coalesce(v_reward, 0) > 0 and v_attempt.total_count > 0 then
+    v_xp := public.award_xp(
+      round(v_reward * v_correct::numeric / v_attempt.total_count)::integer,
+      'Quiz concluído', 'quiz', p_attempt_id
+    );
+  end if;
+
+  perform public.touch_streak();
+
+  return query select v_correct, v_attempt.total_count, v_duration, v_xp;
+end;
+$$;
+
+-- Gabarito completo, liberado só depois de encerrar. Antes disso não existe.
+create or replace function public.quiz_attempt_review(p_attempt_id uuid)
+returns table (
+  question_id uuid,
+  question_position integer,
+  statement text,
+  explanation text,
+  topic_name text,
+  chosen_option_id uuid,
+  correct_option_id uuid,
+  is_correct boolean
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    q.id, q.position, q.statement, q.explanation, t.name,
+    ans.option_id,
+    (select o.id from public.question_options o where o.question_id = q.id and o.is_correct),
+    coalesce(ans.is_correct, false)
+  from public.quiz_attempts a
+  join public.questions q on q.resource_id = a.resource_id
+  left join public.quiz_answers ans on ans.attempt_id = a.id and ans.question_id = q.id
+  left join public.content_topics t on t.id = q.topic_id
+  where a.id = p_attempt_id
+    and a.user_id = auth.uid()
+    and a.finished_at is not null
+  order by q.position;
+$$;
+
+-- Desempenho por assunto: é o que a tela de resultado usa para dizer
+-- "queda livre 2/6" e ligar o erro ao material certo.
+create or replace function public.quiz_attempt_topics(p_attempt_id uuid)
+returns table (topic_id uuid, topic_name text, correct_count bigint, total_count bigint)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    q.topic_id,
+    coalesce(t.name, 'Geral'),
+    count(*) filter (where ans.is_correct),
+    count(*)
+  from public.quiz_attempts a
+  join public.questions q on q.resource_id = a.resource_id
+  left join public.quiz_answers ans on ans.attempt_id = a.id and ans.question_id = q.id
+  left join public.content_topics t on t.id = q.topic_id
+  where a.id = p_attempt_id and a.user_id = auth.uid() and a.finished_at is not null
+  group by q.topic_id, t.name
+  order by count(*) filter (where ans.is_correct)::numeric / greatest(count(*), 1);
+$$;
+
+-- ------------------------------------------------------- progresso ---------
+create or replace function public.mark_resource_progress(
+  p_resource_id uuid,
+  p_percent numeric default null,
+  p_position_seconds integer default null,
+  p_completed boolean default false
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.can_view_resource(p_resource_id) then
+    raise exception 'recurso indisponível' using errcode = '42501';
+  end if;
+
+  insert into public.resource_progress as rp
+    (user_id, resource_id, progress_percent, position_seconds, completed_at, last_seen_at)
+  values (
+    auth.uid(), p_resource_id,
+    least(100, greatest(0, coalesce(p_percent, 0))),
+    greatest(0, coalesce(p_position_seconds, 0)),
+    case when p_completed then now() end,
+    now()
+  )
+  on conflict (user_id, resource_id) do update set
+    -- O progresso não anda para trás: reabrir um resumo no começo não apaga
+    -- que ele já foi lido até o fim.
+    progress_percent = greatest(rp.progress_percent, coalesce(p_percent, rp.progress_percent)),
+    position_seconds = coalesce(p_position_seconds, rp.position_seconds),
+    completed_at = case when p_completed then coalesce(rp.completed_at, now()) else rp.completed_at end,
+    last_seen_at = now();
+end;
+$$;
+
+/**
+ * Conclui uma lição da trilha.
+ *
+ * `mastered` exige três conclusões seguidas sem erro — é o quinto estado do nó
+ * no design, e o único que o aluno não alcança só por passar uma vez.
+ */
+create or replace function public.complete_lesson(p_lesson_id uuid, p_flawless boolean default false)
+returns table (state text, xp_awarded integer)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_streak integer;
+  v_state text;
+  v_xp integer := 0;
+  v_reward integer;
+begin
+  if not exists (
+    select 1 from public.v_track_lessons_resolved v where v.lesson_id = p_lesson_id and not v.is_locked
+  ) then
+    raise exception 'lição bloqueada ou inexistente' using errcode = '42501';
+  end if;
+
+  select coalesce(lp.correct_streak, 0) into v_streak
+  from public.lesson_progress lp where lp.lesson_id = p_lesson_id and lp.user_id = auth.uid();
+
+  v_streak := case when p_flawless then coalesce(v_streak, 0) + 1 else 0 end;
+  v_state := case when v_streak >= 3 then 'mastered' else 'done' end;
+
+  insert into public.lesson_progress (user_id, lesson_id, state, correct_streak, started_at, completed_at)
+  values (auth.uid(), p_lesson_id, v_state, v_streak, now(), now())
+  on conflict (user_id, lesson_id) do update set
+    state = v_state,
+    correct_streak = v_streak,
+    started_at = coalesce(public.lesson_progress.started_at, now()),
+    completed_at = coalesce(public.lesson_progress.completed_at, now());
+
+  select l.xp_reward into v_reward from public.track_lessons l where l.id = p_lesson_id;
+  v_xp := public.award_xp(coalesce(v_reward, 0), 'Lição concluída', 'lesson', p_lesson_id);
+  perform public.touch_streak();
+
+  return query select v_state, v_xp;
+end;
+$$;
+
+create or replace function public.start_lesson(p_lesson_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  insert into public.lesson_progress (user_id, lesson_id, state, started_at)
+  values (auth.uid(), p_lesson_id, 'in_progress', now())
+  on conflict (user_id, lesson_id) do update set
+    state = case when public.lesson_progress.state in ('done', 'mastered')
+                 then public.lesson_progress.state else 'in_progress' end,
+    started_at = coalesce(public.lesson_progress.started_at, now());
+$$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260904000400_content_storage.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — 0400 (v2) · Bucket do conteúdo
+--
+-- `nexa-content` é PÚBLICO para leitura, e essa é uma decisão deliberada, não
+-- um descuido:
+--
+--  * Áudio e vídeo com URL assinada expiram no meio da reprodução. Um podcast
+--    de 20 minutos com URL de 60 minutos parece resolver — até o aluno pausar,
+--    sair do app e voltar depois do almoço, quando a URL morreu e o player
+--    quebra sem explicação.
+--  * O conteúdo não é secreto. É material de estudo publicado, o mesmo que
+--    estaria num site da escola. O que precisa de sigilo é a NOTA do aluno, e
+--    essa não passa por aqui.
+--  * O que fica protegido é a ESCRITA: só admin e school_admin sobem arquivo.
+--
+-- O que NÃO deve entrar neste bucket: prova antes da aplicação, gabarito em
+-- PDF, qualquer coisa cujo vazamento importe. Gabarito vive nas tabelas
+-- `questions`/`question_options`, fechadas até para o aluno.
+-- ============================================================================
+
+do $$
+begin
+  if to_regclass('storage.buckets') is null then
+    raise notice 'storage schema not present — skipping content bucket setup';
+    return;
+  end if;
+
+  insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values (
+    'nexa-content',
+    'nexa-content',
+    true,
+    524288000, -- 500 MB: um vídeo de aula de 20 min em 720p cabe
+    array[
+      'image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/svg+xml',
+      'audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav', 'audio/webm',
+      'video/mp4', 'video/webm', 'video/quicktime',
+      'application/pdf',
+      'text/plain', 'text/markdown'
+    ]
+  )
+  on conflict (id) do update
+    set public = excluded.public,
+        file_size_limit = excluded.file_size_limit,
+        allowed_mime_types = excluded.allowed_mime_types;
+
+  execute $ddl$
+    drop policy if exists nexa_content_read_all on storage.objects;
+    create policy nexa_content_read_all on storage.objects
+      for select using (bucket_id = 'nexa-content');
+
+    drop policy if exists nexa_content_write_admin on storage.objects;
+    create policy nexa_content_write_admin on storage.objects
+      for insert to authenticated
+      with check (bucket_id = 'nexa-content' and exists (
+        select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'school_admin')));
+
+    drop policy if exists nexa_content_update_admin on storage.objects;
+    create policy nexa_content_update_admin on storage.objects
+      for update to authenticated
+      using (bucket_id = 'nexa-content' and exists (
+        select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'school_admin')));
+
+    drop policy if exists nexa_content_delete_admin on storage.objects;
+    create policy nexa_content_delete_admin on storage.objects
+      for delete to authenticated
+      using (bucket_id = 'nexa-content' and exists (
+        select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'school_admin')));
+  $ddl$;
+end;
+$$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- seed.sql
 -- ─────────────────────────────────────────────────────────────────────
 
 -- ============================================================================
@@ -1670,3 +2796,172 @@ on conflict (id) do update
       threshold = excluded.threshold,
       xp_reward = excluded.xp_reward,
       sort_order = excluded.sort_order;
+
+-- ============================================================================
+-- Biblioteca inicial · conteúdo global (school_id null)
+--
+-- Existe para que uma instalação nova NÃO abra a aba Estudar vazia. Um app de
+-- estudo que estreia sem nada para estudar não é avaliável: não dá para saber
+-- se a tela está certa, se a trilha destrava, se o simulado corrige. Isto é o
+-- mínimo para que tudo isso seja verificável no primeiro minuto.
+--
+-- Ids fixos e `on conflict do nothing` — reaplicar o seed não duplica nada.
+-- ============================================================================
+
+insert into public.content_topics (id, subject_catalog_id, name, slug, sort_order)
+select v.id, sc.id, v.name, v.slug, v.sort_order
+from (values
+  ('10000000-0000-4000-8000-000000000001'::uuid, 'fisica',    'Cinemática',       'cinematica',       1),
+  ('10000000-0000-4000-8000-000000000002'::uuid, 'fisica',    'Leis de Newton',   'leis-de-newton',   2),
+  ('10000000-0000-4000-8000-000000000003'::uuid, 'historia',  'Era Vargas',       'era-vargas',       1),
+  ('10000000-0000-4000-8000-000000000004'::uuid, 'biologia',  'Ciclos biogeoquímicos', 'ciclos',      1),
+  ('10000000-0000-4000-8000-000000000005'::uuid, 'matematica','Funções',          'funcoes',          1)
+) as v(id, subject_slug, name, slug, sort_order)
+join public.subject_catalog sc on sc.slug = v.subject_slug
+on conflict (id) do nothing;
+
+insert into public.resources
+  (id, subject_catalog_id, topic_id, kind, title, subtitle, description, body,
+   duration_seconds, difficulty, xp_reward, is_published, sort_order)
+select v.id, sc.id, v.topic_id, v.kind, v.title, v.subtitle, v.description, v.body,
+       v.duration_seconds, v.difficulty, v.xp_reward, true, v.sort_order
+from (values
+  ('20000000-0000-4000-8000-000000000001'::uuid, 'fisica', '10000000-0000-4000-8000-000000000001'::uuid,
+   'resumo', 'Cinemática: movimento uniforme e uniformemente variado',
+   'Física · 7 min de leitura', 'A base de tudo que cai na primeira prova do bimestre.',
+   E'No **movimento uniforme** a velocidade não muda, então a posição cresce em linha reta com o tempo. É o caso mais simples e serve de base para tudo o que vem depois.\n\nNo **movimento uniformemente variado** a aceleração é constante, e a velocidade passa a variar de forma linear. Daí vêm as três equações que costumam aparecer na prova.\n\n### Equações que caem na prova\n\n- v = v₀ + a·t\n- s = s₀ + v₀·t + a·t²/2\n- v² = v₀² + 2·a·Δs\n\nNa **queda livre** a aceleração é a da gravidade, cerca de 9,8 m/s². Um corpo solto do repouso ganha 9,8 m/s de velocidade a cada segundo — e é por isso que a queda livre é só um MUV com a aceleração já conhecida.\n\n> Pegadinha clássica: massa não muda a queda. Uma pedra e uma pena caem juntas no vácuo.',
+   420, 'medio', 20, 1),
+
+  ('20000000-0000-4000-8000-000000000002'::uuid, 'historia', '10000000-0000-4000-8000-000000000003'::uuid,
+   'resumo', 'Era Vargas: da Revolução de 1930 ao fim do Estado Novo',
+   'História · 9 min de leitura', 'Os três períodos, sem decorar data solta.',
+   E'A **Era Vargas** vai de 1930 a 1945 e se divide em três períodos.\n\n### Governo Provisório (1930–1934)\n\nVargas chega ao poder pela Revolução de 1930, que encerra a República Velha e a política do café com leite. Governa por decreto.\n\n### Governo Constitucional (1934–1937)\n\nA Constituição de 1934 traz voto feminino e legislação trabalhista. É o período mais curto e mais instável.\n\n### Estado Novo (1937–1945)\n\nO golpe de 1937 instaura a ditadura, com a Constituição outorgada — a "Polaca". Censura pelo DIP, sindicatos atrelados ao Estado e a CLT em 1943.\n\n> O que a prova cobra: ligar cada ano ao que ele significa. 1930 é a Revolução; 1937 é o Estado Novo; 1945 é a queda; 1954 é o suicídio, já no segundo governo.',
+   540, 'medio', 20, 1),
+
+  ('20000000-0000-4000-8000-000000000003'::uuid, 'biologia', '10000000-0000-4000-8000-000000000004'::uuid,
+   'resumo', 'Ciclo do carbono em cinco passos',
+   'Biologia · 5 min de leitura', 'Como o carbono circula entre atmosfera, seres vivos, solo e oceano.',
+   E'O carbono circula entre quatro reservatórios: **atmosfera**, **seres vivos**, **solo** e **oceano**.\n\n1. A fotossíntese retira CO₂ da atmosfera e o fixa em matéria orgânica.\n2. A respiração devolve parte desse carbono como CO₂.\n3. A decomposição libera o carbono dos organismos mortos.\n4. Em condições específicas, a matéria orgânica vira combustível fóssil ao longo de milhões de anos.\n5. A queima desses combustíveis devolve à atmosfera, em décadas, o que levou eras para ser guardado.\n\nO desequilíbrio atual está no passo 5: entra mais CO₂ do que a fotossíntese e o oceano conseguem retirar.',
+   300, 'facil', 15, 1)
+) as v(id, subject_slug, topic_id, kind, title, subtitle, description, body, duration_seconds, difficulty, xp_reward, sort_order)
+join public.subject_catalog sc on sc.slug = v.subject_slug
+on conflict (id) do nothing;
+
+-- Simulado de Cinemática · 4 questões
+insert into public.resources
+  (id, subject_catalog_id, topic_id, kind, title, subtitle, description,
+   difficulty, time_limit_seconds, xp_reward, is_published, sort_order)
+select '20000000-0000-4000-8000-000000000010', sc.id, '10000000-0000-4000-8000-000000000001',
+       'simulado', 'Simulado de Cinemática', 'Física · 4 questões',
+       'Movimento uniforme, MUV e queda livre no formato da prova.',
+       'medio', 1200, 120, true, 1
+from public.subject_catalog sc where sc.slug = 'fisica'
+on conflict (id) do nothing;
+
+-- Quiz rápido de Era Vargas · 3 questões
+insert into public.resources
+  (id, subject_catalog_id, topic_id, kind, title, subtitle, description,
+   difficulty, xp_reward, is_published, sort_order)
+select '20000000-0000-4000-8000-000000000011', sc.id, '10000000-0000-4000-8000-000000000003',
+       'quiz', 'Quiz rápido · Era Vargas', 'História · 3 questões · 4 min',
+       'Feedback na hora, com o porquê de cada resposta.',
+       'facil', 45, true, 1
+from public.subject_catalog sc where sc.slug = 'historia'
+on conflict (id) do nothing;
+
+insert into public.questions (id, resource_id, topic_id, position, statement, explanation, difficulty)
+values
+  ('30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000010',
+   '10000000-0000-4000-8000-000000000001', 1,
+   'Um carro parte do repouso com aceleração constante de 2 m/s². Qual a velocidade após 6 segundos?',
+   'v = v₀ + a·t. Com v₀ = 0, a = 2 e t = 6: v = 0 + 2 · 6 = 12 m/s.', 'facil'),
+  ('30000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000010',
+   '10000000-0000-4000-8000-000000000001', 2,
+   'No movimento uniforme, como a posição varia com o tempo?',
+   'Velocidade constante significa que a posição cresce em taxa constante — ou seja, linearmente.', 'facil'),
+  ('30000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000010',
+   '10000000-0000-4000-8000-000000000001', 3,
+   'Um corpo cai do repouso. Desprezando a resistência do ar, qual a velocidade após 3 s? (g = 10 m/s²)',
+   'Queda livre é MUV com a = g. v = 0 + 10 · 3 = 30 m/s.', 'medio'),
+  ('30000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000010',
+   '10000000-0000-4000-8000-000000000001', 4,
+   'Duas esferas de massas diferentes são soltas da mesma altura no vácuo. O que acontece?',
+   'No vácuo não há resistência do ar, e a aceleração da gravidade não depende da massa: as duas chegam juntas.', 'medio'),
+
+  ('30000000-0000-4000-8000-000000000010', '20000000-0000-4000-8000-000000000011',
+   '10000000-0000-4000-8000-000000000003', 1,
+   'Em que ano começou o Estado Novo?',
+   'O Estado Novo começa em 1937, com o golpe e a Constituição outorgada. 1930 é a Revolução; 1945 é o fim do período; 1954 é o suicídio de Vargas.', 'facil'),
+  ('30000000-0000-4000-8000-000000000011', '20000000-0000-4000-8000-000000000011',
+   '10000000-0000-4000-8000-000000000003', 2,
+   'Qual documento consolidou a legislação trabalhista em 1943?',
+   'A CLT — Consolidação das Leis do Trabalho — reuniu em um texto único a legislação trabalhista construída ao longo da Era Vargas.', 'facil'),
+  ('30000000-0000-4000-8000-000000000012', '20000000-0000-4000-8000-000000000011',
+   '10000000-0000-4000-8000-000000000003', 3,
+   'O que a Revolução de 1930 encerrou?',
+   'A República Velha e o arranjo do café com leite, em que São Paulo e Minas alternavam a presidência.', 'medio')
+on conflict (id) do nothing;
+
+insert into public.question_options (question_id, position, body, is_correct) values
+  ('30000000-0000-4000-8000-000000000001', 1, '6 m/s', false),
+  ('30000000-0000-4000-8000-000000000001', 2, '12 m/s', true),
+  ('30000000-0000-4000-8000-000000000001', 3, '18 m/s', false),
+  ('30000000-0000-4000-8000-000000000001', 4, '36 m/s', false),
+
+  ('30000000-0000-4000-8000-000000000002', 1, 'Linearmente', true),
+  ('30000000-0000-4000-8000-000000000002', 2, 'Exponencialmente', false),
+  ('30000000-0000-4000-8000-000000000002', 3, 'De forma quadrática', false),
+  ('30000000-0000-4000-8000-000000000002', 4, 'Não varia', false),
+
+  ('30000000-0000-4000-8000-000000000003', 1, '10 m/s', false),
+  ('30000000-0000-4000-8000-000000000003', 2, '20 m/s', false),
+  ('30000000-0000-4000-8000-000000000003', 3, '30 m/s', true),
+  ('30000000-0000-4000-8000-000000000003', 4, '45 m/s', false),
+
+  ('30000000-0000-4000-8000-000000000004', 1, 'A mais pesada chega primeiro', false),
+  ('30000000-0000-4000-8000-000000000004', 2, 'Chegam juntas', true),
+  ('30000000-0000-4000-8000-000000000004', 3, 'A mais leve chega primeiro', false),
+  ('30000000-0000-4000-8000-000000000004', 4, 'Depende do formato', false),
+
+  ('30000000-0000-4000-8000-000000000010', 1, '1930', false),
+  ('30000000-0000-4000-8000-000000000010', 2, '1937', true),
+  ('30000000-0000-4000-8000-000000000010', 3, '1945', false),
+  ('30000000-0000-4000-8000-000000000010', 4, '1954', false),
+
+  ('30000000-0000-4000-8000-000000000011', 1, 'A Constituição de 1934', false),
+  ('30000000-0000-4000-8000-000000000011', 2, 'A CLT', true),
+  ('30000000-0000-4000-8000-000000000011', 3, 'O Ato Institucional nº 1', false),
+  ('30000000-0000-4000-8000-000000000011', 4, 'A Lei Áurea', false),
+
+  ('30000000-0000-4000-8000-000000000012', 1, 'O Império', false),
+  ('30000000-0000-4000-8000-000000000012', 2, 'A República Velha', true),
+  ('30000000-0000-4000-8000-000000000012', 3, 'A ditadura militar', false),
+  ('30000000-0000-4000-8000-000000000012', 4, 'O Estado Novo', false)
+on conflict do nothing;
+
+-- Trilha de Física: três lições encadeadas, cada uma com o material dentro.
+insert into public.tracks (id, subject_catalog_id, title, description, is_published, sort_order)
+select '40000000-0000-4000-8000-000000000001', sc.id, 'Trilha de Física',
+       'Do movimento uniforme às Leis de Newton, uma lição por vez.', true, 1
+from public.subject_catalog sc where sc.slug = 'fisica'
+on conflict (id) do nothing;
+
+insert into public.track_sections (id, track_id, position, title) values
+  ('41000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000001', 1, 'Assunto 1 · Cinemática')
+on conflict (id) do nothing;
+
+insert into public.track_lessons (id, section_id, position, title, description, estimated_minutes, xp_reward, unlock_after_lesson_id) values
+  ('42000000-0000-4000-8000-000000000001', '41000000-0000-4000-8000-000000000001', 1,
+   'Movimento uniforme', 'Resumo e quiz para fixar a base.', 12, 20, null),
+  ('42000000-0000-4000-8000-000000000002', '41000000-0000-4000-8000-000000000001', 2,
+   'Movimento variado (MUV)', 'As três equações que caem na prova.', 15, 20,
+   '42000000-0000-4000-8000-000000000001'),
+  ('42000000-0000-4000-8000-000000000003', '41000000-0000-4000-8000-000000000001', 3,
+   'Queda livre', 'MUV com a aceleração já conhecida.', 10, 25,
+   '42000000-0000-4000-8000-000000000002')
+on conflict (id) do nothing;
+
+insert into public.track_lesson_resources (lesson_id, resource_id, position) values
+  ('42000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 1),
+  ('42000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000010', 1)
+on conflict do nothing;
