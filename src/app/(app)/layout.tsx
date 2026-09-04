@@ -1,4 +1,5 @@
 import { BottomNav, SideNav } from '@/components/layout/bottom-nav';
+import { InstallPrompt } from '@/features/install/components/install-prompt';
 
 /**
  * Shell do app autenticado.
@@ -16,6 +17,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="pb-nav md:pb-8">{children}</div>
       </div>
       <BottomNav />
+      {/* Fica no shell, não em uma tela: o convite deve alcançar quem já está
+          usando o app, e não depender de o aluno passar por uma página
+          específica. Ele mesmo decide se aparece. */}
+      <InstallPrompt />
     </div>
   );
 }

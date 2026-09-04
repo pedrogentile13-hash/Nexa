@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { Award, Clock, Flame, LogOut, Trophy, Zap } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { InstallCard } from '@/features/install/components/install-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,9 +78,15 @@ export default async function ProfilePage() {
           <CardHeader>
             <CardTitle>Aparência</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <span className="text-muted text-sm">Tema</span>
-            <ThemeToggle />
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-muted text-sm">Tema</span>
+              <ThemeToggle />
+            </div>
+            {/* O banner de instalação aparece uma vez e some. Quem recusou
+                naquele momento e depois mudou de ideia precisa de um lugar
+                previsível para procurar — e é aqui que as pessoas procuram. */}
+            <InstallCard />
           </CardContent>
         </Card>
 
