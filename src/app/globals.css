@@ -60,6 +60,17 @@
   --chart-line: #2563eb;
   --chart-alert: #c2261f;
   --chart-grid: #e3e7ec;
+
+  /* Degradê de cabeçalho da V2 do kit. Fica em token porque aparece em quatro
+     telas — quatro cópias do mesmo `linear-gradient` divergem no primeiro
+     ajuste de matiz.
+
+     O kit termina em ciano #0ea5e9, que mede 2,77:1 com texto branco — reprova
+     até no critério de texto grande (3:1). O fim virou #0369a1: mantém a
+     passagem azul→ciano e o pior ponto da faixa fica em 5,17:1, então o título
+     é legível ao longo de TODA a extensão, não só onde ela é mais escura. */
+  --gradient-header: linear-gradient(135deg, #2563eb 0%, #0369a1 100%);
+  --gradient-header-fg: #ffffff;
 }
 
 .dark {
@@ -93,6 +104,12 @@
   --chart-line: #4d86f7;
   --chart-alert: #ef5350;
   --chart-grid: #242a35;
+
+  /* No escuro o degradê perde saturação e vira mistura escura da mesma matiz,
+     como o kit define — o azul vibrante do tema claro sobre #0a0c11 vira um
+     bloco que brilha mais que o conteúdo. */
+  --gradient-header: linear-gradient(135deg, #141e33 0%, #123047 100%);
+  --gradient-header-fg: #f2f4f8;
 }
 
 /*

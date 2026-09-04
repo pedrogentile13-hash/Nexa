@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { CalendarClock, Clock, Target } from 'lucide-react';
-import { AppHeader } from '@/components/layout/app-header';
+import { GradientHeader, HeaderStreak } from '@/components/layout/gradient-header';
 import { PageMain } from '@/components/layout/page-main';
+import { ProgressRing } from '@/components/ui/progress-ring';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { getCurrentUser } from '@/lib/supabase/server';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { Checklist } from '@/features/today/components/checklist';
@@ -47,12 +47,13 @@ export default async function TodayPage() {
 
   return (
     <>
-      <AppHeader
+      {/* Hoje é a tela que abre o app, e é onde o degradê da V2 faz mais
+          diferença: o topo com identidade separa "quem eu sou aqui" do
+          conteúdo cinza logo abaixo. */}
+      <GradientHeader
         title={snapshot.greetingName ? `${greeting}, ${snapshot.greetingName}` : greeting}
         subtitle={longDate(snapshot.today)}
-        streak={snapshot.streak}
-        avatarUrl={snapshot.avatarUrl}
-        name={snapshot.greetingName}
+        right={<HeaderStreak streak={snapshot.streak} />}
       />
 
       {/* No desktop os cartões viram duas colunas: eles são independentes
@@ -61,22 +62,28 @@ export default async function TodayPage() {
           para acompanhar a altura do vizinho. */}
       <PageMain className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* Progresso do dia ------------------------------------------------ */}
-        <Card className="lg:col-span-2">
+        <Card className="-mt-4 lg:col-span-2">
           <CardContent className="space-y-4 pt-4">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-subtle text-xs">Progresso de hoje</p>
-                <p className="tabular text-3xl leading-none font-semibold">
-                  {Math.round(dailyPercent)}%
-                </p>
-              </div>
+            <div className="flex items-center justify-between gap-4">
+              {/* Anel, não barra: aqui o número é a informação e a proporção é
+                  o contexto. Uma barra empurraria o número para o lado. */}
+              <ProgressRing
+                value={dailyPercent}
+                label={`Progresso de hoje: ${Math.round(dailyPercent)} por cento`}
+              >
+                <span>
+                  <span className="tabular block text-2xl leading-none font-semibold">
+                    {Math.round(dailyPercent)}%
+                  </span>
+                  <span className="text-subtle mt-1 block text-[10px]">de hoje</span>
+                </span>
+              </ProgressRing>
+
               <StudyTimer
                 runningSessionId={snapshot.runningSessionId}
                 startedAt={snapshot.runningSessionStartedAt}
               />
             </div>
-
-            <Progress value={dailyPercent} label="Progresso do dia" />
 
             <div className="text-muted flex items-center gap-4 text-xs">
               <span className="flex items-center gap-1.5">

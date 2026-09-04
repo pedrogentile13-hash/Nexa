@@ -54,7 +54,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
   const visible = kindFilter ? data.items.filter((i) => i.kind === kindFilter) : data.items;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 pb-8 lg:max-w-5xl">
+    <div className="mx-auto max-w-2xl space-y-6 px-4 pt-4 pb-8 lg:max-w-5xl">
       {/* ---------------------------------------------------- matérias -- */}
       {data.subjects.length > 0 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">

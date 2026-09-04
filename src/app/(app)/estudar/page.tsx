@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { AppHeader } from '@/components/layout/app-header';
+import { GradientHeader } from '@/components/layout/gradient-header';
 import { StudyHub } from '@/features/study/components/study-hub';
 import { getStudyHub } from '@/features/study/server/queries';
 import type { ResourceKind } from '@/types/database.types';
@@ -33,7 +33,7 @@ export default async function StudyPage({
 
   return (
     <>
-      <AppHeader title="Estudar" subtitle="Com o que você estuda isso?" />
+      <GradientHeader title="Estudar" subtitle="Com o que você estuda isso?" />
       <StudyHub data={data} kindFilter={kindFilter} />
     </>
   );
