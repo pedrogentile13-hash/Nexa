@@ -9,6 +9,16 @@ const PUBLIC_PREFIXES = ['/login', '/auth', '/manifest.webmanifest', '/icon', '/
 const ONBOARDING_PATH = '/bem-vindo';
 const HOME_PATH = '/hoje';
 
+/**
+ * O painel não passa pelo onboarding.
+ *
+ * Onboarding monta a vida acadêmica de um ALUNO — matérias, bimestres, metas.
+ * Um administrador que só publica conteúdo não tem nada disso, e exigir que ele
+ * invente um boletim para chegar ao painel seria pedir dado falso. Quem pode
+ * entrar é decidido em `/admin/layout.tsx`, com o papel do perfil.
+ */
+const ADMIN_PREFIX = '/admin';
+
 function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
@@ -50,9 +60,19 @@ export async function updateSession(request: NextRequest) {
 
   // getUser() validates the JWT with Supabase. getSession() would read it from a
   // cookie the client can edit, which is not a basis for an access decision.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  //
+  // O try/catch cobre o Supabase inalcançável — rede caída, projeto pausado,
+  // URL errada. Sem ele o middleware lança e o comportamento do app inteiro
+  // passa a depender de como o runtime trata um middleware que explodiu, o que
+  // não é uma decisão de produto e muda entre versões. Sem sessão verificável,
+  // a resposta correta é a mesma de sempre: manda para o login.
+  let user: { id: string } | null = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch {
+    user = null;
+  }
 
   const { pathname, search } = request.nextUrl;
 
@@ -74,6 +94,8 @@ export async function updateSession(request: NextRequest) {
     .maybeSingle();
 
   const onboarded = Boolean(profile?.onboarded_at);
+
+  if (pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)) return response;
 
   if (!onboarded && pathname !== ONBOARDING_PATH) {
     const url = request.nextUrl.clone();
