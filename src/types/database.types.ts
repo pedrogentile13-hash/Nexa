@@ -41,7 +41,14 @@ export type XpSourceType =
   | 'study_session'
   | 'activity'
   | 'achievement'
-  | 'system';
+  | 'system'
+  | 'quiz'
+  | 'lesson'
+  | 'resource';
+export type UserRole = 'student' | 'school_admin' | 'admin';
+export type ResourceKind = 'resumo' | 'podcast' | 'video' | 'imagem' | 'musica' | 'quiz' | 'simulado';
+export type Difficulty = 'facil' | 'medio' | 'dificil';
+export type LessonState = 'available' | 'in_progress' | 'done' | 'mastered';
 export type AchievementCategory =
   | 'geral'
   | 'estudo'
@@ -89,6 +96,7 @@ export type ProfileRow = {
   timezone: string;
   locale: string;
   theme_preference: ThemePreference;
+  role: UserRole;
   weekly_study_goal_minutes: number;
   daily_study_goal_minutes: number;
   onboarded_at: string | null;
@@ -463,6 +471,233 @@ export type VTermSummaryRow = {
   avg_coverage_percent: number | null;
 }
 
+
+/* ------------------------------------------------------------ conteúdo -- */
+
+export type ContentTopicRow = {
+  id: string;
+  school_id: string | null;
+  subject_catalog_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  grade_levels: string[];
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ResourceRow = {
+  id: string;
+  school_id: string | null;
+  subject_catalog_id: string;
+  topic_id: string | null;
+  kind: ResourceKind;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  body: string | null;
+  storage_path: string | null;
+  external_url: string | null;
+  thumbnail_url: string | null;
+  duration_seconds: number | null;
+  difficulty: Difficulty;
+  grade_levels: string[];
+  tags: string[];
+  time_limit_seconds: number | null;
+  xp_reward: number;
+  is_published: boolean;
+  published_at: string | null;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ResourceChapterRow = {
+  id: string;
+  resource_id: string;
+  position: number;
+  label: string;
+  starts_at_seconds: number;
+  created_at: string;
+};
+
+export type QuestionRow = {
+  id: string;
+  resource_id: string;
+  topic_id: string | null;
+  position: number;
+  statement: string;
+  explanation: string | null;
+  difficulty: Difficulty;
+  points: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuestionOptionRow = {
+  id: string;
+  question_id: string;
+  position: number;
+  body: string;
+  is_correct: boolean;
+  created_at: string;
+};
+
+export type TrackRow = {
+  id: string;
+  school_id: string | null;
+  subject_catalog_id: string;
+  title: string;
+  description: string | null;
+  grade_levels: string[];
+  is_published: boolean;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TrackSectionRow = {
+  id: string;
+  track_id: string;
+  position: number;
+  title: string;
+  created_at: string;
+};
+
+export type TrackLessonRow = {
+  id: string;
+  section_id: string;
+  position: number;
+  title: string;
+  description: string | null;
+  estimated_minutes: number | null;
+  xp_reward: number;
+  unlock_after_lesson_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TrackLessonResourceRow = {
+  id: string;
+  lesson_id: string;
+  resource_id: string;
+  position: number;
+  is_required: boolean;
+};
+
+/* ------------------------------------------------ progresso do aluno ---- */
+
+export type ResourceProgressRow = {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  progress_percent: number;
+  position_seconds: number;
+  completed_at: string | null;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuizAttemptRow = {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  started_at: string;
+  finished_at: string | null;
+  correct_count: number;
+  total_count: number;
+  duration_seconds: number;
+  created_at: string;
+};
+
+export type QuizAnswerRow = {
+  id: string;
+  attempt_id: string;
+  question_id: string;
+  option_id: string | null;
+  is_correct: boolean;
+  answered_at: string;
+};
+
+export type LessonProgressRow = {
+  id: string;
+  user_id: string;
+  lesson_id: string;
+  state: LessonState;
+  correct_streak: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HighlightRow = {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  quote: string;
+  note: string | null;
+  created_at: string;
+};
+
+export type FlashcardReviewRow = {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  knows: boolean;
+  reviewed_at: string;
+};
+
+/* ------------------------------------------------------------- views --- */
+
+export type VResourceLibraryRow = {
+  id: string;
+  kind: ResourceKind;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  thumbnail_url: string | null;
+  duration_seconds: number | null;
+  difficulty: Difficulty;
+  xp_reward: number;
+  school_id: string | null;
+  subject_catalog_id: string;
+  subject_name: string;
+  subject_slug: string;
+  subject_color: string;
+  topic_id: string | null;
+  topic_name: string | null;
+  sort_order: number;
+  published_at: string | null;
+  question_count: number;
+};
+
+export type VTrackLessonResolvedRow = {
+  lesson_id: string;
+  section_id: string;
+  track_id: string;
+  subject_catalog_id: string;
+  school_id: string | null;
+  section_title: string;
+  section_position: number;
+  lesson_position: number;
+  title: string;
+  description: string | null;
+  estimated_minutes: number | null;
+  xp_reward: number;
+  unlock_after_lesson_id: string | null;
+  raw_state: LessonState;
+  correct_streak: number | null;
+  completed_at: string | null;
+  is_locked: boolean;
+  resource_count: number;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -486,6 +721,21 @@ export type Database = {
       xp_events: Table<XpEventRow>;
       achievements: Table<AchievementRow>;
       user_achievements: Table<UserAchievementRow>;
+      content_topics: Table<ContentTopicRow>;
+      resources: Table<ResourceRow>;
+      resource_chapters: Table<ResourceChapterRow>;
+      questions: Table<QuestionRow>;
+      question_options: Table<QuestionOptionRow>;
+      tracks: Table<TrackRow>;
+      track_sections: Table<TrackSectionRow>;
+      track_lessons: Table<TrackLessonRow>;
+      track_lesson_resources: Table<TrackLessonResourceRow>;
+      resource_progress: Table<ResourceProgressRow>;
+      quiz_attempts: Table<QuizAttemptRow>;
+      quiz_answers: Table<QuizAnswerRow>;
+      lesson_progress: Table<LessonProgressRow>;
+      highlights: Table<HighlightRow>;
+      flashcard_reviews: Table<FlashcardReviewRow>;
     };
     Views: {
       v_subject_terms_resolved: View<VSubjectTermResolvedRow>;
@@ -493,6 +743,8 @@ export type Database = {
       v_category_averages: View<VCategoryAverageRow>;
       v_subject_term_averages: View<VSubjectTermAverageRow>;
       v_term_summary: View<VTermSummaryRow>;
+      v_resource_library: View<VResourceLibraryRow>;
+      v_track_lessons_resolved: View<VTrackLessonResolvedRow>;
     };
     Functions: {
       user_local_date: { Args: { p_user_id?: string }; Returns: string };
@@ -510,6 +762,67 @@ export type Database = {
         Returns: number;
       };
       touch_streak: { Args: { p_user_id?: string }; Returns: number };
+      is_admin: { Args: { p_user_id?: string }; Returns: boolean };
+      current_school_id: { Args: { p_user_id?: string }; Returns: string | null };
+      can_manage_school: { Args: { p_school_id: string | null; p_user_id?: string }; Returns: boolean };
+      can_view_resource: { Args: { p_resource_id: string; p_user_id?: string }; Returns: boolean };
+      quiz_questions: {
+        Args: { p_resource_id: string };
+        Returns: {
+          question_id: string;
+          question_position: number;
+          statement: string;
+          difficulty: Difficulty;
+          points: number;
+          topic_name: string | null;
+          options: { id: string; position: number; body: string }[];
+        }[];
+      };
+      start_quiz_attempt: { Args: { p_resource_id: string }; Returns: string };
+      answer_quiz_question: {
+        Args: { p_attempt_id: string; p_question_id: string; p_option_id: string | null };
+        Returns: { is_correct: boolean; correct_option_id: string | null; explanation: string | null }[];
+      };
+      finish_quiz_attempt: {
+        Args: { p_attempt_id: string };
+        Returns: {
+          correct_count: number;
+          total_count: number;
+          duration_seconds: number;
+          xp_awarded: number;
+        }[];
+      };
+      quiz_attempt_review: {
+        Args: { p_attempt_id: string };
+        Returns: {
+          question_id: string;
+          question_position: number;
+          statement: string;
+          explanation: string | null;
+          topic_name: string | null;
+          chosen_option_id: string | null;
+          correct_option_id: string | null;
+          is_correct: boolean;
+        }[];
+      };
+      quiz_attempt_topics: {
+        Args: { p_attempt_id: string };
+        Returns: { topic_id: string | null; topic_name: string; correct_count: number; total_count: number }[];
+      };
+      mark_resource_progress: {
+        Args: {
+          p_resource_id: string;
+          p_percent?: number | null;
+          p_position_seconds?: number | null;
+          p_completed?: boolean;
+        };
+        Returns: undefined;
+      };
+      start_lesson: { Args: { p_lesson_id: string }; Returns: undefined };
+      complete_lesson: {
+        Args: { p_lesson_id: string; p_flawless?: boolean };
+        Returns: { state: LessonState; xp_awarded: number }[];
+      };
       bootstrap_student: {
         Args: {
           p_full_name: string;

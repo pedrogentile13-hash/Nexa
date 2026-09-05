@@ -49,6 +49,28 @@
 
   /* Focus */
   --ring: #2563eb;
+
+  /*
+   * Cores de gráfico. Separadas dos tokens de UI porque respondem a outro
+   * critério: separação perceptual entre marcas adjacentes, inclusive para
+   * daltonismo. Validadas com scripts/validate_palette.js da skill dataviz —
+   * o par warning/danger da UI reprovou (ΔE 8.0, indistinguível até com visão
+   * normal), então o gráfico usa duas cores em vez de três.
+   */
+  --chart-line: #2563eb;
+  --chart-alert: #c2261f;
+  --chart-grid: #e3e7ec;
+
+  /* Degradê de cabeçalho da V2 do kit. Fica em token porque aparece em quatro
+     telas — quatro cópias do mesmo `linear-gradient` divergem no primeiro
+     ajuste de matiz.
+
+     O kit termina em ciano #0ea5e9, que mede 2,77:1 com texto branco — reprova
+     até no critério de texto grande (3:1). O fim virou #0369a1: mantém a
+     passagem azul→ciano e o pior ponto da faixa fica em 5,17:1, então o título
+     é legível ao longo de TODA a extensão, não só onde ela é mais escura. */
+  --gradient-header: linear-gradient(135deg, #2563eb 0%, #0369a1 100%);
+  --gradient-header-fg: #ffffff;
 }
 
 .dark {
@@ -77,6 +99,17 @@
   --danger-soft: #2b1414;
 
   --ring: #4d86f7;
+
+  /* Passos próprios do tema escuro, não um espelho do claro. */
+  --chart-line: #4d86f7;
+  --chart-alert: #ef5350;
+  --chart-grid: #242a35;
+
+  /* No escuro o degradê perde saturação e vira mistura escura da mesma matiz,
+     como o kit define — o azul vibrante do tema claro sobre #0a0c11 vira um
+     bloco que brilha mais que o conteúdo. */
+  --gradient-header: linear-gradient(135deg, #141e33 0%, #123047 100%);
+  --gradient-header-fg: #f2f4f8;
 }
 
 /*
@@ -110,6 +143,10 @@
   --color-danger-soft: var(--danger-soft);
 
   --color-ring: var(--ring);
+
+  --color-chart-line: var(--chart-line);
+  --color-chart-alert: var(--chart-alert);
+  --color-chart-grid: var(--chart-grid);
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
