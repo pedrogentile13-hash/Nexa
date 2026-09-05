@@ -523,3 +523,88 @@ a extensão do degradê fica em 5,17:1, e a passagem azul→ciano continua visí
 
 Um degradê precisa ser avaliado ao longo da faixa inteira, não nas pontas: o
 texto atravessa todos os pontos intermediários.
+
+---
+
+## ADR-029 · Quatro degraus de cor para a nota, não dois
+
+**Contexto.** O cartão da matéria mostra a média em destaque. O caminho óbvio é
+binário: verde acima da aprovação, vermelho abaixo.
+
+**Decisão.** Quatro degraus, como o kit desenha — vermelho abaixo da aprovação
+por mais de um ponto, laranja abaixo por menos de um, neutro entre aprovação e
+meta, verde a partir da meta.
+
+**Motivo.** "Abaixo da aprovação" abriga situações que exigem respostas opostas.
+Quem está a 0,2 da média recupera na próxima verificação; quem está a 1,8
+precisa de um plano que envolve mais de uma avaliação. Pintar as duas de
+vermelho apaga essa diferença justamente para quem mais depende dela — e um app
+que trata 5,8 como 4,2 ensina o aluno a ignorar a cor.
+
+**Consequência.** A etiqueta abaixo do nome mede contra a referência que importa
+naquele momento: quem está abaixo da aprovação vê quanto falta para passar, não
+quanto falta para a meta pessoal, que ali é preocupação de segunda ordem.
+
+---
+
+## ADR-030 · A curva de nível é espelhada, e o espelho é testado
+
+**Contexto.** O banco decide o nível em `xp_to_level()`. A tela precisa dizer
+QUANTO FALTA para o próximo, e o banco só devolve o nível atual.
+
+**Decisão.** `src/features/performance/lib/level.ts` reimplementa a mesma curva
+(`level = 1 + floor(sqrt(xp / 100))`), com um teste que usa os mesmos pontos que
+a função SQL produz — conferidos contra um Postgres real.
+
+**Motivo.** Se as duas divergirem, a barra promete um nível que o banco não
+entrega: o aluno estuda, vê a barra encher e nada acontece. É um erro
+silencioso, não aparece em log nenhum, e desmoraliza exatamente o mecanismo que
+existia para motivar.
+
+**Alternativa descartada.** Expor o "falta X" por uma função no banco eliminaria
+a duplicação, mas custaria uma ida ao servidor para desenhar uma barra — e a
+barra precisa reagir na mesma tela em que o XP muda.
+
+---
+
+## ADR-031 · A grade da agenda é controle, não ilustração
+
+**Contexto.** O calendário mensal mostrava os pontos coloridos e nada mais; a
+lista abaixo era sempre "de hoje em diante".
+
+**Decisão.** Tocar num dia seleciona esse dia e troca a lista de baixo. O dia
+selecionado é azul preenchido; o dia de hoje, quando não é o selecionado, ganha
+um anel.
+
+**Motivo.** Uma grade que não responde ao toque é ilustração ocupando meia tela
+de celular. E as duas informações — "onde estou olhando" e "que dia é hoje" —
+são diferentes: sem distingui-las, navegar para outro mês faz o aluno perder a
+referência de onde está no calendário.
+
+**Detalhe que só aparece no uso.** Avançar o mês preserva o dia quando ele
+existe no destino. 31 de janeiro + 1 mês vira 28 de fevereiro, não 3 de março:
+o aluno pediu "próximo mês", e cair em março quebraria a navegação de um jeito
+que ele levaria tempo para entender.
+
+---
+
+## ADR-032 · A entrega de design foi refeita por inteiro
+
+**Contexto.** A ADR-028 registrou a linguagem visual da V2 como implementada.
+Ela tinha sido aplicada em duas telas — Hoje e Estudar — enquanto Matérias,
+Agenda, Desempenho, Perfil e o login continuavam com o visual da versão
+anterior. O resumo da entrega não refletiu isso.
+
+**Decisão.** Passagem completa: as sete telas do app do aluno seguem o kit, mais
+o login e as duas telas novas de recuperação de senha.
+
+**Motivo do registro.** O erro não foi de código, foi de aferição: "apliquei a
+linguagem visual" foi escrito a partir do que tinha sido tocado, não do que
+tinha sido conferido. O antídoto é o mesmo que o resto deste documento usa —
+medir antes de afirmar. Cada tela desta passagem foi renderizada no navegador,
+nos dois temas, com verificação de overflow horizontal e de alvo de toque.
+
+**Consequência prática.** As telas foram separadas da busca de dados
+(`TodayView`, `SubjectsView`) para que o layout possa ser renderizado com dados
+de exemplo. Uma tela que só existe autenticada é uma tela que ninguém confere
+antes de subir — e foi assim que a diferença passou.
