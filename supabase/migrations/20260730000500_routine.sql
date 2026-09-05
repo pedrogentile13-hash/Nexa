@@ -12,7 +12,7 @@
 -- ============================================================================
 
 -- --------------------------------------------------------------- routines --
-create table public.routines (
+create table if not exists public.routines (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   subject_id uuid references public.subjects (id) on delete set null,
@@ -28,18 +28,20 @@ create table public.routines (
   updated_at timestamptz not null default now()
 );
 
-create index routines_user_active_idx on public.routines (user_id, sort_order) where is_active;
+create index if not exists routines_user_active_idx on public.routines (user_id, sort_order) where is_active;
 
+drop trigger if exists routines_set_updated_at on public.routines;
 create trigger routines_set_updated_at before update on public.routines
   for each row execute function public.set_updated_at();
 
 alter table public.routines enable row level security;
 
+drop policy if exists routines_all_own on public.routines;
 create policy routines_all_own on public.routines
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ---------------------------------------------------- routine_completions --
-create table public.routine_completions (
+create table if not exists public.routine_completions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   routine_id uuid not null references public.routines (id) on delete cascade,
@@ -49,16 +51,17 @@ create table public.routine_completions (
   constraint routine_completions_once_per_day_uq unique (routine_id, local_date)
 );
 
-create index routine_completions_user_date_idx
+create index if not exists routine_completions_user_date_idx
   on public.routine_completions (user_id, local_date desc);
 
 alter table public.routine_completions enable row level security;
 
+drop policy if exists routine_completions_all_own on public.routine_completions;
 create policy routine_completions_all_own on public.routine_completions
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ------------------------------------------------------------------ tasks --
-create table public.tasks (
+create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   -- Nullable: "levar atestado" is a real task with no subject.
@@ -80,23 +83,25 @@ create table public.tasks (
   updated_at timestamptz not null default now()
 );
 
-create index tasks_user_open_due_idx
+create index if not exists tasks_user_open_due_idx
   on public.tasks (user_id, due_date) where completed_at is null;
-create index tasks_user_subject_idx on public.tasks (user_id, subject_id);
-create index tasks_activity_idx on public.tasks (activity_id) where activity_id is not null;
+create index if not exists tasks_user_subject_idx on public.tasks (user_id, subject_id);
+create index if not exists tasks_activity_idx on public.tasks (activity_id) where activity_id is not null;
 
+drop trigger if exists tasks_set_updated_at on public.tasks;
 create trigger tasks_set_updated_at before update on public.tasks
   for each row execute function public.set_updated_at();
 
 alter table public.tasks enable row level security;
 
+drop policy if exists tasks_all_own on public.tasks;
 create policy tasks_all_own on public.tasks
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- --------------------------------------------------------- study_sessions --
 -- started_at/ended_at (not just `duration`) so the timer can be paused,
 -- resumed and recovered after the app is killed — an iPhone will do that.
-create table public.study_sessions (
+create table if not exists public.study_sessions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   subject_id uuid references public.subjects (id) on delete set null,
@@ -113,24 +118,26 @@ create table public.study_sessions (
   constraint study_sessions_range_ck check (ended_at is null or ended_at >= started_at)
 );
 
-create index study_sessions_user_date_idx on public.study_sessions (user_id, local_date desc);
-create index study_sessions_user_subject_idx on public.study_sessions (user_id, subject_id);
+create index if not exists study_sessions_user_date_idx on public.study_sessions (user_id, local_date desc);
+create index if not exists study_sessions_user_subject_idx on public.study_sessions (user_id, subject_id);
 -- At most one running timer per user.
-create unique index study_sessions_one_running_uq
+create unique index if not exists study_sessions_one_running_uq
   on public.study_sessions (user_id) where ended_at is null;
 
+drop trigger if exists study_sessions_set_updated_at on public.study_sessions;
 create trigger study_sessions_set_updated_at before update on public.study_sessions
   for each row execute function public.set_updated_at();
 
 alter table public.study_sessions enable row level security;
 
+drop policy if exists study_sessions_all_own on public.study_sessions;
 create policy study_sessions_all_own on public.study_sessions
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- -------------------------------------------------------- timetable_slots --
 -- The weekly class schedule. This is what upgrades "Hoje" from a due-date list
 -- to something that knows you have Matemática today.
-create table public.timetable_slots (
+create table if not exists public.timetable_slots (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   subject_id uuid not null references public.subjects (id) on delete cascade,
@@ -145,21 +152,23 @@ create table public.timetable_slots (
   constraint timetable_slots_range_ck check (ends_at > starts_at)
 );
 
-create index timetable_slots_user_day_idx
+create index if not exists timetable_slots_user_day_idx
   on public.timetable_slots (user_id, day_of_week, starts_at);
 
+drop trigger if exists timetable_slots_set_updated_at on public.timetable_slots;
 create trigger timetable_slots_set_updated_at before update on public.timetable_slots
   for each row execute function public.set_updated_at();
 
 alter table public.timetable_slots enable row level security;
 
+drop policy if exists timetable_slots_all_own on public.timetable_slots;
 create policy timetable_slots_all_own on public.timetable_slots
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ------------------------------------------------------------ attachments --
 -- Backs "Resumos / Exercícios / Arquivos" per subject. `content` exists because
 -- most resumos are typed in the app, not uploaded as a file.
-create table public.attachments (
+create table if not exists public.attachments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   subject_id uuid references public.subjects (id) on delete cascade,
@@ -181,13 +190,15 @@ create table public.attachments (
   )
 );
 
-create index attachments_user_subject_idx on public.attachments (user_id, subject_id, kind);
-create index attachments_activity_idx on public.attachments (activity_id) where activity_id is not null;
+create index if not exists attachments_user_subject_idx on public.attachments (user_id, subject_id, kind);
+create index if not exists attachments_activity_idx on public.attachments (activity_id) where activity_id is not null;
 
+drop trigger if exists attachments_set_updated_at on public.attachments;
 create trigger attachments_set_updated_at before update on public.attachments
   for each row execute function public.set_updated_at();
 
 alter table public.attachments enable row level security;
 
+drop policy if exists attachments_all_own on public.attachments;
 create policy attachments_all_own on public.attachments
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());

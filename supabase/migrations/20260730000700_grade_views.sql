@@ -24,7 +24,7 @@
 -- ------------------------------------------------- v_subject_terms_resolved --
 -- Resolves each subject×term to its effective grading scheme (own, else the
 -- user's default) and denormalizes the labels every screen needs.
-create view public.v_subject_terms_resolved
+create or replace view public.v_subject_terms_resolved
 with (security_invoker = true) as
 select
   st.id as subject_term_id,
@@ -63,7 +63,7 @@ join public.grading_schemes gs on gs.id = coalesce(st.scheme_id, def.id);
 
 -- ---------------------------------------------------- v_activities_effective --
 -- Every activity plus the derived facts the average depends on.
-create view public.v_activities_effective
+create or replace view public.v_activities_effective
 with (security_invoker = true) as
 with scaled as (
   select
@@ -136,7 +136,7 @@ left join eligible_rank er on er.id = s.id;
 -- ------------------------------------------------------ v_category_averages --
 -- Every category of the scheme appears, even with zero activities, so the UI
 -- can render "Qualitativa — nada lançado" instead of hiding it.
-create view public.v_category_averages
+create or replace view public.v_category_averages
 with (security_invoker = true) as
 select
   r.user_id,
@@ -171,7 +171,7 @@ group by
   gsc.sequence, gsc.weight_percent, gsc.drop_lowest;
 
 -- ------------------------------------------------- v_subject_term_averages --
-create view public.v_subject_term_averages
+create or replace view public.v_subject_term_averages
 with (security_invoker = true) as
 with agg as (
   select
@@ -232,7 +232,7 @@ join public.v_subject_terms_resolved r on r.subject_term_id = agg.subject_term_i
 -- Feeds the "Como estou?" header: one row per term.
 -- Subjects weigh equally in the overall average — no school weighs Matemática
 -- above Artes for the bulletin mean, and pretending otherwise would surprise.
-create view public.v_term_summary
+create or replace view public.v_term_summary
 with (security_invoker = true) as
 select
   sta.user_id,

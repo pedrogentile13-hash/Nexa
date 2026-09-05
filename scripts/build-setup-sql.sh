@@ -12,8 +12,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${ROOT}/supabase/setup-completo.sql"
 
-TABLES=$(grep -ho "^create table public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l)
-VIEWS=$(grep -hoE "^create (or replace )?view public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l)
+# `|| true`: com `set -e` + `pipefail`, um grep sem casamento derruba o script
+# ANTES de ele escrever o arquivo — foi assim que a geração passou a falhar em
+# silêncio quando as migrations ganharam `if not exists`.
+TABLES=$(grep -hoE "^create table (if not exists )?public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l || true)
+VIEWS=$(grep -hoE "^create (or replace )?view public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l || true)
 
 {
   cat <<HEADER
@@ -25,9 +28,12 @@ VIEWS=$(grep -hoE "^create (or replace )?view public\.[a-z_]*" "${ROOT}"/supabas
 --   2. Menu lateral → SQL Editor → New query
 --   3. Cole TUDO isto e clique em Run
 --
--- É seguro rodar em um projeto novo e vazio, e também em um já configurado:
--- tudo é idempotente. Cria as ${TABLES} tabelas, as políticas de RLS, as ${VIEWS} views,
--- as funções e o conteúdo inicial (disciplinas, conquistas e biblioteca).
+-- SEGURO RODAR QUANTAS VEZES QUISER. Em projeto novo, cria tudo; em projeto que
+-- já rodou uma versão anterior, adiciona só o que falta e deixa o resto como
+-- está. Nenhum dado seu é apagado — nem notas, nem rotina, nem conteúdo.
+--
+-- Cria as ${TABLES} tabelas, as políticas de RLS, as ${VIEWS} views, as funções e o
+-- conteúdo inicial (matérias, conquistas e a biblioteca de estudo).
 --
 -- DEPOIS DE RODAR, para virar administrador do painel /admin, rode também:
 --

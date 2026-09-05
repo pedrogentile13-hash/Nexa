@@ -11,7 +11,7 @@
 -- --------------------------------------------------- progresso genérico ----
 -- Serve resumo (percentual lido), podcast/vídeo (segundo em que parou) e
 -- imagem (visto). Uma linha por aluno × recurso.
-create table public.resource_progress (
+create table if not exists public.resource_progress (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   resource_id uuid not null references public.resources (id) on delete cascade,
@@ -23,20 +23,22 @@ create table public.resource_progress (
   updated_at timestamptz not null default now()
 );
 
-create unique index resource_progress_pair_uq on public.resource_progress (user_id, resource_id);
+create unique index if not exists resource_progress_pair_uq on public.resource_progress (user_id, resource_id);
 -- "Continuar de onde parou" é uma consulta por aluno ordenada por recência.
-create index resource_progress_recent_idx on public.resource_progress (user_id, last_seen_at desc);
+create index if not exists resource_progress_recent_idx on public.resource_progress (user_id, last_seen_at desc);
 
+drop trigger if exists resource_progress_set_updated_at on public.resource_progress;
 create trigger resource_progress_set_updated_at before update on public.resource_progress
   for each row execute function public.set_updated_at();
 
 alter table public.resource_progress enable row level security;
 
+drop policy if exists resource_progress_all_own on public.resource_progress;
 create policy resource_progress_all_own on public.resource_progress
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ------------------------------------------------------- tentativas --------
-create table public.quiz_attempts (
+create table if not exists public.quiz_attempts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   resource_id uuid not null references public.resources (id) on delete cascade,
@@ -49,14 +51,15 @@ create table public.quiz_attempts (
   constraint quiz_attempts_count_sane check (correct_count <= total_count)
 );
 
-create index quiz_attempts_user_idx on public.quiz_attempts (user_id, resource_id, started_at desc);
+create index if not exists quiz_attempts_user_idx on public.quiz_attempts (user_id, resource_id, started_at desc);
 
 alter table public.quiz_attempts enable row level security;
 
+drop policy if exists quiz_attempts_all_own on public.quiz_attempts;
 create policy quiz_attempts_all_own on public.quiz_attempts
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
-create table public.quiz_answers (
+create table if not exists public.quiz_answers (
   id uuid primary key default gen_random_uuid(),
   attempt_id uuid not null references public.quiz_attempts (id) on delete cascade,
   question_id uuid not null references public.questions (id) on delete cascade,
@@ -65,19 +68,20 @@ create table public.quiz_answers (
   answered_at timestamptz not null default now()
 );
 
-create unique index quiz_answers_pair_uq on public.quiz_answers (attempt_id, question_id);
+create unique index if not exists quiz_answers_pair_uq on public.quiz_answers (attempt_id, question_id);
 
 alter table public.quiz_answers enable row level security;
 
 -- A tentativa é do aluno, logo a resposta também é. A checagem sobe pelo
 -- attempt para não repetir `user_id` numa segunda coluna que pode divergir.
+drop policy if exists quiz_answers_all_own on public.quiz_answers;
 create policy quiz_answers_all_own on public.quiz_answers
   for all to authenticated
   using (exists (select 1 from public.quiz_attempts a where a.id = attempt_id and a.user_id = auth.uid()))
   with check (exists (select 1 from public.quiz_attempts a where a.id = attempt_id and a.user_id = auth.uid()));
 
 -- ------------------------------------------------ progresso na trilha ------
-create table public.lesson_progress (
+create table if not exists public.lesson_progress (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   lesson_id uuid not null references public.track_lessons (id) on delete cascade,
@@ -92,18 +96,20 @@ create table public.lesson_progress (
   created_at timestamptz not null default now()
 );
 
-create unique index lesson_progress_pair_uq on public.lesson_progress (user_id, lesson_id);
+create unique index if not exists lesson_progress_pair_uq on public.lesson_progress (user_id, lesson_id);
 
+drop trigger if exists lesson_progress_set_updated_at on public.lesson_progress;
 create trigger lesson_progress_set_updated_at before update on public.lesson_progress
   for each row execute function public.set_updated_at();
 
 alter table public.lesson_progress enable row level security;
 
+drop policy if exists lesson_progress_all_own on public.lesson_progress;
 create policy lesson_progress_all_own on public.lesson_progress
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ------------------------------------------------------- marcações ---------
-create table public.highlights (
+create table if not exists public.highlights (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   resource_id uuid not null references public.resources (id) on delete cascade,
@@ -112,15 +118,16 @@ create table public.highlights (
   created_at timestamptz not null default now()
 );
 
-create index highlights_user_resource_idx on public.highlights (user_id, resource_id);
+create index if not exists highlights_user_resource_idx on public.highlights (user_id, resource_id);
 
 alter table public.highlights enable row level security;
 
+drop policy if exists highlights_all_own on public.highlights;
 create policy highlights_all_own on public.highlights
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- --------------------------------------------------- flashcards ------------
-create table public.flashcard_reviews (
+create table if not exists public.flashcard_reviews (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   resource_id uuid not null references public.resources (id) on delete cascade,
@@ -128,10 +135,11 @@ create table public.flashcard_reviews (
   reviewed_at timestamptz not null default now()
 );
 
-create index flashcard_reviews_user_idx on public.flashcard_reviews (user_id, resource_id, reviewed_at desc);
+create index if not exists flashcard_reviews_user_idx on public.flashcard_reviews (user_id, resource_id, reviewed_at desc);
 
 alter table public.flashcard_reviews enable row level security;
 
+drop policy if exists flashcard_reviews_all_own on public.flashcard_reviews;
 create policy flashcard_reviews_all_own on public.flashcard_reviews
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 

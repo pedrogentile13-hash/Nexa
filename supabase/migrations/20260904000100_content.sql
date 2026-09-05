@@ -79,10 +79,12 @@ end;
 $$;
 
 drop trigger if exists profiles_guard_role on public.profiles;
+drop trigger if exists profiles_guard_role on public.profiles;
 create trigger profiles_guard_role before update on public.profiles
   for each row execute function public.guard_profile_role();
 
 -- Escolas passam a ser gerenciáveis pelo painel.
+drop policy if exists schools_manage_admin on public.schools;
 drop policy if exists schools_manage_admin on public.schools;
 create policy schools_manage_admin on public.schools
   for all to authenticated
@@ -90,10 +92,12 @@ create policy schools_manage_admin on public.schools
 
 -- Catálogo de matérias também: o admin cria matérias novas pelo painel.
 drop policy if exists subject_catalog_manage_admin on public.subject_catalog;
+drop policy if exists subject_catalog_manage_admin on public.subject_catalog;
 create policy subject_catalog_manage_admin on public.subject_catalog
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- Admin precisa enxergar as linhas despublicadas/inativas que ele mesmo edita.
+drop policy if exists subject_catalog_select_admin on public.subject_catalog;
 drop policy if exists subject_catalog_select_admin on public.subject_catalog;
 create policy subject_catalog_select_admin on public.subject_catalog
   for select to authenticated using (public.is_admin());
@@ -101,7 +105,7 @@ create policy subject_catalog_select_admin on public.subject_catalog
 -- ------------------------------------------------------------- assuntos ----
 -- "Cinemática" dentro de Física. É o que liga o erro do simulado ao resumo
 -- certo na tela de resultado — sem assunto, "o que revisar" não existe.
-create table public.content_topics (
+create table if not exists public.content_topics (
   id uuid primary key default gen_random_uuid(),
   school_id uuid references public.schools (id) on delete cascade,
   subject_catalog_id uuid not null references public.subject_catalog (id) on delete cascade,
@@ -115,26 +119,29 @@ create table public.content_topics (
   updated_at timestamptz not null default now()
 );
 
-create unique index content_topics_scope_slug_uq
+create unique index if not exists content_topics_scope_slug_uq
   on public.content_topics (subject_catalog_id, coalesce(school_id, '00000000-0000-0000-0000-000000000000'::uuid), slug);
-create index content_topics_subject_idx on public.content_topics (subject_catalog_id, sort_order);
+create index if not exists content_topics_subject_idx on public.content_topics (subject_catalog_id, sort_order);
 
+drop trigger if exists content_topics_set_updated_at on public.content_topics;
 create trigger content_topics_set_updated_at before update on public.content_topics
   for each row execute function public.set_updated_at();
 
 alter table public.content_topics enable row level security;
 
+drop policy if exists content_topics_select_visible on public.content_topics;
 create policy content_topics_select_visible on public.content_topics
   for select to authenticated
   using (school_id is null or school_id = public.current_school_id() or public.can_manage_school(school_id));
 
+drop policy if exists content_topics_manage on public.content_topics;
 create policy content_topics_manage on public.content_topics
   for all to authenticated
   using (public.can_manage_school(school_id) or public.is_admin())
   with check (public.can_manage_school(school_id) or public.is_admin());
 
 -- ------------------------------------------------------------- recursos ----
-create table public.resources (
+create table if not exists public.resources (
   id uuid primary key default gen_random_uuid(),
   school_id uuid references public.schools (id) on delete cascade,
   subject_catalog_id uuid not null references public.subject_catalog (id) on delete cascade,
@@ -181,12 +188,13 @@ create table public.resources (
   )
 );
 
-create index resources_library_idx
+create index if not exists resources_library_idx
   on public.resources (subject_catalog_id, kind, sort_order) where is_published;
-create index resources_school_idx on public.resources (school_id) where school_id is not null;
-create index resources_topic_idx on public.resources (topic_id) where topic_id is not null;
-create index resources_title_trgm_idx on public.resources using gin (title gin_trgm_ops);
+create index if not exists resources_school_idx on public.resources (school_id) where school_id is not null;
+create index if not exists resources_topic_idx on public.resources (topic_id) where topic_id is not null;
+create index if not exists resources_title_trgm_idx on public.resources using gin (title gin_trgm_ops);
 
+drop trigger if exists resources_set_updated_at on public.resources;
 create trigger resources_set_updated_at before update on public.resources
   for each row execute function public.set_updated_at();
 
@@ -204,11 +212,13 @@ begin
 end;
 $$;
 
+drop trigger if exists resources_stamp_published on public.resources;
 create trigger resources_stamp_published before insert or update on public.resources
   for each row execute function public.stamp_published_at();
 
 alter table public.resources enable row level security;
 
+drop policy if exists resources_select_visible on public.resources;
 create policy resources_select_visible on public.resources
   for select to authenticated
   using (
@@ -217,6 +227,7 @@ create policy resources_select_visible on public.resources
     or public.is_admin()
   );
 
+drop policy if exists resources_manage on public.resources;
 create policy resources_manage on public.resources
   for all to authenticated
   using (public.can_manage_school(school_id) or public.is_admin())
@@ -224,7 +235,7 @@ create policy resources_manage on public.resources
 
 -- --------------------------------------------------------- capítulos -------
 -- Marcadores de tempo do podcast e do vídeo ("Estado Novo · 7:40").
-create table public.resource_chapters (
+create table if not exists public.resource_chapters (
   id uuid primary key default gen_random_uuid(),
   resource_id uuid not null references public.resources (id) on delete cascade,
   position integer not null check (position >= 0),
@@ -233,14 +244,16 @@ create table public.resource_chapters (
   created_at timestamptz not null default now()
 );
 
-create unique index resource_chapters_pos_uq on public.resource_chapters (resource_id, position);
+create unique index if not exists resource_chapters_pos_uq on public.resource_chapters (resource_id, position);
 
 alter table public.resource_chapters enable row level security;
 
+drop policy if exists resource_chapters_select_visible on public.resource_chapters;
 create policy resource_chapters_select_visible on public.resource_chapters
   for select to authenticated
   using (exists (select 1 from public.resources r where r.id = resource_id));
 
+drop policy if exists resource_chapters_manage on public.resource_chapters;
 create policy resource_chapters_manage on public.resource_chapters
   for all to authenticated
   using (exists (
@@ -253,7 +266,7 @@ create policy resource_chapters_manage on public.resource_chapters
   ));
 
 -- --------------------------------------------------------- questões --------
-create table public.questions (
+create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),
   resource_id uuid not null references public.resources (id) on delete cascade,
   topic_id uuid references public.content_topics (id) on delete set null,
@@ -267,9 +280,10 @@ create table public.questions (
   updated_at timestamptz not null default now()
 );
 
-create unique index questions_position_uq on public.questions (resource_id, position);
-create index questions_topic_idx on public.questions (topic_id) where topic_id is not null;
+create unique index if not exists questions_position_uq on public.questions (resource_id, position);
+create index if not exists questions_topic_idx on public.questions (topic_id) where topic_id is not null;
 
+drop trigger if exists questions_set_updated_at on public.questions;
 create trigger questions_set_updated_at before update on public.questions
   for each row execute function public.set_updated_at();
 
@@ -280,6 +294,7 @@ alter table public.questions enable row level security;
 -- tabela seria o gabarito disponível antes de responder. O aluno recebe as
 -- questões pela função `quiz_questions()`, que devolve enunciado e
 -- alternativas sem o gabarito. A policy abaixo (FOR ALL) cobre o admin.
+drop policy if exists questions_manage on public.questions;
 create policy questions_manage on public.questions
   for all to authenticated
   using (exists (
@@ -292,7 +307,7 @@ create policy questions_manage on public.questions
   ));
 
 -- ------------------------------------------------------- alternativas ------
-create table public.question_options (
+create table if not exists public.question_options (
   id uuid primary key default gen_random_uuid(),
   question_id uuid not null references public.questions (id) on delete cascade,
   position integer not null check (position > 0),
@@ -301,15 +316,16 @@ create table public.question_options (
   created_at timestamptz not null default now()
 );
 
-create unique index question_options_position_uq on public.question_options (question_id, position);
+create unique index if not exists question_options_position_uq on public.question_options (question_id, position);
 -- Uma questão de múltipla escolha tem exatamente uma resposta certa. Índice
 -- parcial único: o banco recusa a segunda antes que ela vire um bug de correção.
-create unique index question_options_single_correct_uq
+create unique index if not exists question_options_single_correct_uq
   on public.question_options (question_id) where is_correct;
 
 alter table public.question_options enable row level security;
 
 -- Mesma razão: `is_correct` nesta tabela É o gabarito.
+drop policy if exists question_options_manage on public.question_options;
 create policy question_options_manage on public.question_options
   for all to authenticated
   using (exists (
@@ -322,7 +338,7 @@ create policy question_options_manage on public.question_options
   ));
 
 -- --------------------------------------------------------- trilhas ---------
-create table public.tracks (
+create table if not exists public.tracks (
   id uuid primary key default gen_random_uuid(),
   school_id uuid references public.schools (id) on delete cascade,
   subject_catalog_id uuid not null references public.subject_catalog (id) on delete cascade,
@@ -336,13 +352,15 @@ create table public.tracks (
   updated_at timestamptz not null default now()
 );
 
-create index tracks_subject_idx on public.tracks (subject_catalog_id) where is_published;
+create index if not exists tracks_subject_idx on public.tracks (subject_catalog_id) where is_published;
 
+drop trigger if exists tracks_set_updated_at on public.tracks;
 create trigger tracks_set_updated_at before update on public.tracks
   for each row execute function public.set_updated_at();
 
 alter table public.tracks enable row level security;
 
+drop policy if exists tracks_select_visible on public.tracks;
 create policy tracks_select_visible on public.tracks
   for select to authenticated
   using (
@@ -350,12 +368,13 @@ create policy tracks_select_visible on public.tracks
     or public.can_manage_school(school_id) or public.is_admin()
   );
 
+drop policy if exists tracks_manage on public.tracks;
 create policy tracks_manage on public.tracks
   for all to authenticated
   using (public.can_manage_school(school_id) or public.is_admin())
   with check (public.can_manage_school(school_id) or public.is_admin());
 
-create table public.track_sections (
+create table if not exists public.track_sections (
   id uuid primary key default gen_random_uuid(),
   track_id uuid not null references public.tracks (id) on delete cascade,
   position integer not null check (position > 0),
@@ -363,14 +382,16 @@ create table public.track_sections (
   created_at timestamptz not null default now()
 );
 
-create unique index track_sections_position_uq on public.track_sections (track_id, position);
+create unique index if not exists track_sections_position_uq on public.track_sections (track_id, position);
 
 alter table public.track_sections enable row level security;
 
+drop policy if exists track_sections_select_visible on public.track_sections;
 create policy track_sections_select_visible on public.track_sections
   for select to authenticated
   using (exists (select 1 from public.tracks t where t.id = track_id));
 
+drop policy if exists track_sections_manage on public.track_sections;
 create policy track_sections_manage on public.track_sections
   for all to authenticated
   using (exists (
@@ -385,7 +406,7 @@ create policy track_sections_manage on public.track_sections
 -- O nó da trilha. `unlock_after_lesson_id` é o que desenha o caminho: sem ele
 -- a trilha vira uma lista, e "bloqueado · conclua MUV antes" não tem como ser
 -- calculado.
-create table public.track_lessons (
+create table if not exists public.track_lessons (
   id uuid primary key default gen_random_uuid(),
   section_id uuid not null references public.track_sections (id) on delete cascade,
   position integer not null check (position > 0),
@@ -398,17 +419,20 @@ create table public.track_lessons (
   updated_at timestamptz not null default now()
 );
 
-create unique index track_lessons_position_uq on public.track_lessons (section_id, position);
+create unique index if not exists track_lessons_position_uq on public.track_lessons (section_id, position);
 
+drop trigger if exists track_lessons_set_updated_at on public.track_lessons;
 create trigger track_lessons_set_updated_at before update on public.track_lessons
   for each row execute function public.set_updated_at();
 
 alter table public.track_lessons enable row level security;
 
+drop policy if exists track_lessons_select_visible on public.track_lessons;
 create policy track_lessons_select_visible on public.track_lessons
   for select to authenticated
   using (exists (select 1 from public.track_sections s where s.id = section_id));
 
+drop policy if exists track_lessons_manage on public.track_lessons;
 create policy track_lessons_manage on public.track_lessons
   for all to authenticated
   using (exists (
@@ -421,7 +445,7 @@ create policy track_lessons_manage on public.track_lessons
   ));
 
 -- A lição é uma sequência de recursos: resumo → vídeo → quiz.
-create table public.track_lesson_resources (
+create table if not exists public.track_lesson_resources (
   id uuid primary key default gen_random_uuid(),
   lesson_id uuid not null references public.track_lessons (id) on delete cascade,
   resource_id uuid not null references public.resources (id) on delete cascade,
@@ -429,15 +453,17 @@ create table public.track_lesson_resources (
   is_required boolean not null default true
 );
 
-create unique index track_lesson_resources_position_uq on public.track_lesson_resources (lesson_id, position);
-create unique index track_lesson_resources_pair_uq on public.track_lesson_resources (lesson_id, resource_id);
+create unique index if not exists track_lesson_resources_position_uq on public.track_lesson_resources (lesson_id, position);
+create unique index if not exists track_lesson_resources_pair_uq on public.track_lesson_resources (lesson_id, resource_id);
 
 alter table public.track_lesson_resources enable row level security;
 
+drop policy if exists track_lesson_resources_select_visible on public.track_lesson_resources;
 create policy track_lesson_resources_select_visible on public.track_lesson_resources
   for select to authenticated
   using (exists (select 1 from public.track_lessons l where l.id = lesson_id));
 
+drop policy if exists track_lesson_resources_manage on public.track_lesson_resources;
 create policy track_lesson_resources_manage on public.track_lesson_resources
   for all to authenticated
   using (exists (

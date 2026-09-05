@@ -37,7 +37,18 @@ echo "→ seed"
 run "${ROOT}/supabase/seed.sql"
 
 echo "→ tests"
-for f in "${ROOT}"/supabase/tests/[1-9]*.sql; do
+for f in "${ROOT}"/supabase/tests/[12]*.sql; do
+  echo "   $(basename "$f")"
+  run "$f"
+done
+
+# Reaplica o setup COM DADOS DENTRO. É o caminho real de instalação: ninguém
+# roda o SQL num banco vazio duas vezes, mas muita gente roda a versão nova por
+# cima de uma antiga — e é aí que um `create table` sem guarda derruba tudo.
+echo "→ reaplicação do setup-completo.sql sobre um banco já povoado"
+run "${ROOT}/supabase/setup-completo.sql"
+
+for f in "${ROOT}"/supabase/tests/3*.sql; do
   echo "   $(basename "$f")"
   run "$f"
 done

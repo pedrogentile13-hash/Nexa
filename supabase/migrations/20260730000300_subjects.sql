@@ -10,7 +10,7 @@
 -- ============================================================================
 
 -- --------------------------------------------------------- subject_catalog --
-create table public.subject_catalog (
+create table if not exists public.subject_catalog (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
   name text not null,
@@ -25,17 +25,18 @@ create table public.subject_catalog (
   created_at timestamptz not null default now()
 );
 
-create index subject_catalog_active_idx on public.subject_catalog (sort_order) where is_active;
-create index subject_catalog_name_trgm_idx on public.subject_catalog using gin (name gin_trgm_ops);
+create index if not exists subject_catalog_active_idx on public.subject_catalog (sort_order) where is_active;
+create index if not exists subject_catalog_name_trgm_idx on public.subject_catalog using gin (name gin_trgm_ops);
 
 alter table public.subject_catalog enable row level security;
 
 -- Read-only reference data. Writes happen through migrations/seed only.
+drop policy if exists subject_catalog_select_authenticated on public.subject_catalog;
 create policy subject_catalog_select_authenticated on public.subject_catalog
   for select to authenticated using (is_active);
 
 -- --------------------------------------------------------------- subjects --
-create table public.subjects (
+create table if not exists public.subjects (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   catalog_id uuid references public.subject_catalog (id) on delete set null,
@@ -53,16 +54,18 @@ create table public.subjects (
   updated_at timestamptz not null default now()
 );
 
-create index subjects_user_idx on public.subjects (user_id) where archived_at is null;
-create index subjects_user_sort_idx on public.subjects (user_id, sort_order);
+create index if not exists subjects_user_idx on public.subjects (user_id) where archived_at is null;
+create index if not exists subjects_user_sort_idx on public.subjects (user_id, sort_order);
 -- No two active subjects with the same name for the same student.
-create unique index subjects_user_name_active_uq
+create unique index if not exists subjects_user_name_active_uq
   on public.subjects (user_id, lower(btrim(name))) where archived_at is null;
 
+drop trigger if exists subjects_set_updated_at on public.subjects;
 create trigger subjects_set_updated_at before update on public.subjects
   for each row execute function public.set_updated_at();
 
 alter table public.subjects enable row level security;
 
+drop policy if exists subjects_all_own on public.subjects;
 create policy subjects_all_own on public.subjects
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
