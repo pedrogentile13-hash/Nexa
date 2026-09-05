@@ -52,11 +52,18 @@ export function BottomNav() {
                   active ? 'text-brand-text' : 'text-subtle hover:text-muted',
                 )}
               >
-                <Icon
-                  className={cn('size-[22px] transition-transform', active && 'scale-110')}
+                {/* Pastilha atrás do ícone, como no kit. Ela marca o item ativo
+                    sem depender só da cor — quem não distingue azul de cinza
+                    ainda enxerga a forma. */}
+                <span
                   aria-hidden
-                  strokeWidth={active ? 2.4 : 1.9}
-                />
+                  className={cn(
+                    'grid h-7 w-12 place-items-center rounded-full transition-colors',
+                    active ? 'bg-brand-soft' : 'bg-transparent',
+                  )}
+                >
+                  <Icon className="size-[21px]" aria-hidden strokeWidth={active ? 2.4 : 1.9} />
+                </span>
                 <span
                   className={cn(
                     'text-[10.5px] leading-none',

@@ -62,7 +62,7 @@ export function Checklist({ routines }: { routines: TodayRoutine[] }) {
               <span className="min-w-0 flex-1">
                 <span
                   className={cn(
-                    'block truncate text-sm font-medium transition-colors',
+                    'block text-sm leading-snug font-medium transition-colors',
                     done ? 'text-success line-through decoration-1' : 'text-text',
                   )}
                 >

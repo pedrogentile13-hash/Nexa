@@ -252,3 +252,48 @@ describe('scoreCandidate', () => {
     expect(result.reason).toBeTruthy();
   });
 });
+
+describe('explain · limite de tamanho', () => {
+  it('não passa de três fatos, mesmo quando há mais para dizer', () => {
+    // Uma prova amanhã, pesada, de disciplina abaixo da média, com aula hoje:
+    // quatro razões verdadeiras. O cartão só comporta duas linhas.
+    const reason = explain(
+      {
+        id: 'x',
+        kind: 'assessment',
+        title: 'Cinemática',
+        subjectId: 's1',
+        subjectName: 'Física',
+        subjectColor: 'orange',
+        dueDate: '2026-09-04',
+        categoryWeightPercent: 40,
+        categoryCode: 'PB',
+        itemWeight: 1,
+        subjectAverage: 4.2,
+        subjectTarget: 8,
+        passingGrade: 6,
+        hasClassToday: true,
+      },
+      1,
+    );
+
+    expect(reason.split(' · ')).toHaveLength(3);
+    expect(reason).toBe('É amanhã · PB vale 40% da média · disciplina abaixo da média');
+  });
+
+  it('mantém a frase inteira quando há menos de três fatos', () => {
+    const reason = explain(
+      {
+        id: 'y',
+        kind: 'task',
+        title: 'Lista',
+        subjectId: null,
+        subjectName: null,
+        subjectColor: null,
+        dueDate: '2026-09-04',
+      },
+      0,
+    );
+    expect(reason).toBe('É hoje');
+  });
+});

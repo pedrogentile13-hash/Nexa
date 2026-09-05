@@ -1,3 +1,4 @@
+import { Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -48,15 +49,20 @@ export function GradientHeader({
 /**
  * Contador de sequência sobre o degradê.
  *
- * A superfície translúcida acompanha o degradê em vez de brigar com ele: uma
- * pastilha sólida no meio da faixa vira um recorte, e recorte chama mais
- * atenção que o número que ele deveria destacar.
+ * Âmbar, como no kit, e não branco translúcido: a sequência é a única coisa no
+ * cabeçalho que muda por mérito do aluno, e o contraste quente é o que a
+ * separa do azul institucional atrás dela. O fundo é semi-opaco para o número
+ * não perder legibilidade sobre a parte clara do degradê.
  */
 export function HeaderStreak({ streak }: { streak: number }) {
   if (streak <= 0) return null;
 
   return (
-    <span className="flex shrink-0 items-center gap-2 rounded-full bg-white/15 px-3 py-2 backdrop-blur-sm">
+    <span
+      className="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 backdrop-blur-sm"
+      style={{ backgroundColor: 'rgba(251, 191, 36, 0.22)' }}
+    >
+      <Flame className="size-4 shrink-0" style={{ color: '#fbbf24' }} aria-hidden />
       <span className="text-lg leading-none font-semibold tabular-nums">{streak}</span>
       <span className="text-[11px] leading-tight opacity-90">
         dias

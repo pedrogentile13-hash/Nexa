@@ -6,10 +6,12 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { env } from '@/lib/env';
 import { safeNext } from '../lib/safe-next';
-import { authErrorMessage } from '../lib/auth-errors';
+import { authErrorMessage, isConfigurationError } from '../lib/auth-errors';
 import {
   magicLinkSchema,
+  newPasswordSchema,
   parseAuthMode,
+  recoverSchema,
   signInSchema,
   signUpSchema,
   type AuthFormState,
@@ -190,6 +192,78 @@ export async function signInWithGoogle(formData: FormData): Promise<void> {
   // `data.url` aponta para o accounts.google.com — externo por definição, então
   // não é (nem pode ser) uma rota tipada do app.
   redirect(data.url as Route);
+}
+
+/**
+ * Pede o e-mail de recuperação.
+ *
+ * Responde 'sent' mesmo quando o e-mail não tem conta. Dizer "esse e-mail não
+ * existe" transforma a tela num verificador de cadastro: qualquer pessoa
+ * descobriria quais endereços têm conta no Nexa, um por vez.
+ */
+export async function requestPasswordReset(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const parsed = recoverSchema.safeParse({ email: formData.get('email') });
+  if (!parsed.success) {
+    return invalid(parsed.error.issues[0]?.message ?? 'Verifique o e-mail.', 'signin', 'email');
+  }
+
+  const supabase = await createClient();
+  const origin = await currentOrigin();
+
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${origin}/auth/confirm?next=${encodeURIComponent('/redefinir-senha')}`,
+  });
+
+  // Só erro de infraestrutura aparece — limite de envio, SMTP fora do ar. Um
+  // "não encontrei esse e-mail" seria a fuga de informação descrita acima.
+  if (error && isConfigurationError(error)) {
+    return invalid(authErrorMessage(error), 'signin');
+  }
+
+  return { status: 'sent', email: parsed.data.email };
+}
+
+/**
+ * Grava a nova senha.
+ *
+ * Depende da sessão de recuperação que o link do e-mail acabou de criar — por
+ * isso não pede a senha antiga: quem esquece não tem como informá-la, e exigir
+ * isso tornaria a recuperação impossível justamente para quem precisa dela.
+ */
+export async function setNewPassword(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const parsed = newPasswordSchema.safeParse({
+    password: formData.get('password'),
+    confirm: formData.get('confirm'),
+  });
+
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return invalid(
+      issue?.message ?? 'Confira a senha.',
+      'signin',
+      issue?.path[0] === 'confirm' ? 'password' : 'password',
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return invalid('Este link expirou. Peça um novo e-mail de recuperação.', 'signin');
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) return invalid(authErrorMessage(error), 'signin', 'password');
+
+  redirect('/hoje');
 }
 
 export async function signOut(): Promise<void> {

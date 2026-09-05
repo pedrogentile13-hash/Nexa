@@ -4,7 +4,19 @@ import { env } from '@/lib/env';
 import type { Database } from '@/types/database.types';
 
 /** Reachable without a session. */
-const PUBLIC_PREFIXES = ['/login', '/auth', '/manifest.webmanifest', '/icon', '/apple-icon'];
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/recuperar-senha',
+  // `/redefinir-senha` roda COM sessão (a de recuperação, criada pelo link do
+  // e-mail), mas fica aqui porque o aluno que chega nela ainda não passou pelo
+  // onboarding em muitos casos — e a regra de onboarding o mandaria para
+  // /bem-vindo antes de ele conseguir trocar a senha.
+  '/redefinir-senha',
+  '/auth',
+  '/manifest.webmanifest',
+  '/icon',
+  '/apple-icon',
+];
 
 const ONBOARDING_PATH = '/bem-vindo';
 const HOME_PATH = '/hoje';

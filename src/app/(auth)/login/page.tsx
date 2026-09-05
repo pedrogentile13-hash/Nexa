@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { GraduationCap } from 'lucide-react';
 import { LoginForm } from '@/features/auth/components/login-form';
 import { safeNext } from '@/features/auth/lib/safe-next';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -17,25 +18,42 @@ export default async function LoginPage({
   const next = safeNext(params.next);
 
   return (
-    <main className="pt-safe pb-safe flex min-h-dvh flex-col px-5">
-      <div className="flex justify-end py-4">
-        <ThemeToggle />
-      </div>
-
-      <div className="flex flex-1 flex-col justify-center pb-16">
+    <main className="pb-safe flex min-h-dvh flex-col">
+      {/* Bloco de marca em degradê, como o kit desenha. Ele encosta no topo da
+          tela e some sob a barra de status — é o que faz a primeira tela
+          parecer app, e não formulário de site. */}
+      <header
+        className="pt-safe rounded-b-[20px] px-6 pt-6 pb-8"
+        style={{ background: 'var(--gradient-header)', color: 'var(--gradient-header-fg)' }}
+      >
         <div className="mx-auto w-full max-w-sm">
-          <div className="mb-8 text-center">
-            <span
-              aria-hidden
-              className="bg-brand text-brand-fg mx-auto mb-4 grid size-14 place-items-center rounded-2xl text-2xl font-bold"
-            >
-              N
-            </span>
-            <h1 className="text-2xl font-semibold tracking-tight">Entrar no Nexa</h1>
-            <p className="text-muted mt-1.5 text-sm">Sua vida acadêmica organizada em um lugar.</p>
-          </div>
+          <span
+            aria-hidden
+            className="grid size-12 place-items-center rounded-2xl bg-white/15 backdrop-blur-sm"
+          >
+            <GraduationCap className="size-6" />
+          </span>
 
+          <h1 className="mt-5 text-3xl leading-none font-semibold tracking-tight">Nexa</h1>
+          <p className="mt-2 text-sm leading-relaxed opacity-90">
+            Seu sistema operacional acadêmico.
+            <br />
+            Rotina, notas e material em um lugar.
+          </p>
+        </div>
+      </header>
+
+      <div className="flex-1 px-5 pt-6 pb-8">
+        <div className="mx-auto w-full max-w-sm">
           <LoginForm next={next} initialError={params.erro} />
+
+          {/* O kit não põe troca de tema no login. Ela fica aqui embaixo, fora
+              do caminho: quem precisa do modo escuro por conforto visual precisa
+              dele ANTES de entrar, e o único outro lugar onde ele existe é o
+              Perfil — atrás justamente desta tela. */}
+          <div className="mt-10 flex justify-center">
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </main>

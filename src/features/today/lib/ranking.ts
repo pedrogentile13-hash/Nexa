@@ -175,7 +175,10 @@ export function explain(candidate: FocusCandidate, daysUntilDue: number | null):
 
   if (parts.length === 0) return 'sem data marcada';
 
-  const sentence = parts.join(' · ');
+  // Três fatos, no máximo. A frase existe para ser lida de relance; a quarta
+  // razão empurra o cartão para quatro linhas e o aluno passa a pular a leitura
+  // — que é o oposto do que o ranking explicável tenta conseguir.
+  const sentence = parts.slice(0, 3).join(' · ');
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 

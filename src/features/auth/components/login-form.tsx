@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Eye, EyeOff, Loader2, Lock, LogIn, Mail, MailCheck, UserPlus } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, MailCheck, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,19 +35,40 @@ function GoogleIcon() {
   );
 }
 
-const LABELS: Record<AuthMode, { cta: string; pending: string; icon: typeof LogIn }> = {
-  signin: { cta: 'Entrar', pending: 'Entrando…', icon: LogIn },
+const LABELS: Record<
+  AuthMode,
+  { cta: string; pending: string; icon: typeof ArrowRight; trailing?: boolean }
+> = {
+  signin: { cta: 'Entrar', pending: 'Entrando…', icon: ArrowRight, trailing: true },
   signup: { cta: 'Criar minha conta', pending: 'Criando…', icon: UserPlus },
   magic: { cta: 'Enviar link de acesso', pending: 'Enviando…', icon: Mail },
 };
 
 function SubmitButton({ mode }: { mode: AuthMode }) {
   const { pending } = useFormStatus();
-  const { cta, pending: pendingLabel, icon: Icon } = LABELS[mode];
+  const { cta, pending: pendingLabel, icon: Icon, trailing } = LABELS[mode];
+
+  // No "Entrar" a seta vem DEPOIS do texto, como no kit: ela aponta para
+  // frente, e um ícone à esquerda apontando para a direita empurra a leitura
+  // para trás.
   return (
     <Button type="submit" size="lg" className="w-full" disabled={pending}>
-      {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Icon aria-hidden />}
-      {pending ? pendingLabel : cta}
+      {pending ? (
+        <>
+          <Loader2 className="animate-spin" aria-hidden />
+          {pendingLabel}
+        </>
+      ) : trailing ? (
+        <>
+          {cta}
+          <Icon aria-hidden />
+        </>
+      ) : (
+        <>
+          <Icon aria-hidden />
+          {cta}
+        </>
+      )}
     </Button>
   );
 }
@@ -97,8 +119,10 @@ function ModeTabs({ mode, onChange }: { mode: AuthMode; onChange: (mode: AuthMod
           aria-selected={active === tab.value}
           onClick={() => onChange(tab.value)}
           className={cn(
-            'h-11 flex-1 rounded-sm text-sm font-medium transition-colors',
-            active === tab.value ? 'bg-surface text-text shadow-sm' : 'text-muted hover:text-text',
+            'h-11 flex-1 rounded-lg text-sm transition-colors',
+            active === tab.value
+              ? 'bg-surface text-brand-text font-semibold shadow-sm'
+              : 'text-muted hover:text-text font-medium',
           )}
         >
           {tab.label}
@@ -244,7 +268,18 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
         <SubmitButton mode={mode} />
       </form>
 
-      <div className="text-center">
+      <div className="flex items-center justify-between gap-3">
+        {mode === 'signin' ? (
+          <Link
+            href="/recuperar-senha"
+            className="text-brand-text inline-flex h-11 items-center text-sm font-medium underline-offset-4 hover:underline"
+          >
+            Esqueci minha senha
+          </Link>
+        ) : (
+          <span />
+        )}
+
         {mode === 'magic' ? (
           <button
             type="button"
@@ -252,7 +287,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
             className="text-muted hover:text-text inline-flex h-11 items-center gap-1.5 text-sm underline-offset-4 hover:underline"
           >
             <Lock className="size-4" aria-hidden />
-            Entrar com e-mail e senha
+            E-mail e senha
           </button>
         ) : (
           <button
@@ -261,16 +296,10 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
             className="text-muted hover:text-text inline-flex h-11 items-center gap-1.5 text-sm underline-offset-4 hover:underline"
           >
             <Mail className="size-4" aria-hidden />
-            Prefiro receber um link por e-mail
+            Link por e-mail
           </button>
         )}
       </div>
-
-      <p className="text-subtle text-center text-xs leading-relaxed">
-        {mode === 'signup'
-          ? 'Sua conta guarda notas, rotina e agenda — só você enxerga.'
-          : 'Uma conta, todos os aparelhos. Seus dados ficam sincronizados.'}
-      </p>
     </div>
   );
 }

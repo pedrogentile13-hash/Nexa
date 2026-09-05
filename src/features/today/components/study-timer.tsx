@@ -18,9 +18,12 @@ import { startStudySession, stopStudySession } from '../server/actions';
 export function StudyTimer({
   runningSessionId,
   startedAt,
+  compact = false,
 }: {
   runningSessionId: string | null;
   startedAt: string | null;
+  /** No cartão "Estudo hoje" o número já está no anel; aqui sobra só a ação. */
+  compact?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [elapsed, setElapsed] = useState(0);
@@ -40,6 +43,34 @@ export function StudyTimer({
   }, [runningSessionId, startedAt]);
 
   const running = Boolean(runningSessionId);
+
+  if (compact) {
+    return (
+      <Button
+        type="button"
+        variant={running ? 'secondary' : 'soft'}
+        size="md"
+        className="w-full"
+        disabled={isPending}
+        aria-label={running ? `Parar. Estudando há ${formatSpoken(elapsed)}` : 'Começar a estudar'}
+        onClick={() =>
+          startTransition(async () => {
+            if (running && runningSessionId) await stopStudySession(runningSessionId);
+            else await startStudySession(null);
+          })
+        }
+      >
+        {isPending ? (
+          <Loader2 className="animate-spin" aria-hidden />
+        ) : running ? (
+          <Pause aria-hidden />
+        ) : (
+          <Play aria-hidden />
+        )}
+        {running ? formatClock(elapsed) : 'Retomar'}
+      </Button>
+    );
+  }
 
   return (
     <div className="flex items-center gap-3">

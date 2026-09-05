@@ -14,6 +14,29 @@ const next = z.string().optional();
 
 export const magicLinkSchema = z.object({ email, next });
 
+/** Pedido de recuperação: só o e-mail. */
+export const recoverSchema = z.object({ email });
+
+/**
+ * Nova senha, com confirmação.
+ *
+ * A confirmação existe porque aqui o aluno não tem como descobrir o erro
+ * depois: ele digita uma senha, o campo esconde o que foi digitado, e um
+ * deslize deixa a conta trancada com uma senha que ninguém conhece.
+ */
+export const newPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, 'A senha precisa de pelo menos 8 caracteres.')
+      .max(72, 'A senha pode ter no máximo 72 caracteres.'),
+    confirm: z.string(),
+  })
+  .refine((data) => data.password === data.confirm, {
+    message: 'As duas senhas precisam ser iguais.',
+    path: ['confirm'],
+  });
+
 /**
  * Criar conta exige 8 caracteres. O mínimo do Supabase é 6, mas quem escolhe a
  * senha aqui é um aluno no celular: 6 caracteres é a senha do Wi-Fi da escola.
