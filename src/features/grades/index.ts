@@ -35,8 +35,10 @@ export {
   withHypotheticalActivity,
 } from './lib/solver';
 
-export type { SubjectRisk } from './server/mappers';
+export type { GradeTone, SubjectRisk } from './server/mappers';
 export {
+  gradeHint,
+  gradeTone,
   subjectRisk,
   toGradeActivity,
   toGradingCategory,

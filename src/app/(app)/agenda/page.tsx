@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { AgendaView } from '@/features/agenda/components/agenda-view';
 import { getAgenda, getUserToday } from '@/features/agenda/server/queries';
@@ -33,8 +32,9 @@ export default async function AgendaPage() {
 
   return (
     <>
-      <AppHeader title="Agenda" subtitle="O que vem pela frente" />
-      <PageMain>
+      {/* Sem AppHeader: no kit o título da Agenda É o mês, e ele vive dentro
+          da visualização porque muda com as setas. */}
+      <PageMain className="pt-4">
         <AgendaView events={agenda.events} today={agenda.today} />
       </PageMain>
     </>

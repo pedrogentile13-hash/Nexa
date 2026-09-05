@@ -1,0 +1,184 @@
+'use client';
+
+import Link from 'next/link';
+import { useState } from 'react';
+import { ArrowDownAZ, BookOpen, Plus, TriangleAlert, Zap } from 'lucide-react';
+import { Chip } from '@/components/ui/chip';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { subjectColorVars } from '@/lib/design/subject-colors';
+
+/**
+ * A lista de matérias.
+ *
+ * A pergunta da tela é "como estou em cada matéria?", e a resposta é a NOTA —
+ * por isso ela é o maior número do cartão, colorida, e tudo o mais gira em
+ * torno dela. O kit é explícito: a nota é sempre maior que o XP.
+ *
+ * A ordenação padrão é por risco, não alfabética. Uma lista alfabética faz o
+ * aluno procurar; esta responde "onde eu preciso olhar" antes de ele perguntar.
+ */
+
+export interface SubjectCard {
+  id: string;
+  subjectTermId: string;
+  name: string;
+  color: string;
+  teacher: string | null;
+  grade: string;
+  gradeValue: number | null;
+  target: string | null;
+  tone: 'danger' | 'warning' | 'neutral' | 'success';
+  hint: { label: string; tone: 'danger' | 'warning' | 'neutral' | 'success' } | null;
+  nextAssessment: string | null;
+  riskOrder: number;
+}
+
+const GRADE_TONE = {
+  danger: 'text-danger',
+  warning: 'text-warning',
+  neutral: 'text-text',
+  success: 'text-success',
+} as const;
+
+const HINT_TONE = {
+  danger: 'bg-danger-soft text-danger',
+  warning: 'bg-warning-soft text-warning',
+  neutral: 'bg-surface-2 text-muted',
+  success: 'bg-success-soft text-success',
+} as const;
+
+type SortMode = 'risco' | 'az';
+
+export function SubjectsView({
+  subjects,
+  termName,
+  alert,
+}: {
+  subjects: SubjectCard[];
+  termName: string;
+  alert: string | null;
+}) {
+  const [sort, setSort] = useState<SortMode>('risco');
+
+  const ordered = [...subjects].sort((a, b) =>
+    sort === 'az'
+      ? a.name.localeCompare(b.name, 'pt-BR')
+      : a.riskOrder - b.riskOrder || a.name.localeCompare(b.name, 'pt-BR'),
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        <Chip active={sort === 'risco'} onClick={() => setSort('risco')}>
+          <Zap className="size-4" aria-hidden />
+          Risco
+        </Chip>
+        <Chip active={sort === 'az'} onClick={() => setSort('az')}>
+          <ArrowDownAZ className="size-4" aria-hidden />
+          A–Z
+        </Chip>
+        <span className="bg-surface-2 text-muted inline-flex h-11 shrink-0 items-center rounded-full px-4 text-sm font-medium whitespace-nowrap">
+          {termName}
+        </span>
+      </div>
+
+      {/* O alerta vem antes da lista porque é a única linha da tela que pede
+          uma ação. O resto é retrato, e retrato não é tarefa. */}
+      {alert && (
+        <div className="border-warning/30 bg-warning-soft text-warning flex items-start gap-2.5 rounded-[20px] border px-4 py-3">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <p className="text-sm leading-relaxed">{alert}</p>
+        </div>
+      )}
+
+      {ordered.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <div className="bg-surface-2 text-subtle mx-auto mb-3 grid size-12 place-items-center rounded-full">
+              <BookOpen className="size-6" aria-hidden />
+            </div>
+            <p className="text-sm font-medium">Nenhuma matéria neste período.</p>
+            <p className="text-muted mt-1 text-sm">
+              Escolha do catálogo — leva menos de um minuto e libera notas, metas e trilhas.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <ul className="grid gap-2 lg:grid-cols-2">
+          {ordered.map((subject) => (
+            <li key={subject.subjectTermId} className="min-w-0">
+              <Link
+                href={`/disciplinas/${subject.id}?st=${subject.subjectTermId}`}
+                style={subjectColorVars(subject.color)}
+                className="border-border bg-surface hover:border-border-strong relative block overflow-hidden rounded-[20px] border transition-colors"
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-y-0 left-0 w-1.5"
+                  style={{ backgroundColor: 'var(--subject-base)' }}
+                />
+
+                <div className="flex items-start gap-3 py-3.5 pr-4 pl-5">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-sm font-semibold">{subject.name}</h2>
+                    {subject.teacher && (
+                      <p className="text-muted truncate text-xs">{subject.teacher}</p>
+                    )}
+
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {subject.hint && (
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                            HINT_TONE[subject.hint.tone],
+                          )}
+                        >
+                          {subject.hint.label}
+                        </span>
+                      )}
+                      {subject.nextAssessment && (
+                        <span className="bg-surface-2 text-muted rounded-full px-2 py-0.5 text-[11px] font-medium">
+                          {subject.nextAssessment}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    <span
+                      className={cn(
+                        'tabular block text-3xl leading-none font-semibold',
+                        GRADE_TONE[subject.tone],
+                      )}
+                    >
+                      {subject.grade}
+                    </span>
+                    {subject.target && (
+                      <span className="text-subtle mt-1 block text-[11px]">
+                        meta {subject.target}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Botão "+" do cabeçalho, como no kit. */
+export function AddSubjectButton() {
+  return (
+    <Link
+      href="/perfil"
+      aria-label="Adicionar matéria"
+      className="bg-brand-soft text-brand-text hover:bg-brand hover:text-brand-fg grid size-11 shrink-0 place-items-center rounded-xl transition-colors"
+    >
+      <Plus className="size-5" aria-hidden />
+    </Link>
+  );
+}

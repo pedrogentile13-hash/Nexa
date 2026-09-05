@@ -15,12 +15,20 @@ export function AppHeader({
   streak,
   avatarUrl,
   name,
+  action,
 }: {
   title: string;
   subtitle?: string;
   streak?: number;
   avatarUrl?: string | null;
   name?: string | null;
+  /**
+   * Ação própria da tela — o "+" das matérias, as setas do mês na agenda.
+   * Quando existe, ela SUBSTITUI sequência e avatar: as duas são atalhos que
+   * vivem em outros lugares, e disputar espaço com a ação da própria tela é
+   * trocar o que a pessoa veio fazer por algo que ela não pediu.
+   */
+  action?: React.ReactNode;
 }) {
   const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
 
@@ -36,7 +44,9 @@ export function AppHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {typeof streak === 'number' && streak > 0 && (
+          {action}
+
+          {!action && typeof streak === 'number' && streak > 0 && (
             <span
               className={cn(
                 'bg-warning-soft text-warning flex items-center gap-1 rounded-full px-2.5 py-1.5',
@@ -50,20 +60,22 @@ export function AppHeader({
             </span>
           )}
 
-          <Link
-            href="/perfil"
-            aria-label="Abrir perfil"
-            className="border-border bg-surface-2 grid size-10 place-items-center overflow-hidden rounded-full border"
-          >
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="" className="size-full object-cover" />
-            ) : initial ? (
-              <span className="text-muted text-sm font-semibold">{initial}</span>
-            ) : (
-              <User className="text-muted size-5" aria-hidden />
-            )}
-          </Link>
+          {!action && (
+            <Link
+              href="/perfil"
+              aria-label="Abrir perfil"
+              className="border-border bg-surface-2 grid size-10 place-items-center overflow-hidden rounded-full border"
+            >
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" className="size-full object-cover" />
+              ) : initial ? (
+                <span className="text-muted text-sm font-semibold">{initial}</span>
+              ) : (
+                <User className="text-muted size-5" aria-hidden />
+              )}
+            </Link>
+          )}
         </div>
       </div>
     </header>

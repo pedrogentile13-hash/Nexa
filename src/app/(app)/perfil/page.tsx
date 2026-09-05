@@ -19,6 +19,14 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
+/** Iniciais para o avatar: duas letras no máximo, como o kit desenha. */
+function initials(value: string): string {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return (parts[0] ?? '').slice(0, 2).toUpperCase();
+  return `${parts[0]?.[0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase();
+}
+
 export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -44,15 +52,49 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <AppHeader title="Perfil" subtitle={profile?.full_name ?? user.email ?? undefined} />
+      <AppHeader title="Perfil" />
 
       <PageMain className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        {/* Números que o aluno conquistou --------------------------------- */}
-        <div className="grid grid-cols-3 gap-2">
-          <MiniStat Icon={Flame} label="Sequência" value={String(stats?.current_streak ?? 0)} />
-          <MiniStat Icon={Zap} label="Nível" value={String(stats?.level ?? 1)} />
-          <MiniStat Icon={Clock} label="Estudadas" value={`${totalHours}h`} />
-        </div>
+        {/* Identidade, como no kit: avatar, quem é, e o que conquistou ----- */}
+        <Card className="min-w-0 lg:col-span-2">
+          <CardContent className="flex items-center gap-4 p-4">
+            <span
+              aria-hidden
+              className="bg-brand-soft text-brand-text grid size-14 shrink-0 place-items-center rounded-full text-lg font-semibold"
+            >
+              {initials(profile?.full_name ?? user.email ?? '?')}
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-base font-semibold">
+                {profile?.full_name ?? user.email}
+              </h2>
+              <p className="text-muted truncate text-sm">
+                {[profile?.grade_level, profile?.class_name].filter(Boolean).join(' · ') ||
+                  user.email}
+              </p>
+
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <Badge variant="brand">
+                  <Zap className="size-3" aria-hidden />
+                  Nível {stats?.level ?? 1}
+                </Badge>
+                {(stats?.current_streak ?? 0) > 0 && (
+                  <Badge variant="warning">
+                    <Flame className="size-3" aria-hidden />
+                    {stats?.current_streak} dias seguidos
+                  </Badge>
+                )}
+                {totalHours > 0 && (
+                  <Badge variant="neutral">
+                    <Clock className="size-3" aria-hidden />
+                    {totalHours}h estudadas
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Dados ----------------------------------------------------------- */}
         <Card>
@@ -147,18 +189,6 @@ export default async function ProfilePage() {
         </form>
       </PageMain>
     </>
-  );
-}
-
-function MiniStat({ Icon, label, value }: { Icon: typeof Flame; label: string; value: string }) {
-  return (
-    <Card>
-      <CardContent className="pt-4 text-center">
-        <Icon className="text-subtle mx-auto mb-1 size-4" aria-hidden />
-        <p className="tabular text-xl leading-none font-semibold">{value}</p>
-        <p className="text-subtle mt-1 text-xs">{label}</p>
-      </CardContent>
-    </Card>
   );
 }
 

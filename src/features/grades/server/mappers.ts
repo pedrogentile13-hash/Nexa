@@ -5,6 +5,7 @@ import type {
   VSubjectTermAverageRow,
 } from '@/types/database.types';
 import type { GradeActivity, GradingCategory, GradingScheme, SubjectTermInput } from '../types';
+import { formatGrade } from '../lib/rounding';
 
 /**
  * The single seam between database rows and the pure domain model.
@@ -109,4 +110,46 @@ export function subjectRisk(row: VSubjectTermAverageRow): SubjectRisk {
   if (target !== null && grade < target) return 'watch';
 
   return 'ok';
+}
+
+/**
+ * Tom da nota grande no cartão da matéria.
+ *
+ * Quatro degraus, como o kit desenha (4,2 vermelho · 5,8 laranja · 7,4 neutro ·
+ * 8,6 verde). O degrau do meio existe porque "abaixo da aprovação" abriga
+ * situações muito diferentes: quem está a 0,2 da média recupera na próxima
+ * prova, quem está a 1,8 precisa de um plano. Pintar as duas de vermelho apaga
+ * essa diferença justamente para quem mais precisa dela.
+ */
+export type GradeTone = 'danger' | 'warning' | 'neutral' | 'success';
+
+export function gradeTone(grade: number | null, passing: number, target: number | null): GradeTone {
+  if (grade === null) return 'neutral';
+  if (grade < passing - 1) return 'danger';
+  if (grade < passing) return 'warning';
+  if (target !== null && grade < target) return 'neutral';
+  return 'success';
+}
+
+/**
+ * A etiqueta que explica a nota em uma frase curta.
+ *
+ * Sempre mede contra a referência que importa naquele momento: quem está abaixo
+ * da aprovação precisa saber quanto falta para passar, não quanto falta para a
+ * meta pessoal — que naquele ponto é uma preocupação de segunda ordem.
+ */
+export function gradeHint(
+  grade: number | null,
+  passing: number,
+  target: number | null,
+): { label: string; tone: GradeTone } | null {
+  if (grade === null) return null;
+
+  if (grade < passing) {
+    return { label: `${formatGrade(passing - grade, 1)} abaixo da aprovação`, tone: 'danger' };
+  }
+  if (target !== null && grade < target) {
+    return { label: `${formatGrade(target - grade, 1)} para a meta`, tone: 'warning' };
+  }
+  return { label: 'meta batida', tone: 'success' };
 }

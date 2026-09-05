@@ -1,144 +1,135 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { BookOpen, ChevronRight } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { formatGrade, subjectRisk } from '@/features/grades';
-import { subjectColorVars } from '@/lib/design/subject-colors';
+import {
+  AddSubjectButton,
+  SubjectsView,
+  type SubjectCard,
+} from '@/features/grades/components/subjects-view';
+import { formatGrade, gradeHint, gradeTone, subjectRisk } from '@/features/grades';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
-  title: 'Disciplinas',
-  description: 'Suas disciplinas, médias e o que falta lançar.',
+  title: 'Matérias',
+  description: 'Suas matérias, médias e o que falta lançar.',
 };
 
 export const dynamic = 'force-dynamic';
 
-const RISK_BADGE = {
-  critical: { variant: 'danger' as const, label: 'Abaixo da média' },
-  watch: { variant: 'warning' as const, label: 'Atenção' },
-  ok: { variant: 'success' as const, label: 'Em dia' },
-  unknown: { variant: 'neutral' as const, label: 'Sem notas' },
-};
+const RISK_ORDER = { critical: 0, watch: 1, unknown: 2, ok: 3 } as const;
+
+/**
+ * A próxima avaliação, em duas formas.
+ *
+ * `badge` é a etiqueta curta do cartão ("PB amanhã"); `phrase` é o pedaço que
+ * entra na frase do alerta ("a PB é amanhã"). São textos diferentes porque uma
+ * etiqueta não é uma oração — encaixar "PB amanhã" no meio de uma frase produz
+ * "Comece por Física: PB amanhã", que lê como anotação, não como orientação.
+ */
+function nextAssessmentLabels(
+  today: string,
+  dueDate: string,
+  code: string | null,
+): { badge: string; phrase: string } {
+  const days = Math.round(
+    (Date.parse(`${dueDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000,
+  );
+
+  const [, month, day] = dueDate.split('-');
+  const when =
+    days < 0 ? 'atrasada' : days === 0 ? 'hoje' : days === 1 ? 'amanhã' : `${day}/${month}`;
+
+  const noun = code ? `a ${code}` : 'a próxima avaliação';
+  const verb = days < 0 ? 'está' : 'é';
+  const complement = days > 1 ? `dia ${when}` : when;
+
+  return {
+    badge: code ? `${code} ${when}` : when,
+    phrase: `${noun} ${verb} ${complement}`,
+  };
+}
 
 export default async function SubjectsPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const supabase = await createClient();
-
   const { data: currentTermId } = await supabase.rpc('current_term_id', { p_user_id: user.id });
+  const { data: todayValue } = await supabase.rpc('user_local_date', { p_user_id: user.id });
+  const today = (todayValue as string | null) ?? new Date().toISOString().slice(0, 10);
 
-  const { data: rows } = await supabase
-    .from('v_subject_term_averages')
-    .select('*')
-    .eq('term_id', (currentTermId as string) ?? '')
-    .order('subject_name');
+  const [averagesRes, subjectsRes, activitiesRes] = await Promise.all([
+    supabase
+      .from('v_subject_term_averages')
+      .select('*')
+      .eq('term_id', (currentTermId as string) ?? '')
+      .order('subject_name'),
+    supabase.from('subjects').select('id, teacher_name').is('archived_at', null),
+    supabase
+      .from('v_activities_effective')
+      .select('subject_id, due_date, category_code, score')
+      .is('score', null)
+      .not('due_date', 'is', null)
+      .gte('due_date', today)
+      .order('due_date'),
+  ]);
 
-  const subjects = rows ?? [];
-  const termName = subjects[0]?.term_name ?? 'Período atual';
+  const teacherBySubject = new Map(
+    (subjectsRes.data ?? []).map((s) => [s.id, s.teacher_name as string | null]),
+  );
 
-  // Ordena por urgência: o que precisa de atenção primeiro. Uma lista alfabética
-  // faz o aluno procurar; esta responde "onde eu preciso olhar".
-  const ordered = [...subjects].sort((a, b) => {
-    const order = { critical: 0, watch: 1, unknown: 2, ok: 3 };
-    return (
-      order[subjectRisk(a)] - order[subjectRisk(b)] ||
-      a.subject_name.localeCompare(b.subject_name, 'pt-BR')
+  // A primeira avaliação pendente de cada matéria — a consulta já vem ordenada
+  // por data, então basta guardar a primeira que aparecer.
+  const nextBySubject = new Map<string, { badge: string; phrase: string }>();
+  for (const activity of activitiesRes.data ?? []) {
+    if (!activity.due_date || nextBySubject.has(activity.subject_id)) continue;
+    nextBySubject.set(
+      activity.subject_id,
+      nextAssessmentLabels(today, activity.due_date, activity.category_code),
     );
+  }
+
+  const rows = averagesRes.data ?? [];
+  const termName = rows[0]?.term_name ?? 'Período atual';
+
+  const subjects: SubjectCard[] = rows.map((row) => {
+    const grade = row.final_grade;
+    const passing = row.passing_grade ?? 6;
+    const target = row.target_grade;
+
+    return {
+      id: row.subject_id,
+      subjectTermId: row.subject_term_id,
+      name: row.subject_name,
+      color: row.subject_color,
+      teacher: teacherBySubject.get(row.subject_id) ?? null,
+      grade: grade === null ? '—' : formatGrade(grade, row.decimals, row.rounding_mode),
+      gradeValue: grade,
+      target: target === null ? null : formatGrade(target, 1),
+      tone: gradeTone(grade, passing, target),
+      hint: gradeHint(grade, passing, target),
+      nextAssessment: nextBySubject.get(row.subject_id)?.badge ?? null,
+      riskOrder: RISK_ORDER[subjectRisk(row)],
+    };
   });
+
+  // O alerta nomeia a matéria por onde começar. "Duas matérias abaixo da média"
+  // informa; "comece por Física, a PB é amanhã" resolve.
+  const below = subjects.filter((s) => s.tone === 'danger' || s.tone === 'warning');
+  const first = below[0];
+  const firstNext = first ? nextBySubject.get(first.id) : undefined;
+
+  const alert = !first
+    ? null
+    : `${below.length === 1 ? 'Uma matéria abaixo' : `${below.length} matérias abaixo`} da média de aprovação.` +
+      ` Comece por ${first.name}${firstNext ? `: ${firstNext.phrase}` : ''}.`;
 
   return (
     <>
-      <AppHeader title="Disciplinas" subtitle={termName} />
-
-      <PageMain className="space-y-2">
-        {ordered.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center">
-              <div className="bg-surface-2 text-subtle mx-auto mb-3 grid size-12 place-items-center rounded-full">
-                <BookOpen className="size-6" aria-hidden />
-              </div>
-              <p className="text-sm font-medium">Nenhuma disciplina neste período.</p>
-              <p className="text-muted mt-1 text-sm">
-                Você pode adicionar disciplinas pelo seu perfil.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          ordered.map((subject) => {
-            const risk = subjectRisk(subject);
-            const badge = RISK_BADGE[risk];
-
-            return (
-              <Link
-                key={subject.subject_term_id}
-                href={`/disciplinas/${subject.subject_id}?st=${subject.subject_term_id}`}
-                className="block"
-              >
-                <Card
-                  style={subjectColorVars(subject.subject_color)}
-                  className="hover:border-border-strong transition-colors"
-                >
-                  <CardContent className="space-y-3 pt-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <span
-                          aria-hidden
-                          className="size-3 shrink-0 rounded-full"
-                          style={{ backgroundColor: 'var(--subject-base)' }}
-                        />
-                        <h2 className="truncate text-sm font-semibold">{subject.subject_name}</h2>
-                        <ChevronRight className="text-subtle size-4 shrink-0" aria-hidden />
-                      </div>
-
-                      <div className="flex shrink-0 items-baseline gap-2">
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                        <span className="tabular text-2xl leading-none font-semibold">
-                          {formatGrade(
-                            subject.final_grade,
-                            subject.decimals,
-                            subject.rounding_mode,
-                          )}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-subtle mb-1 flex items-center justify-between text-xs">
-                        <span>
-                          {subject.pending_count > 0
-                            ? `${subject.pending_count} avaliação${subject.pending_count === 1 ? '' : 'ões'} por lançar`
-                            : 'tudo lançado'}
-                        </span>
-                        <span className="tabular">{Math.round(subject.coverage_percent)}%</span>
-                      </div>
-                      <Progress
-                        value={subject.coverage_percent}
-                        label={`Percentual do período lançado em ${subject.subject_name}`}
-                        size="sm"
-                        tone={
-                          risk === 'critical' ? 'danger' : risk === 'watch' ? 'warning' : 'brand'
-                        }
-                      />
-                    </div>
-
-                    {subject.target_grade !== null && (
-                      <p className="text-subtle text-xs">
-                        Meta {formatGrade(subject.target_grade, 1)} · aprovação{' '}
-                        {formatGrade(subject.passing_grade, 1)}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })
-        )}
+      <AppHeader title="Minhas matérias" action={<AddSubjectButton />} />
+      <PageMain>
+        <SubjectsView subjects={subjects} termName={termName} alert={alert} />
       </PageMain>
     </>
   );
