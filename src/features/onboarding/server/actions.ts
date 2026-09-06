@@ -65,6 +65,7 @@ export async function completeOnboarding(
       short_code: c.shortCode ?? null,
       weight_percent: c.weightPercent,
     })),
+    p_daily_goal_minutes: data.dailyGoalMinutes,
   });
 
   if (error) {

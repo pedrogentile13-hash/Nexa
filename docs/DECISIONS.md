@@ -608,3 +608,76 @@ nos dois temas, com verificação de overflow horizontal e de alvo de toque.
 (`TodayView`, `SubjectsView`) para que o layout possa ser renderizado com dados
 de exemplo. Uma tela que só existe autenticada é uma tela que ninguém confere
 antes de subir — e foi assim que a diferença passou.
+
+## ADR-033 · O onboarding seguiu um fluxo de outro produto, sem a marca dele
+
+**Contexto.** Um fluxo de onboarding de outro produto do usuário (Lidara
+Learning) trouxe um padrão visual que o Nexa não tinha: mascote, barra de
+progresso em pílulas segmentadas, botões-pílula com relevo 3D e cartões/linhas
+de seleção. O pedido foi explícito em duas partes — usar o padrão, mas com a
+identidade do Nexa, e trocar a etapa de "objetivos" (que não existe no Nexa)
+pela escolha de matérias, que já existia.
+
+**Decisão.** O onboarding foi refeito de 3 para 6 telas: Início (nova),
+Identidade, Matérias (a etapa que substitui "objetivos" — mesma lista de
+sempre, visual novo), Meta diária (nova), Notas, Tudo pronto (nova). O mascote
+não é o personagem do outro produto: é o boné de formatura da marca do Nexa
+dentro de um blob em degradê azul — mesmo espírito de forma, identidade
+diferente. A tela final não pede conta, porque o aluno já entrou logado antes
+do onboarding; ela fecha com um resumo do que foi montado.
+
+**Meta diária.** `daily_study_goal_minutes` já existia em `profiles` (padrão
+45, editável no Perfil), mas nada perguntava por ela — o valor só nascia do
+default. `bootstrap_student()` ganhou o parâmetro opcional
+`p_daily_goal_minutes` (migration `20260906000100`, com `drop function` da
+assinatura antiga antes do `create or replace`: acrescentar um parâmetro cria
+uma sobrecarga nova em vez de substituir a função, e duas candidatas de mesmo
+nome com aridades compatíveis quebram a chamada existente). Os quatro presets
+(15/30/45/60 min) não inventam um número de XP por dia — o Nexa não tem uma
+fórmula de XP por minuto estudado, só por lição e prova concluída, e um número
+que parece estatística sem ser uma é pior que não ter número nenhum.
+
+**Consequência prática.** `Button` ganhou a variant `pop` (pílula cheia,
+caixa alta, sombra inferior que funciona como relevo — o clique perde 2px de
+profundidade em vez de só mudar de cor), reaproveitável fora do onboarding.
+Um efeito colateral do refactor: `rounded-md` saiu da classe base do botão e
+foi para dentro de cada variant, porque duas classes de `border-radius` na
+mesma `className` não têm ordem de precedência garantida no CSS gerado pelo
+Tailwind — a variant nova precisava do próprio raio sem arriscar herdar o
+errado.
+
+## ADR-034 · `h-full` dentro de `flex-1` não centraliza nada
+
+**Contexto.** As telas de abertura e de fechamento do onboarding (ADR-033)
+deveriam centralizar o mascote e o texto verticalmente no espaço livre entre o
+cabeçalho e o botão. Na tela renderizada, o conteúdo aparecia colado no topo,
+com um vão vazio enorme antes do botão — o mesmo tipo de "texto muito pra
+cima" que o usuário já tinha apontado na tela Hoje vazia (ver abaixo).
+
+**Causa.** A faixa de conteúdo era `<div class="flex-1 overflow-hidden">`
+preenchendo altura via flex-grow do pai, com um filho `h-full` (`height:
+100%`) tentando herdar essa altura. `flex-1` faz a caixa OCUPAR a altura
+disponível, mas a propriedade CSS `height` dela continua computando `auto` —
+e a regra de porcentagem de altura do CSS não trata "ocupei espaço por
+flex-grow" como "altura definida". Um filho com `height: 100%` desiste e
+volta a ser do tamanho do próprio conteúdo, que é exatamente o sintoma visto.
+
+**Correção.** Trocado por uma cadeia de `flex` + `flex-1` em todos os níveis
+(a faixa, o `motion.div` da transição, e o miolo de cada tela que precisa
+centralizar) em vez de qualquer `height: 100%`. `flex-grow` resolve o espaço
+disponível pelo próprio algoritmo de flexbox, não por porcentagem, e por isso
+não tropeça na mesma armadilha. De caminho, a faixa ganhou `overflow-y-auto`
+— antes, uma etapa com conteúdo mais alto que a tela (muitas matérias, muitas
+categorias) seria cortada em silêncio pelo `overflow-hidden` do pai, sem
+nenhuma barra de rolagem para avisar.
+
+**Tela Hoje vazia.** O upload que motivou a revisão também mostrou a mesma
+queixa na tela Hoje: no estado vazio, "Foco do dia" só tinha um cartãozinho
+curto de "nada urgente", enquanto a coluna da direita (Estudo + Rotina) segue
+até bem mais embaixo — as colunas usam `items-start` de propósito (ADR
+anterior de layout desktop), então a esquerda não estica pra acompanhar. A
+causa aqui não é a mesma armadilha de CSS: é que o estado vazio não tinha
+conteúdo de verdade. A correção foi dar substância a ele — um selo com o
+mesmo tratamento visual do mascote do onboarding e dois atalhos ("Ir
+estudar", "Ver agenda") — em vez de esticar a caixa à força para preencher um
+vão que só existe porque não havia nada para mostrar ali.

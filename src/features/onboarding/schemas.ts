@@ -29,6 +29,7 @@ export const onboardingSchema = z
     catalogIds: z.array(z.string().uuid()).max(40),
     customSubjects: z.array(z.string().trim().min(1).max(80)).max(20),
     categories: z.array(gradingCategorySchema).min(1, 'Mantenha ao menos uma categoria.').max(10),
+    dailyGoalMinutes: z.number().int().min(0).max(1440),
     timezone: z.string().min(1).default('America/Sao_Paulo'),
   })
   .refine((data) => data.catalogIds.length + data.customSubjects.length > 0, {
@@ -64,4 +65,18 @@ export const TERM_MODELS = [
   { count: 4, label: 'Bimestral', hint: '4 períodos' },
   { count: 3, label: 'Trimestral', hint: '3 períodos' },
   { count: 2, label: 'Semestral', hint: '2 períodos' },
+] as const;
+
+/**
+ * Metas diárias de estudo, em minutos.
+ *
+ * 45 é o default de `daily_study_goal_minutes` no banco — mantido aqui como
+ * "Dedicado" para que quem só toca "Continuar" três vezes termine com o mesmo
+ * número que já tinha antes desta etapa existir.
+ */
+export const DAILY_GOAL_PRESETS = [
+  { minutes: 15, label: 'Tranquilo', hint: 'Pra manter o hábito' },
+  { minutes: 30, label: 'Equilibrado', hint: 'Ritmo de todo dia' },
+  { minutes: 45, label: 'Dedicado', hint: 'Progresso constante' },
+  { minutes: 60, label: 'Intenso', hint: 'Foco total' },
 ] as const;
