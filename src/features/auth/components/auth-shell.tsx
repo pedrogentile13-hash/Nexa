@@ -21,12 +21,12 @@ export function AuthShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="pb-safe flex min-h-dvh flex-col">
+    <main className="pb-safe flex min-h-dvh flex-col lg:flex-row">
       <header
-        className="pt-safe rounded-b-[20px] px-6 pt-6 pb-8"
+        className="pt-safe rounded-b-[20px] px-6 pt-6 pb-8 lg:flex lg:w-1/2 lg:flex-col lg:justify-center lg:rounded-none lg:px-16 lg:py-16"
         style={{ background: 'var(--gradient-header)', color: 'var(--gradient-header-fg)' }}
       >
-        <div className="mx-auto w-full max-w-sm">
+        <div className="mx-auto w-full max-w-sm lg:mx-0 lg:max-w-md">
           {backHref ? (
             <Link
               href={backHref}
@@ -44,12 +44,16 @@ export function AuthShell({
             </span>
           )}
 
-          <h1 className="mt-5 text-2xl leading-tight font-semibold tracking-tight">{title}</h1>
-          <div className="mt-2 text-sm leading-relaxed opacity-90">{description}</div>
+          <h1 className="mt-5 text-2xl leading-tight font-semibold tracking-tight lg:mt-8 lg:text-4xl">
+            {title}
+          </h1>
+          <div className="mt-2 text-sm leading-relaxed opacity-90 lg:mt-4 lg:text-lg">
+            {description}
+          </div>
         </div>
       </header>
 
-      <div className="flex-1 px-5 pt-6 pb-8">
+      <div className="flex flex-1 flex-col justify-center px-5 pt-6 pb-8 lg:px-16">
         <div className="mx-auto w-full max-w-sm">{children}</div>
       </div>
     </main>

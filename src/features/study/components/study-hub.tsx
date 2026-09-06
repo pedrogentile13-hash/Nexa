@@ -54,7 +54,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
   const visible = kindFilter ? data.items.filter((i) => i.kind === kindFilter) : data.items;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 pt-4 pb-8 lg:max-w-5xl">
+    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-8 md:px-6 md:pt-6 lg:px-8">
       {/* ---------------------------------------------------- matérias -- */}
       {data.subjects.length > 0 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -122,7 +122,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Formatos
           </h2>
-          <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             {KIND_ORDER.filter((kind) => data.countsByKind[kind] > 0).map((kind) => {
               const Icon = ICONS[kind];
               const count = data.countsByKind[kind];
@@ -165,7 +165,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
               min-content é a largura INTEIRA do texto. Sem isso a lista estoura
               a viewport no celular — foi assim que 38px de rolagem horizontal
               apareceram ao trocar `space-y` por `grid`. */}
-          <ul className="grid gap-2 lg:grid-cols-2">
+          <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {data.tracks.map((track) => (
               <li key={track.id} className="min-w-0">
                 <Link
@@ -217,7 +217,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
         {visible.length === 0 ? (
           <EmptyLibrary filtered={Boolean(subjectFilter || kindFilter)} />
         ) : (
-          <ul className="grid gap-2 lg:grid-cols-2">
+          <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {visible.slice(0, 60).map((item) => {
               const Icon = ICONS[item.kind];
               const duration = humanDuration(item.durationSeconds);

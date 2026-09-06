@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useOptimistic, useTransition } from 'react';
-import { AlertTriangle, Check, ChevronRight, FileText, ListTodo } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight, FileText, ListTodo, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { toggleTask } from '../server/actions';
@@ -61,7 +61,12 @@ export function FocusList({ items }: { items: RankedFocus[] }) {
             style={subjectColorVars(item.subjectColor)}
             className={cn(
               'relative overflow-hidden rounded-[20px] border',
-              urgent ? 'border-warning/30 bg-warning-soft' : 'border-border bg-surface',
+              // No celular o destaque é o fundo âmbar; no desktop ele vira o
+              // botão "Começar", como o guia mostra. Um cartão inteiro tingido
+              // ocupa área demais numa tela larga e passa de ênfase a alarme.
+              urgent
+                ? 'border-warning/30 bg-warning-soft lg:border-border lg:bg-surface'
+                : 'border-border bg-surface',
             )}
           >
             {/* Faixa da cor da disciplina — identifica sem ocupar espaço. */}
@@ -132,18 +137,33 @@ export function FocusList({ items }: { items: RankedFocus[] }) {
                 <Link
                   href={`/disciplinas/${item.subjectId}`}
                   aria-label={`Abrir ${item.subjectName ?? 'a disciplina'}`}
-                  className="grid size-11 shrink-0 place-items-center rounded-full"
+                  className={cn(
+                    'grid size-11 shrink-0 place-items-center rounded-full',
+                    // Em tela larga o item urgente ganha um botão com texto: há
+                    // espaço para dizer o que a seta só sugere.
+                    urgent && 'lg:bg-brand lg:text-brand-fg lg:h-11 lg:w-auto lg:gap-2 lg:px-4',
+                  )}
                 >
                   <span
                     aria-hidden
                     className={cn(
                       'grid size-9 place-items-center rounded-full transition-colors',
                       urgent
-                        ? 'bg-warning text-white hover:brightness-110'
+                        ? 'bg-warning text-white hover:brightness-110 lg:size-auto lg:bg-transparent'
                         : 'bg-surface-2 text-muted hover:text-text',
                     )}
                   >
-                    <ChevronRight className="size-4" strokeWidth={2.5} />
+                    {urgent ? (
+                      <>
+                        <Play className="size-4 fill-current lg:hidden" />
+                        <span className="hidden items-center gap-2 text-sm font-semibold lg:flex">
+                          <Play className="size-4 fill-current" />
+                          Começar
+                        </span>
+                      </>
+                    ) : (
+                      <ChevronRight className="size-4" strokeWidth={2.5} />
+                    )}
                   </span>
                 </Link>
               ) : (

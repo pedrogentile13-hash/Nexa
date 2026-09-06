@@ -54,10 +54,15 @@ export function SubjectsView({
   subjects,
   termName,
   alert,
+  title,
+  addButton,
 }: {
   subjects: SubjectCard[];
   termName: string;
   alert: string | null;
+  /** No desktop o título vive aqui dentro, para dividir a linha com os filtros. */
+  title?: string;
+  addButton?: React.ReactNode;
 }) {
   const [sort, setSort] = useState<SortMode>('risco');
 
@@ -68,25 +73,34 @@ export function SubjectsView({
   );
 
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <Chip active={sort === 'risco'} onClick={() => setSort('risco')}>
-          <Zap className="size-4" aria-hidden />
-          Risco
-        </Chip>
-        <Chip active={sort === 'az'} onClick={() => setSort('az')}>
-          <ArrowDownAZ className="size-4" aria-hidden />
-          A–Z
-        </Chip>
-        <span className="bg-surface-2 text-muted inline-flex h-11 shrink-0 items-center rounded-full px-4 text-sm font-medium whitespace-nowrap">
-          {termName}
-        </span>
+    <div className="space-y-4">
+      {/* Em tela larga, título e filtros dividem a mesma linha — é o que o guia
+          de desktop mostra e o que evita duas faixas quase vazias empilhadas. */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        {title && (
+          <h1 className="hidden text-2xl font-semibold tracking-tight md:block">{title}</h1>
+        )}
+
+        <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
+          <Chip active={sort === 'risco'} onClick={() => setSort('risco')}>
+            <Zap className="size-4" aria-hidden />
+            Risco
+          </Chip>
+          <Chip active={sort === 'az'} onClick={() => setSort('az')}>
+            <ArrowDownAZ className="size-4" aria-hidden />
+            A–Z
+          </Chip>
+          <span className="bg-surface-2 text-muted inline-flex h-11 shrink-0 items-center rounded-full px-4 text-sm font-medium whitespace-nowrap">
+            {termName}
+          </span>
+          {addButton}
+        </div>
       </div>
 
       {/* O alerta vem antes da lista porque é a única linha da tela que pede
           uma ação. O resto é retrato, e retrato não é tarefa. */}
       {alert && (
-        <div className="border-warning/30 bg-warning-soft text-warning flex items-start gap-2.5 rounded-[20px] border px-4 py-3">
+        <div className="border-warning/30 bg-warning-soft text-warning flex items-start gap-2.5 rounded-[20px] border px-4 py-3 lg:max-w-2xl">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
           <p className="text-sm leading-relaxed">{alert}</p>
         </div>
@@ -105,7 +119,7 @@ export function SubjectsView({
           </CardContent>
         </Card>
       ) : (
-        <ul className="grid gap-2 lg:grid-cols-2">
+        <ul className="grid gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3">
           {ordered.map((subject) => (
             <li key={subject.subjectTermId} className="min-w-0">
               <Link
@@ -137,12 +151,21 @@ export function SubjectsView({
                           {subject.hint.label}
                         </span>
                       )}
+                      {/* No celular a próxima avaliação é uma etiqueta; no
+                          desktop ela desce para a linha do rodapé, junto da
+                          meta, porque ali há largura para as duas em texto. */}
                       {subject.nextAssessment && (
-                        <span className="bg-surface-2 text-muted rounded-full px-2 py-0.5 text-[11px] font-medium">
+                        <span className="bg-surface-2 text-muted rounded-full px-2 py-0.5 text-[11px] font-medium md:hidden">
                           {subject.nextAssessment}
                         </span>
                       )}
                     </div>
+
+                    <p className="text-subtle mt-2 hidden text-xs md:block">
+                      {[subject.target ? `meta ${subject.target}` : null, subject.nextAssessment]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
                   </div>
 
                   <div className="shrink-0 text-right">
@@ -155,7 +178,7 @@ export function SubjectsView({
                       {subject.grade}
                     </span>
                     {subject.target && (
-                      <span className="text-subtle mt-1 block text-[11px]">
+                      <span className="text-subtle mt-1 block text-[11px] md:hidden">
                         meta {subject.target}
                       </span>
                     )}
@@ -170,15 +193,21 @@ export function SubjectsView({
   );
 }
 
-/** Botão "+" do cabeçalho, como no kit. */
+/**
+ * "Adicionar matéria".
+ *
+ * Só ícone no celular, onde a barra é apertada; com rótulo no desktop, onde
+ * cabe — um "+" solitário numa tela de 1400px é adivinhação desnecessária.
+ */
 export function AddSubjectButton() {
   return (
     <Link
       href="/perfil"
       aria-label="Adicionar matéria"
-      className="bg-brand-soft text-brand-text hover:bg-brand hover:text-brand-fg grid size-11 shrink-0 place-items-center rounded-xl transition-colors"
+      className="bg-brand-soft text-brand-text hover:bg-brand hover:text-brand-fg inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors md:px-4"
     >
-      <Plus className="size-5" aria-hidden />
+      <Plus className="size-5 md:size-4" aria-hidden />
+      <span className="hidden md:inline">Adicionar</span>
     </Link>
   );
 }

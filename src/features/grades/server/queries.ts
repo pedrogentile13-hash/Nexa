@@ -21,6 +21,8 @@ export interface SubjectTermDetail {
   scheme: GradingScheme;
   activities: GradeActivity[];
   targetGrade: number | null;
+  passingGrade: number;
+  teacherName: string | null;
   finalGradeOverride: number | null;
   /** Outros períodos da mesma disciplina, para o seletor. */
   siblingTerms: { subjectTermId: string; termName: string; sequence: number }[];
@@ -39,26 +41,32 @@ export async function getSubjectTermDetail(
 
   if (!resolved) return null;
 
-  const [{ data: schemeRow }, { data: categoryRows }, { data: activityRows }, { data: siblings }] =
-    await Promise.all([
-      supabase.from('grading_schemes').select('*').eq('id', resolved.scheme_id).maybeSingle(),
-      supabase
-        .from('grading_scheme_categories')
-        .select('*')
-        .eq('scheme_id', resolved.scheme_id)
-        .order('sequence'),
-      supabase
-        .from('activities')
-        .select('*')
-        .eq('subject_term_id', subjectTermId)
-        .order('due_date', { nullsFirst: false })
-        .order('created_at'),
-      supabase
-        .from('v_subject_terms_resolved')
-        .select('subject_term_id, term_name, term_sequence')
-        .eq('subject_id', resolved.subject_id)
-        .order('term_sequence'),
-    ]);
+  const [
+    { data: schemeRow },
+    { data: categoryRows },
+    { data: activityRows },
+    { data: siblings },
+    { data: teacherRow },
+  ] = await Promise.all([
+    supabase.from('grading_schemes').select('*').eq('id', resolved.scheme_id).maybeSingle(),
+    supabase
+      .from('grading_scheme_categories')
+      .select('*')
+      .eq('scheme_id', resolved.scheme_id)
+      .order('sequence'),
+    supabase
+      .from('activities')
+      .select('*')
+      .eq('subject_term_id', subjectTermId)
+      .order('due_date', { nullsFirst: false })
+      .order('created_at'),
+    supabase
+      .from('v_subject_terms_resolved')
+      .select('subject_term_id, term_name, term_sequence')
+      .eq('subject_id', resolved.subject_id)
+      .order('term_sequence'),
+    supabase.from('subjects').select('teacher_name').eq('id', resolved.subject_id).maybeSingle(),
+  ]);
 
   if (!schemeRow) return null;
 
@@ -73,6 +81,8 @@ export async function getSubjectTermDetail(
     scheme: toGradingScheme(schemeRow, categoryRows ?? []),
     activities: (activityRows ?? []).map(toGradeActivity),
     targetGrade: resolved.subject_term_target ?? resolved.subject_target,
+    passingGrade: schemeRow.passing_grade ?? 6,
+    teacherName: teacherRow?.teacher_name ?? null,
     finalGradeOverride: resolved.final_grade_override,
     siblingTerms: (siblings ?? []).map((s) => ({
       subjectTermId: s.subject_term_id,

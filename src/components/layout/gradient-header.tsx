@@ -27,10 +27,13 @@ export function GradientHeader({
 }) {
   return (
     <header
-      className={cn('pt-safe rounded-b-[20px] px-4 pt-3 pb-5', className)}
+      className={cn('pt-safe rounded-b-[20px] px-4 pt-3 pb-5 md:px-6 lg:px-8', className)}
       style={{ background: 'var(--gradient-header)', color: 'var(--gradient-header-fg)' }}
     >
-      <div className="mx-auto w-full max-w-2xl lg:max-w-5xl">
+      {/* O contêiner interno repete EXATAMENTE o de `PageMain`. Foi a divergência
+          entre os dois que deixou o cabeçalho desalinhado do conteúdo no
+          desktop: o título começava num lugar e os cartões em outro. */}
+      <div className="mx-auto w-full max-w-[1440px]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             {subtitle && <p className="text-sm opacity-85">{subtitle}</p>}
@@ -64,11 +67,14 @@ export function HeaderStreak({ streak }: { streak: number }) {
     >
       <Flame className="size-4 shrink-0" style={{ color: '#fbbf24' }} aria-hidden />
       <span className="text-lg leading-none font-semibold tabular-nums">{streak}</span>
-      <span className="text-[11px] leading-tight opacity-90">
+      {/* Quebra em duas linhas no celular, onde a faixa é curta; numa só a
+          partir do tablet, como o guia de desktop mostra. */}
+      <span className="text-[11px] leading-tight opacity-90 md:hidden">
         dias
         <br />
         seguidos
       </span>
+      <span className="hidden text-sm opacity-90 md:inline">dias seguidos</span>
     </span>
   );
 }

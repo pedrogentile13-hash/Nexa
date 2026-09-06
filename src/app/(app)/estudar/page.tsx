@@ -33,7 +33,15 @@ export default async function StudyPage({
 
   return (
     <>
-      <GradientHeader title="Estudar" subtitle="Com o que você estuda isso?" />
+      {/* Como no Desempenho: degradê no celular, cabeçalho claro no desktop —
+          numa tela larga a faixa colorida é área sem informação. */}
+      <div className="md:hidden">
+        <GradientHeader title="Estudar" subtitle="Com o que você estuda isso?" />
+      </div>
+      <div className="mx-auto hidden w-full max-w-[1440px] px-4 pt-6 md:block md:px-6 lg:px-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Estudar</h1>
+        <p className="text-muted mt-0.5 text-sm">Com o que você estuda isso?</p>
+      </div>
       <StudyHub data={data} kindFilter={kindFilter} />
     </>
   );

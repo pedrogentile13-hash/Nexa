@@ -127,9 +127,23 @@ export default async function SubjectsPage() {
 
   return (
     <>
-      <AppHeader title="Minhas matérias" action={<AddSubjectButton />} />
-      <PageMain>
-        <SubjectsView subjects={subjects} termName={termName} alert={alert} />
+      {/* No celular o título fica no cabeçalho fixo; no desktop ele desce para
+          dentro da tela, dividindo a linha com os filtros. */}
+      <div className="md:hidden">
+        <AppHeader title="Minhas matérias" action={<AddSubjectButton />} />
+      </div>
+      <PageMain className="pt-4 md:pt-6">
+        <SubjectsView
+          subjects={subjects}
+          termName={termName}
+          alert={alert}
+          title="Minhas matérias"
+          addButton={
+            <span className="hidden md:inline-flex">
+              <AddSubjectButton />
+            </span>
+          }
+        />
       </PageMain>
     </>
   );

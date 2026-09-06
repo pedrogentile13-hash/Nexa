@@ -22,6 +22,16 @@ export interface TodaySnapshot {
   classesToday: ClassSlot[];
   runningSessionId: string | null;
   runningSessionStartedAt: string | null;
+  /** O material que o aluno começou e não terminou. `null` se não houver. */
+  resume: ResumeItem | null;
+}
+
+export interface ResumeItem {
+  id: string;
+  title: string;
+  kind: string;
+  subjectName: string;
+  progressPercent: number;
 }
 
 export interface TodayRoutine {
@@ -82,6 +92,7 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
     sessionsRes,
     slotsRes,
     averagesRes,
+    resumeRes,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -123,6 +134,16 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
     supabase
       .from('v_subject_term_averages')
       .select('subject_id, final_grade, target_grade, passing_grade'),
+    // "Continuar de onde parou": o mais recente que começou e não terminou.
+    // Um item concluído não é pendência, e oferecê-lo de volta faz o cartão
+    // parecer quebrado.
+    supabase
+      .from('resource_progress')
+      .select('resource_id, progress_percent, last_seen_at')
+      .is('completed_at', null)
+      .gt('progress_percent', 0)
+      .order('last_seen_at', { ascending: false })
+      .limit(1),
   ]);
 
   const profile = profileRes.data;
@@ -231,6 +252,28 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
       kind: c.kind === 'assessment' ? 'assessment' : 'task',
     }));
 
+  // O título do material vem numa segunda consulta porque a primeira só
+  // devolve o id; buscar sempre seria uma ida a mais para quase todo aluno.
+  let resume: ResumeItem | null = null;
+  const resumeRow = resumeRes.data?.[0];
+  if (resumeRow) {
+    const { data: resource } = await supabase
+      .from('v_resource_library')
+      .select('id, title, kind, subject_name')
+      .eq('id', resumeRow.resource_id)
+      .maybeSingle();
+
+    if (resource) {
+      resume = {
+        id: resource.id,
+        title: resource.title,
+        kind: resource.kind,
+        subjectName: resource.subject_name,
+        progressPercent: Number(resumeRow.progress_percent),
+      };
+    }
+  }
+
   const sessions = sessionsRes.data ?? [];
   const studiedTodaySeconds = sessions.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
   const running = sessions.find((s) => s.ended_at === null);
@@ -248,5 +291,6 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
     classesToday,
     runningSessionId: running?.id ?? null,
     runningSessionStartedAt: running?.started_at ?? null,
+    resume,
   };
 }

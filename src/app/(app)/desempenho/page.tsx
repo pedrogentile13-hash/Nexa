@@ -14,6 +14,7 @@ import {
 import { levelProgressPercent } from '@/features/performance/lib/level';
 import { getPerformance } from '@/features/performance/server/queries';
 import { getCurrentUser } from '@/lib/supabase/server';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: 'Desempenho',
@@ -21,6 +22,62 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * A média e a variação, na mesma peça.
+ *
+ * Existe uma versão para o degradê e outra para o fundo claro porque o verde e
+ * o vermelho do tema não têm contraste suficiente sobre o azul — sobre a faixa
+ * eles viram superfícies translúcidas, e sobre o claro voltam a ser os tokens.
+ */
+function AverageBadge({
+  average,
+  delta,
+  onGradient = false,
+}: {
+  average: number | null;
+  delta: number | null;
+  onGradient?: boolean;
+}) {
+  const up = (delta ?? 0) > 0;
+
+  return (
+    <div className="flex shrink-0 items-center gap-2 text-right">
+      <span
+        className={cn(
+          'tabular text-3xl leading-none font-semibold md:text-4xl',
+          onGradient ? '' : 'text-brand-text',
+        )}
+      >
+        {formatGrade(average, 1)}
+      </span>
+
+      {delta !== null && delta !== 0 && (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold tabular-nums',
+            !onGradient && (up ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'),
+          )}
+          style={
+            onGradient
+              ? {
+                  backgroundColor: up ? 'rgba(74, 222, 128, 0.22)' : 'rgba(248, 113, 113, 0.22)',
+                }
+              : undefined
+          }
+        >
+          {up ? (
+            <TrendingUp className="size-3.5" aria-hidden />
+          ) : (
+            <TrendingDown className="size-3.5" aria-hidden />
+          )}
+          {up ? '+' : '−'}
+          {formatGrade(Math.abs(delta), 1)}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export default async function PerformancePage() {
   const user = await getCurrentUser();
@@ -51,39 +108,31 @@ export default async function PerformancePage() {
 
   return (
     <>
-      <GradientHeader
-        title="Desempenho"
-        subtitle={`Média geral do ${data.currentTermName ?? 'período atual'}`}
-        right={
-          <div className="shrink-0 text-right">
-            <span className="tabular block text-3xl leading-none font-semibold">
-              {formatGrade(data.overallAverage, 1)}
-            </span>
-            {data.averageDelta !== null && data.averageDelta !== 0 && (
-              <span
-                className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
-                style={{
-                  backgroundColor:
-                    data.averageDelta > 0
-                      ? 'rgba(74, 222, 128, 0.22)'
-                      : 'rgba(248, 113, 113, 0.22)',
-                }}
-              >
-                {data.averageDelta > 0 ? (
-                  <TrendingUp className="size-3.5" aria-hidden />
-                ) : (
-                  <TrendingDown className="size-3.5" aria-hidden />
-                )}
-                {data.averageDelta > 0 ? '+' : '−'}
-                {formatGrade(Math.abs(data.averageDelta), 1)}
-              </span>
-            )}
-          </div>
-        }
-      />
+      {/* No celular o degradê; no desktop, um cabeçalho claro com o número em
+          azul, como o guia mostra. Numa tela larga a faixa colorida ocuparia
+          uma fatia de área que não carrega informação nenhuma. */}
+      <div className="md:hidden">
+        <GradientHeader
+          title="Desempenho"
+          subtitle={`Média geral do ${data.currentTermName ?? 'período atual'}`}
+          right={
+            <AverageBadge average={data.overallAverage} delta={data.averageDelta} onGradient />
+          }
+        />
+      </div>
 
-      <PageMain className="grid gap-4 pt-4 lg:grid-cols-2 lg:items-start">
-        <Card className="min-w-0">
+      <PageMain className="grid gap-4 pt-4 md:pt-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6">
+        <div className="hidden items-start justify-between gap-4 md:flex lg:col-span-2">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Desempenho</h1>
+            <p className="text-muted mt-0.5 text-sm">
+              Média geral do {data.currentTermName ?? 'período atual'}
+            </p>
+          </div>
+          <AverageBadge average={data.overallAverage} delta={data.averageDelta} />
+        </div>
+
+        <Card className="min-w-0 lg:col-start-1 lg:row-start-2">
           <CardContent className="p-4">
             <p className="text-sm leading-relaxed font-medium">{evolutionSentence}</p>
             <div className="mt-3">
@@ -92,7 +141,7 @@ export default async function PerformancePage() {
           </CardContent>
         </Card>
 
-        <Card className="min-w-0">
+        <Card className="min-w-0 lg:col-start-1 lg:row-start-3">
           <CardContent className="p-4">
             <p className="text-sm leading-relaxed font-medium">{subjectsSentence}</p>
             <div className="mt-3">
@@ -108,7 +157,7 @@ export default async function PerformancePage() {
           </CardContent>
         </Card>
 
-        <Card className="min-w-0">
+        <Card className="min-w-0 lg:col-start-2 lg:row-start-3">
           <CardHeader>
             <CardTitle>Estudo por semana</CardTitle>
           </CardHeader>
@@ -119,7 +168,7 @@ export default async function PerformancePage() {
 
         {/* Nível: sóbrio de propósito. O XP aparece menor que a nota do
             cabeçalho, porque a nota é o que importa e o XP é reconhecimento. */}
-        <Card className="min-w-0">
+        <Card className="min-w-0 lg:col-start-2 lg:row-start-2">
           <CardHeader>
             <CardTitle>Nível</CardTitle>
           </CardHeader>

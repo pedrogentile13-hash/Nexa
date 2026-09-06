@@ -34,10 +34,10 @@ export function AppHeader({
 
   return (
     <header className="pt-safe bg-bg/85 sticky top-0 z-30 backdrop-blur-lg">
-      {/* A largura acompanha a do conteúdo (PageMain "board"): com o
-          cabeçalho preso em 672px e o conteúdo em 1120px, o título flutuaria no
-          meio da tela em vez de alinhar com a primeira coluna. */}
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3 lg:max-w-5xl">
+      {/* Contêiner idêntico ao de `PageMain`: com larguras diferentes, o título
+          começa num ponto e os cartões em outro — foi essa divergência que
+          deixou o desktop desalinhado. */}
+      <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-3 px-4 py-3 md:px-6 lg:px-8">
         <div className="min-w-0">
           <h1 className="truncate text-xl leading-tight font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="text-muted truncate text-sm">{subtitle}</p>}
