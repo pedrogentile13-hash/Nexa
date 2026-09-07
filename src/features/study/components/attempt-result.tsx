@@ -1,5 +1,9 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
-import { Check, ChevronRight, X } from 'lucide-react';
+import { Check, ChevronRight, NotebookPen, RotateCcw, X } from 'lucide-react';
+import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { StudyTopBar } from './study-top-bar';
@@ -46,11 +50,16 @@ export function AttemptResult({
     topics: TopicRow[];
   };
 }) {
+  const [filter, setFilter] = useState<'todas' | 'acertos' | 'erros'>('todas');
+
   const attempt = result.attempt;
   if (!attempt) return null;
 
   const percent = attempt.total_count > 0 ? (attempt.correct_count / attempt.total_count) * 100 : 0;
   const wrong = result.review.filter((row) => !row.is_correct);
+  const filteredReview = result.review.filter((row) =>
+    filter === 'todas' ? true : filter === 'acertos' ? row.is_correct : !row.is_correct,
+  );
 
   return (
     <div style={subjectColorVars(resource.subjectColor)} className="pb-8">
@@ -108,45 +117,75 @@ export function AttemptResult({
         {/* O caminho de volta ao material. É o que fecha o ciclo: errar, saber
             onde errou, e ter para onde ir a partir disso. */}
         {wrong.length > 0 && (
-          <section className="space-y-2">
+          <section>
             <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
-              O que revisar
+              Próximos passos
             </h2>
-            <Link
-              href={{ pathname: '/estudar', query: { materia: resource.id } }}
-              className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">
-                  Material de {resource.subjectName}
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Link
+                href={{ pathname: '/estudar', query: { materia: resource.id } }}
+                className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
+              >
+                <span
+                  aria-hidden
+                  className="bg-brand-soft text-brand-text grid size-9 shrink-0 place-items-center rounded-lg"
+                >
+                  <NotebookPen className="size-4" />
                 </span>
-                <span className="text-muted text-xs">
-                  {wrong.length === 1
-                    ? 'liga à questão que você errou'
-                    : `liga às ${wrong.length} questões que você errou`}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">
+                    Material de {resource.subjectName}
+                  </span>
+                  <span className="text-muted text-xs">
+                    {wrong.length === 1
+                      ? 'liga à questão que você errou'
+                      : `liga às ${wrong.length} questões que você errou`}
+                  </span>
                 </span>
-              </span>
-              <ChevronRight className="text-muted size-4 shrink-0" aria-hidden />
-            </Link>
-            {/* A Central de Erros junta os erros de TODOS os simulados e
-                quizzes, não só deste — vale como próximo passo mesmo quando o
-                material acima já foi revisado. */}
-            <Link
-              href="/erros"
-              className="text-brand-text flex items-center gap-1.5 px-1 text-sm font-medium"
-            >
-              Ver todos os meus erros
-              <ChevronRight className="size-3.5 shrink-0" aria-hidden />
-            </Link>
+                <ChevronRight className="text-muted size-4 shrink-0" aria-hidden />
+              </Link>
+              {/* A Central de Erros junta os erros de TODOS os simulados e
+                  quizzes, não só deste — vale como próximo passo mesmo quando o
+                  material acima já foi revisado. */}
+              <Link
+                href="/erros"
+                className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
+              >
+                <span
+                  aria-hidden
+                  className="bg-brand-soft text-brand-text grid size-9 shrink-0 place-items-center rounded-lg"
+                >
+                  <RotateCcw className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Revisar todos os meus erros</span>
+                  <span className="text-muted text-xs">questões de todos os simulados e quizzes</span>
+                </span>
+                <ChevronRight className="text-muted size-4 shrink-0" aria-hidden />
+              </Link>
+            </div>
           </section>
         )}
 
         <section>
-          <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
-            Gabarito
-          </h2>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-muted text-xs font-semibold tracking-wide uppercase">
+              Detalhamento das questões
+            </h2>
+            <div className="flex gap-1.5">
+              <Chip active={filter === 'todas'} onClick={() => setFilter('todas')}>
+                Todas ({result.review.length})
+              </Chip>
+              <Chip active={filter === 'acertos'} onClick={() => setFilter('acertos')}>
+                Acertos ({result.review.length - wrong.length})
+              </Chip>
+              <Chip active={filter === 'erros'} onClick={() => setFilter('erros')}>
+                Erros ({wrong.length})
+              </Chip>
+            </div>
+          </div>
           <ol className="space-y-2">
-            {result.review.map((row) => (
+            {filteredReview.map((row) => (
               <li key={row.question_id} className="border-border bg-surface rounded-lg border p-4">
                 <div className="flex items-start gap-3">
                   <span

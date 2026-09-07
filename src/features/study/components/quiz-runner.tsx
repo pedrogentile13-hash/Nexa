@@ -256,6 +256,17 @@ export function QuizRunner({
     );
   }
 
+  // Assuntos da sessão: quantas questões de cada tópico, na ordem em que
+  // aparecem — dado que já vem carregado, sem consulta nova.
+  const topicCounts = new Map<string, number>();
+  for (const q of questions) {
+    const label = q.topic_name ?? resource.subjectName;
+    topicCounts.set(label, (topicCounts.get(label) ?? 0) + 1);
+  }
+
+  const correctSoFar = Object.values(answered).filter(Boolean).length;
+  const incorrectSoFar = Object.values(answered).filter((v) => !v).length;
+
   // ------------------------------------------------------------ rodando --
   return (
     <div style={subjectColorVars(resource.subjectColor)} className="pb-28">
@@ -287,7 +298,8 @@ export function QuizRunner({
         />
       </div>
 
-      <div className="mx-auto max-w-2xl px-5 pt-5">
+      <div className="mx-auto max-w-[1100px] px-5 pt-5 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-6">
+      <div className="min-w-0">
         <h1 className="text-lg leading-snug font-semibold">{question.statement}</h1>
 
         <ul className="mt-5 space-y-2.5">
@@ -382,6 +394,62 @@ export function QuizRunner({
             </li>
           ))}
         </ol>
+      </div>
+
+      {/* Sidebar: só desktop. No simulado não mostra corretas/incorretas —
+          revelar isso durante a prova quebraria a proposta de "sem feedback
+          até o fim" que o simulado tem por definição. */}
+      <aside className="mt-6 hidden min-w-0 space-y-4 lg:mt-0 lg:block">
+        <div className="border-border bg-surface rounded-2xl border p-4">
+          <h2 className="text-sm font-semibold">Seu progresso</h2>
+          {isQuiz ? (
+            <dl className="mt-3 space-y-1.5 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-muted flex items-center gap-1.5">
+                  <span aria-hidden className="bg-success size-2 rounded-full" />
+                  Corretas
+                </dt>
+                <dd className="tabular font-semibold">{correctSoFar}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-muted flex items-center gap-1.5">
+                  <span aria-hidden className="bg-danger size-2 rounded-full" />
+                  Incorretas
+                </dt>
+                <dd className="tabular font-semibold">{incorrectSoFar}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-muted flex items-center gap-1.5">
+                  <span aria-hidden className="border-border-strong size-2 rounded-full border" />
+                  Restantes
+                </dt>
+                <dd className="tabular font-semibold">
+                  {total - correctSoFar - incorrectSoFar}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="text-muted mt-2 text-sm">
+              <span className="text-text tabular font-semibold">{Object.keys(answered).length}</span>{' '}
+              de {total} questões respondidas
+            </p>
+          )}
+        </div>
+
+        <div className="border-border bg-surface rounded-2xl border p-4">
+          <h2 className="text-sm font-semibold">Assuntos desta sessão</h2>
+          <ul className="mt-3 space-y-2">
+            {[...topicCounts.entries()].map(([topic, count]) => (
+              <li key={topic} className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-muted min-w-0 truncate">{topic}</span>
+                <span className="text-subtle tabular shrink-0 text-xs">
+                  {count} {count === 1 ? 'questão' : 'questões'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
       </div>
 
       {/* No simulado a resposta já avança sozinha, então o rodapé serve para
