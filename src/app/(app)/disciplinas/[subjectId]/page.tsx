@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, BookOpen, Brain, NotebookPen, RotateCcw } from 'lucide-react';
+import { ArrowLeft, BookOpen } from 'lucide-react';
 import { PageMain } from '@/components/layout/page-main';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopEmptyState } from '@/components/ui/empty-state';
-import { TargetGradeForm } from '@/features/subjects/components/target-grade-form';
+import { SubjectTabs, type SubjectContentItem, type SubjectTrackItem } from '@/features/subjects/components/subject-tabs';
 import { formatGrade } from '@/lib/format/grade';
 import { getSimuladoHistory, getSubjectScores } from '@/features/performance/server/queries';
 import { subjectColorVars } from '@/lib/design/subject-colors';
+import { subjectIcon } from '@/lib/design/subject-icon';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +32,7 @@ export default async function SubjectDetailPage({ params }: Params) {
   const [subjectRes, scores, simulados] = await Promise.all([
     supabase
       .from('subjects')
-      .select('id, name, color, teacher_name')
+      .select('id, name, color, icon, teacher_name, catalog_id')
       .eq('id', subjectId)
       .is('archived_at', null)
       .maybeSingle(),
@@ -47,6 +47,7 @@ export default async function SubjectDetailPage({ params }: Params) {
 
   const subjectSimulados = simulados.filter((s) => s.subjectId === subjectId);
   const grade = score.blendedScore;
+  const Icon = subjectIcon(subject.icon);
 
   const status = !score.hasContent
     ? 'Sem conteúdo do Nexa'
@@ -57,6 +58,53 @@ export default async function SubjectDetailPage({ params }: Params) {
         : score.targetGrade !== null && grade < score.targetGrade
           ? 'Abaixo da meta'
           : 'Meta batida';
+
+  let content: SubjectContentItem[] = [];
+  let tracks: SubjectTrackItem[] = [];
+  let topics: Awaited<ReturnType<typeof loadTopics>> = [];
+
+  if (subject.catalog_id) {
+    const [libraryRes, progressRes, tracksRes, lessonsRes, masteryRes] = await Promise.all([
+      supabase
+        .from('v_resource_library')
+        .select('id, kind, title, duration_seconds')
+        .eq('subject_catalog_id', subject.catalog_id)
+        .order('sort_order'),
+      supabase.from('resource_progress').select('resource_id, completed_at'),
+      supabase
+        .from('tracks')
+        .select('id, title')
+        .eq('subject_catalog_id', subject.catalog_id)
+        .eq('is_published', true),
+      supabase.from('v_track_lessons_resolved').select('track_id, raw_state'),
+      loadTopics(user.id, subject.catalog_id),
+    ]);
+
+    const completedResourceIds = new Set(
+      (progressRes.data ?? []).filter((p) => p.completed_at).map((p) => p.resource_id),
+    );
+    content = (libraryRes.data ?? []).map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      title: r.title,
+      durationSeconds: r.duration_seconds,
+      completed: completedResourceIds.has(r.id),
+    }));
+
+    const lessonsByTrack = new Map<string, { done: number; total: number }>();
+    for (const lesson of lessonsRes.data ?? []) {
+      const entry = lessonsByTrack.get(lesson.track_id) ?? { done: 0, total: 0 };
+      entry.total += 1;
+      if (lesson.raw_state === 'done' || lesson.raw_state === 'mastered') entry.done += 1;
+      lessonsByTrack.set(lesson.track_id, entry);
+    }
+    tracks = (tracksRes.data ?? []).map((t) => {
+      const counts = lessonsByTrack.get(t.id) ?? { done: 0, total: 0 };
+      return { id: t.id, title: t.title, done: counts.done, total: counts.total };
+    });
+
+    topics = masteryRes;
+  }
 
   return (
     <div style={subjectColorVars(subject.color)}>
@@ -75,16 +123,24 @@ export default async function SubjectDetailPage({ params }: Params) {
           </Link>
 
           <div className="mt-1 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-            <div className="min-w-0">
-              <h1 className="truncate text-2xl leading-tight font-semibold tracking-tight md:text-3xl">
-                {subject.name}
-              </h1>
-              {subject.teacher_name && (
-                <p className="mt-0.5 truncate text-sm opacity-90">{subject.teacher_name}</p>
-              )}
-              <span className="mt-2 inline-flex rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
-                {status}
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                aria-hidden
+                className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/20 backdrop-blur-sm"
+              >
+                <Icon className="size-5" />
               </span>
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl leading-tight font-semibold tracking-tight md:text-3xl">
+                  {subject.name}
+                </h1>
+                {subject.teacher_name && (
+                  <p className="mt-0.5 truncate text-sm opacity-90">{subject.teacher_name}</p>
+                )}
+                <span className="mt-2 inline-flex rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
+                  {status}
+                </span>
+              </div>
             </div>
 
             <div className="shrink-0 text-right">
@@ -100,101 +156,43 @@ export default async function SubjectDetailPage({ params }: Params) {
         </div>
       </header>
 
-      <PageMain className="space-y-4 pt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:space-y-0">
+      <PageMain className="space-y-4 pt-4">
         {!score.hasContent ? (
-          <div className="lg:col-span-2">
-            <PopEmptyState
-              icon={<BookOpen className="text-white" />}
-              title="Sem conteúdo do Nexa vinculado"
-              description="Essa matéria não tem quiz, simulado ou resumo no acervo ainda — por isso não dá pra calcular uma nota automática. Assim que a escola publicar conteúdo pra ela, a nota aparece aqui."
-            />
-          </div>
+          <PopEmptyState
+            icon={<BookOpen className="text-white" />}
+            title="Sem conteúdo do Nexa vinculado"
+            description="Essa matéria não tem quiz, simulado ou resumo no acervo ainda — por isso não dá pra calcular uma nota automática. Assim que a escola publicar conteúdo pra ela, a nota aparece aqui."
+          />
         ) : (
-          <>
-            <Card className="min-w-0">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="text-brand size-4" aria-hidden />
-                  Como a nota é composta
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-medium">Avaliativo (70%)</span>
-                    <span className="tabular text-sm font-semibold">
-                      {formatGrade(score.assessmentScore, 1)}
-                    </span>
-                  </div>
-                  <p className="text-muted mt-1 text-xs leading-relaxed">
-                    {score.quizzesDone} {score.quizzesDone === 1 ? 'quiz' : 'quizzes'} ·{' '}
-                    {score.simuladosDone} {score.simuladosDone === 1 ? 'simulado' : 'simulados'}
-                  </p>
-                </div>
-                <div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-medium">Empenho (30%)</span>
-                    <span className="tabular text-sm font-semibold">
-                      {Math.round(score.empenhoIndex)}%
-                    </span>
-                  </div>
-                  <p className="text-muted mt-1 text-xs leading-relaxed">
-                    {score.contentCompleted}{' '}
-                    {score.contentCompleted === 1 ? 'conteúdo concluído' : 'conteúdos concluídos'}, e
-                    quanto mais regular o estudo, maior esse número.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="min-w-0 space-y-4 lg:sticky lg:top-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Meta</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <TargetGradeForm subjectId={subject.id} initialTarget={score.targetGrade} />
-                </CardContent>
-              </Card>
-            </div>
-
-            {subjectSimulados.length > 0 && (
-              <Card className="min-w-0 lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <NotebookPen className="text-brand size-4" aria-hidden />
-                    Simulados desta matéria
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <ul className="divide-border divide-y">
-                    {subjectSimulados.map((attempt) => (
-                      <li key={attempt.attemptId}>
-                        <Link
-                          href={`/estudar/${attempt.resourceId}/resultado?tentativa=${attempt.attemptId}`}
-                          className="hover:bg-surface-2 flex items-center gap-3 px-4 py-3 transition-colors"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{attempt.resourceTitle}</p>
-                            <p className="text-subtle text-xs">
-                              {new Date(attempt.finishedAt).toLocaleDateString('pt-BR')} ·{' '}
-                              {attempt.correctCount}/{attempt.totalCount} acertos
-                            </p>
-                          </div>
-                          <span className="tabular text-sm font-semibold">
-                            {Math.round(attempt.percent)}%
-                          </span>
-                          <RotateCcw className="text-subtle size-4 shrink-0" aria-hidden />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
-          </>
+          <SubjectTabs
+            subjectId={subject.id}
+            score={score}
+            content={content}
+            tracks={tracks}
+            topics={topics}
+            simulados={subjectSimulados}
+          />
         )}
       </PageMain>
     </div>
   );
+}
+
+async function loadTopics(userId: string, catalogId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('topic_mastery', { p_user_id: userId });
+  return (data ?? [])
+    .filter((row) => row.subject_id === catalogId)
+    .map((row) => ({
+      subjectId: row.subject_id,
+      subjectName: row.subject_name,
+      subjectColor: row.subject_color,
+      topicId: row.topic_id,
+      topicName: row.topic_name,
+      correctCount: row.correct_count,
+      totalCount: row.total_count,
+      masteryPercent: row.mastery_percent,
+      status: row.status,
+    }))
+    .sort((a, b) => a.masteryPercent - b.masteryPercent);
 }

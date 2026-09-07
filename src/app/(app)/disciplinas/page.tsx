@@ -54,7 +54,7 @@ export default async function SubjectsPage() {
 
   const [scores, subjectsRes, provasRes] = await Promise.all([
     getSubjectScores(user.id),
-    supabase.from('subjects').select('id, teacher_name').is('archived_at', null),
+    supabase.from('subjects').select('id, teacher_name, icon').is('archived_at', null),
     supabase
       .from('tasks')
       .select('subject_id, due_date')
@@ -66,8 +66,11 @@ export default async function SubjectsPage() {
       .order('due_date'),
   ]);
 
-  const teacherBySubject = new Map(
-    (subjectsRes.data ?? []).map((s) => [s.id, s.teacher_name as string | null]),
+  const subjectMetaById = new Map(
+    (subjectsRes.data ?? []).map((s) => [
+      s.id,
+      { teacher: s.teacher_name as string | null, icon: s.icon },
+    ]),
   );
 
   // A primeira prova pendente de cada matéria — a consulta já vem ordenada
@@ -81,12 +84,15 @@ export default async function SubjectsPage() {
   const subjects: SubjectCard[] = scores.map((row) => {
     const grade = row.blendedScore;
     const target = row.targetGrade;
+    const meta = subjectMetaById.get(row.subjectId);
 
     return {
       id: row.subjectId,
       name: row.subjectName,
       color: row.subjectColor,
-      teacher: teacherBySubject.get(row.subjectId) ?? null,
+      icon: meta?.icon ?? 'book-open',
+      teacher: meta?.teacher ?? null,
+      started: row.quizzesDone > 0 || row.simuladosDone > 0 || row.contentCompleted > 0,
       grade: grade === null ? '—' : formatGrade(grade, 1),
       gradeValue: grade,
       target: target === null ? null : formatGrade(target, 1),

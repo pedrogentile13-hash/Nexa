@@ -2,12 +2,21 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowDownAZ, BookOpen, Plus, TriangleAlert, Zap } from 'lucide-react';
+import {
+  ArrowDownAZ,
+  BookOpen,
+  LayoutGrid,
+  List,
+  Plus,
+  TriangleAlert,
+  Zap,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { PopEmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
+import { subjectIcon } from '@/lib/design/subject-icon';
 
 /**
  * A lista de matérias.
@@ -24,6 +33,7 @@ export interface SubjectCard {
   id: string;
   name: string;
   color: string;
+  icon: string;
   teacher: string | null;
   grade: string;
   gradeValue: number | null;
@@ -32,6 +42,9 @@ export interface SubjectCard {
   hint: { label: string; tone: 'danger' | 'warning' | 'neutral' | 'success' } | null;
   nextAssessment: string | null;
   riskOrder: number;
+  /** Deriva de ter (ou não) atividade real registrada — nunca um "concluída"
+   * fabricado, já que a plataforma não tem um conceito de matéria terminada. */
+  started: boolean;
 }
 
 const GRADE_TONE = {
@@ -49,6 +62,8 @@ const HINT_TONE = {
 } as const;
 
 type SortMode = 'risco' | 'az';
+type StatusFilter = 'todas' | 'andamento' | 'nao-iniciadas';
+type Density = 'grid' | 'list';
 
 export function SubjectsView({
   subjects,
@@ -63,8 +78,16 @@ export function SubjectsView({
   addButton?: React.ReactNode;
 }) {
   const [sort, setSort] = useState<SortMode>('risco');
+  const [status, setStatus] = useState<StatusFilter>('todas');
+  const [density, setDensity] = useState<Density>('grid');
 
-  const ordered = [...subjects].sort((a, b) =>
+  const byStatus = subjects.filter((s) => {
+    if (status === 'andamento') return s.started;
+    if (status === 'nao-iniciadas') return !s.started;
+    return true;
+  });
+
+  const ordered = [...byStatus].sort((a, b) =>
     sort === 'az'
       ? a.name.localeCompare(b.name, 'pt-BR')
       : a.riskOrder - b.riskOrder || a.name.localeCompare(b.name, 'pt-BR'),
@@ -79,15 +102,57 @@ export function SubjectsView({
           <h1 className="hidden text-2xl font-semibold tracking-tight md:block">{title}</h1>
         )}
 
-        <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
-          <Chip active={sort === 'risco'} onClick={() => setSort('risco')}>
-            <Zap className="size-4" aria-hidden />
-            Risco
-          </Chip>
-          <Chip active={sort === 'az'} onClick={() => setSort('az')}>
-            <ArrowDownAZ className="size-4" aria-hidden />
-            A–Z
-          </Chip>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
+            <Chip active={status === 'todas'} onClick={() => setStatus('todas')}>
+              Todas
+            </Chip>
+            <Chip active={status === 'andamento'} onClick={() => setStatus('andamento')}>
+              Em andamento
+            </Chip>
+            <Chip active={status === 'nao-iniciadas'} onClick={() => setStatus('nao-iniciadas')}>
+              Não iniciadas
+            </Chip>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
+            <Chip active={sort === 'risco'} onClick={() => setSort('risco')}>
+              <Zap className="size-4" aria-hidden />
+              Risco
+            </Chip>
+            <Chip active={sort === 'az'} onClick={() => setSort('az')}>
+              <ArrowDownAZ className="size-4" aria-hidden />
+              A–Z
+            </Chip>
+          </div>
+
+          <div className="border-border ml-auto hidden shrink-0 gap-0.5 rounded-full border p-0.5 md:flex">
+            <button
+              type="button"
+              aria-label="Ver em grade"
+              aria-pressed={density === 'grid'}
+              onClick={() => setDensity('grid')}
+              className={cn(
+                'grid size-8 place-items-center rounded-full',
+                density === 'grid' ? 'bg-brand text-brand-fg' : 'text-muted',
+              )}
+            >
+              <LayoutGrid className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Ver em lista"
+              aria-pressed={density === 'list'}
+              onClick={() => setDensity('list')}
+              className={cn(
+                'grid size-8 place-items-center rounded-full',
+                density === 'list' ? 'bg-brand text-brand-fg' : 'text-muted',
+              )}
+            >
+              <List className="size-4" aria-hidden />
+            </button>
+          </div>
+
           {addButton}
         </div>
       </div>
@@ -101,7 +166,7 @@ export function SubjectsView({
         </div>
       )}
 
-      {ordered.length === 0 ? (
+      {subjects.length === 0 ? (
         <PopEmptyState
           icon={<BookOpen className="text-white" />}
           title="Nenhuma matéria ainda."
@@ -115,23 +180,39 @@ export function SubjectsView({
             </Button>
           }
         />
+      ) : ordered.length === 0 ? (
+        <p className="text-muted px-1 text-sm">Nenhuma matéria neste filtro.</p>
       ) : (
-        <ul className="grid gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3">
-          {ordered.map((subject) => (
-            <li key={subject.id} className="min-w-0">
-              <Link
-                href={`/disciplinas/${subject.id}`}
-                style={subjectColorVars(subject.color)}
-                className="border-border bg-surface hover:border-border-strong relative block overflow-hidden rounded-[20px] border transition-colors"
-              >
-                <span
-                  aria-hidden
-                  className="absolute inset-y-0 left-0 w-1.5"
-                  style={{ backgroundColor: 'var(--subject-base)' }}
-                />
+        <ul
+          className={cn(
+            'grid gap-2 md:gap-3',
+            density === 'grid' ? 'md:grid-cols-2 xl:grid-cols-3' : 'md:grid-cols-1',
+          )}
+        >
+          {ordered.map((subject) => {
+            const Icon = subjectIcon(subject.icon);
+            return (
+              <li key={subject.id} className="min-w-0">
+                <Link
+                  href={`/disciplinas/${subject.id}`}
+                  style={subjectColorVars(subject.color)}
+                  className="border-border bg-surface hover:border-border-strong relative block overflow-hidden rounded-[20px] border transition-colors"
+                >
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-0 left-0 w-1.5"
+                    style={{ backgroundColor: 'var(--subject-base)' }}
+                  />
 
-                <div className="flex items-start gap-3 py-3.5 pr-4 pl-5">
-                  <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-3 py-3.5 pr-4 pl-5">
+                    <span
+                      aria-hidden
+                      className="grid size-9 shrink-0 place-items-center rounded-xl"
+                      style={{ backgroundColor: 'var(--subject-soft)', color: 'var(--subject-on-soft)' }}
+                    >
+                      <Icon className="size-4.5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
                     <h2 className="truncate text-sm font-semibold">{subject.name}</h2>
                     {subject.teacher && (
                       <p className="text-muted truncate text-xs">{subject.teacher}</p>
@@ -183,7 +264,8 @@ export function SubjectsView({
                 </div>
               </Link>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>
