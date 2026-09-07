@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { FlaskConical, Plus } from 'lucide-react';
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { ResourceTable } from '@/features/admin/components/resource-table';
 import { ResourceFilterBar } from '@/features/admin/components/resource-filter-bar';
@@ -38,12 +38,20 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
         title="Conteúdo"
         description="Resumos, simulados, quiz, podcasts, vídeos, imagens e músicas."
         action={
-          <Button asChild>
-            <Link href="/admin/conteudo/novo">
-              <Plus aria-hidden />
-              Novo conteúdo
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="secondary">
+              <Link href="/admin/conteudo/importar-simulado">
+                <FlaskConical aria-hidden />
+                Importar simulado
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/admin/conteudo/novo">
+                <Plus aria-hidden />
+                Novo conteúdo
+              </Link>
+            </Button>
+          </div>
         }
       />
 

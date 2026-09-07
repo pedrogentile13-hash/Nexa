@@ -891,3 +891,54 @@ continua em aberto aqui — o toggle existe, a lista não.
 construído nesta rodada — reduziria a uma UI sem função por trás. Upload,
 processamento (sem IA), metadados, leitor completo e favoritar funcionam
 integralmente sem a chave; `.env.example` documenta onde ela entra.
+
+## ADR-041 · Simulado por código é validação pura, reaproveitando o cadastro que já existe
+
+**Contexto.** O pedido descreve um painel "🧪 Criar Simulado" com três
+caminhos (manual, colar código, importar arquivo) e um fluxo de validação
+com prévia editável antes de publicar. A tentação óbvia era construir uma
+segunda via de cadastro paralela à que já existe (`QuestionEditor`,
+`saveQuestion`) — duas formas de a mesma tabela `questions`/`question_options`
+receber uma linha.
+
+**Decisão — nenhuma tabela nova, nenhuma via de escrita nova.**
+`src/features/admin/lib/simulado-import.ts` exporta uma função PURA,
+`parseSimuladoCode(raw: string)` — sem import de servidor, sem banco — que
+faz JSON.parse e a validação semântica da seção 13 do pedido (enunciado,
+alternativas, gabarito existente, sem ID duplicado) e devolve uma lista de
+questões tipadas + contagens + erros por questão. Pura significa que a MESMA
+função roda no cliente, ao vivo, a cada tecla (a prévia não espera um round
+trip pra dizer "falta o enunciado da questão 4") e de novo no servidor antes
+de gravar (`importSimulado`, nunca confia só na validação que rodou na
+máquina de quem colou). `saveResource`/`saveQuestion` continuam sendo o único
+caminho de escrita — importar só monta o mesmo payload que o cadastro manual
+monta, questão por questão, num loop.
+
+**A matéria não vem do JSON.** O exemplo do pedido tem
+`"subject": "Matemática"` dentro do código colado; a implementação IGNORA
+esse campo e usa o mesmo seletor de matéria que qualquer outro conteúdo do
+Nexa usa. Casar uma string livre ("Matemática", "matemática", "MATEMÁTICA")
+contra o catálogo é o tipo de correspondência frágil que quebra silenciosamente
+na primeira variação de acento ou maiúscula — pedir pro admin escolher no
+dropdown que já existe é mais confiável e não pede nada que o cadastro manual
+já não pedisse. Já `topic` por questão É aproveitado, mas só por CASAMENTO
+com um assunto que já existe no catálogo da matéria — nunca cria um assunto
+novo silenciosamente durante a importação.
+
+**Publica sempre como rascunho.** Mesmo um código 100% válido gera um
+simulado com `is_published = false`. "O sistema não deve publicar
+automaticamente um simulado inválido" (seção 12) generalizou para "nunca
+publica sozinho, ponto" — publicar é sempre uma decisão explícita do admin,
+consistente com o padrão do resto do painel.
+
+**Falha no meio da importação não apaga o que deu certo.** Se a questão 15
+de 20 falhar ao gravar (erro de rede, por exemplo), o simulado e as 14
+primeiras questões continuam no banco como rascunho — o admin completa o
+resto pela tela de questões que já existe, em vez de perder a importação
+inteira e ter que recolar tudo.
+
+**O que ficou de fora.** "Duplicar questão" e "reordenar questões" (seção 14)
+não existem nem no cadastro manual hoje — não foram inventadas só para a
+prévia de importação, o que criaria uma capacidade inconsistente entre os
+dois caminhos. "Importar arquivo estruturado" (além de colar código) também
+ficou de fora, por decisão já registrada na ADR-039.

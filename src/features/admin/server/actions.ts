@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireAdmin, resolveSchoolId } from './guard';
 import { extractPdf } from './pdf';
+import { parseSimuladoCode } from '../lib/simulado-import';
 
 /**
  * Escritas do painel.
@@ -502,6 +503,141 @@ export async function deleteQuestion(formData: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.from('questions').delete().eq('id', id);
   if (typeof resourceId === 'string') revalidatePath(`/admin/conteudo/${resourceId}/questoes`);
+}
+
+// ------------------------------------------------- simulado por código -----
+
+const importSimuladoSchema = z.object({
+  subjectId: z.string().uuid('Escolha a matéria.'),
+  topicId: z.string().uuid().optional().or(z.literal('')),
+  schoolId: z.string().optional(),
+  title: z.string().trim().min(2, 'Dê um título ao simulado.').max(200),
+  description: z.string().trim().max(2000).optional().or(z.literal('')),
+  difficulty: z.enum(['facil', 'medio', 'dificil']),
+  timeLimitSeconds: z.coerce.number().int().min(0).max(86400).optional(),
+  tags: z.string().max(300).optional().or(z.literal('')),
+  code: z.string().min(1, 'Cole o código do simulado.'),
+});
+
+/**
+ * Publica um simulado inteiro a partir do código colado.
+ *
+ * Revalida no servidor mesmo o formulário já tendo travado o botão "Publicar"
+ * enquanto havia erro — o código veio de um `<textarea>`, e nada impede que
+ * ele tenha mudado entre a última validação no cliente e o clique.
+ */
+export async function importSimulado(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+
+  const parsed = importSimuladoSchema.safeParse({
+    subjectId: formData.get('subjectId'),
+    topicId: formData.get('topicId') || '',
+    schoolId: formData.get('schoolId') || undefined,
+    title: formData.get('title'),
+    description: formData.get('description') || '',
+    difficulty: formData.get('difficulty') || 'medio',
+    timeLimitSeconds: formData.get('timeLimitSeconds') || 1200,
+    tags: formData.get('tags') || '',
+    code: formData.get('code'),
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const data = parsed.data;
+  const result = parseSimuladoCode(data.code);
+  if (!result.ok) {
+    const firstError =
+      result.parseError ??
+      result.questions.find((q) => q.errors.length > 0)?.errors[0] ??
+      'Revise o código antes de publicar.';
+    return fail(`Não publiquei: ${firstError}`);
+  }
+
+  const supabase = await createClient();
+
+  // Tópico por questão: só CASA com um assunto que já existe no catálogo da
+  // matéria escolhida — nunca cria um novo silenciosamente. Um assunto sem
+  // match fica sem tópico, não vira um assunto inventado no meio do cadastro.
+  const { data: topics } = await supabase
+    .from('content_topics')
+    .select('id, name')
+    .eq('subject_catalog_id', data.subjectId);
+  const topicByName = new Map((topics ?? []).map((t) => [t.name.trim().toLowerCase(), t.id]));
+
+  const tags = [
+    ...(result.simulationCode ? [result.simulationCode] : []),
+    ...(data.tags
+      ? data.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : []),
+  ];
+
+  const { data: resource, error: resourceError } = await supabase
+    .from('resources')
+    .insert({
+      kind: 'simulado' as const,
+      subject_catalog_id: data.subjectId,
+      topic_id: data.topicId || null,
+      school_id: resolveSchoolId(identity, data.schoolId ?? null),
+      title: data.title,
+      description: data.description || null,
+      difficulty: data.difficulty,
+      time_limit_seconds: data.timeLimitSeconds || null,
+      xp_reward: 100,
+      // Um simulado importado nasce sempre como rascunho — publicar é uma
+      // decisão de quem revisou a prévia, nunca um efeito colateral do envio.
+      is_published: false,
+      tags,
+      created_by: identity.userId,
+    })
+    .select('id')
+    .single();
+
+  if (resourceError || !resource) {
+    return fail(resourceError?.message ?? 'Não consegui criar o simulado.');
+  }
+
+  for (const question of result.questions) {
+    const { data: createdQuestion, error: questionError } = await supabase
+      .from('questions')
+      .insert({
+        resource_id: resource.id,
+        position: question.index,
+        statement: question.statement,
+        difficulty: question.difficulty,
+        topic_id: question.topicName ? (topicByName.get(question.topicName.toLowerCase()) ?? null) : null,
+      })
+      .select('id')
+      .single();
+
+    if (questionError || !createdQuestion) {
+      // O simulado já existe (como rascunho) com o que deu certo até aqui —
+      // apagar tudo por causa de uma questão isolada jogaria fora o trabalho
+      // de importar as outras. O admin revisa e completa manualmente.
+      return fail(
+        `Simulado criado, mas parei na questão ${question.index}: ${questionError?.message ?? 'erro desconhecido'}. Complete o resto pela tela de questões.`,
+      );
+    }
+
+    const { error: optionsError } = await supabase.from('question_options').insert(
+      question.options.map((option, i) => ({
+        question_id: createdQuestion.id,
+        position: i + 1,
+        body: option.text,
+        is_correct: option.key === question.correctKey,
+      })),
+    );
+
+    if (optionsError) {
+      return fail(
+        `Simulado criado, mas parei nas alternativas da questão ${question.index}: ${optionsError.message}. Complete o resto pela tela de questões.`,
+      );
+    }
+  }
+
+  revalidatePath('/admin/conteudo');
+  redirect(`/admin/conteudo/${resource.id}/questoes`);
 }
 
 // ---------------------------------------------------------------- trilhas --

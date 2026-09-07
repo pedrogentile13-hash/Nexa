@@ -94,10 +94,17 @@ export function Toggle({
   );
 }
 
-export function SubmitButton({ children = 'Salvar' }: { children?: React.ReactNode }) {
+export function SubmitButton({
+  children = 'Salvar',
+  disabled = false,
+}: {
+  children?: React.ReactNode;
+  /** Trava extra além do envio em andamento — ex.: uma prévia com erro. */
+  disabled?: boolean;
+}) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending || disabled}>
       {pending && <Loader2 className="animate-spin" aria-hidden />}
       {children}
     </Button>
