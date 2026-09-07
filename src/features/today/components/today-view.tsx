@@ -1,11 +1,15 @@
 import Link from 'next/link';
+import type { Route } from 'next';
 import {
   Brain,
   CalendarClock,
   ChevronRight,
   Crosshair,
+  Flame,
   GraduationCap,
   Headphones,
+  TrendingDown,
+  TrendingUp,
   Video,
 } from 'lucide-react';
 import { PageMain } from '@/components/layout/page-main';
@@ -13,8 +17,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { formatGrade } from '@/lib/format/grade';
 import { subjectColorVars } from '@/lib/design/subject-colors';
+import { cn } from '@/lib/utils';
 import { Checklist } from './checklist';
 import { FocusList } from './focus-list';
+import { MiniCalendar } from './mini-calendar';
 import { StreakWeek } from './streak-week';
 import { StudyNowCard } from './study-now-card';
 import { StudyTimer } from './study-timer';
@@ -22,6 +28,20 @@ import { greetingFor, longDate, relativeDay } from '../lib/greeting';
 import { daysBetween } from '../lib/ranking';
 import type { RankedFocus } from '../lib/ranking';
 import type { ResumeItem, TodaySnapshot } from '../server/queries';
+
+/** Frases curtas, no mesmo tom do resto do produto — uma por dia, estável no servidor. */
+const QUOTES = [
+  'Pequenos avanços, grandes conquistas.',
+  'Disciplina hoje, resultados amanhã.',
+  'Constância vale mais que intensidade.',
+  'Um passo de cada vez chega longe.',
+  'Seu esforço de hoje é o resultado de amanhã.',
+];
+
+function quoteOf(isoDate: string): string {
+  const day = Number(isoDate.slice(8, 10)) || 0;
+  return QUOTES[day % QUOTES.length] ?? QUOTES[0]!;
+}
 
 /**
  * A tela Hoje, separada da busca de dados.
@@ -51,6 +71,64 @@ function SectionTitle({
       {hint && <span className="text-muted truncate text-xs">{hint}</span>}
       {action && <div className="ml-auto shrink-0">{action}</div>}
     </div>
+  );
+}
+
+/** Cartão de estatística do topo: valor grande, rótulo, tendência opcional. */
+function StatTile({
+  icon,
+  label,
+  value,
+  hint,
+  trend,
+  href,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint?: string;
+  trend?: number | null;
+  href?: Route;
+}) {
+  const content = (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <span
+          aria-hidden
+          className="bg-brand-soft text-brand-text grid size-9 shrink-0 place-items-center rounded-xl"
+        >
+          {icon}
+        </span>
+        {trend !== undefined && trend !== null && trend !== 0 && (
+          <span
+            className={cn(
+              'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+              trend > 0 ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger',
+            )}
+          >
+            {trend > 0 ? (
+              <TrendingUp className="size-3" aria-hidden />
+            ) : (
+              <TrendingDown className="size-3" aria-hidden />
+            )}
+            {Math.abs(trend)}%
+          </span>
+        )}
+      </div>
+      <p className="text-muted mt-2 text-xs font-medium">{label}</p>
+      <p className="tabular text-xl leading-tight font-semibold">{value}</p>
+      {hint && <p className="text-subtle mt-0.5 text-[11px] leading-tight">{hint}</p>}
+    </>
+  );
+
+  const className = 'border-border bg-surface block rounded-2xl border p-3.5 transition-colors';
+
+  return href ? (
+    <Link href={href} className={cn(className, 'hover:bg-surface-2')}>
+      {content}
+    </Link>
+  ) : (
+    <div className={className}>{content}</div>
   );
 }
 
@@ -106,22 +184,82 @@ export function TodayView({
 
   const greeting = greetingFor(now, 'America/Sao_Paulo');
 
+  const weekTrend =
+    snapshot.previousWeekStudiedMinutes > 0
+      ? Math.round(
+          ((snapshot.weekStudiedMinutes - snapshot.previousWeekStudiedMinutes) /
+            snapshot.previousWeekStudiedMinutes) *
+            100,
+        )
+      : null;
+
+  // Pontinhos do mini-calendário: reaproveita as tarefas já buscadas (mesmo
+  // horizonte de 14 dias) em vez de uma segunda consulta — não é o
+  // planejamento em si, só um resumo visual.
+  const calendarDots = new Map<string, string[]>();
+  for (const candidate of snapshot.candidates) {
+    if (!candidate.dueDate) continue;
+    const colors = calendarDots.get(candidate.dueDate) ?? [];
+    colors.push(candidate.subjectColor ?? 'blue');
+    calendarDots.set(candidate.dueDate, colors);
+  }
+
   return (
     <PageMain className="grid gap-4 pt-4 md:pt-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6">
-      {/* Saudação + introdução — texto simples, sem faixa colorida no topo:
-          o pedido foi explícito para tirar o peso visual daqui e devolvê-lo
-          ao conteúdo abaixo. */}
-      <div className="min-w-0 lg:col-span-2 lg:row-start-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {snapshot.greetingName ? `${greeting}, ${snapshot.greetingName}! 👋` : `${greeting}! 👋`}
-        </h1>
-        <p className="text-muted mt-1 text-sm">
-          {longDate(snapshot.today)} · veja o que está acontecendo hoje
-        </p>
+      {/* Saudação, com a identidade de volta no topo — a prévia visual da
+          reforma pediu explicitamente o degradê e a citação decorativa de
+          volta, ao contrário do layout anterior. */}
+      <div
+        className="relative min-w-0 overflow-hidden rounded-[20px] p-5 text-white lg:col-start-1 lg:row-start-1"
+        style={{ background: 'var(--gradient-header)' }}
+      >
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-[28px]">
+              {snapshot.greetingName ? `${greeting}, ${snapshot.greetingName}!` : `${greeting}!`}{' '}
+              👋
+            </h1>
+            <p className="mt-1.5 text-sm opacity-90">
+              {longDate(snapshot.today)} · veja o que está acontecendo hoje
+            </p>
+          </div>
+          <p className="hidden max-w-[180px] shrink-0 rounded-2xl bg-white/15 p-3 text-xs leading-snug backdrop-blur-sm sm:block">
+            “{quoteOf(snapshot.today)}”
+            <span className="mt-1 block opacity-80">— Nexa Study</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="hidden min-w-0 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:block">
+        <MiniCalendar today={snapshot.today} dotsByDate={calendarDots} />
+      </div>
+
+      {/* Estatísticas rápidas ------------------------------------------------ */}
+      <div className="grid min-w-0 grid-cols-3 gap-2.5 lg:col-start-1 lg:row-start-2 lg:gap-3">
+        <StatTile
+          icon={<Flame className="size-4.5" aria-hidden />}
+          label="Sequência"
+          value={`${snapshot.streak} ${snapshot.streak === 1 ? 'dia' : 'dias'}`}
+          hint={`recorde: ${snapshot.longestStreak}`}
+        />
+        <StatTile
+          icon={<GraduationCap className="size-4.5" aria-hidden />}
+          label="Horas de estudo"
+          value={`${Math.floor(snapshot.weekStudiedMinutes / 60)}h${String(snapshot.weekStudiedMinutes % 60).padStart(2, '0')}`}
+          hint="nesta semana"
+          trend={weekTrend}
+        />
+        <StatTile
+          icon={<Brain className="size-4.5" aria-hidden />}
+          label="Seu desempenho"
+          value={formatGrade(snapshot.overallScore, 1)}
+          hint="ver detalhes"
+          href="/desempenho"
+        />
       </div>
 
       {/* Sequência em destaque ---------------------------------------------- */}
-      <div className="min-w-0 lg:col-span-2 lg:row-start-2">
+      <div className="min-w-0 lg:col-start-1 lg:row-start-3">
         <StreakWeek
           weekDays={snapshot.weekDays}
           currentStreak={snapshot.streak}
@@ -132,7 +270,7 @@ export function TodayView({
       </div>
 
       {/* Foco do dia ------------------------------------------------------ */}
-      <section aria-labelledby="foco" className="min-w-0 lg:col-start-1 lg:row-start-3">
+      <section aria-labelledby="foco" className="min-w-0 lg:col-start-1 lg:row-start-4">
         <SectionTitle
           icon={<Crosshair className="text-brand size-4" aria-hidden />}
           hint={
@@ -154,7 +292,7 @@ export function TodayView({
           `auto`, ou seja, o min-content do cartão da esquerda. Com um
           checklist dentro, esse mínimo passa da largura disponível e empurra
           o cartão da direita para fora da tela. */}
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 lg:col-start-2 lg:row-span-7 lg:row-start-3 lg:grid-cols-1 lg:gap-4">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 lg:col-start-2 lg:row-span-6 lg:row-start-4 lg:grid-cols-1 lg:gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="mb-3 flex items-baseline justify-between gap-2">
@@ -226,29 +364,12 @@ export function TodayView({
       </div>
 
       {/* Estudar agora (Etapa 8) -------------------------------------------- */}
-      <div className="min-w-0 lg:col-start-1 lg:row-start-4">
+      <div className="min-w-0 lg:col-start-1 lg:row-start-5">
         <StudyNowCard
           runningSessionId={snapshot.runningSessionId}
           startedAt={snapshot.runningSessionStartedAt}
         />
       </div>
-
-      {/* Desempenho ---------------------------------------------------------- */}
-      <Link
-        href="/desempenho"
-        className="border-border bg-surface hover:bg-surface-2 flex min-w-0 items-center justify-between gap-3 rounded-[20px] border p-4 transition-colors lg:col-start-1 lg:row-start-5"
-      >
-        <div>
-          <p className="text-muted text-xs font-semibold tracking-wide uppercase">Seu desempenho</p>
-          <p className="tabular text-2xl leading-tight font-semibold">
-            {formatGrade(snapshot.overallScore, 1)}
-          </p>
-        </div>
-        <span className="text-brand-text inline-flex items-center gap-1 text-sm font-medium">
-          Ver detalhes
-          <ChevronRight className="size-4" aria-hidden />
-        </span>
-      </Link>
 
       {/* Quiz recomendado ------------------------------------------------------ */}
       {snapshot.recommendedQuiz && (

@@ -20,6 +20,8 @@ export interface TodaySnapshot {
   studiedTodayMinutes: number;
   weeklyGoalMinutes: number;
   weekStudiedMinutes: number;
+  /** Minutos estudados na semana anterior — só para a tendência do cartão de estatística. */
+  previousWeekStudiedMinutes: number;
   weekDays: WeekDay[];
   /** Nota geral automática (mesma conta de Desempenho) — `null` sem nenhuma matéria com nota. */
   overallScore: number | null;
@@ -125,6 +127,7 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
     tasksRes,
     sessionsRes,
     weekSessionsRes,
+    previousWeekSessionsRes,
     slotsRes,
     scoresRes,
     resumeRes,
@@ -165,6 +168,11 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
       .select('duration_seconds')
       .gte('local_date', weekStart)
       .lte('local_date', weekEnd),
+    supabase
+      .from('study_sessions')
+      .select('duration_seconds')
+      .gte('local_date', addDays(weekStart, -7))
+      .lt('local_date', weekStart),
     supabase
       .from('timetable_slots')
       .select('subject_id, starts_at, ends_at, room, subjects(name, color)')
@@ -315,6 +323,10 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
     (sum, s) => sum + (s.duration_seconds ?? 0),
     0,
   );
+  const previousWeekStudiedSeconds = (previousWeekSessionsRes.data ?? []).reduce(
+    (sum, s) => sum + (s.duration_seconds ?? 0),
+    0,
+  );
 
   const activeDaysThisWeek = new Set((xpWeekRes.data ?? []).map((r) => r.local_date));
   const weekDays: WeekDay[] = Array.from({ length: 7 }, (_, i) => {
@@ -387,6 +399,7 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
     studiedTodayMinutes: Math.round(studiedTodaySeconds / 60),
     weeklyGoalMinutes: profile?.weekly_study_goal_minutes ?? 0,
     weekStudiedMinutes: Math.round(weekStudiedSeconds / 60),
+    previousWeekStudiedMinutes: Math.round(previousWeekStudiedSeconds / 60),
     weekDays,
     overallScore,
     routines,
