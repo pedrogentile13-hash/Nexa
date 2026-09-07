@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-state';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { toggleTask } from '../server/actions';
 import type { RankedFocus } from '../lib/ranking';
@@ -45,34 +46,25 @@ export function FocusList({ items }: { items: RankedFocus[] }) {
   // com o tempo livre, do jeito que a coluna da direita também faz.
   if (optimistic.length === 0) {
     return (
-      <div className="border-border bg-surface flex flex-col items-center gap-5 rounded-[20px] border px-6 py-10 text-center lg:py-14">
-        <div className="from-success to-success/80 relative grid size-14 place-items-center rounded-[32%] bg-gradient-to-br shadow-md">
-          <Check className="text-white" strokeWidth={3} />
-          <Sparkles className="text-warning fill-warning absolute -top-2 -right-1.5 size-4" />
-        </div>
-
-        <div>
-          <p className="text-base font-semibold">Nada urgente por agora.</p>
-          <p className="text-muted mt-1 text-sm">Bom momento para adiantar alguma coisa.</p>
-        </div>
-
-        <div className="flex flex-wrap justify-center gap-2 pt-1">
-          <Link
-            href="/estudar"
-            className="border-border bg-surface hover:bg-surface-2 inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors"
-          >
-            <GraduationCap className="text-brand size-4" aria-hidden />
-            Ir estudar
-          </Link>
-          <Link
-            href="/agenda"
-            className="border-border bg-surface hover:bg-surface-2 inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors"
-          >
-            <CalendarDays className="text-brand size-4" aria-hidden />
-            Ver agenda
-          </Link>
-        </div>
-      </div>
+      <PopEmptyState
+        tone="success"
+        icon={<Check className="text-white" strokeWidth={3} />}
+        badge={<Sparkles className="text-warning fill-warning size-4" />}
+        title="Nada urgente por agora."
+        description="Bom momento para adiantar alguma coisa."
+        action={
+          <>
+            <Link href="/estudar" className={popEmptyStateActionClass}>
+              <GraduationCap className="text-brand size-4" aria-hidden />
+              Ir estudar
+            </Link>
+            <Link href="/agenda" className={popEmptyStateActionClass}>
+              <CalendarDays className="text-brand size-4" aria-hidden />
+              Ver agenda
+            </Link>
+          </>
+        }
+      />
     );
   }
 

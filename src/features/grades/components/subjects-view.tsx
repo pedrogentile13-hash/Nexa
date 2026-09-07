@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { ArrowDownAZ, BookOpen, Plus, TriangleAlert, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
-import { Card, CardContent } from '@/components/ui/card';
+import { PopEmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 
@@ -107,17 +108,19 @@ export function SubjectsView({
       )}
 
       {ordered.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <div className="bg-surface-2 text-subtle mx-auto mb-3 grid size-12 place-items-center rounded-full">
-              <BookOpen className="size-6" aria-hidden />
-            </div>
-            <p className="text-sm font-medium">Nenhuma matéria neste período.</p>
-            <p className="text-muted mt-1 text-sm">
-              Escolha do catálogo — leva menos de um minuto e libera notas, metas e trilhas.
-            </p>
-          </CardContent>
-        </Card>
+        <PopEmptyState
+          icon={<BookOpen className="text-white" />}
+          title="Nenhuma matéria neste período."
+          description="Escolha do catálogo — leva menos de um minuto e libera notas, metas e trilhas."
+          action={
+            <Button asChild variant="pop">
+              <Link href="/perfil">
+                <Plus aria-hidden />
+                Adicionar matéria
+              </Link>
+            </Button>
+          }
+        />
       ) : (
         <ul className="grid gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3">
           {ordered.map((subject) => (
@@ -201,13 +204,11 @@ export function SubjectsView({
  */
 export function AddSubjectButton() {
   return (
-    <Link
-      href="/perfil"
-      aria-label="Adicionar matéria"
-      className="bg-brand-soft text-brand-text hover:bg-brand hover:text-brand-fg inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors md:px-4"
-    >
-      <Plus className="size-5 md:size-4" aria-hidden />
-      <span className="hidden md:inline">Adicionar</span>
-    </Link>
+    <Button asChild variant="soft" className="rounded-full px-3 md:px-4">
+      <Link href="/perfil" aria-label="Adicionar matéria">
+        <Plus className="size-5 md:size-4" aria-hidden />
+        <span className="hidden md:inline">Adicionar</span>
+      </Link>
+    </Button>
   );
 }

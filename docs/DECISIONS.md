@@ -681,3 +681,44 @@ conteúdo de verdade. A correção foi dar substância a ele — um selo com o
 mesmo tratamento visual do mascote do onboarding e dois atalhos ("Ir
 estudar", "Ver agenda") — em vez de esticar a caixa à força para preencher um
 vão que só existe porque não havia nada para mostrar ali.
+
+## ADR-035 · `PopEmptyState` virou componente, e Agenda ganhou criação de tarefa
+
+**Contexto.** O padrão de estado vazio da ADR-034 (selo em degradê + título +
+descrição + atalhos) só existia, duplicado à mão, em `FocusList`. O pedido era
+estendê-lo para Estudar, Agenda e Disciplinas — três lugares que hoje mostram
+texto cinza sem próximo passo, e Agenda especificamente sem NENHUM jeito de o
+aluno criar um compromisso próprio.
+
+**Decisão.** O padrão virou `src/components/ui/empty-state.tsx`
+(`PopEmptyState` + a classe `popEmptyStateActionClass` para ações que são
+`<Link>` em vez de `<button>`), e `FocusList` foi reescrito para usá-lo em vez
+de manter a versão original — um componente que ninguém reaproveita tende a
+divergir da cópia nova na primeira alteração que só uma delas recebe.
+Aplicado em `EmptyLibrary` (Estudar), nos dois vazios da Agenda (dia sem
+evento, lista corrida sem eventos) e em "Nenhuma matéria neste período"
+(Disciplinas).
+
+**Hierarquia de botão.** Nem todo CTA virou `pop`. O botão "Adicionar" da
+barra de filtros em Disciplinas (`AddSubjectButton`) ficou com a variant
+`soft` — é uma ação secundária ao lado de chips de ordenação, mesma altura,
+sem disputar atenção com o resto da linha. Já o CTA *dentro* do estado vazio
+(quando não há matéria nenhuma) usa `pop`, porque ali ele é a única ação da
+tela. A mesma lógica separa os dois botões da Agenda: "Adicionar compromisso"
+no cabeçalho é `size="sm"`, e o CTA do dia vazio ("Planejar algo") é `pop`
+de tamanho padrão.
+
+**Compromisso pessoal na Agenda.** Não existe tabela de evento — a Agenda é
+uma projeção sobre `activities`, `tasks` e `study_sessions` (comentário já
+existente em `server/queries.ts`). "Adicionar compromisso" grava direto em
+`tasks` (`kind: 'custom'`, sem `activity_id`), a mesma tabela de onde já vem
+o checklist do Hoje, e usa a política `tasks_all_own` que já existia — nenhuma
+migration nova. `src/features/agenda/server/actions.ts` segue o padrão de
+`toggleTask`/`startStudySession` (argumentos simples, chamado direto de dentro
+de um `startTransition`, sem `useActionState`): duas perguntas não justificam
+a cerimônia de um `<form>` com estado de ação.
+
+**Achado, não corrigido aqui.** A grade do calendário deixa cada célula de dia
+virar um quadrado de ~170px em telas largas (`aspect-square` sem teto de
+tamanho) — bug pré-existente, não introduzido por esta mudança, fora do
+escopo desta etapa. Registrado como sugestão de tarefa separada.

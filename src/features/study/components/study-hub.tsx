@@ -8,11 +8,14 @@ import {
   FileText,
   Headphones,
   Image as ImageIcon,
+  Library,
   Music,
   Play,
   Route as RouteIcon,
+  SearchX,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-state';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { KIND_META, KIND_ORDER, humanDuration } from '../lib/format';
 import type { StudyHubData } from '../server/queries';
@@ -315,23 +318,27 @@ function FilterChip({
 
 function EmptyLibrary({ filtered }: { filtered: boolean }) {
   return (
-    <div className="border-border bg-surface rounded-lg border px-4 py-8 text-center">
-      <p className="text-sm font-medium">
-        {filtered ? 'Nada com esse filtro por enquanto' : 'A biblioteca ainda está vazia'}
-      </p>
-      <p className="text-muted mt-1 text-sm">
-        {filtered
+    <PopEmptyState
+      icon={
+        filtered ? (
+          <SearchX className="text-white" />
+        ) : (
+          <Library className="text-white" strokeWidth={2.25} />
+        )
+      }
+      title={filtered ? 'Nada com esse filtro por enquanto' : 'A biblioteca ainda está vazia'}
+      description={
+        filtered
           ? 'Tente outra matéria ou veja o material das demais.'
-          : 'Assim que a escola publicar resumos, simulados e vídeos, eles aparecem aqui.'}
-      </p>
-      {filtered && (
-        <Link
-          href="/estudar"
-          className="text-brand-text mt-3 inline-flex h-11 items-center text-sm font-medium"
-        >
-          Limpar filtros
-        </Link>
-      )}
-    </div>
+          : 'Assim que a escola publicar resumos, simulados e vídeos, eles aparecem aqui.'
+      }
+      action={
+        filtered && (
+          <Link href="/estudar" className={popEmptyStateActionClass}>
+            Limpar filtros
+          </Link>
+        )
+      }
+    />
   );
 }

@@ -1,11 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ClipboardList, ListTodo, Timer } from 'lucide-react';
+import { useMemo, useState, useTransition } from 'react';
+import {
+  CalendarPlus,
+  CalendarX,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Loader2,
+  ListTodo,
+  Plus,
+  Timer,
+  X,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { PopEmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
+import { createAgendaTask } from '../server/actions';
 import type { AgendaEvent, AgendaKind } from '../server/queries';
 
 /**
@@ -38,6 +54,7 @@ type ViewMode = 'mes' | 'semana' | 'lista';
 export function AgendaView({ events, today }: { events: AgendaEvent[]; today: string }) {
   const [mode, setMode] = useState<ViewMode>('mes');
   const [selected, setSelected] = useState(today);
+  const [showAdd, setShowAdd] = useState(false);
   const monthCursor = selected.slice(0, 7);
 
   const byDate = useMemo(() => {
@@ -86,8 +103,27 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
           >
             <ChevronRight className="size-5" aria-hidden />
           </button>
+          <Button
+            variant="pop"
+            size="sm"
+            className="ml-1"
+            onClick={() => setShowAdd((v) => !v)}
+            aria-expanded={showAdd}
+          >
+            <Plus aria-hidden />
+            <span className="hidden sm:inline">Adicionar compromisso</span>
+            <span className="sm:hidden">Adicionar</span>
+          </Button>
         </div>
       </div>
+
+      {showAdd && (
+        <QuickAddTask
+          defaultDate={selected}
+          onDone={() => setShowAdd(false)}
+          onCancel={() => setShowAdd(false)}
+        />
+      )}
 
       <Segmented
         label="Como ver a agenda"
@@ -101,7 +137,7 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
       />
 
       {mode === 'lista' ? (
-        <ContinuousList events={upcoming} today={today} />
+        <ContinuousList events={upcoming} today={today} onAdd={() => setShowAdd(true)} />
       ) : (
         <>
           <Card>
@@ -179,11 +215,20 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
             </div>
 
             {dayEvents.length === 0 ? (
-              <Card>
-                <CardContent className="text-muted py-8 text-center text-sm">
-                  Nada marcado para este dia.
-                </CardContent>
-              </Card>
+              <PopEmptyState
+                size="sm"
+                icon={<CalendarPlus className="size-5 text-white" />}
+                title="Nada marcado para este dia."
+                description="Que tal planejar uma sessão de estudo ou lançar um compromisso?"
+                action={
+                  !showAdd && (
+                    <Button variant="pop" size="sm" onClick={() => setShowAdd(true)}>
+                      <Plus aria-hidden />
+                      Planejar algo
+                    </Button>
+                  )
+                }
+              />
             ) : (
               <ul className="grid gap-2 lg:grid-cols-2">
                 {dayEvents.map((event) => (
@@ -198,6 +243,95 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
           <Legend />
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * "Adicionar compromisso" — um formulário de duas perguntas, não uma tela nova.
+ *
+ * Não existe tabela de evento (ver `server/actions.ts`): isto grava uma linha
+ * simples em `tasks`, a mesma tabela que já alimenta o checklist do Hoje.
+ * Chamado direto (sem `<form action>`) porque duas perguntas não justificam a
+ * cerimônia de `useActionState` — o mesmo padrão de `StudyTimer`.
+ */
+function QuickAddTask({
+  defaultDate,
+  onDone,
+  onCancel,
+}: {
+  defaultDate: string;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState(defaultDate);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function submit() {
+    if (!title.trim()) {
+      setError('Dê um nome ao compromisso.');
+      return;
+    }
+    startTransition(async () => {
+      const result = await createAgendaTask(title, dueDate);
+      if (result.ok) onDone();
+      else setError(result.message ?? 'Não consegui salvar.');
+    });
+  }
+
+  return (
+    <div className="border-border bg-surface space-y-3 rounded-[20px] border p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div>
+            <Label htmlFor="quick-add-title">O que é o compromisso?</Label>
+            <Input
+              id="quick-add-title"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setError(null);
+              }}
+              placeholder="Ex.: Levar atestado"
+              maxLength={120}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+              }}
+            />
+          </div>
+          <div>
+            <Label htmlFor="quick-add-date">Quando</Label>
+            <Input
+              id="quick-add-date"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancelar"
+          className="text-subtle hover:text-text hover:bg-surface-2 grid size-11 shrink-0 place-items-center rounded-full"
+        >
+          <X className="size-4" aria-hidden />
+        </button>
+      </div>
+
+      {error && (
+        <p role="alert" className="text-danger text-sm">
+          {error}
+        </p>
+      )}
+
+      <Button variant="pop" size="sm" className="w-full" onClick={submit} disabled={isPending}>
+        {isPending ? <Loader2 className="animate-spin" aria-hidden /> : <Plus aria-hidden />}
+        {isPending ? 'Salvando…' : 'Salvar compromisso'}
+      </Button>
     </div>
   );
 }
@@ -260,14 +394,28 @@ function EventCard({ event, today }: { event: AgendaEvent; today: string }) {
 }
 
 /** Modo lista: tudo daqui para a frente, agrupado por dia. */
-function ContinuousList({ events, today }: { events: AgendaEvent[]; today: string }) {
+function ContinuousList({
+  events,
+  today,
+  onAdd,
+}: {
+  events: AgendaEvent[];
+  today: string;
+  onAdd: () => void;
+}) {
   if (events.length === 0) {
     return (
-      <Card>
-        <CardContent className="text-muted py-10 text-center text-sm">
-          Nada marcado daqui para a frente.
-        </CardContent>
-      </Card>
+      <PopEmptyState
+        icon={<CalendarX className="text-white" />}
+        title="Sua agenda está livre!"
+        description="Que tal organizar sua próxima sessão de estudos ou lançar um compromisso?"
+        action={
+          <Button variant="pop" onClick={onAdd}>
+            <Plus aria-hidden />
+            Planejar meu estudo
+          </Button>
+        }
+      />
     );
   }
 
