@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { NotebookPen, TrendingDown, TrendingUp } from 'lucide-react';
+import { Brain, NotebookPen, TrendingDown, TrendingUp } from 'lucide-react';
 import { GradientHeader } from '@/components/layout/gradient-header';
 import { PageMain } from '@/components/layout/page-main';
 import { Button } from '@/components/ui/button';
@@ -15,9 +15,27 @@ import {
   TermEvolutionChart,
 } from '@/features/performance/components/charts';
 import { levelProgressPercent } from '@/features/performance/lib/level';
-import { getPerformance } from '@/features/performance/server/queries';
+import { getPerformance, type TopicMastery } from '@/features/performance/server/queries';
 import { getCurrentUser } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
+
+const STATUS_DOT: Record<TopicMastery['status'], string> = {
+  dominado: 'bg-success',
+  desenvolvimento: 'bg-warning',
+  revisar: 'bg-danger',
+};
+
+/** Agrupa mantendo a ordem de chegada — como `topicMastery` já vem pior
+ * primeiro, a matéria mais fraca também abre o mapa de domínio. */
+function groupMasteryBySubject(topics: TopicMastery[]): [string, TopicMastery[]][] {
+  const map = new Map<string, TopicMastery[]>();
+  for (const topic of topics) {
+    const list = map.get(topic.subjectName);
+    if (list) list.push(topic);
+    else map.set(topic.subjectName, [topic]);
+  }
+  return [...map.entries()];
+}
 
 export const metadata: Metadata = {
   title: 'Desempenho',
@@ -115,6 +133,14 @@ export default async function PerformancePage() {
       : below.length === 1
         ? `${below[0]?.subjectName} é a única abaixo da média de aprovação.`
         : `${worst[0]?.subjectName} e ${worst[1]?.subjectName} são as que puxam a média para baixo.`;
+
+  // A recomendação só aparece com pelo menos duas questões no assunto — uma
+  // questão errada sozinha é ruído, não um padrão que vale interromper a tela
+  // pra apontar.
+  const worstTopic = data.topicMastery.find(
+    (topic) => topic.status === 'revisar' && topic.totalCount >= 2,
+  );
+  const masteryBySubject = groupMasteryBySubject(data.topicMastery);
 
   return (
     <>
@@ -232,6 +258,69 @@ export default async function PerformancePage() {
             </p>
           </CardContent>
         </Card>
+
+        {/* A recomendação: o "e agora?" depois do mapa de domínio, pro assunto
+            mais fraco de todos — não faz sentido apontar mais de um de cada
+            vez. */}
+        {worstTopic && (
+          <Card className="border-brand/30 bg-brand-soft min-w-0 lg:col-span-2">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <span
+                  aria-hidden
+                  className="bg-brand grid size-10 shrink-0 place-items-center rounded-full"
+                >
+                  <Brain className="size-5 text-white" />
+                </span>
+                <p className="text-brand-text min-w-0 flex-1 text-sm leading-relaxed">
+                  <span className="font-semibold">Oportunidade de melhoria: </span>
+                  Você está com dificuldade em <strong>{worstTopic.topicName}</strong> (
+                  {worstTopic.subjectName}) — {worstTopic.masteryPercent}% de acerto nas últimas
+                  questões.
+                </p>
+              </div>
+              <Button asChild variant="pop" size="sm" className="w-full shrink-0 sm:w-auto">
+                <Link href="/erros">Começar revisão</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* O domínio por assunto: de onde a recomendação acima veio, e onde
+            olhar mesmo sem nenhum assunto crítico o bastante pra virar
+            recomendação. */}
+        {masteryBySubject.length > 0 && (
+          <Card className="min-w-0 lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Mapa de domínio</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {masteryBySubject.map(([subjectName, topics]) => (
+                <div key={subjectName}>
+                  <p className="text-muted mb-1.5 text-xs font-semibold tracking-wide uppercase">
+                    {subjectName}
+                  </p>
+                  <ul className="divide-border divide-y">
+                    {topics.map((topic) => (
+                      <li key={topic.topicId ?? topic.topicName} className="flex items-center gap-3 py-2">
+                        <span
+                          aria-hidden
+                          className={cn('size-2.5 shrink-0 rounded-full', STATUS_DOT[topic.status])}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {topic.topicName}
+                        </span>
+                        <span className="text-muted shrink-0 text-xs tabular-nums">
+                          {topic.correctCount}/{topic.totalCount}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* O gráfico não pode ser a única forma de ler os números. */}
         {data.subjectBars.length > 0 && (

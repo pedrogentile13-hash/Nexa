@@ -35,6 +35,18 @@ export interface StudyWeek {
   minutes: number;
 }
 
+export interface TopicMastery {
+  subjectId: string;
+  subjectName: string;
+  subjectColor: string;
+  topicId: string | null;
+  topicName: string;
+  correctCount: number;
+  totalCount: number;
+  masteryPercent: number;
+  status: 'dominado' | 'desenvolvimento' | 'revisar';
+}
+
 export interface PerformanceData {
   currentTermId: string | null;
   currentTermName: string | null;
@@ -53,6 +65,9 @@ export interface PerformanceData {
   /** Quanto falta para o próximo nível, já calculado pela mesma curva do banco. */
   xpToNextLevel: number;
   totalStudySeconds: number;
+  /** Domínio por assunto, a partir da resposta mais recente de cada questão
+   * de quiz/simulado — alimenta o mapa de domínio e a recomendação de revisão. */
+  topicMastery: TopicMastery[];
 }
 
 export async function getPerformance(userId: string): Promise<PerformanceData> {
@@ -61,7 +76,7 @@ export async function getPerformance(userId: string): Promise<PerformanceData> {
   const { data: currentTermId } = await supabase.rpc('current_term_id', { p_user_id: userId });
   const termId = (currentTermId as string | null) ?? null;
 
-  const [termsRes, subjectsRes, sessionsRes, statsRes] = await Promise.all([
+  const [termsRes, subjectsRes, sessionsRes, statsRes, masteryRes] = await Promise.all([
     supabase.from('v_term_summary').select('*').order('term_sequence'),
     supabase
       .from('v_subject_term_averages')
@@ -78,7 +93,23 @@ export async function getPerformance(userId: string): Promise<PerformanceData> {
       .select('xp, level, total_study_seconds')
       .eq('user_id', userId)
       .maybeSingle(),
+    supabase.rpc('topic_mastery', { p_user_id: userId }),
   ]);
+
+  const topicMastery: TopicMastery[] = (masteryRes.data ?? [])
+    .map((row) => ({
+      subjectId: row.subject_id,
+      subjectName: row.subject_name,
+      subjectColor: row.subject_color,
+      topicId: row.topic_id,
+      topicName: row.topic_name,
+      correctCount: row.correct_count,
+      totalCount: row.total_count,
+      masteryPercent: row.mastery_percent,
+      status: row.status,
+    }))
+    // Pior primeiro, mesma lógica das barras por matéria: onde olhar antes.
+    .sort((a, b) => a.masteryPercent - b.masteryPercent);
 
   const termPoints: TermPoint[] = (termsRes.data ?? []).map((row) => ({
     termId: row.term_id,
@@ -127,6 +158,7 @@ export async function getPerformance(userId: string): Promise<PerformanceData> {
     xp: statsRes.data?.xp ?? 0,
     xpToNextLevel: xpToNextLevel(statsRes.data?.xp ?? 0),
     totalStudySeconds: Number(statsRes.data?.total_study_seconds ?? 0),
+    topicMastery,
   };
 }
 

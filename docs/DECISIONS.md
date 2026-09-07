@@ -942,3 +942,70 @@ não existem nem no cadastro manual hoje — não foram inventadas só para a
 prévia de importação, o que criaria uma capacidade inconsistente entre os
 dois caminhos. "Importar arquivo estruturado" (além de colar código) também
 ficou de fora, por decisão já registrada na ADR-039.
+
+## ADR-042 · Loop Nexa: domínio por assunto exige função, não view — e "erros" e "revisões" são a mesma tela
+
+**Contexto.** O pedido descreve o fechamento do ciclo conteúdo → estudo →
+simulado → desempenho → recomendação → revisão: a seção 20 pede um "mapa de
+domínio" por assunto (🟢🟡🔴) em Desempenho, a seção 21 uma lista "Meus
+erros" com gabarito e caminho de volta ao material, a seção 22 "Revisões de
+hoje" a partir dos erros recentes, e a seção 25 uma recomendação do tipo "🧠
+Identificamos uma oportunidade de melhoria... [Começar revisão]".
+
+**Domínio por assunto é sobre a resposta MAIS RECENTE de cada questão, não a
+média histórica.** Um aluno que errou uma questão em março e acerta a mesma
+em setembro está bem HOJE — arrastar o erro de março numa média journal
+mentiria sobre o presente. `topic_mastery()` usa `distinct on (question_id)
+... order by answered_at desc` para pegar só a última resposta antes de
+agregar, com os mesmos cortes do resto do produto: `>=80%` dominado, `>=60%`
+em desenvolvimento, abaixo disso a revisar.
+
+**Descoberta que mudou a implementação no meio do caminho: view comum
+devolve zero linhas para o aluno.** A primeira versão era duas views
+`security_invoker=true` (`v_topic_mastery`, `v_recent_errors`), o padrão
+default do projeto para agregados. Testado como `postgres` (superusuário,
+ignora RLS) parecia funcionar; testado de verdade como o papel
+`authenticated` — a única forma que reflete o app em produção — devolvia
+zero linhas, porque `questions`/`question_options` não têm policy de SELECT
+para aluno (é onde mora o gabarito, de propósito) e uma view
+`security_invoker` herda a permissão restrita de quem chama, não do dono da
+view. A correção seguiu o padrão que `quiz_attempt_review`/`quiz_attempt_topics`
+já usavam: `security definer` com filtro explícito `where a.user_id =
+p_user_id` embutido no corpo da função, elevando privilégio o suficiente
+para ler o gabarito sem nunca deixar vazar linha de outro aluno — verificado
+manualmente com dois usuários de teste, um vendo os próprios erros, o outro
+vendo zero.
+
+**"Meus erros" e "Revisões de hoje" viraram UMA tela, `/erros`.** As duas
+seções do pedido descrevem o mesmo dado por ângulos diferentes — questões
+erradas, com gabarito, com caminho de volta ao material — e nenhuma delas
+tem por que ser um recorte "de hoje": um erro de ontem que não foi revisado
+continua sendo a próxima coisa a estudar amanhã. Duas telas quase idênticas
+teriam confundido mais do que ajudado, e não existe hoje um item fixo de
+navegação sobrando para uma segunda tela (o rodapé tem 5 posições fixas). O
+acesso é pelo card de recomendação em Desempenho e por um link em
+`AttemptResult` ("Ver todos os meus erros") — não pela navegação principal.
+
+**"Refazer" e "Marcar como dominado" resolvem o mesmo erro por dois
+caminhos.** Refazer o material e acertar a questão de novo já resolve
+sozinho: `recent_errors()` usa a resposta mais recente, então a próxima
+consulta nem mostra mais essa questão. "Marcar como dominado" existe para o
+outro caminho — o aluno olha o erro, reconhece que já sabe aquilo e só
+errou por distração, e dispensa sem precisar refazer nada. A dispensa vive
+numa tabela própria (`dismissed_question_errors`), não apaga a tentativa
+original: o histórico de desempenho continua intacto, só a Central de Erros
+para de mostrar aquela questão.
+
+**A recomendação em Desempenho só aparece com pelo menos duas questões no
+assunto.** Uma questão errada sozinha é ruído estatístico, não um padrão
+que vale interromper a tela pra apontar — `worstTopic` filtra por
+`status === 'revisar' && totalCount >= 2` antes de virar o card "🧠
+Oportunidade de melhoria". Aponta sempre um assunto por vez (o pior de
+todos, já que `topicMastery` vem ordenado do pior para o melhor) — mais de
+uma recomendação simultânea dilui qual delas importa primeiro.
+
+**O que ficou de fora.** A recomendação e o mapa de domínio não filtram
+`/erros` por assunto — o link "Começar revisão" manda pra Central de Erros
+inteira, não para uma view recortada só daquele tópico. Com poucos erros
+acumulados por aluno em geral, a lista inteira já é curta o bastante para
+não precisar de um filtro que o pedido também não descreve explicitamente.

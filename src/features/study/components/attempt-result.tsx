@@ -108,7 +108,7 @@ export function AttemptResult({
         {/* O caminho de volta ao material. É o que fecha o ciclo: errar, saber
             onde errou, e ter para onde ir a partir disso. */}
         {wrong.length > 0 && (
-          <section>
+          <section className="space-y-2">
             <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
               O que revisar
             </h2>
@@ -127,6 +127,16 @@ export function AttemptResult({
                 </span>
               </span>
               <ChevronRight className="text-muted size-4 shrink-0" aria-hidden />
+            </Link>
+            {/* A Central de Erros junta os erros de TODOS os simulados e
+                quizzes, não só deste — vale como próximo passo mesmo quando o
+                material acima já foi revisado. */}
+            <Link
+              href="/erros"
+              className="text-brand-text flex items-center gap-1.5 px-1 text-sm font-medium"
+            >
+              Ver todos os meus erros
+              <ChevronRight className="size-3.5 shrink-0" aria-hidden />
             </Link>
           </section>
         )}

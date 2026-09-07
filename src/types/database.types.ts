@@ -815,6 +815,40 @@ export type Database = {
         Args: { p_attempt_id: string };
         Returns: { topic_id: string | null; topic_name: string; correct_count: number; total_count: number }[];
       };
+      topic_mastery: {
+        Args: { p_user_id?: string };
+        Returns: {
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          topic_id: string | null;
+          topic_name: string;
+          correct_count: number;
+          total_count: number;
+          mastery_percent: number;
+          status: 'dominado' | 'desenvolvimento' | 'revisar';
+        }[];
+      };
+      recent_errors: {
+        Args: { p_user_id?: string };
+        Returns: {
+          question_id: string;
+          statement: string;
+          explanation: string | null;
+          difficulty: Difficulty;
+          resource_id: string;
+          resource_title: string;
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          topic_id: string | null;
+          topic_name: string | null;
+          chosen_body: string | null;
+          correct_body: string | null;
+          answered_at: string;
+        }[];
+      };
+      dismiss_question_error: { Args: { p_question_id: string }; Returns: undefined };
       mark_resource_progress: {
         Args: {
           p_resource_id: string;
