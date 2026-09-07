@@ -1,63 +1,66 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BookOpen, Brain, NotebookPen, RotateCcw } from 'lucide-react';
 import { PageMain } from '@/components/layout/page-main';
-import { GradeSheet } from '@/features/grades/components/grade-sheet';
-import { TargetSolver } from '@/features/grades/components/target-solver';
-import { computeSubjectTerm, formatGrade } from '@/features/grades';
-import { getCurrentSubjectTermId, getSubjectTermDetail } from '@/features/grades/server/queries';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PopEmptyState } from '@/components/ui/empty-state';
+import { TargetGradeForm } from '@/features/subjects/components/target-grade-form';
+import { formatGrade } from '@/lib/format/grade';
+import { getSimuladoHistory, getSubjectScores } from '@/features/performance/server/queries';
 import { subjectColorVars } from '@/lib/design/subject-colors';
-import { getCurrentUser } from '@/lib/supabase/server';
-import { cn } from '@/lib/utils';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-type Params = { params: Promise<{ subjectId: string }>; searchParams: Promise<{ st?: string }> };
+const PASSING_GRADE = 6;
+
+type Params = { params: Promise<{ subjectId: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { subjectId } = await params;
   return { title: subjectId ? 'Matéria' : 'Matérias' };
 }
 
-export default async function SubjectDetailPage({ params, searchParams }: Params) {
+export default async function SubjectDetailPage({ params }: Params) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const [{ subjectId }, { st }] = await Promise.all([params, searchParams]);
+  const { subjectId } = await params;
 
-  // `?st=` permite abrir um período específico; sem ele, cai no período atual.
-  const subjectTermId = st ?? (await getCurrentSubjectTermId(subjectId, user.id));
-  if (!subjectTermId) notFound();
+  const supabase = await createClient();
+  const [subjectRes, scores, simulados] = await Promise.all([
+    supabase
+      .from('subjects')
+      .select('id, name, color, teacher_name')
+      .eq('id', subjectId)
+      .is('archived_at', null)
+      .maybeSingle(),
+    getSubjectScores(user.id),
+    getSimuladoHistory(user.id),
+  ]);
 
-  const detail = await getSubjectTermDetail(subjectTermId);
-  if (!detail) notFound();
+  if (!subjectRes.data) notFound();
+  const subject = subjectRes.data;
+  const score = scores.find((s) => s.subjectId === subjectId);
+  if (!score) notFound();
 
-  // A média do cabeçalho vem do mesmo motor que a planilha usa — não de uma
-  // segunda conta que poderia divergir dela na mesma tela.
-  const result = computeSubjectTerm({
-    scheme: detail.scheme,
-    activities: detail.activities,
-    targetGrade: detail.targetGrade,
-    finalGradeOverride: detail.finalGradeOverride,
-  });
-  const grade = result.finalGrade;
+  const subjectSimulados = simulados.filter((s) => s.subjectId === subjectId);
+  const grade = score.blendedScore;
 
-  const status =
-    grade === null
-      ? 'Sem notas lançadas'
-      : grade < detail.passingGrade
+  const status = !score.hasContent
+    ? 'Sem conteúdo do Nexa'
+    : grade === null
+      ? 'Sem nenhuma tentativa ainda'
+      : grade < PASSING_GRADE
         ? 'Abaixo da aprovação'
-        : detail.targetGrade !== null && grade < detail.targetGrade
+        : score.targetGrade !== null && grade < score.targetGrade
           ? 'Abaixo da meta'
           : 'Meta batida';
 
   return (
-    <div style={subjectColorVars(detail.subjectColor)}>
-      {/* Cabeçalho na cor da matéria, como o guia de desktop mostra. O fundo é
-          o degrau `deep` da paleta, o único validado para texto branco: o
-          `base` reprova em contraste no laranja, e no tema escuro reprova em
-          todas as dezoito cores. */}
+    <div style={subjectColorVars(subject.color)}>
+      {/* Cabeçalho na cor da matéria, como o guia de desktop mostra. */}
       <header
         className="pt-safe rounded-b-[20px] px-4 pt-3 pb-5 text-white md:px-6 md:pb-6 lg:px-8"
         style={{ backgroundColor: 'var(--subject-deep)' }}
@@ -74,11 +77,11 @@ export default async function SubjectDetailPage({ params, searchParams }: Params
           <div className="mt-1 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
             <div className="min-w-0">
               <h1 className="truncate text-2xl leading-tight font-semibold tracking-tight md:text-3xl">
-                {detail.subjectName}
+                {subject.name}
               </h1>
-              <p className="mt-0.5 truncate text-sm opacity-90">
-                {[detail.teacherName, detail.termName].filter(Boolean).join(' · ')}
-              </p>
+              {subject.teacher_name && (
+                <p className="mt-0.5 truncate text-sm opacity-90">{subject.teacher_name}</p>
+              )}
               <span className="mt-2 inline-flex rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
                 {status}
               </span>
@@ -86,65 +89,111 @@ export default async function SubjectDetailPage({ params, searchParams }: Params
 
             <div className="shrink-0 text-right">
               <span className="tabular block text-4xl leading-none font-semibold">
-                {grade === null ? '—' : formatGrade(grade, detail.scheme.decimals)}
+                {formatGrade(grade, 1)}
               </span>
               <span className="mt-1 block text-xs opacity-90">
-                {detail.targetGrade !== null && `meta ${formatGrade(detail.targetGrade, 1)} · `}
-                aprovação {formatGrade(detail.passingGrade, 1)}
+                {score.targetGrade !== null && `meta ${formatGrade(score.targetGrade, 1)} · `}
+                aprovação {formatGrade(PASSING_GRADE, 1)}
               </span>
             </div>
           </div>
         </div>
       </header>
 
-      <PageMain className="space-y-4 pt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-6 lg:space-y-0">
-        {/* Seletor de período — o histórico está a um toque de distância. */}
-        {detail.siblingTerms.length > 1 && (
-          <nav
-            aria-label="Períodos"
-            className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 lg:col-span-2 lg:mx-0 lg:px-0"
-          >
-            {detail.siblingTerms.map((term) => {
-              const active = term.subjectTermId === detail.subjectTermId;
-              return (
-                <Link
-                  key={term.subjectTermId}
-                  href={`/disciplinas/${subjectId}?st=${term.subjectTermId}`}
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'inline-flex h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium transition-colors',
-                    active
-                      ? 'border-brand bg-brand-soft text-brand-text'
-                      : 'border-border bg-surface text-muted hover:bg-surface-2',
-                  )}
-                >
-                  {term.termName}
-                </Link>
-              );
-            })}
-          </nav>
+      <PageMain className="space-y-4 pt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:space-y-0">
+        {!score.hasContent ? (
+          <div className="lg:col-span-2">
+            <PopEmptyState
+              icon={<BookOpen className="text-white" />}
+              title="Sem conteúdo do Nexa vinculado"
+              description="Essa matéria não tem quiz, simulado ou resumo no acervo ainda — por isso não dá pra calcular uma nota automática. Assim que a escola publicar conteúdo pra ela, a nota aparece aqui."
+            />
+          </div>
+        ) : (
+          <>
+            <Card className="min-w-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="text-brand size-4" aria-hidden />
+                  Como a nota é composta
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-medium">Avaliativo (70%)</span>
+                    <span className="tabular text-sm font-semibold">
+                      {formatGrade(score.assessmentScore, 1)}
+                    </span>
+                  </div>
+                  <p className="text-muted mt-1 text-xs leading-relaxed">
+                    {score.quizzesDone} {score.quizzesDone === 1 ? 'quiz' : 'quizzes'} ·{' '}
+                    {score.simuladosDone} {score.simuladosDone === 1 ? 'simulado' : 'simulados'}
+                  </p>
+                </div>
+                <div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-medium">Empenho (30%)</span>
+                    <span className="tabular text-sm font-semibold">
+                      {Math.round(score.empenhoIndex)}%
+                    </span>
+                  </div>
+                  <p className="text-muted mt-1 text-xs leading-relaxed">
+                    {score.contentCompleted}{' '}
+                    {score.contentCompleted === 1 ? 'conteúdo concluído' : 'conteúdos concluídos'}, e
+                    quanto mais regular o estudo, maior esse número.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="min-w-0 space-y-4 lg:sticky lg:top-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Meta</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TargetGradeForm subjectId={subject.id} initialTarget={score.targetGrade} />
+                </CardContent>
+              </Card>
+            </div>
+
+            {subjectSimulados.length > 0 && (
+              <Card className="min-w-0 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <NotebookPen className="text-brand size-4" aria-hidden />
+                    Simulados desta matéria
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ul className="divide-border divide-y">
+                    {subjectSimulados.map((attempt) => (
+                      <li key={attempt.attemptId}>
+                        <Link
+                          href={`/estudar/${attempt.resourceId}/resultado?tentativa=${attempt.attemptId}`}
+                          className="hover:bg-surface-2 flex items-center gap-3 px-4 py-3 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{attempt.resourceTitle}</p>
+                            <p className="text-subtle text-xs">
+                              {new Date(attempt.finishedAt).toLocaleDateString('pt-BR')} ·{' '}
+                              {attempt.correctCount}/{attempt.totalCount} acertos
+                            </p>
+                          </div>
+                          <span className="tabular text-sm font-semibold">
+                            {Math.round(attempt.percent)}%
+                          </span>
+                          <RotateCcw className="text-subtle size-4 shrink-0" aria-hidden />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
-
-        {/* No desktop a planilha e o simulador ficam lado a lado: mexer numa
-            nota e ver na mesma tela quanto ainda falta é o ciclo que a tela
-            existe para fechar. Empilhados, ele exige rolagem a cada tecla. */}
-        <div className="min-w-0">
-          <GradeSheet
-            subjectTermId={detail.subjectTermId}
-            scheme={detail.scheme}
-            initialActivities={detail.activities}
-            finalGradeOverride={detail.finalGradeOverride}
-            targetGrade={detail.targetGrade}
-          />
-        </div>
-
-        <div className="min-w-0 lg:sticky lg:top-4">
-          <TargetSolver
-            scheme={detail.scheme}
-            activities={detail.activities}
-            initialTarget={detail.targetGrade}
-          />
-        </div>
       </PageMain>
     </div>
   );

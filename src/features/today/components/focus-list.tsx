@@ -2,17 +2,7 @@
 
 import Link from 'next/link';
 import { useOptimistic, useTransition } from 'react';
-import {
-  AlertTriangle,
-  CalendarDays,
-  Check,
-  ChevronRight,
-  FileText,
-  GraduationCap,
-  ListTodo,
-  Play,
-  Sparkles,
-} from 'lucide-react';
+import { AlertTriangle, CalendarDays, Check, GraduationCap, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-state';
 import { subjectColorVars } from '@/lib/design/subject-colors';
@@ -136,76 +126,30 @@ export function FocusList({ items }: { items: RankedFocus[] }) {
                 </p>
               </div>
 
-              {item.kind === 'task' ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    startTransition(async () => {
-                      setOptimistic(item.id);
-                      await toggleTask(item.id, true);
-                    })
-                  }
-                  aria-label={`Concluir ${item.title}`}
-                  className="group grid size-11 shrink-0 place-items-center rounded-full"
-                >
-                  {/* 36px de círculo dentro de 44px de área tocável — é o que a
-                      prancha de componentes do kit especifica, e o que evita
-                      que um alvo pequeno no polegar erre. */}
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'border-border-strong group-hover:border-success group-hover:bg-success grid size-9',
-                      'text-subtle place-items-center rounded-full border-2 transition-colors group-hover:text-white',
-                    )}
-                  >
-                    <Check className="size-4" strokeWidth={3} />
-                  </span>
-                </button>
-              ) : item.subjectId ? (
-                <Link
-                  href={`/disciplinas/${item.subjectId}`}
-                  aria-label={`Abrir ${item.subjectName ?? 'a disciplina'}`}
-                  className={cn(
-                    'grid size-11 shrink-0 place-items-center rounded-full',
-                    // Em tela larga o item urgente ganha um botão com texto: há
-                    // espaço para dizer o que a seta só sugere.
-                    urgent && 'lg:bg-brand lg:text-brand-fg lg:h-11 lg:w-auto lg:gap-2 lg:px-4',
-                  )}
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'grid size-9 place-items-center rounded-full transition-colors',
-                      urgent
-                        ? 'bg-warning text-white hover:brightness-110 lg:size-auto lg:bg-transparent'
-                        : 'bg-surface-2 text-muted hover:text-text',
-                    )}
-                  >
-                    {urgent ? (
-                      <>
-                        <Play className="size-4 fill-current lg:hidden" />
-                        <span className="hidden items-center gap-2 text-sm font-semibold lg:flex">
-                          <Play className="size-4 fill-current" />
-                          Começar
-                        </span>
-                      </>
-                    ) : (
-                      <ChevronRight className="size-4" strokeWidth={2.5} />
-                    )}
-                  </span>
-                </Link>
-              ) : (
+              <button
+                type="button"
+                onClick={() =>
+                  startTransition(async () => {
+                    setOptimistic(item.id);
+                    await toggleTask(item.id, true);
+                  })
+                }
+                aria-label={`Concluir ${item.title}`}
+                className="group grid size-11 shrink-0 place-items-center rounded-full"
+              >
+                {/* 36px de círculo dentro de 44px de área tocável — é o que a
+                    prancha de componentes do kit especifica, e o que evita
+                    que um alvo pequeno no polegar erre. */}
                 <span
                   aria-hidden
-                  className="bg-surface-2 text-subtle grid size-9 shrink-0 place-items-center rounded-full"
-                >
-                  {item.kind === 'assessment' ? (
-                    <FileText className="size-4" />
-                  ) : (
-                    <ListTodo className="size-4" />
+                  className={cn(
+                    'border-border-strong group-hover:border-success group-hover:bg-success grid size-9',
+                    'text-subtle place-items-center rounded-full border-2 transition-colors group-hover:text-white',
                   )}
+                >
+                  <Check className="size-4" strokeWidth={3} />
                 </span>
-              )}
+              </button>
             </div>
           </li>
         );

@@ -1,23 +1,40 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Brain, NotebookPen, TrendingDown, TrendingUp } from 'lucide-react';
+import {
+  Brain,
+  CheckCircle2,
+  Flame,
+  NotebookPen,
+  RotateCcw,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+} from 'lucide-react';
 import { GradientHeader } from '@/components/layout/gradient-header';
 import { PageMain } from '@/components/layout/page-main';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopEmptyState } from '@/components/ui/empty-state';
 import { Progress } from '@/components/ui/progress';
-import { formatGrade } from '@/features/grades';
+import { formatGrade } from '@/lib/format/grade';
 import {
+  AssessmentVsEmpenhoChart,
+  ScoreEvolutionChart,
   StudyWeeksChart,
-  SubjectAveragesChart,
-  TermEvolutionChart,
+  SubjectScoresChart,
 } from '@/features/performance/components/charts';
 import { levelProgressPercent } from '@/features/performance/lib/level';
-import { getPerformance, type TopicMastery } from '@/features/performance/server/queries';
+import {
+  getPerformance,
+  type ScoreEvolutionPoint,
+  type TopicMastery,
+} from '@/features/performance/server/queries';
 import { getCurrentUser } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
+
+const PASSING_GRADE = 6;
 
 const STATUS_DOT: Record<TopicMastery['status'], string> = {
   dominado: 'bg-success',
@@ -37,15 +54,26 @@ function groupMasteryBySubject(topics: TopicMastery[]): [string, TopicMastery[]]
   return [...map.entries()];
 }
 
+/** Diferença entre as duas últimas semanas com nota avaliativa — não entre
+ * bimestres, que não existem mais para efeito de nota. */
+function weeklyDelta(points: ScoreEvolutionPoint[]): number | null {
+  const graded = points.filter((p) => p.blendedScore !== null);
+  if (graded.length < 2) return null;
+  const last = graded[graded.length - 1]?.blendedScore ?? null;
+  const prev = graded[graded.length - 2]?.blendedScore ?? null;
+  if (last === null || prev === null) return null;
+  return Number((last - prev).toFixed(2));
+}
+
 export const metadata: Metadata = {
   title: 'Desempenho',
-  description: 'Como você está e como está evoluindo.',
+  description: 'Como você está e como está evoluindo — tudo automático.',
 };
 
 export const dynamic = 'force-dynamic';
 
 /**
- * A média e a variação, na mesma peça.
+ * A nota e a variação, na mesma peça.
  *
  * Existe uma versão para o degradê e outra para o fundo claro porque o verde e
  * o vermelho do tema não têm contraste suficiente sobre o azul — sobre a faixa
@@ -100,39 +128,57 @@ function AverageBadge({
   );
 }
 
+function StatTile({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: typeof Flame;
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="border-border bg-surface flex items-center gap-3 rounded-2xl border p-3">
+      <span className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl">
+        <Icon className="size-4.5" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="tabular text-lg leading-none font-semibold">{value}</p>
+        <p className="text-muted mt-1 text-xs leading-tight">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 export default async function PerformancePage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const data = await getPerformance(user.id);
 
-  const below = data.subjectBars.filter((b) => b.isBelowPassing);
-  const worst = [...data.subjectBars].sort((a, b) => (a.average ?? 99) - (b.average ?? 99));
-
-  // "Nenhuma matéria abaixo da média" é uma frase de parabéns — mas quando o
-  // motivo real é que NENHUMA nota foi lançada ainda, ela mente por omissão.
-  // Sem nota nenhuma, as duas seções de nota (evolução, matérias) somem e dão
-  // lugar a um único estado vazio: aqui não há dois recados incompletos, há
-  // um recado completo ("comece lançando uma nota"), com um próximo passo.
-  const hasGrades = data.subjectBars.length > 0;
+  const gradedSubjects = data.subjectScores.filter((s) => s.blendedScore !== null);
+  const hasScores = gradedSubjects.length > 0;
+  const below = gradedSubjects.filter((s) => (s.blendedScore ?? 0) < PASSING_GRADE);
+  const worst = [...gradedSubjects].sort((a, b) => (a.blendedScore ?? 99) - (b.blendedScore ?? 99));
+  const delta = weeklyDelta(data.scoreEvolution);
 
   // Cada gráfico ganha a frase que ele prova. O aluno lê a frase; o gráfico
   // existe para quem quiser conferir. Um eixo Y sem legenda é decoração.
   const evolutionSentence =
-    data.averageDelta === null
-      ? 'Ainda não há dois períodos com nota para comparar.'
-      : data.averageDelta > 0
-        ? `Sua média subiu ${formatGrade(Math.abs(data.averageDelta), 1)} desde o período anterior.`
-        : data.averageDelta < 0
-          ? `Sua média caiu ${formatGrade(Math.abs(data.averageDelta), 1)} desde o período anterior.`
-          : 'Sua média está igual à do período anterior.';
+    delta === null
+      ? 'A evolução aparece depois de duas semanas com quiz ou simulado feito.'
+      : delta > 0
+        ? `Sua nota subiu ${formatGrade(Math.abs(delta), 1)} desde a semana passada.`
+        : delta < 0
+          ? `Sua nota caiu ${formatGrade(Math.abs(delta), 1)} desde a semana passada.`
+          : 'Sua nota está igual à da semana passada.';
 
   const subjectsSentence =
     below.length === 0
-      ? 'Nenhuma matéria abaixo da média de aprovação neste período.'
+      ? 'Nenhuma matéria abaixo da média de aprovação.'
       : below.length === 1
         ? `${below[0]?.subjectName} é a única abaixo da média de aprovação.`
-        : `${worst[0]?.subjectName} e ${worst[1]?.subjectName} são as que puxam a média para baixo.`;
+        : `${worst[0]?.subjectName} e ${worst[1]?.subjectName} são as que puxam a nota para baixo.`;
 
   // A recomendação só aparece com pelo menos duas questões no assunto — uma
   // questão errada sozinha é ruído, não um padrão que vale interromper a tela
@@ -142,6 +188,11 @@ export default async function PerformancePage() {
   );
   const masteryBySubject = groupMasteryBySubject(data.topicMastery);
 
+  const totalQuizzes = data.subjectScores.reduce((sum, s) => sum + s.quizzesDone, 0);
+  const totalSimulados = data.subjectScores.reduce((sum, s) => sum + s.simuladosDone, 0);
+  const totalContent = data.subjectScores.reduce((sum, s) => sum + s.contentCompleted, 0);
+  const studyHours = Math.round((data.totalStudySeconds / 3600) * 10) / 10;
+
   return (
     <>
       {/* No celular o degradê; no desktop, um cabeçalho claro com o número em
@@ -150,10 +201,8 @@ export default async function PerformancePage() {
       <div className="md:hidden">
         <GradientHeader
           title="Desempenho"
-          subtitle={`Média geral do ${data.currentTermName ?? 'período atual'}`}
-          right={
-            <AverageBadge average={data.overallAverage} delta={data.averageDelta} onGradient />
-          }
+          subtitle="Nota automática — quizzes, simulados e empenho"
+          right={<AverageBadge average={data.overallScore} delta={delta} onGradient />}
         />
       </div>
 
@@ -162,19 +211,19 @@ export default async function PerformancePage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Desempenho</h1>
             <p className="text-muted mt-0.5 text-sm">
-              Média geral do {data.currentTermName ?? 'período atual'}
+              Nota automática — quizzes, simulados e empenho
             </p>
           </div>
-          <AverageBadge average={data.overallAverage} delta={data.averageDelta} />
+          <AverageBadge average={data.overallScore} delta={delta} />
         </div>
 
-        {hasGrades ? (
+        {hasScores ? (
           <>
             <Card className="min-w-0 lg:col-start-1 lg:row-start-2">
               <CardContent className="p-4">
                 <p className="text-sm leading-relaxed font-medium">{evolutionSentence}</p>
                 <div className="mt-3">
-                  <TermEvolutionChart points={data.termPoints} />
+                  <ScoreEvolutionChart points={data.scoreEvolution} />
                 </div>
               </CardContent>
             </Card>
@@ -183,15 +232,8 @@ export default async function PerformancePage() {
               <CardContent className="p-4">
                 <p className="text-sm leading-relaxed font-medium">{subjectsSentence}</p>
                 <div className="mt-3">
-                  <SubjectAveragesChart bars={data.subjectBars} />
+                  <SubjectScoresChart scores={data.subjectScores} />
                 </div>
-                {data.pendingActivities > 0 && (
-                  <p className="text-subtle mt-3 text-xs">
-                    {data.pendingActivities}{' '}
-                    {data.pendingActivities === 1 ? 'avaliação ainda' : 'avaliações ainda'} por
-                    lançar neste período.
-                  </p>
-                )}
               </CardContent>
             </Card>
           </>
@@ -200,12 +242,12 @@ export default async function PerformancePage() {
             <PopEmptyState
               icon={<NotebookPen className="text-white" />}
               title="Seu desempenho começa aqui"
-              description="Lance sua primeira nota para o Nexa acompanhar sua evolução por matéria e por período."
+              description="Faça um quiz ou um simulado e o Nexa calcula sua nota automaticamente — nenhuma nota pra digitar."
               action={
                 <Button asChild variant="pop">
-                  <Link href="/disciplinas">
+                  <Link href="/estudar">
                     <NotebookPen aria-hidden />
-                    Lançar minha primeira nota
+                    Ir estudar
                   </Link>
                 </Button>
               }
@@ -253,8 +295,8 @@ export default async function PerformancePage() {
             />
 
             <p className="text-subtle text-xs leading-relaxed">
-              XP vem de lições, quizzes e minutos de estudo. O que conta de verdade é a média:{' '}
-              {formatGrade(data.overallAverage, 1)} no período.
+              XP vem de lições, quizzes e minutos de estudo. O que conta de verdade é a nota:{' '}
+              {formatGrade(data.overallScore, 1)}.
             </p>
           </CardContent>
         </Card>
@@ -322,24 +364,82 @@ export default async function PerformancePage() {
           </Card>
         )}
 
+        {/* Avaliativo × empenho: os dois lados da nota, lado a lado — pra ficar
+            claro que estudar sem fazer quiz nenhum não é o caminho, e vice-versa. */}
+        {hasScores && (
+          <Card className="min-w-0 lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Avaliativo × empenho</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AssessmentVsEmpenhoChart scores={data.subjectScores} />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Números diretos em vez de uma "taxa de conclusão" sem denominador
+            claro — o que existe pra contar é isto: quanto foi feito. */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:col-span-2">
+          <StatTile icon={CheckCircle2} value={String(totalQuizzes)} label="Quizzes feitos" />
+          <StatTile icon={Trophy} value={String(totalSimulados)} label="Simulados feitos" />
+          <StatTile icon={NotebookPen} value={String(totalContent)} label="Conteúdos concluídos" />
+          <StatTile icon={Flame} value={String(data.currentStreak)} label="Sequência atual" />
+          <StatTile
+            icon={Target}
+            value={studyHours.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}
+            label="Horas de estudo"
+          />
+        </div>
+
+        {data.simuladoHistory.length > 0 && (
+          <Card className="min-w-0 lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Histórico de simulados</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ul className="divide-border divide-y">
+                {data.simuladoHistory.map((attempt) => (
+                  <li key={attempt.attemptId}>
+                    <Link
+                      href={`/estudar/${attempt.resourceId}/resultado?tentativa=${attempt.attemptId}`}
+                      className="hover:bg-surface-2 flex items-center gap-3 px-4 py-3 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{attempt.resourceTitle}</p>
+                        <p className="text-subtle text-xs">
+                          {attempt.subjectName ?? 'Sem matéria'} ·{' '}
+                          {new Date(attempt.finishedAt).toLocaleDateString('pt-BR')} ·{' '}
+                          {attempt.correctCount}/{attempt.totalCount} acertos
+                        </p>
+                      </div>
+                      <span className="tabular shrink-0 text-sm font-semibold">
+                        {Math.round(attempt.percent)}%
+                      </span>
+                      <RotateCcw className="text-subtle size-4 shrink-0" aria-hidden />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
         {/* O gráfico não pode ser a única forma de ler os números. */}
-        {data.subjectBars.length > 0 && (
+        {gradedSubjects.length > 0 && (
           <Card className="min-w-0 lg:col-span-2">
             <CardHeader>
               <CardTitle>Todos os números</CardTitle>
             </CardHeader>
             <CardContent>
               <table className="w-full text-sm">
-                <caption className="sr-only">
-                  Média por matéria no período atual, com meta e situação
-                </caption>
+                <caption className="sr-only">Nota automática por matéria, com meta e situação</caption>
                 <thead>
                   <tr className="text-subtle border-border border-b text-left text-xs">
                     <th scope="col" className="pb-2 font-medium">
                       Matéria
                     </th>
                     <th scope="col" className="pb-2 text-right font-medium">
-                      Média
+                      Nota
                     </th>
                     <th scope="col" className="pb-2 text-right font-medium">
                       Meta
@@ -347,29 +447,39 @@ export default async function PerformancePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-border divide-y">
-                  {data.subjectBars.map((bar) => (
-                    <tr key={bar.subjectId}>
-                      <th scope="row" className="py-2 text-left font-medium">
-                        {bar.subjectName}
-                        {bar.isBelowPassing && (
-                          <span className="text-danger ml-1.5 text-xs font-normal">
-                            abaixo da média
-                          </span>
-                        )}
-                        {!bar.isBelowPassing && bar.isBelowTarget && (
-                          <span className="text-muted ml-1.5 text-xs font-normal">
-                            abaixo da meta
-                          </span>
-                        )}
-                      </th>
-                      <td className="tabular py-2 text-right font-semibold">
-                        {formatGrade(bar.average, 1)}
-                      </td>
-                      <td className="tabular text-muted py-2 text-right">
-                        {bar.targetGrade !== null ? formatGrade(bar.targetGrade, 1) : '—'}
-                      </td>
-                    </tr>
-                  ))}
+                  {gradedSubjects.map((subject) => {
+                    const grade = subject.blendedScore ?? 0;
+                    const isBelowPassing = grade < PASSING_GRADE;
+                    const isBelowTarget =
+                      !isBelowPassing && subject.targetGrade !== null && grade < subject.targetGrade;
+                    return (
+                      <tr key={subject.subjectId}>
+                        <th scope="row" className="py-2 text-left font-medium">
+                          {subject.subjectName}
+                          {isBelowPassing && (
+                            <span className="text-danger ml-1.5 text-xs font-normal">
+                              abaixo da média
+                            </span>
+                          )}
+                          {isBelowTarget && (
+                            <span className="text-muted ml-1.5 text-xs font-normal">
+                              abaixo da meta
+                            </span>
+                          )}
+                        </th>
+                        <td className="tabular py-2 text-right font-semibold">
+                          {formatGrade(subject.blendedScore, 1)}
+                        </td>
+                        <td className="tabular text-muted py-2 text-right">
+                          {subject.targetGrade !== null ? (
+                            formatGrade(subject.targetGrade, 1)
+                          ) : (
+                            <Target className="ml-auto size-3.5 opacity-40" aria-hidden />
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </CardContent>

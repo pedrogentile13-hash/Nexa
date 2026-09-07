@@ -4,24 +4,23 @@ import { createClient } from '@/lib/supabase/server';
  * Eventos da agenda.
  *
  * Não existe tabela `events`: a agenda é uma projeção sobre o que já está
- * modelado — avaliações, tarefas e sessões de estudo. Uma tabela paralela
- * significaria manter duas verdades sobre a mesma prova, e elas divergem.
+ * modelado — tarefas (incluindo provas, que agora são só `tasks` de
+ * `kind = 'prova'`, sem nota) e sessões de estudo.
  */
 
-export type AgendaKind = 'assessment' | 'task' | 'study';
+export type AgendaKind = 'task' | 'study';
 
 export interface AgendaEvent {
   id: string;
   kind: AgendaKind;
+  /** Só para `kind = 'task'`: o `tasks.kind` real ('prova', 'homework', ...). */
+  taskKind: string | null;
   title: string;
   date: string;
   subjectId: string | null;
   subjectName: string | null;
   subjectColor: string;
-  categoryCode: string | null;
-  /** Avaliação já com nota, ou tarefa concluída. */
   isDone: boolean;
-  score: number | null;
 }
 
 export interface AgendaRange {
@@ -47,16 +46,10 @@ export async function getUserToday(userId: string): Promise<string> {
 export async function getAgenda(from: string, to: string, today: string): Promise<AgendaRange> {
   const supabase = await createClient();
 
-  const [activitiesRes, tasksRes, sessionsRes] = await Promise.all([
-    supabase
-      .from('v_activities_effective')
-      .select('id, title, due_date, score, category_code, subject_id, subject_name, subject_color')
-      .not('due_date', 'is', null)
-      .gte('due_date', from)
-      .lte('due_date', to),
+  const [tasksRes, sessionsRes] = await Promise.all([
     supabase
       .from('tasks')
-      .select('id, title, due_date, completed_at, subject_id, subjects(name, color)')
+      .select('id, title, due_date, kind, completed_at, subject_id, subjects(name, color)')
       .not('due_date', 'is', null)
       .gte('due_date', from)
       .lte('due_date', to),
@@ -70,34 +63,18 @@ export async function getAgenda(from: string, to: string, today: string): Promis
 
   const events: AgendaEvent[] = [];
 
-  for (const row of activitiesRes.data ?? []) {
-    events.push({
-      id: `a-${row.id}`,
-      kind: 'assessment',
-      title: row.title,
-      date: row.due_date as string,
-      subjectId: row.subject_id,
-      subjectName: row.subject_name,
-      subjectColor: row.subject_color ?? 'blue',
-      categoryCode: row.category_code,
-      isDone: row.score !== null,
-      score: row.score,
-    });
-  }
-
   for (const row of tasksRes.data ?? []) {
     const subject = row.subjects as unknown as { name: string; color: string } | null;
     events.push({
       id: `t-${row.id}`,
       kind: 'task',
+      taskKind: row.kind,
       title: row.title,
       date: row.due_date as string,
       subjectId: row.subject_id,
       subjectName: subject?.name ?? null,
       subjectColor: subject?.color ?? 'slate',
-      categoryCode: null,
       isDone: row.completed_at !== null,
-      score: null,
     });
   }
 
@@ -119,14 +96,13 @@ export async function getAgenda(from: string, to: string, today: string): Promis
     events.push({
       id: `s-${date}`,
       kind: 'study',
+      taskKind: null,
       title: `${info.minutes} min de estudo`,
       date,
       subjectId: null,
       subjectName: info.subject,
       subjectColor: info.color,
-      categoryCode: null,
       isDone: true,
-      score: null,
     });
   }
 

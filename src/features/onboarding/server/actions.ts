@@ -9,8 +9,8 @@ import { onboardingSchema, type OnboardingState } from '../schemas';
  * Completes onboarding.
  *
  * Everything happens inside `bootstrap_student()`, which is one transaction:
- * profile, academic year, terms, grading scheme, categories, subjects, the
- * subject × term matrix and a starter checklist. Doing this from the client
+ * profile, academic year, terms (só para a grade de aulas — não há mais
+ * nota manual), subjects e um checklist inicial. Doing this from the client
  * would be ~25 sequential REST calls that can half-fail.
  */
 export async function completeOnboarding(
@@ -57,14 +57,8 @@ export async function completeOnboarding(
     p_year_label: null,
     p_year_starts_on: null,
     p_year_ends_on: null,
-    p_term_count: data.termCount,
     p_catalog_ids: data.catalogIds,
     p_custom_subjects: data.customSubjects,
-    p_categories: data.categories.map((c) => ({
-      name: c.name,
-      short_code: c.shortCode ?? null,
-      weight_percent: c.weightPercent,
-    })),
     p_daily_goal_minutes: data.dailyGoalMinutes,
   });
 

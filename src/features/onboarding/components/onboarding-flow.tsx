@@ -17,13 +17,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { completeOnboarding } from '../server/actions';
-import {
-  DAILY_GOAL_PRESETS,
-  DEFAULT_CATEGORIES,
-  GRADE_LEVELS,
-  TERM_MODELS,
-  type OnboardingState,
-} from '../schemas';
+import { DAILY_GOAL_PRESETS, GRADE_LEVELS, type OnboardingState } from '../schemas';
 import { AREA_LABELS, type CatalogSubject } from '../types';
 import type { SubjectArea } from '@/types/database.types';
 
@@ -50,14 +44,8 @@ interface Props {
   fallbackTimezone: string;
 }
 
-interface Category {
-  name: string;
-  shortCode: string;
-  weightPercent: number;
-}
-
 const INITIAL: OnboardingState = { status: 'idle' };
-const STEPS = 6;
+const STEPS = 5;
 
 export function OnboardingFlow({ catalog, coreSubjectIds, defaultName, fallbackTimezone }: Props) {
   const [step, setStep] = useState(0);
@@ -78,41 +66,28 @@ export function OnboardingFlow({ catalog, coreSubjectIds, defaultName, fallbackT
   const [customSubjects, setCustomSubjects] = useState<string[]>([]);
   const [customDraft, setCustomDraft] = useState('');
   const [dailyGoalMinutes, setDailyGoalMinutes] = useState(45);
-  const [termCount, setTermCount] = useState(4);
-  const [categories, setCategories] = useState<Category[]>(
-    DEFAULT_CATEGORIES.map((c) => ({ ...c })),
-  );
 
   const [state, formAction, isPending] = useActionState(completeOnboarding, INITIAL);
 
   const subjectCount = selected.size + customSubjects.length;
-  const weightTotal = categories.reduce((sum, c) => sum + (c.weightPercent || 0), 0);
 
   const identityValid = fullName.trim().length >= 2 && gradeLevel.length > 0;
   const subjectsValid = subjectCount > 0;
-  const categoriesValid = categories.length > 0 && categories.every((c) => c.name.trim().length > 0);
 
   const canAdvance = useMemo(() => {
     if (step === 1) return identityValid;
     if (step === 2) return subjectsValid;
-    if (step === 4) return categoriesValid;
     return true;
-  }, [step, identityValid, subjectsValid, categoriesValid]);
+  }, [step, identityValid, subjectsValid]);
 
-  const canSubmit = identityValid && subjectsValid && categoriesValid;
+  const canSubmit = identityValid && subjectsValid;
 
   const payload = JSON.stringify({
     fullName: fullName.trim(),
     gradeLevel,
     className: className.trim() || null,
-    termCount,
     catalogIds: [...selected],
     customSubjects,
-    categories: categories.map((c) => ({
-      name: c.name.trim(),
-      shortCode: c.shortCode.trim() || null,
-      weightPercent: Number(c.weightPercent) || 0,
-    })),
     dailyGoalMinutes,
     timezone,
   });
@@ -219,17 +194,7 @@ export function OnboardingFlow({ catalog, coreSubjectIds, defaultName, fallbackT
               <StepGoal dailyGoalMinutes={dailyGoalMinutes} onDailyGoalMinutes={setDailyGoalMinutes} />
             )}
 
-            {step === 4 && (
-              <StepGrading
-                termCount={termCount}
-                onTermCount={setTermCount}
-                categories={categories}
-                onCategories={setCategories}
-                weightTotal={weightTotal}
-              />
-            )}
-
-            {step === 5 && <StepDone subjectCount={subjectCount} dailyGoalMinutes={dailyGoalMinutes} />}
+            {step === 4 && <StepDone subjectCount={subjectCount} dailyGoalMinutes={dailyGoalMinutes} />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -596,139 +561,6 @@ function StepGoal({
 }
 
 /* ─────────────────────────────────────────────────────────── step 4 ────── */
-
-function StepGrading({
-  termCount,
-  onTermCount,
-  categories,
-  onCategories,
-  weightTotal,
-}: {
-  termCount: number;
-  onTermCount: (v: number) => void;
-  categories: Category[];
-  onCategories: (v: Category[]) => void;
-  weightTotal: number;
-}) {
-  function update(index: number, patch: Partial<Category>) {
-    onCategories(categories.map((c, i) => (i === index ? { ...c, ...patch } : c)));
-  }
-
-  return (
-    <div className="space-y-6">
-      <StepHeading
-        title="Como sua escola avalia"
-        subtitle="Pode mudar tudo isso depois, a qualquer momento."
-      />
-
-      <div>
-        <Label>Divisão do ano</Label>
-        <div className="flex gap-2">
-          {TERM_MODELS.map((model) => (
-            <button
-              key={model.count}
-              type="button"
-              onClick={() => onTermCount(model.count)}
-              aria-pressed={termCount === model.count}
-              className={cn(
-                'flex-1 rounded-2xl border px-3 py-3 text-center transition-colors',
-                termCount === model.count
-                  ? 'border-brand bg-brand-soft text-brand-text'
-                  : 'border-border bg-surface text-muted hover:bg-surface-2',
-              )}
-            >
-              <span className="block text-sm font-medium">{model.label}</span>
-              <span className="text-subtle block text-xs">{model.hint}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <div className="mb-1.5 flex items-baseline justify-between">
-          <Label className="mb-0">Categorias de nota</Label>
-          <span
-            className={cn(
-              'tabular text-xs font-medium',
-              weightTotal === 100 ? 'text-success' : 'text-warning',
-            )}
-          >
-            {weightTotal}%
-          </span>
-        </div>
-
-        <ul className="border-border divide-border divide-y overflow-hidden rounded-2xl border">
-          {categories.map((category, index) => (
-            <li key={index} className="bg-surface flex items-center gap-2 p-2.5">
-              <Input
-                value={category.shortCode}
-                onChange={(e) => update(index, { shortCode: e.target.value.toUpperCase() })}
-                aria-label={`Sigla da categoria ${index + 1}`}
-                maxLength={4}
-                className="tabular h-11 w-16 shrink-0 text-center font-semibold"
-              />
-              <Input
-                value={category.name}
-                onChange={(e) => update(index, { name: e.target.value })}
-                aria-label={`Nome da categoria ${index + 1}`}
-                className="h-11 min-w-0 flex-1"
-              />
-              <div className="relative shrink-0">
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={100}
-                  value={category.weightPercent}
-                  onChange={(e) => update(index, { weightPercent: Number(e.target.value) })}
-                  aria-label={`Peso da categoria ${index + 1} em porcento`}
-                  className="tabular h-11 w-20 pr-7 text-right"
-                />
-                <span className="text-subtle pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm">
-                  %
-                </span>
-              </div>
-              {categories.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => onCategories(categories.filter((_, i) => i !== index))}
-                  aria-label={`Remover ${category.name || 'categoria'}`}
-                  className="text-subtle hover:text-danger grid size-9 shrink-0 place-items-center rounded-md"
-                >
-                  <X className="size-4" aria-hidden />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-
-        {weightTotal !== 100 && (
-          <p className="text-muted mt-2 text-xs leading-relaxed">
-            Os pesos somam {weightTotal}%. Não tem problema — o Nexa calcula a média proporcional ao
-            total. Se quiser o padrão, deixe em 100%.
-          </p>
-        )}
-
-        {categories.length < 10 && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="mt-2"
-            onClick={() =>
-              onCategories([...categories, { name: '', shortCode: '', weightPercent: 0 }])
-            }
-          >
-            <Plus aria-hidden />
-            Adicionar categoria
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────── step 5 ────── */
 
 function StepDone({
   subjectCount,

@@ -66,9 +66,6 @@ create table if not exists public.tasks (
   user_id uuid not null references auth.users (id) on delete cascade,
   -- Nullable: "levar atestado" is a real task with no subject.
   subject_id uuid references public.subjects (id) on delete set null,
-  -- Links a task to what it prepares for ("estudar para a PB de Química"),
-  -- which is what lets the Hoje ranking inherit the activity's weight.
-  activity_id uuid references public.activities (id) on delete cascade,
   title text not null check (length(btrim(title)) between 1 and 200),
   description text,
   kind text not null default 'task'
@@ -86,7 +83,6 @@ create table if not exists public.tasks (
 create index if not exists tasks_user_open_due_idx
   on public.tasks (user_id, due_date) where completed_at is null;
 create index if not exists tasks_user_subject_idx on public.tasks (user_id, subject_id);
-create index if not exists tasks_activity_idx on public.tasks (activity_id) where activity_id is not null;
 
 drop trigger if exists tasks_set_updated_at on public.tasks;
 create trigger tasks_set_updated_at before update on public.tasks
@@ -105,7 +101,6 @@ create table if not exists public.study_sessions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   subject_id uuid references public.subjects (id) on delete set null,
-  activity_id uuid references public.activities (id) on delete set null,
   started_at timestamptz not null default now(),
   ended_at timestamptz,
   duration_seconds integer not null default 0 check (duration_seconds between 0 and 86400),
@@ -172,7 +167,6 @@ create table if not exists public.attachments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   subject_id uuid references public.subjects (id) on delete cascade,
-  activity_id uuid references public.activities (id) on delete cascade,
   kind text not null check (kind in ('summary', 'exercise', 'file', 'link')),
   title text not null check (length(btrim(title)) between 1 and 200),
   content text, -- markdown, for kind = 'summary'
@@ -191,7 +185,6 @@ create table if not exists public.attachments (
 );
 
 create index if not exists attachments_user_subject_idx on public.attachments (user_id, subject_id, kind);
-create index if not exists attachments_activity_idx on public.attachments (activity_id) where activity_id is not null;
 
 drop trigger if exists attachments_set_updated_at on public.attachments;
 create trigger attachments_set_updated_at before update on public.attachments

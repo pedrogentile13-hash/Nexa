@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { computeOverallScore } from '@/features/performance/server/queries';
 import type { FocusCandidate } from '../lib/ranking';
 
 /**
@@ -13,9 +14,15 @@ export interface TodaySnapshot {
   today: string;
   greetingName: string;
   streak: number;
+  longestStreak: number;
   avatarUrl: string | null;
   dailyGoalMinutes: number;
   studiedTodayMinutes: number;
+  weeklyGoalMinutes: number;
+  weekStudiedMinutes: number;
+  weekDays: WeekDay[];
+  /** Nota geral automática (mesma conta de Desempenho) — `null` sem nenhuma matéria com nota. */
+  overallScore: number | null;
   routines: TodayRoutine[];
   candidates: FocusCandidate[];
   upcoming: UpcomingItem[];
@@ -24,6 +31,25 @@ export interface TodaySnapshot {
   runningSessionStartedAt: string | null;
   /** O material que o aluno começou e não terminou. `null` se não houver. */
   resume: ResumeItem | null;
+  /** Igual a `resume`, mas restrito a um kind — para os cartões "continue ouvindo/assistindo". */
+  resumeAudio: ResumeItem | null;
+  resumeVideo: ResumeItem | null;
+  recommendedQuiz: RecommendedQuiz | null;
+}
+
+export interface WeekDay {
+  date: string;
+  /** Teve pelo menos um `xp_events` no dia — sinal unificado de "fez algo na plataforma". */
+  active: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+}
+
+export interface RecommendedQuiz {
+  id: string;
+  title: string;
+  kind: 'quiz' | 'simulado';
+  subjectName: string;
 }
 
 export interface ResumeItem {
@@ -50,8 +76,6 @@ export interface UpcomingItem {
   dueDate: string;
   subjectName: string | null;
   subjectColor: string | null;
-  categoryCode: string | null;
-  kind: 'assessment' | 'task';
 }
 
 export interface ClassSlot {
@@ -72,6 +96,15 @@ function addDays(iso: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** Segunda-feira da semana de `iso` — mesma convenção de início de semana usada em Desempenho. */
+function mondayOf(iso: string): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  const day = date.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setUTCDate(date.getUTCDate() + diff);
+  return date.toISOString().slice(0, 10);
+}
+
 export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
   const supabase = await createClient();
 
@@ -81,6 +114,8 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
   const today = (todayValue as string | null) ?? new Date().toISOString().slice(0, 10);
   const horizon = addDays(today, UPCOMING_DAYS);
   const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
+  const weekStart = mondayOf(today);
+  const weekEnd = addDays(weekStart, 6);
 
   const [
     profileRes,
@@ -88,18 +123,25 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
     routinesRes,
     completionsRes,
     tasksRes,
-    activitiesRes,
     sessionsRes,
+    weekSessionsRes,
     slotsRes,
-    averagesRes,
+    scoresRes,
     resumeRes,
+    xpWeekRes,
+    masteryRes,
+    attemptsRes,
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('full_name, avatar_url, daily_study_goal_minutes')
+      .select('full_name, avatar_url, daily_study_goal_minutes, weekly_study_goal_minutes')
       .eq('id', userId)
       .maybeSingle(),
-    supabase.from('user_stats').select('current_streak').eq('user_id', userId).maybeSingle(),
+    supabase
+      .from('user_stats')
+      .select('current_streak, longest_streak')
+      .eq('user_id', userId)
+      .maybeSingle(),
     supabase
       .from('routines')
       .select(
@@ -115,52 +157,51 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
       .lte('due_date', horizon)
       .order('due_date', { nullsFirst: false }),
     supabase
-      .from('v_activities_effective')
-      .select(
-        'id, title, due_date, weight, weight_percent, category_code, subject_id, subject_name, subject_color, score',
-      )
-      .is('score', null)
-      .not('due_date', 'is', null)
-      .lte('due_date', horizon),
-    supabase
       .from('study_sessions')
       .select('id, duration_seconds, ended_at, started_at')
       .eq('local_date', today),
+    supabase
+      .from('study_sessions')
+      .select('duration_seconds')
+      .gte('local_date', weekStart)
+      .lte('local_date', weekEnd),
     supabase
       .from('timetable_slots')
       .select('subject_id, starts_at, ends_at, room, subjects(name, color)')
       .eq('day_of_week', weekday)
       .order('starts_at'),
-    supabase
-      .from('v_subject_term_averages')
-      .select('subject_id, final_grade, target_grade, passing_grade'),
-    // "Continuar de onde parou": o mais recente que começou e não terminou.
-    // Um item concluído não é pendência, e oferecê-lo de volta faz o cartão
-    // parecer quebrado.
+    supabase.rpc('subject_scores', { p_user_id: userId }),
+    // "Continuar de onde parou": os mais recentes que começaram e não
+    // terminaram. Buscamos várias linhas (não só a última) para poder separar
+    // "continue ouvindo" de "continue assistindo" por tipo de recurso.
     supabase
       .from('resource_progress')
       .select('resource_id, progress_percent, last_seen_at')
       .is('completed_at', null)
       .gt('progress_percent', 0)
       .order('last_seen_at', { ascending: false })
-      .limit(1),
+      .limit(15),
+    // Dias com XP na semana: sinal único que já cobre quiz, lição, rotina,
+    // tarefa e sessão de estudo — não precisa de tracking novo.
+    supabase.from('xp_events').select('local_date').gte('local_date', weekStart).lte('local_date', weekEnd),
+    supabase.rpc('topic_mastery', { p_user_id: userId }),
+    supabase.from('quiz_attempts').select('resource_id'),
   ]);
 
   const profile = profileRes.data;
   const streak = statsRes.data?.current_streak ?? 0;
+  const longestStreak = statsRes.data?.longest_streak ?? 0;
 
-  // Médias por disciplina, para o fator de risco do ranking. Um aluno pode ter
-  // vários bimestres carregados; o que importa é o mais recente com nota.
+  // Nota automática por disciplina, para o fator de risco do ranking.
   const averageBySubject = new Map<
     string,
     { average: number | null; target: number | null; passing: number }
   >();
-  for (const row of averagesRes.data ?? []) {
-    if (row.final_grade === null) continue;
+  for (const row of scoresRes.data ?? []) {
     averageBySubject.set(row.subject_id, {
-      average: row.final_grade,
+      average: row.blended_score,
       target: row.target_grade,
-      passing: row.passing_grade ?? 6,
+      passing: row.passing_grade,
     });
   }
 
@@ -218,26 +259,6 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
     });
   }
 
-  for (const activity of activitiesRes.data ?? []) {
-    const risk = averageBySubject.get(activity.subject_id);
-    candidates.push({
-      id: activity.id,
-      kind: 'assessment',
-      title: activity.title,
-      subjectId: activity.subject_id,
-      subjectName: activity.subject_name,
-      subjectColor: activity.subject_color,
-      dueDate: activity.due_date,
-      categoryWeightPercent: activity.weight_percent,
-      categoryCode: activity.category_code,
-      itemWeight: activity.weight,
-      subjectAverage: risk?.average ?? null,
-      subjectTarget: risk?.target ?? null,
-      passingGrade: risk?.passing ?? 6,
-      hasClassToday: subjectsWithClassToday.has(activity.subject_id),
-    });
-  }
-
   const upcoming: UpcomingItem[] = candidates
     .filter((c): c is FocusCandidate & { dueDate: string } => Boolean(c.dueDate))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
@@ -248,43 +269,126 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
       dueDate: c.dueDate,
       subjectName: c.subjectName,
       subjectColor: c.subjectColor,
-      categoryCode: c.categoryCode ?? null,
-      kind: c.kind === 'assessment' ? 'assessment' : 'task',
     }));
 
-  // O título do material vem numa segunda consulta porque a primeira só
-  // devolve o id; buscar sempre seria uma ida a mais para quase todo aluno.
+  // Os títulos/tipos dos materiais vêm numa segunda consulta em lote porque a
+  // primeira só devolve ids — uma consulta por linha aqui viraria até 15 idas
+  // ao banco para a tela mais aberta do produto.
+  const resumeRows = resumeRes.data ?? [];
   let resume: ResumeItem | null = null;
-  const resumeRow = resumeRes.data?.[0];
-  if (resumeRow) {
-    const { data: resource } = await supabase
+  let resumeAudio: ResumeItem | null = null;
+  let resumeVideo: ResumeItem | null = null;
+  if (resumeRows.length > 0) {
+    const { data: resources } = await supabase
       .from('v_resource_library')
       .select('id, title, kind, subject_name')
-      .eq('id', resumeRow.resource_id)
-      .maybeSingle();
+      .in(
+        'id',
+        resumeRows.map((r) => r.resource_id),
+      );
+    const resourceById = new Map((resources ?? []).map((r) => [r.id, r]));
 
-    if (resource) {
-      resume = {
+    const toResumeItem = (row: (typeof resumeRows)[number] | undefined): ResumeItem | null => {
+      const resource = row ? resourceById.get(row.resource_id) : undefined;
+      if (!resource || !row) return null;
+      return {
         id: resource.id,
         title: resource.title,
         kind: resource.kind,
         subjectName: resource.subject_name,
-        progressPercent: Number(resumeRow.progress_percent),
+        progressPercent: Number(row.progress_percent),
       };
-    }
+    };
+
+    resume = toResumeItem(resumeRows[0]);
+    const audioRow = resumeRows.find((r) => resourceById.get(r.resource_id)?.kind === 'podcast');
+    const videoRow = resumeRows.find((r) => resourceById.get(r.resource_id)?.kind === 'video');
+    resumeAudio = audioRow ? toResumeItem(audioRow) : null;
+    resumeVideo = videoRow ? toResumeItem(videoRow) : null;
   }
 
   const sessions = sessionsRes.data ?? [];
   const studiedTodaySeconds = sessions.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
   const running = sessions.find((s) => s.ended_at === null);
 
+  const weekStudiedSeconds = (weekSessionsRes.data ?? []).reduce(
+    (sum, s) => sum + (s.duration_seconds ?? 0),
+    0,
+  );
+
+  const activeDaysThisWeek = new Set((xpWeekRes.data ?? []).map((r) => r.local_date));
+  const weekDays: WeekDay[] = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(weekStart, i);
+    return {
+      date,
+      active: activeDaysThisWeek.has(date),
+      isToday: date === today,
+      isFuture: date > today,
+    };
+  });
+
+  const overallScore = computeOverallScore(
+    (scoresRes.data ?? []).map((row) => ({ blendedScore: row.blended_score })),
+  );
+
+  // Quiz/simulado recomendado: prioriza a matéria pior colocada no mapa de
+  // domínio ("revisar"). `topic_mastery().subject_id` é na verdade o
+  // `subject_catalog_id` do recurso (mesma convenção usada pela função SQL
+  // desde a etapa 7) — é por isso que dá pra ligar direto em `resources`.
+  const attemptedResourceIds = new Set((attemptsRes.data ?? []).map((a) => a.resource_id));
+  const worstToReview = [...(masteryRes.data ?? [])]
+    .filter((m) => m.status === 'revisar')
+    .sort((a, b) => a.mastery_percent - b.mastery_percent)[0];
+
+  let recommendedQuiz: RecommendedQuiz | null = null;
+  if (worstToReview) {
+    const { data } = await supabase
+      .from('v_resource_library')
+      .select('id, title, kind, subject_name')
+      .in('kind', ['quiz', 'simulado'])
+      .eq('subject_catalog_id', worstToReview.subject_id)
+      .order('sort_order')
+      .limit(30);
+    const pick = (data ?? []).find((r) => !attemptedResourceIds.has(r.id));
+    if (pick) {
+      recommendedQuiz = {
+        id: pick.id,
+        title: pick.title,
+        kind: pick.kind as 'quiz' | 'simulado',
+        subjectName: pick.subject_name,
+      };
+    }
+  }
+  if (!recommendedQuiz) {
+    const { data } = await supabase
+      .from('v_resource_library')
+      .select('id, title, kind, subject_name')
+      .in('kind', ['quiz', 'simulado'])
+      .order('sort_order')
+      .limit(30);
+    const pick = (data ?? []).find((r) => !attemptedResourceIds.has(r.id));
+    if (pick) {
+      recommendedQuiz = {
+        id: pick.id,
+        title: pick.title,
+        kind: pick.kind as 'quiz' | 'simulado',
+        subjectName: pick.subject_name,
+      };
+    }
+  }
+
   return {
     today,
     greetingName: profile?.full_name?.trim().split(/\s+/)[0] ?? '',
     streak,
+    longestStreak,
     avatarUrl: profile?.avatar_url ?? null,
     dailyGoalMinutes: profile?.daily_study_goal_minutes ?? 45,
     studiedTodayMinutes: Math.round(studiedTodaySeconds / 60),
+    weeklyGoalMinutes: profile?.weekly_study_goal_minutes ?? 0,
+    weekStudiedMinutes: Math.round(weekStudiedSeconds / 60),
+    weekDays,
+    overallScore,
     routines,
     candidates,
     upcoming,
@@ -292,5 +396,8 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
     runningSessionId: running?.id ?? null,
     runningSessionStartedAt: running?.started_at ?? null,
     resume,
+    resumeAudio,
+    resumeVideo,
+    recommendedQuiz,
   };
 }

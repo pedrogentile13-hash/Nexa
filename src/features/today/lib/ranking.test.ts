@@ -14,7 +14,7 @@ const TODAY = '2026-05-10';
 
 function candidate(partial: Partial<FocusCandidate> & { id: string }): FocusCandidate {
   return {
-    kind: 'assessment',
+    kind: 'task',
     title: partial.id,
     subjectId: 'subject-1',
     subjectName: 'Matemática',
@@ -56,25 +56,10 @@ describe('urgencyScore', () => {
 });
 
 describe('impactScore', () => {
-  it('cresce com o peso da categoria', () => {
-    const pb = impactScore(candidate({ id: 'pb', categoryWeightPercent: 35, itemWeight: 1 }));
-    const qualitativa = impactScore(
-      candidate({ id: 'ql', categoryWeightPercent: 30, itemWeight: 1 }),
-    );
-    expect(pb).toBeGreaterThan(qualitativa);
-  });
-
-  it('satura o peso do item — peso 7 não vale sete vezes peso 1', () => {
-    const leve = impactScore(candidate({ id: 'a', categoryWeightPercent: 35, itemWeight: 1 }));
-    const pesado = impactScore(candidate({ id: 'b', categoryWeightPercent: 35, itemWeight: 7 }));
-    expect(pesado).toBeGreaterThan(leve);
-    expect(pesado / leve).toBeLessThan(3);
-  });
-
-  it('usa a prioridade manual quando é tarefa', () => {
-    const alta = impactScore(candidate({ id: 'a', kind: 'task', priority: 1 }));
-    const media = impactScore(candidate({ id: 'b', kind: 'task', priority: 2 }));
-    const baixa = impactScore(candidate({ id: 'c', kind: 'task', priority: 3 }));
+  it('usa a prioridade manual da tarefa', () => {
+    const alta = impactScore(candidate({ id: 'a', priority: 1 }));
+    const media = impactScore(candidate({ id: 'b', priority: 2 }));
+    const baixa = impactScore(candidate({ id: 'c', priority: 3 }));
     expect(alta).toBeGreaterThan(media);
     expect(media).toBeGreaterThan(baixa);
     expect(baixa).toBeGreaterThan(0);
@@ -112,24 +97,21 @@ describe('riskScore', () => {
 });
 
 describe('rankFocus', () => {
-  it('coloca a prova pesada de disciplina em risco acima da lição de amanhã', () => {
+  it('coloca a tarefa de alta prioridade de disciplina em risco acima da de baixa prioridade', () => {
     // O caso que motiva o algoritmo inteiro.
     const ranked = rankFocus(
       [
         candidate({
           id: 'licao',
-          kind: 'task',
           title: 'Lição de Inglês',
           dueDate: '2026-05-11',
           priority: 2,
         }),
         candidate({
-          id: 'pb-quimica',
-          title: 'PB de Química',
+          id: 'estudar-quimica',
+          title: 'Estudar pra prova de Química',
           dueDate: '2026-05-13',
-          categoryWeightPercent: 35,
-          categoryCode: 'PB',
-          itemWeight: 7,
+          priority: 1,
           subjectAverage: 5.2,
           passingGrade: 6,
         }),
@@ -137,16 +119,15 @@ describe('rankFocus', () => {
       TODAY,
     );
 
-    expect(ranked[0]?.id).toBe('pb-quimica');
-    expect(ranked[0]?.reason).toContain('35% da média');
+    expect(ranked[0]?.id).toBe('estudar-quimica');
     expect(ranked[0]?.reason).toContain('abaixo da média');
   });
 
   it('põe o atrasado na frente do que vence hoje, com tudo mais igual', () => {
     const ranked = rankFocus(
       [
-        candidate({ id: 'hoje', kind: 'task', dueDate: TODAY, priority: 2 }),
-        candidate({ id: 'atrasado', kind: 'task', dueDate: '2026-05-08', priority: 2 }),
+        candidate({ id: 'hoje', dueDate: TODAY, priority: 2 }),
+        candidate({ id: 'atrasado', dueDate: '2026-05-08', priority: 2 }),
       ],
       TODAY,
     );
@@ -155,16 +136,11 @@ describe('rankFocus', () => {
     expect(ranked[0]?.isOverdue).toBe(true);
   });
 
-  it('não deixa item pesado sem urgência afogar o que é para hoje', () => {
+  it('não deixa item de alta prioridade sem urgência afogar o que é para hoje', () => {
     const ranked = rankFocus(
       [
-        candidate({
-          id: 'prova-distante',
-          dueDate: '2026-07-20',
-          categoryWeightPercent: 35,
-          itemWeight: 7,
-        }),
-        candidate({ id: 'tarefa-hoje', kind: 'task', dueDate: TODAY, priority: 2 }),
+        candidate({ id: 'prova-distante', dueDate: '2026-07-20', priority: 1 }),
+        candidate({ id: 'tarefa-hoje', dueDate: TODAY, priority: 2 }),
       ],
       TODAY,
     );
@@ -173,10 +149,9 @@ describe('rankFocus', () => {
   });
 
   it('usa a aula do dia só como desempate', () => {
-    const semAula = candidate({ id: 'sem-aula', kind: 'task', dueDate: '2026-05-12' });
+    const semAula = candidate({ id: 'sem-aula', dueDate: '2026-05-12' });
     const comAula = candidate({
       id: 'com-aula',
-      kind: 'task',
       dueDate: '2026-05-12',
       hasClassToday: true,
     });
@@ -186,24 +161,22 @@ describe('rankFocus', () => {
 
     // Mas não vira mais importante que algo genuinamente urgente.
     const comUrgente = rankFocus(
-      [comAula, candidate({ id: 'urgente', kind: 'task', dueDate: TODAY, priority: 1 })],
+      [comAula, candidate({ id: 'urgente', dueDate: TODAY, priority: 1 })],
       TODAY,
     );
     expect(comUrgente[0]?.id).toBe('urgente');
   });
 
   it('respeita o limite e devolve no máximo o pedido', () => {
-    const many = Array.from({ length: 12 }, (_, i) =>
-      candidate({ id: `item-${i}`, kind: 'task', dueDate: TODAY }),
-    );
+    const many = Array.from({ length: 12 }, (_, i) => candidate({ id: `item-${i}`, dueDate: TODAY }));
     expect(rankFocus(many, TODAY)).toHaveLength(3);
     expect(rankFocus(many, TODAY, 5)).toHaveLength(5);
     expect(rankFocus([], TODAY)).toHaveLength(0);
   });
 
   it('ordena de forma estável para itens idênticos', () => {
-    const a = candidate({ id: 'a', title: 'Álgebra', kind: 'task', dueDate: TODAY });
-    const b = candidate({ id: 'b', title: 'Biologia', kind: 'task', dueDate: TODAY });
+    const a = candidate({ id: 'a', title: 'Álgebra', dueDate: TODAY });
+    const b = candidate({ id: 'b', title: 'Biologia', dueDate: TODAY });
 
     expect(rankFocus([b, a], TODAY).map((r) => r.id)).toEqual(['a', 'b']);
     expect(rankFocus([a, b], TODAY).map((r) => r.id)).toEqual(['a', 'b']);
@@ -223,14 +196,13 @@ describe('explain', () => {
       candidate({
         id: 'a',
         dueDate: '2026-05-13',
-        categoryWeightPercent: 35,
-        categoryCode: 'PB',
         subjectAverage: 5,
         passingGrade: 6,
+        hasClassToday: true,
       }),
       3,
     );
-    expect(reason).toBe('Em 3 dias · PB vale 35% da média · disciplina abaixo da média');
+    expect(reason).toBe('Em 3 dias · disciplina abaixo da média · tem aula hoje');
   });
 
   it('não chama de crítico o que é só desconhecido', () => {
@@ -254,31 +226,28 @@ describe('scoreCandidate', () => {
 });
 
 describe('explain · limite de tamanho', () => {
-  it('não passa de três fatos, mesmo quando há mais para dizer', () => {
-    // Uma prova amanhã, pesada, de disciplina abaixo da média, com aula hoje:
-    // quatro razões verdadeiras. O cartão só comporta duas linhas.
+  it('não passa de três fatos, mesmo com todos os três presentes', () => {
+    // Atrasada, de disciplina abaixo da média, com aula hoje: os três fatos
+    // que a função pode produzir ao mesmo tempo.
     const reason = explain(
       {
         id: 'x',
-        kind: 'assessment',
+        kind: 'task',
         title: 'Cinemática',
         subjectId: 's1',
         subjectName: 'Física',
         subjectColor: 'orange',
-        dueDate: '2026-09-04',
-        categoryWeightPercent: 40,
-        categoryCode: 'PB',
-        itemWeight: 1,
+        dueDate: '2026-09-03',
         subjectAverage: 4.2,
         subjectTarget: 8,
         passingGrade: 6,
         hasClassToday: true,
       },
-      1,
+      -1,
     );
 
     expect(reason.split(' · ')).toHaveLength(3);
-    expect(reason).toBe('É amanhã · PB vale 40% da média · disciplina abaixo da média');
+    expect(reason).toBe('Atrasado 1 dia · disciplina abaixo da média · tem aula hoje');
   });
 
   it('mantém a frase inteira quando há menos de três fatos', () => {

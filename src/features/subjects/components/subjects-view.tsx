@@ -22,7 +22,6 @@ import { subjectColorVars } from '@/lib/design/subject-colors';
 
 export interface SubjectCard {
   id: string;
-  subjectTermId: string;
   name: string;
   color: string;
   teacher: string | null;
@@ -53,13 +52,11 @@ type SortMode = 'risco' | 'az';
 
 export function SubjectsView({
   subjects,
-  termName,
   alert,
   title,
   addButton,
 }: {
   subjects: SubjectCard[];
-  termName: string;
   alert: string | null;
   /** No desktop o título vive aqui dentro, para dividir a linha com os filtros. */
   title?: string;
@@ -91,9 +88,6 @@ export function SubjectsView({
             <ArrowDownAZ className="size-4" aria-hidden />
             A–Z
           </Chip>
-          <span className="bg-surface-2 text-muted inline-flex h-11 shrink-0 items-center rounded-full px-4 text-sm font-medium whitespace-nowrap">
-            {termName}
-          </span>
           {addButton}
         </div>
       </div>
@@ -110,8 +104,8 @@ export function SubjectsView({
       {ordered.length === 0 ? (
         <PopEmptyState
           icon={<BookOpen className="text-white" />}
-          title="Nenhuma matéria neste período."
-          description="Escolha do catálogo — leva menos de um minuto e libera notas, metas e trilhas."
+          title="Nenhuma matéria ainda."
+          description="Escolha do catálogo — leva menos de um minuto e libera nota automática, meta e trilhas."
           action={
             <Button asChild variant="pop">
               <Link href="/perfil">
@@ -124,9 +118,9 @@ export function SubjectsView({
       ) : (
         <ul className="grid gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3">
           {ordered.map((subject) => (
-            <li key={subject.subjectTermId} className="min-w-0">
+            <li key={subject.id} className="min-w-0">
               <Link
-                href={`/disciplinas/${subject.id}?st=${subject.subjectTermId}`}
+                href={`/disciplinas/${subject.id}`}
                 style={subjectColorVars(subject.color)}
                 className="border-border bg-surface hover:border-border-strong relative block overflow-hidden rounded-[20px] border transition-colors"
               >

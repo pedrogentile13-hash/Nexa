@@ -14,7 +14,8 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Chip } from '@/components/ui/chip';
 import { PopEmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +23,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { createAgendaTask } from '../server/actions';
-import type { AgendaEvent, AgendaKind } from '../server/queries';
+import type { AgendaEvent } from '../server/queries';
 
 /**
  * Agenda: grade do mês, semana ou lista — e o dia escolhido logo abaixo.
@@ -35,19 +36,21 @@ import type { AgendaEvent, AgendaKind } from '../server/queries';
  * selecionado, fica com um anel. São duas informações diferentes e precisam ser
  * distinguíveis — senão, ao navegar para outro mês, o aluno perde a referência
  * de onde está no calendário.
+ *
+ * No desktop, "Próximos eventos" fica numa coluna fixa ao lado do calendário —
+ * não é preciso trocar de aba pra ver os dois. No celular não há espaço para
+ * duas colunas, então o modo "Lista" continua cobrindo essa necessidade.
  */
 
-const KIND_ICON: Record<AgendaKind, typeof ClipboardList> = {
-  assessment: ClipboardList,
-  task: ListTodo,
-  study: Timer,
-};
+function eventIcon(event: AgendaEvent): typeof ClipboardList {
+  if (event.kind === 'study') return Timer;
+  return event.taskKind === 'prova' ? ClipboardList : ListTodo;
+}
 
-const KIND_LABEL: Record<AgendaKind, string> = {
-  assessment: 'Prova',
-  task: 'Tarefa',
-  study: 'Estudo',
-};
+function eventLabel(event: AgendaEvent): string {
+  if (event.kind === 'study') return 'Estudo';
+  return event.taskKind === 'prova' ? 'Prova' : 'Tarefa';
+}
 
 type ViewMode = 'mes' | 'semana' | 'lista';
 
@@ -55,17 +58,36 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
   const [mode, setMode] = useState<ViewMode>('mes');
   const [selected, setSelected] = useState(today);
   const [showAdd, setShowAdd] = useState(false);
+  const [subjectFilter, setSubjectFilter] = useState<string | null>(null);
   const monthCursor = selected.slice(0, 7);
+
+  // A lista de matérias que realmente aparecem na agenda — filtrar por uma
+  // matéria sem nenhum evento não ajudaria ninguém.
+  const subjectOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; color: string }>();
+    for (const event of events) {
+      if (!event.subjectId || !event.subjectName) continue;
+      if (!map.has(event.subjectId)) {
+        map.set(event.subjectId, { id: event.subjectId, name: event.subjectName, color: event.subjectColor });
+      }
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }, [events]);
+
+  const filteredEvents = useMemo(
+    () => (subjectFilter ? events.filter((e) => e.subjectId === subjectFilter) : events),
+    [events, subjectFilter],
+  );
 
   const byDate = useMemo(() => {
     const map = new Map<string, AgendaEvent[]>();
-    for (const event of events) {
+    for (const event of filteredEvents) {
       const list = map.get(event.date);
       if (list) list.push(event);
       else map.set(event.date, [event]);
     }
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const monthDays = useMemo(() => buildMonthGrid(monthCursor), [monthCursor]);
   const weekDays = useMemo(() => buildWeek(selected), [selected]);
@@ -75,174 +97,238 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
   // A lista corrida mostra de hoje em diante: o passado está na grade, e o
   // aluno abre a agenda para saber o que vem, não o que foi.
   const upcoming = useMemo(
-    () => events.filter((e) => e.date >= today).slice(0, 60),
-    [events, today],
+    () => filteredEvents.filter((e) => e.date >= today).slice(0, 60),
+    [filteredEvents, today],
   );
 
   const grid = mode === 'semana' ? weekDays : monthDays;
 
   return (
-    <div className="space-y-4">
-      {/* Cabeçalho do mês, com as setas — no kit ele É o título da tela. */}
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">{monthLabel(monthCursor)}</h1>
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setSelected(shiftMonthKeepingDay(selected, -1))}
-            aria-label="Mês anterior"
-            className="text-muted hover:bg-surface-2 hover:text-text grid size-11 place-items-center rounded-full"
-          >
-            <ChevronLeft className="size-5" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelected(shiftMonthKeepingDay(selected, 1))}
-            aria-label="Próximo mês"
-            className="text-muted hover:bg-surface-2 hover:text-text grid size-11 place-items-center rounded-full"
-          >
-            <ChevronRight className="size-5" aria-hidden />
-          </button>
-          <Button
-            variant="pop"
-            size="sm"
-            className="ml-1"
-            onClick={() => setShowAdd((v) => !v)}
-            aria-expanded={showAdd}
-          >
-            <Plus aria-hidden />
-            <span className="hidden sm:inline">Adicionar compromisso</span>
-            <span className="sm:hidden">Adicionar</span>
-          </Button>
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+      <div className="space-y-4">
+        {/* Cabeçalho do mês, com as setas — no kit ele É o título da tela. */}
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold tracking-tight">{monthLabel(monthCursor)}</h1>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSelected(shiftMonthKeepingDay(selected, -1))}
+              aria-label="Mês anterior"
+              className="text-muted hover:bg-surface-2 hover:text-text grid size-11 place-items-center rounded-full"
+            >
+              <ChevronLeft className="size-5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelected(shiftMonthKeepingDay(selected, 1))}
+              aria-label="Próximo mês"
+              className="text-muted hover:bg-surface-2 hover:text-text grid size-11 place-items-center rounded-full"
+            >
+              <ChevronRight className="size-5" aria-hidden />
+            </button>
+            <Button
+              variant="pop"
+              size="sm"
+              className="ml-1"
+              onClick={() => setShowAdd((v) => !v)}
+              aria-expanded={showAdd}
+            >
+              <Plus aria-hidden />
+              <span className="hidden sm:inline">Adicionar compromisso</span>
+              <span className="sm:hidden">Adicionar</span>
+            </Button>
+          </div>
         </div>
+
+        {showAdd && (
+          <QuickAddTask
+            defaultDate={selected}
+            onDone={() => setShowAdd(false)}
+            onCancel={() => setShowAdd(false)}
+          />
+        )}
+
+        {subjectOptions.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <Chip active={subjectFilter === null} onClick={() => setSubjectFilter(null)}>
+              Todas
+            </Chip>
+            {subjectOptions.map((subject) => (
+              <Chip
+                key={subject.id}
+                active={subjectFilter === subject.id}
+                onClick={() => setSubjectFilter(subject.id)}
+                style={subjectColorVars(subject.color)}
+              >
+                <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: 'var(--subject-base)' }} />
+                {subject.name}
+              </Chip>
+            ))}
+          </div>
+        )}
+
+        <Segmented
+          label="Como ver a agenda"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'mes', label: 'Mês' },
+            { value: 'semana', label: 'Semana' },
+            { value: 'lista', label: 'Lista' },
+          ]}
+        />
+
+        {mode === 'lista' ? (
+          <ContinuousList events={upcoming} today={today} onAdd={() => setShowAdd(true)} />
+        ) : (
+          <>
+            <Card>
+              <CardContent className="p-3">
+                <div className="text-subtle mb-1 grid grid-cols-7 gap-1 text-center text-[11px] font-medium">
+                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((letter, index) => (
+                    <span key={`${letter}-${index}`}>{letter}</span>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-1">
+                  {grid.map((day, index) => {
+                    // Chave por posição nas células vazias: `Math.random()` daria
+                    // uma chave nova a cada render e remontaria a grade inteira.
+                    if (!day) return <span key={`empty-${index}`} />;
+
+                    const dots = byDate.get(day) ?? [];
+                    const isSelected = day === selected;
+                    const isToday = day === today;
+                    const outside = day.slice(0, 7) !== monthCursor;
+
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => setSelected(day)}
+                        aria-pressed={isSelected}
+                        aria-label={`${Number(day.slice(8, 10))} de ${monthLabel(day.slice(0, 7))}${
+                          dots.length ? `, ${dots.length} item${dots.length === 1 ? '' : 's'}` : ''
+                        }`}
+                        className={cn(
+                          'flex aspect-square min-h-11 flex-col items-center justify-center rounded-xl text-xs transition-colors',
+                          isSelected
+                            ? 'bg-brand text-brand-fg font-semibold'
+                            : isToday
+                              ? 'ring-brand text-text font-semibold ring-2'
+                              : outside
+                                ? 'text-subtle'
+                                : 'text-muted hover:bg-surface-2',
+                        )}
+                      >
+                        <span className="tabular">{Number(day.slice(8, 10))}</span>
+                        <span className="mt-0.5 flex h-1.5 gap-0.5">
+                          {dots.slice(0, 3).map((event) => (
+                            <span
+                              key={event.id}
+                              aria-hidden
+                              style={subjectColorVars(event.subjectColor)}
+                              className="block size-1.5 rounded-full"
+                            >
+                              <span
+                                className="block size-1.5 rounded-full"
+                                style={{
+                                  backgroundColor: isSelected
+                                    ? 'var(--brand-fg)'
+                                    : 'var(--subject-base)',
+                                }}
+                              />
+                            </span>
+                          ))}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <section aria-live="polite">
+              <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
+                <h2 className="text-base font-semibold">{dayLabel(selected, today)}</h2>
+                <span className="bg-brand-soft text-brand-text shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold">
+                  {dayEvents.length} {dayEvents.length === 1 ? 'item' : 'itens'}
+                </span>
+              </div>
+
+              {dayEvents.length === 0 ? (
+                <PopEmptyState
+                  size="sm"
+                  icon={<CalendarPlus className="size-5 text-white" />}
+                  title="Nada marcado para este dia."
+                  description="Que tal planejar uma sessão de estudo ou lançar um compromisso?"
+                  action={
+                    !showAdd && (
+                      <Button variant="pop" size="sm" onClick={() => setShowAdd(true)}>
+                        <Plus aria-hidden />
+                        Planejar algo
+                      </Button>
+                    )
+                  }
+                />
+              ) : (
+                <ul className="grid gap-2 md:grid-cols-2 lg:grid-cols-1">
+                  {dayEvents.map((event) => (
+                    <li key={event.id} className="min-w-0">
+                      <EventCard event={event} today={today} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <Legend />
+          </>
+        )}
       </div>
 
-      {showAdd && (
-        <QuickAddTask
-          defaultDate={selected}
-          onDone={() => setShowAdd(false)}
-          onCancel={() => setShowAdd(false)}
-        />
-      )}
-
-      <Segmented
-        label="Como ver a agenda"
-        value={mode}
-        onChange={setMode}
-        options={[
-          { value: 'mes', label: 'Mês' },
-          { value: 'semana', label: 'Semana' },
-          { value: 'lista', label: 'Lista' },
-        ]}
-      />
-
-      {mode === 'lista' ? (
-        <ContinuousList events={upcoming} today={today} onAdd={() => setShowAdd(true)} />
-      ) : (
-        <>
-          <Card>
-            <CardContent className="p-3">
-              <div className="text-subtle mb-1 grid grid-cols-7 gap-1 text-center text-[11px] font-medium">
-                {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((letter, index) => (
-                  <span key={`${letter}-${index}`}>{letter}</span>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-7 gap-1">
-                {grid.map((day, index) => {
-                  // Chave por posição nas células vazias: `Math.random()` daria
-                  // uma chave nova a cada render e remontaria a grade inteira.
-                  if (!day) return <span key={`empty-${index}`} />;
-
-                  const dots = byDate.get(day) ?? [];
-                  const isSelected = day === selected;
-                  const isToday = day === today;
-                  const outside = day.slice(0, 7) !== monthCursor;
-
+      {/* Próximos eventos — só no desktop; no celular o modo "Lista" já cobre
+          a mesma necessidade, e duas listas iguais empilhadas seriam ruído. */}
+      <aside className="hidden lg:sticky lg:top-4 lg:block">
+        <Card>
+          <CardHeader>
+            <CardTitle>Próximos eventos</CardTitle>
+          </CardHeader>
+          <CardContent className="p-2">
+            {upcoming.length === 0 ? (
+              <p className="text-muted p-2 text-sm">Nada por aqui pelos próximos dias.</p>
+            ) : (
+              <ul className="divide-border divide-y">
+                {upcoming.slice(0, 10).map((event) => {
+                  const Icon = eventIcon(event);
                   return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => setSelected(day)}
-                      aria-pressed={isSelected}
-                      aria-label={`${Number(day.slice(8, 10))} de ${monthLabel(day.slice(0, 7))}${
-                        dots.length ? `, ${dots.length} item${dots.length === 1 ? '' : 's'}` : ''
-                      }`}
-                      className={cn(
-                        'flex aspect-square min-h-11 flex-col items-center justify-center rounded-xl text-xs transition-colors',
-                        isSelected
-                          ? 'bg-brand text-brand-fg font-semibold'
-                          : isToday
-                            ? 'ring-brand text-text font-semibold ring-2'
-                            : outside
-                              ? 'text-subtle'
-                              : 'text-muted hover:bg-surface-2',
-                      )}
+                    <li
+                      key={event.id}
+                      style={subjectColorVars(event.subjectColor)}
+                      className="flex items-center gap-3 px-2 py-2.5"
                     >
-                      <span className="tabular">{Number(day.slice(8, 10))}</span>
-                      <span className="mt-0.5 flex h-1.5 gap-0.5">
-                        {dots.slice(0, 3).map((event) => (
-                          <span
-                            key={event.id}
-                            aria-hidden
-                            style={subjectColorVars(event.subjectColor)}
-                            className="block size-1.5 rounded-full"
-                          >
-                            <span
-                              className="block size-1.5 rounded-full"
-                              style={{
-                                backgroundColor: isSelected
-                                  ? 'var(--brand-fg)'
-                                  : 'var(--subject-base)',
-                              }}
-                            />
-                          </span>
-                        ))}
+                      <span
+                        aria-hidden
+                        className="grid size-8 shrink-0 place-items-center rounded-lg"
+                        style={{ backgroundColor: 'var(--subject-soft)', color: 'var(--subject-on-soft)' }}
+                      >
+                        <Icon className="size-3.5" />
                       </span>
-                    </button>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{event.title}</p>
+                        <p className="text-muted truncate text-xs">
+                          {dayLabel(event.date, today)}
+                          {event.subjectName && ` · ${event.subjectName}`}
+                        </p>
+                      </div>
+                    </li>
                   );
                 })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <section aria-live="polite">
-            <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
-              <h2 className="text-base font-semibold">{dayLabel(selected, today)}</h2>
-              <span className="bg-brand-soft text-brand-text shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold">
-                {dayEvents.length} {dayEvents.length === 1 ? 'item' : 'itens'}
-              </span>
-            </div>
-
-            {dayEvents.length === 0 ? (
-              <PopEmptyState
-                size="sm"
-                icon={<CalendarPlus className="size-5 text-white" />}
-                title="Nada marcado para este dia."
-                description="Que tal planejar uma sessão de estudo ou lançar um compromisso?"
-                action={
-                  !showAdd && (
-                    <Button variant="pop" size="sm" onClick={() => setShowAdd(true)}>
-                      <Plus aria-hidden />
-                      Planejar algo
-                    </Button>
-                  )
-                }
-              />
-            ) : (
-              <ul className="grid gap-2 lg:grid-cols-2">
-                {dayEvents.map((event) => (
-                  <li key={event.id} className="min-w-0">
-                    <EventCard event={event} today={today} />
-                  </li>
-                ))}
               </ul>
             )}
-          </section>
-
-          <Legend />
-        </>
-      )}
+          </CardContent>
+        </Card>
+      </aside>
     </div>
   );
 }
@@ -338,7 +424,7 @@ function QuickAddTask({
 
 /** Cartão de evento do kit: faixa da matéria, tile do tipo, data em destaque. */
 function EventCard({ event, today }: { event: AgendaEvent; today: string }) {
-  const Icon = KIND_ICON[event.kind];
+  const Icon = eventIcon(event);
   const urgent = event.date <= today && !event.isDone;
 
   return (
@@ -367,14 +453,11 @@ function EventCard({ event, today }: { event: AgendaEvent; today: string }) {
               event.isDone && event.kind === 'task' && 'text-subtle line-through',
             )}
           >
-            {event.categoryCode && (
-              <span className="text-subtle mr-1.5 text-xs font-semibold">{event.categoryCode}</span>
-            )}
             {event.title}
           </h3>
 
           <p className="text-muted mt-0.5 text-xs leading-relaxed">
-            {KIND_LABEL[event.kind]}
+            {eventLabel(event)}
             {event.subjectName && ` · ${event.subjectName}`}
           </p>
 
@@ -382,12 +465,6 @@ function EventCard({ event, today }: { event: AgendaEvent; today: string }) {
             {dayLabel(event.date, today)}
           </p>
         </div>
-
-        {event.score !== null && (
-          <span className="tabular shrink-0 text-lg font-semibold">
-            {event.score.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}
-          </span>
-        )}
       </div>
     </article>
   );

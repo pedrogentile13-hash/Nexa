@@ -9,12 +9,6 @@ import { z } from 'zod';
  * state no screen can render.
  */
 
-export const gradingCategorySchema = z.object({
-  name: z.string().trim().min(1, 'Dê um nome à categoria.').max(60),
-  shortCode: z.string().trim().max(12).optional().nullable(),
-  weightPercent: z.number().min(0, 'O peso não pode ser negativo.').max(100),
-});
-
 export const onboardingSchema = z
   .object({
     fullName: z
@@ -24,11 +18,8 @@ export const onboardingSchema = z
       .max(80, 'Nome muito longo.'),
     gradeLevel: z.string().trim().min(1, 'Escolha sua série.').max(40),
     className: z.string().trim().max(20).optional().nullable(),
-    /** 2 = semestres · 3 = trimestres · 4 = bimestres */
-    termCount: z.number().int().min(1).max(12),
     catalogIds: z.array(z.string().uuid()).max(40),
     customSubjects: z.array(z.string().trim().min(1).max(80)).max(20),
-    categories: z.array(gradingCategorySchema).min(1, 'Mantenha ao menos uma categoria.').max(10),
     dailyGoalMinutes: z.number().int().min(0).max(1440),
     timezone: z.string().min(1).default('America/Sao_Paulo'),
   })
@@ -43,13 +34,6 @@ export type OnboardingData = z.output<typeof onboardingSchema>;
 export type OnboardingState =
   { status: 'idle' } | { status: 'error'; message: string; field?: string };
 
-/** Default grading model from README Parte 1 — pre-filled, still editable. */
-export const DEFAULT_CATEGORIES = [
-  { name: 'Prova Bimestral', shortCode: 'PB', weightPercent: 35 },
-  { name: 'Verificação de Aprendizagem', shortCode: 'VA', weightPercent: 35 },
-  { name: 'Qualitativa', shortCode: 'QL', weightPercent: 30 },
-] as const;
-
 /** Brazilian grade levels, Fundamental II → Ensino Médio. */
 export const GRADE_LEVELS = [
   '6º ano',
@@ -59,12 +43,6 @@ export const GRADE_LEVELS = [
   '1ª série EM',
   '2ª série EM',
   '3ª série EM',
-] as const;
-
-export const TERM_MODELS = [
-  { count: 4, label: 'Bimestral', hint: '4 períodos' },
-  { count: 3, label: 'Trimestral', hint: '3 períodos' },
-  { count: 2, label: 'Semestral', hint: '2 períodos' },
 ] as const;
 
 /**

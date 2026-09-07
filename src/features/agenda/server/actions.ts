@@ -8,10 +8,10 @@ import { createClient } from '@/lib/supabase/server';
  * "Adicionar compromisso" na Agenda.
  *
  * Não existe tela de criação de evento porque não existe tabela de evento — a
- * Agenda projeta avaliações, tarefas e sessões de estudo (ver
- * `server/queries.ts`). Um "compromisso" pessoal do aluno é, na prática, uma
- * linha em `tasks` sem `activity_id`: mesma tabela que já alimenta o
- * checklist do Hoje, só que criada pelo aluno em vez de nascer de uma prova.
+ * Agenda projeta tarefas (inclusive provas, `kind = 'prova'`) e sessões de
+ * estudo (ver `server/queries.ts`). Um "compromisso" pessoal do aluno é, na
+ * prática, uma linha comum em `tasks`: mesma tabela que já alimenta o
+ * checklist do Hoje.
  */
 
 const createTaskSchema = z.object({

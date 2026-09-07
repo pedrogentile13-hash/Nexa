@@ -2,19 +2,20 @@
  * O que eu preciso fazer hoje?
  *
  * A especificação dedica a tela mais importante do produto a esta pergunta e
- * deixa a lógica sem definir. Uma lista ordenada por data não responde: a prova
- * que vale 35% da média em três dias importa mais que a lição de casa de
- * amanhã, e o aluno sabe disso — se o app não souber, ele para de confiar na
- * ordem e volta a decidir sozinho, que é exatamente o problema que o Nexa
- * existe para resolver.
+ * deixa a lógica sem definir. Uma lista ordenada por data não responde: uma
+ * tarefa de alta prioridade em três dias importa mais que uma de baixa
+ * prioridade amanhã, e o aluno sabe disso — se o app não souber, ele para de
+ * confiar na ordem e volta a decidir sozinho, que é exatamente o problema que
+ * o Nexa existe para resolver.
  *
  * O score combina três fatores, e é deliberadamente EXPLICÁVEL: cada item
  * carrega o motivo pelo qual está onde está, em uma frase que o aluno lê.
  * Um ranking que ninguém entende é um ranking em que ninguém confia.
  *
  *   urgência  — quão perto está a data
- *   impacto   — quanto isso mexe na média (peso da categoria × peso do item)
- *   risco     — quão longe a disciplina está da meta ou da média de aprovação
+ *   impacto   — a prioridade que o aluno deu à tarefa (não há mais peso de
+ *               categoria de nota — a nota é automática, não configurada)
+ *   risco     — quão longe a disciplina está da meta ou da nota de aprovação
  *
  * score = urgência × (1 + impacto) × (1 + risco)
  *
@@ -23,7 +24,7 @@
  * urgente de uma disciplina em risco.
  */
 
-export type FocusKind = 'assessment' | 'task' | 'routine';
+export type FocusKind = 'task' | 'routine';
 
 export interface FocusCandidate {
   id: string;
@@ -34,17 +35,11 @@ export interface FocusCandidate {
   subjectColor: string | null;
   /** ISO date (YYYY-MM-DD). `null` = sem data marcada. */
   dueDate: string | null;
-  /** Peso da categoria na média final, 0–100. Só para avaliações. */
-  categoryWeightPercent?: number | null;
-  /** Peso do item dentro da categoria. */
-  itemWeight?: number | null;
-  /** Sigla da categoria, para a explicação ("PB", "VA"). */
-  categoryCode?: string | null;
-  /** Média atual da disciplina, se houver. */
+  /** Nota automática atual da disciplina, se houver. */
   subjectAverage?: number | null;
   /** Meta da disciplina, se definida. */
   subjectTarget?: number | null;
-  /** Média mínima de aprovação do esquema. */
+  /** Nota mínima de aprovação — constante (não é mais por esquema). */
   passingGrade?: number | null;
   /** Prioridade manual da tarefa: 1 alta · 2 média · 3 baixa. */
   priority?: number | null;
@@ -87,26 +82,16 @@ export function urgencyScore(daysUntilDue: number | null): number {
 }
 
 /**
- * Impacto: quanto este item mexe na média final.
+ * Impacto: quanto este item importa.
  *
- * Normalizado para 0–1, onde 1 é "uma categoria inteira de 100%". Tarefas sem
- * nota associada têm impacto baixo mas não nulo — fazer a lição ainda conta.
+ * Sem mais categoria/peso de nota (a nota é automática agora), o único sinal
+ * de impacto que sobra é a prioridade que o próprio aluno deu à tarefa.
  */
 export function impactScore(candidate: FocusCandidate): number {
-  if (candidate.kind !== 'assessment') {
-    // Prioridade manual é o único sinal de impacto que uma tarefa tem.
-    const priority = candidate.priority ?? 2;
-    if (priority === 1) return 0.4;
-    if (priority === 2) return 0.2;
-    return 0.1;
-  }
-
-  const categoryWeight = candidate.categoryWeightPercent ?? 0;
-  const itemWeight = candidate.itemWeight ?? 1;
-
-  // Peso do item satura rápido: peso 7 numa categoria não vale 7× peso 1.
-  const itemFactor = Math.min(1, 0.4 + itemWeight / 10);
-  return Math.min(1, (categoryWeight / 100) * itemFactor);
+  const priority = candidate.priority ?? 2;
+  if (priority === 1) return 0.4;
+  if (priority === 2) return 0.2;
+  return 0.1;
 }
 
 /**
@@ -150,11 +135,6 @@ export function explain(candidate: FocusCandidate, daysUntilDue: number | null):
     } else if (daysUntilDue === 0) parts.push('é hoje');
     else if (daysUntilDue === 1) parts.push('é amanhã');
     else parts.push(`em ${daysUntilDue} dias`);
-  }
-
-  if (candidate.kind === 'assessment' && candidate.categoryWeightPercent) {
-    const code = candidate.categoryCode ? `${candidate.categoryCode} ` : '';
-    parts.push(`${code}vale ${candidate.categoryWeightPercent}% da média`);
   }
 
   const average = candidate.subjectAverage;

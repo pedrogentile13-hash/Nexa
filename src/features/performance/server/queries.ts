@@ -2,31 +2,51 @@ import { createClient } from '@/lib/supabase/server';
 import { xpToNextLevel } from '../lib/level';
 
 /**
- * Dados de desempenho.
+ * Dados de desempenho — todos automáticos.
  *
- * Tudo sai das views de cálculo — nenhuma média é recalculada aqui. É o que
- * garante que o número no gráfico seja o mesmo que aparece em Disciplinas e em
- * Hoje.
+ * Tudo sai de `subject_scores()`/`performance_evolution()`/`simulado_history()`
+ * (migration `automatic_scoring.sql`) ou de tabelas já existentes
+ * (`study_sessions`, `user_stats`, `topic_mastery()`). Nenhuma nota é digitada
+ * — a mesma garantia que as views de cálculo davam antes, só que agora a
+ * fonte é o que o aluno realmente fez dentro do Nexa.
  */
 
-export interface TermPoint {
-  termId: string;
-  termName: string;
-  shortName: string;
-  sequence: number;
-  average: number | null;
-  subjectsGraded: number;
-  subjectsBelowPassing: number;
-}
-
-export interface SubjectBar {
+export interface SubjectScore {
   subjectId: string;
   subjectName: string;
-  average: number;
-  passingGrade: number;
+  subjectColor: string;
+  /** `false` = matéria sem `catalog_id`, nunca vai ter nota (sem conteúdo pra ligar). */
+  hasContent: boolean;
+  assessmentScore: number | null;
+  empenhoIndex: number;
+  blendedScore: number | null;
+  quizzesDone: number;
+  simuladosDone: number;
+  contentCompleted: number;
   targetGrade: number | null;
-  isBelowPassing: boolean;
-  isBelowTarget: boolean;
+  passingGrade: number;
+}
+
+export interface ScoreEvolutionPoint {
+  weekStart: string;
+  label: string;
+  assessmentScore: number | null;
+  empenhoIndex: number;
+  blendedScore: number | null;
+}
+
+export interface SimuladoAttempt {
+  attemptId: string;
+  resourceId: string;
+  resourceTitle: string;
+  subjectId: string | null;
+  subjectName: string | null;
+  subjectColor: string | null;
+  correctCount: number;
+  totalCount: number;
+  percent: number;
+  durationSeconds: number;
+  finishedAt: string;
 }
 
 export interface StudyWeek {
@@ -48,53 +68,152 @@ export interface TopicMastery {
 }
 
 export interface PerformanceData {
-  currentTermId: string | null;
-  currentTermName: string | null;
-  termPoints: TermPoint[];
-  subjectBars: SubjectBar[];
+  subjectScores: SubjectScore[];
+  /** Média igual entre as matérias que TÊM nota — `null` sem nenhuma. */
+  overallScore: number | null;
+  scoreEvolution: ScoreEvolutionPoint[];
+  simuladoHistory: SimuladoAttempt[];
   studyWeeks: StudyWeek[];
-  overallAverage: number | null;
-  subjectsTotal: number;
-  subjectsGraded: number;
-  subjectsBelowPassing: number;
-  pendingActivities: number;
-  /** Diferença para o período anterior com nota. `null` no primeiro período. */
-  averageDelta: number | null;
   level: number;
   xp: number;
-  /** Quanto falta para o próximo nível, já calculado pela mesma curva do banco. */
   xpToNextLevel: number;
   totalStudySeconds: number;
-  /** Domínio por assunto, a partir da resposta mais recente de cada questão
-   * de quiz/simulado — alimenta o mapa de domínio e a recomendação de revisão. */
+  currentStreak: number;
+  longestStreak: number;
   topicMastery: TopicMastery[];
+}
+
+function mapSubjectScore(row: {
+  subject_id: string;
+  subject_name: string;
+  subject_color: string;
+  has_content: boolean;
+  assessment_score: number | null;
+  empenho_index: number;
+  blended_score: number | null;
+  quizzes_done: number;
+  simulados_done: number;
+  content_completed: number;
+  target_grade: number | null;
+  passing_grade: number;
+}): SubjectScore {
+  return {
+    subjectId: row.subject_id,
+    subjectName: row.subject_name,
+    subjectColor: row.subject_color,
+    hasContent: row.has_content,
+    assessmentScore: row.assessment_score,
+    empenhoIndex: row.empenho_index,
+    blendedScore: row.blended_score,
+    quizzesDone: row.quizzes_done,
+    simuladosDone: row.simulados_done,
+    contentCompleted: row.content_completed,
+    targetGrade: row.target_grade,
+    passingGrade: row.passing_grade,
+  };
+}
+
+/**
+ * Notas por matéria, sozinhas — usado por Disciplinas, que não precisa do
+ * resto (evolução, XP, sequência) que `getPerformance` carrega para
+ * Desempenho.
+ */
+export async function getSubjectScores(userId: string): Promise<SubjectScore[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('subject_scores', { p_user_id: userId });
+  // Pior primeiro; sem nota (ausência de dado, não nota ruim) vai para o fim.
+  return (data ?? []).map(mapSubjectScore).sort((a, b) => {
+    if (a.blendedScore === null) return b.blendedScore === null ? 0 : 1;
+    if (b.blendedScore === null) return -1;
+    return a.blendedScore - b.blendedScore;
+  });
+}
+
+/**
+ * Média igual entre as matérias que TÊM nota — usada em Desempenho e em Hoje.
+ *
+ * Recebe só `blendedScore` (não `SubjectScore[]` inteiro) para que Hoje possa
+ * calcular a partir da resposta crua do RPC sem remontar o tipo completo.
+ */
+export function computeOverallScore(scores: { blendedScore: number | null }[]): number | null {
+  const graded = scores.filter((s) => s.blendedScore !== null);
+  if (graded.length === 0) return null;
+  return graded.reduce((sum, s) => sum + (s.blendedScore ?? 0), 0) / graded.length;
+}
+
+function mapSimuladoAttempt(row: {
+  attempt_id: string;
+  resource_id: string;
+  resource_title: string;
+  subject_id: string | null;
+  subject_name: string | null;
+  subject_color: string | null;
+  correct_count: number;
+  total_count: number;
+  percent: number;
+  duration_seconds: number;
+  finished_at: string;
+}): SimuladoAttempt {
+  return {
+    attemptId: row.attempt_id,
+    resourceId: row.resource_id,
+    resourceTitle: row.resource_title,
+    subjectId: row.subject_id,
+    subjectName: row.subject_name,
+    subjectColor: row.subject_color,
+    correctCount: row.correct_count,
+    totalCount: row.total_count,
+    percent: row.percent,
+    durationSeconds: row.duration_seconds,
+    finishedAt: row.finished_at,
+  };
+}
+
+/** Histórico de simulados, sozinho — usado pela página de uma matéria. */
+export async function getSimuladoHistory(userId: string): Promise<SimuladoAttempt[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('simulado_history', { p_user_id: userId });
+  return (data ?? []).map(mapSimuladoAttempt);
 }
 
 export async function getPerformance(userId: string): Promise<PerformanceData> {
   const supabase = await createClient();
 
-  const { data: currentTermId } = await supabase.rpc('current_term_id', { p_user_id: userId });
-  const termId = (currentTermId as string | null) ?? null;
+  const [scoresRes, evolutionRes, simuladosRes, sessionsRes, statsRes, masteryRes] =
+    await Promise.all([
+      supabase.rpc('subject_scores', { p_user_id: userId }),
+      supabase.rpc('performance_evolution', { p_user_id: userId }),
+      supabase.rpc('simulado_history', { p_user_id: userId }),
+      supabase
+        .from('study_sessions')
+        .select('local_date, duration_seconds')
+        .not('ended_at', 'is', null)
+        .order('local_date'),
+      supabase
+        .from('user_stats')
+        .select('xp, level, total_study_seconds, current_streak, longest_streak')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      supabase.rpc('topic_mastery', { p_user_id: userId }),
+    ]);
 
-  const [termsRes, subjectsRes, sessionsRes, statsRes, masteryRes] = await Promise.all([
-    supabase.from('v_term_summary').select('*').order('term_sequence'),
-    supabase
-      .from('v_subject_term_averages')
-      .select('*')
-      .eq('term_id', termId ?? '')
-      .order('subject_name'),
-    supabase
-      .from('study_sessions')
-      .select('local_date, duration_seconds')
-      .not('ended_at', 'is', null)
-      .order('local_date'),
-    supabase
-      .from('user_stats')
-      .select('xp, level, total_study_seconds')
-      .eq('user_id', userId)
-      .maybeSingle(),
-    supabase.rpc('topic_mastery', { p_user_id: userId }),
-  ]);
+  const subjectScores = (scoresRes.data ?? []).map(mapSubjectScore).sort((a, b) => {
+    if (a.blendedScore === null) return b.blendedScore === null ? 0 : 1;
+    if (b.blendedScore === null) return -1;
+    return a.blendedScore - b.blendedScore;
+  });
+
+  const overallScore = computeOverallScore(subjectScores);
+
+  const scoreEvolution: ScoreEvolutionPoint[] = (evolutionRes.data ?? []).map((row) => ({
+    weekStart: row.week_start,
+    label: weekLabel(row.week_start),
+    assessmentScore: row.assessment_score,
+    empenhoIndex: row.empenho_index,
+    blendedScore: row.blended_score,
+  }));
+
+  const simuladoHistory: SimuladoAttempt[] = (simuladosRes.data ?? []).map(mapSimuladoAttempt);
 
   const topicMastery: TopicMastery[] = (masteryRes.data ?? [])
     .map((row) => ({
@@ -111,75 +230,33 @@ export async function getPerformance(userId: string): Promise<PerformanceData> {
     // Pior primeiro, mesma lógica das barras por matéria: onde olhar antes.
     .sort((a, b) => a.masteryPercent - b.masteryPercent);
 
-  const termPoints: TermPoint[] = (termsRes.data ?? []).map((row) => ({
-    termId: row.term_id,
-    termName: row.term_name,
-    // "1º Bimestre" não cabe num eixo de celular; "1º" cabe e não perde nada.
-    shortName: row.term_name.split(' ')[0] ?? String(row.term_sequence),
-    sequence: row.term_sequence,
-    average: row.average_overall,
-    subjectsGraded: row.subjects_graded,
-    subjectsBelowPassing: row.subjects_below_passing,
-  }));
-
-  const subjectBars: SubjectBar[] = (subjectsRes.data ?? [])
-    .filter((row) => row.final_grade !== null)
-    .map((row) => ({
-      subjectId: row.subject_id,
-      subjectName: row.subject_name,
-      average: row.final_grade as number,
-      passingGrade: row.passing_grade,
-      targetGrade: row.target_grade,
-      isBelowPassing: row.is_below_passing,
-      isBelowTarget: row.is_below_target,
-    }))
-    // Pior primeiro: o gráfico responde "onde eu preciso olhar", não "ordem
-    // alfabética das minhas disciplinas".
-    .sort((a, b) => a.average - b.average);
-
   const studyWeeks = groupByWeek(sessionsRes.data ?? []);
 
-  const currentSummary = termPoints.find((point) => point.termId === termId);
-  const currentRow = (termsRes.data ?? []).find((row) => row.term_id === termId);
-
   return {
-    currentTermId: termId,
-    currentTermName: currentSummary?.termName ?? null,
-    termPoints,
-    subjectBars,
+    subjectScores,
+    overallScore,
+    scoreEvolution,
+    simuladoHistory,
     studyWeeks,
-    overallAverage: currentRow?.average_overall ?? null,
-    subjectsTotal: currentRow?.subjects_total ?? 0,
-    subjectsGraded: currentRow?.subjects_graded ?? 0,
-    subjectsBelowPassing: currentRow?.subjects_below_passing ?? 0,
-    pendingActivities: currentRow?.pending_activities ?? 0,
-    averageDelta: computeDelta(termPoints, termId),
     level: statsRes.data?.level ?? 1,
     xp: statsRes.data?.xp ?? 0,
     xpToNextLevel: xpToNextLevel(statsRes.data?.xp ?? 0),
     totalStudySeconds: Number(statsRes.data?.total_study_seconds ?? 0),
+    currentStreak: statsRes.data?.current_streak ?? 0,
+    longestStreak: statsRes.data?.longest_streak ?? 0,
     topicMastery,
   };
 }
 
-/**
- * Quanto a média mudou desde o período anterior COM NOTA.
- *
- * "Anterior" não é o período de número imediatamente menor: um bimestre sem
- * nenhuma nota lançada não é uma queda, é ausência de dado. Comparar com ele
- * produziria uma seta vermelha que não corresponde a nada que o aluno fez.
- */
-function computeDelta(points: TermPoint[], currentTermId: string | null): number | null {
-  const graded = points.filter((p) => p.average !== null);
-  const index = graded.findIndex((p) => p.termId === currentTermId);
-  const current = index >= 0 ? graded[index] : graded[graded.length - 1];
-  const previous = index > 0 ? graded[index - 1] : graded[graded.length - 2];
-
-  if (!current?.average || !previous?.average) return null;
-  return Number((current.average - previous.average).toFixed(2));
-}
-
 export { xpToNextLevel };
+
+function weekLabel(weekStart: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'UTC',
+  }).format(new Date(`${weekStart}T12:00:00Z`));
+}
 
 /** Agrupa sessões por semana ISO, mantendo as 12 últimas com algum estudo. */
 function groupByWeek(rows: { local_date: string; duration_seconds: number }[]): StudyWeek[] {
@@ -195,11 +272,7 @@ function groupByWeek(rows: { local_date: string; duration_seconds: number }[]): 
     .slice(-12)
     .map(([weekStart, minutes]) => ({
       weekStart,
-      label: new Intl.DateTimeFormat('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        timeZone: 'UTC',
-      }).format(new Date(`${weekStart}T12:00:00Z`)),
+      label: weekLabel(weekStart),
       minutes,
     }));
 }

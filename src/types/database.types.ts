@@ -32,7 +32,8 @@ export type TaskKind =
   | 'review'
   | 'exercise'
   | 'project'
-  | 'custom';
+  | 'custom'
+  | 'prova';
 export type StudySource = 'timer' | 'manual';
 export type AttachmentKind = 'summary' | 'exercise' | 'file' | 'link';
 export type XpSourceType =
@@ -155,67 +156,6 @@ export type SubjectRow = {
   updated_at: string;
 }
 
-export type GradingSchemeRow = {
-  id: string;
-  user_id: string;
-  name: string;
-  grade_min: number;
-  grade_max: number;
-  passing_grade: number;
-  decimals: number;
-  rounding_mode: RoundingMode;
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export type GradingSchemeCategoryRow = {
-  id: string;
-  user_id: string;
-  scheme_id: string;
-  name: string;
-  short_code: string | null;
-  weight_percent: number;
-  sequence: number;
-  drop_lowest: number;
-  allows_replacement: boolean;
-  color: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export type SubjectTermRow = {
-  id: string;
-  user_id: string;
-  subject_id: string;
-  term_id: string;
-  scheme_id: string | null;
-  target_grade: number | null;
-  final_grade_override: number | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export type ActivityRow = {
-  id: string;
-  user_id: string;
-  subject_term_id: string;
-  category_id: string;
-  title: string;
-  score: number | null;
-  max_score: number | null;
-  weight: number;
-  due_date: string | null;
-  graded_at: string | null;
-  teacher_name: string | null;
-  notes: string | null;
-  is_dropped: boolean;
-  replaces_activity_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export type RoutineRow = {
   id: string;
   user_id: string;
@@ -243,7 +183,6 @@ export type TaskRow = {
   id: string;
   user_id: string;
   subject_id: string | null;
-  activity_id: string | null;
   title: string;
   description: string | null;
   kind: TaskKind;
@@ -261,7 +200,6 @@ export type StudySessionRow = {
   id: string;
   user_id: string;
   subject_id: string | null;
-  activity_id: string | null;
   started_at: string;
   ended_at: string | null;
   duration_seconds: number;
@@ -290,7 +228,6 @@ export type AttachmentRow = {
   id: string;
   user_id: string;
   subject_id: string | null;
-  activity_id: string | null;
   kind: AttachmentKind;
   title: string;
   content: string | null;
@@ -348,129 +285,6 @@ export type UserAchievementRow = {
   unlocked_at: string | null;
   updated_at: string;
 }
-
-// ─────────────────────────────────────────────────────────── views ──────────
-// Read-only projections. These, not the client, are the authority on averages.
-
-export type VSubjectTermResolvedRow = {
-  subject_term_id: string;
-  user_id: string;
-  subject_id: string;
-  term_id: string;
-  subject_term_target: number | null;
-  final_grade_override: number | null;
-  notes: string | null;
-  subject_name: string;
-  subject_color: string;
-  subject_icon: string;
-  subject_target: number | null;
-  subject_archived_at: string | null;
-  term_name: string;
-  term_sequence: number;
-  term_starts_on: string;
-  term_ends_on: string;
-  academic_year_id: string;
-  scheme_id: string;
-  scheme_name: string;
-  grade_min: number;
-  grade_max: number;
-  passing_grade: number;
-  decimals: number;
-  rounding_mode: RoundingMode;
-}
-
-export type VActivityEffectiveRow = ActivityRow & {
-  subject_id: string;
-  term_id: string;
-  subject_name: string;
-  subject_color: string;
-  grade_max: number;
-  passing_grade: number;
-  scheme_id: string;
-  category_name: string;
-  category_code: string | null;
-  category_sequence: number;
-  weight_percent: number;
-  drop_lowest: number;
-  is_superseded: boolean;
-  normalized_score: number | null;
-  lowest_rank: number | null;
-  is_counted: boolean;
-}
-
-export type VCategoryAverageRow = {
-  user_id: string;
-  subject_term_id: string;
-  subject_id: string;
-  term_id: string;
-  scheme_id: string;
-  grade_max: number;
-  passing_grade: number;
-  category_id: string;
-  category_name: string;
-  category_code: string | null;
-  category_sequence: number;
-  weight_percent: number;
-  drop_lowest: number;
-  activity_count: number;
-  counted_count: number;
-  pending_count: number;
-  counted_weight: number;
-  average: number | null;
-}
-
-export type VSubjectTermAverageRow = {
-  user_id: string;
-  subject_term_id: string;
-  subject_id: string;
-  term_id: string;
-  scheme_id: string;
-  grade_max: number;
-  passing_grade: number;
-  category_count: number;
-  graded_category_count: number;
-  weight_total: number;
-  graded_weight: number;
-  activity_count: number;
-  pending_count: number;
-  average_current: number | null;
-  subject_name: string;
-  subject_color: string;
-  subject_icon: string;
-  term_name: string;
-  term_sequence: number;
-  term_starts_on: string;
-  term_ends_on: string;
-  academic_year_id: string;
-  decimals: number;
-  rounding_mode: RoundingMode;
-  target_grade: number | null;
-  final_grade: number | null;
-  is_overridden: boolean;
-  coverage_percent: number;
-  is_below_passing: boolean;
-  is_below_target: boolean;
-}
-
-export type VTermSummaryRow = {
-  user_id: string;
-  term_id: string;
-  term_name: string;
-  term_sequence: number;
-  term_starts_on: string;
-  term_ends_on: string;
-  academic_year_id: string;
-  subjects_total: number;
-  subjects_graded: number;
-  average_overall: number | null;
-  lowest_grade: number | null;
-  highest_grade: number | null;
-  subjects_below_passing: number;
-  subjects_below_target: number;
-  pending_activities: number;
-  avg_coverage_percent: number | null;
-}
-
 
 /* ------------------------------------------------------------ conteúdo -- */
 
@@ -713,10 +527,6 @@ export type Database = {
       terms: Table<TermRow>;
       subject_catalog: Table<SubjectCatalogRow>;
       subjects: Table<SubjectRow>;
-      grading_schemes: Table<GradingSchemeRow>;
-      grading_scheme_categories: Table<GradingSchemeCategoryRow>;
-      subject_terms: Table<SubjectTermRow>;
-      activities: Table<ActivityRow>;
       routines: Table<RoutineRow>;
       routine_completions: Table<RoutineCompletionRow>;
       tasks: Table<TaskRow>;
@@ -744,17 +554,11 @@ export type Database = {
       flashcard_reviews: Table<FlashcardReviewRow>;
     };
     Views: {
-      v_subject_terms_resolved: View<VSubjectTermResolvedRow>;
-      v_activities_effective: View<VActivityEffectiveRow>;
-      v_category_averages: View<VCategoryAverageRow>;
-      v_subject_term_averages: View<VSubjectTermAverageRow>;
-      v_term_summary: View<VTermSummaryRow>;
       v_resource_library: View<VResourceLibraryRow>;
       v_track_lessons_resolved: View<VTrackLessonResolvedRow>;
     };
     Functions: {
       user_local_date: { Args: { p_user_id?: string }; Returns: string };
-      current_term_id: { Args: { p_user_id?: string }; Returns: string | null };
       xp_to_level: { Args: { p_xp: number }; Returns: number };
       ensure_user_stats: { Args: { p_user_id?: string }; Returns: undefined };
       award_xp: {
@@ -849,6 +653,48 @@ export type Database = {
         }[];
       };
       dismiss_question_error: { Args: { p_question_id: string }; Returns: undefined };
+      subject_scores: {
+        Args: { p_user_id?: string };
+        Returns: {
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          has_content: boolean;
+          assessment_score: number | null;
+          empenho_index: number;
+          blended_score: number | null;
+          quizzes_done: number;
+          simulados_done: number;
+          content_completed: number;
+          target_grade: number | null;
+          passing_grade: number;
+        }[];
+      };
+      performance_evolution: {
+        Args: { p_user_id?: string; p_weeks?: number };
+        Returns: {
+          week_start: string;
+          assessment_score: number | null;
+          empenho_index: number;
+          blended_score: number | null;
+        }[];
+      };
+      simulado_history: {
+        Args: { p_user_id?: string };
+        Returns: {
+          attempt_id: string;
+          resource_id: string;
+          resource_title: string;
+          subject_id: string | null;
+          subject_name: string | null;
+          subject_color: string | null;
+          correct_count: number;
+          total_count: number;
+          percent: number;
+          duration_seconds: number;
+          finished_at: string;
+        }[];
+      };
       mark_resource_progress: {
         Args: {
           p_resource_id: string;
@@ -876,7 +722,7 @@ export type Database = {
           p_term_count?: number;
           p_catalog_ids?: string[];
           p_custom_subjects?: string[];
-          p_categories?: Json;
+          p_daily_goal_minutes?: number | null;
         };
         Returns: Json;
       };

@@ -1009,3 +1009,101 @@ uma recomendação simultânea dilui qual delas importa primeiro.
 inteira, não para uma view recortada só daquele tópico. Com poucos erros
 acumulados por aluno em geral, a lista inteira já é curta o bastante para
 não precisar de um filtro que o pedido também não descreve explicitamente.
+
+## ADR-043 · Nota deixa de ser digitada — vira 70% avaliativo + 30% empenho, calculada sozinha
+
+**Contexto.** O pedido foi explícito: o aluno não deve mais digitar nota
+nenhuma — nem prova, nem VA/PB, nem peso de categoria. `activities`,
+`grading_scheme_categories`, `subject_terms` e `grading_schemes` (a
+"planilha" que o Loop Nexa e as etapas 1-7 herdaram do produto original)
+saem do banco. No lugar, uma nota automática por matéria, derivada só do que
+o aluno já faz dentro do Nexa: quiz, simulado, conteúdo concluído,
+regularidade e sequência — junto com a Etapa 8 (CTA "Estudar agora") e um
+redesign completo de Hoje.
+
+**A fórmula: 70% avaliativo, 30% empenho, e cada lado com teto contra
+gaming.** Avaliativo é a média ponderada da tentativa MAIS RECENTE de cada
+quiz/simulado da matéria (simulado peso 2, quiz peso 1) — nula se o aluno
+nunca fez nenhum, nunca zero por ausência de dado, mesma regra que
+`riskScore` já seguia. Empenho é `40% conteúdo concluído (teto em 8) + 30%
+regularidade (dias distintos nos últimos 14) + 30% sequência (teto em 14
+dias)` — os tetos são a resposta direta ao "não transformar consumo em nota
+fácil": depois do oitavo conteúdo concluído no período, assistir o nono não
+aumenta mais nada. `passing_grade` virou uma constante (6,0) em vez de
+`grading_schemes.passing_grade` — era a última configuração de peso que
+sobraria se ficasse editável, e o resto do produto já assumia 6,0 em texto.
+`subjects.target_grade` continua existindo: não é nota digitada, é meta
+comparada contra a nota automática, e mantém o sinal de risco do
+`ranking.ts` sem reintroduzir input manual.
+
+**As três funções SQL (`subject_scores`, `performance_evolution`,
+`simulado_history`) são `security invoker`, não `security definer` — ao
+contrário de `topic_mastery`/`recent_errors` do ADR-042.** A diferença é o
+que cada uma lê: `topic_mastery` precisa do gabarito em
+`questions`/`question_options`, que não tem policy de SELECT para aluno, daí
+a elevação de privilégio. As três novas só leem `quiz_attempts`,
+`resource_progress`, `study_sessions` e `subjects` — todas com policy própria
+que já deixa o dono ler as próprias linhas. Rodar como `security definer`
+aqui seria elevar privilégio à toa; testado com dois usuários (Alice/Bob) via
+RLS de verdade, não como superusuário, confirmando que cada um só vê os
+próprios números.
+
+**Bug de PL/pgSQL que custou a maior parte do tempo de teste: `IS NOT NULL`
+numa linha composta exige TODOS os campos não-nulos.** `assert v_row is not
+null` depois de um `select into` falhava mesmo com a linha claramente
+existindo, porque `target_grade` (um campo legítimo de ser nulo) fazia o
+teste de linha inteira falhar pela semântica de comparação de row do SQL
+padrão — não é um bug do Postgres, é a definição. A investigação passou por
+description descartar teoria de resolução de coluna, teoria de snapshot de
+transação e reprodução isolada em bancos de depuração até isolar a causa; a
+correção foi trocar todo `assert v_row is not null` por um teste numa coluna
+específica sempre preenchida (`v_row.subject_id is not null`).
+
+**`performance_evolution()` sempre devolve as `p_weeks` linhas, mesmo para
+outro usuário — e isso é correto, não um vazamento.** Os buckets vêm de
+`generate_series`, que não depende de nenhuma tabela com RLS; o teste de
+isolamento verifica não a contagem de linhas (sempre 12), mas que
+`assessment_score`/`blended_score` vêm nulos em todas quando chamada como
+outro usuário.
+
+**`TargetSolver` (a calculadora "quanto preciso tirar na prova") foi
+removido, não adaptado.** Ele resolvia uma equação de poucas provas grandes
+com peso fixo — não faz sentido para uma nota que nasce de dezenas de
+pequenas atividades sem peso configurável. `roundGrade`/`formatGrade`/`clamp`
+sobreviveram (mudaram de `src/features/grades/lib` para
+`src/lib/format/grade.ts`, agnósticos de escala) porque são só formatação.
+
+**Provas continuam existindo, só que sem nota.** `tasks.kind` ganhou o
+valor `'prova'` — uma prova agendada é só uma tarefa com ícone e rótulo
+diferentes, sem campo de nota nenhum. É o que sobra do "cadastro de prova"
+depois de tirar peso e nota: uma data no calendário.
+
+**Hoje perdeu a faixa degradê e ganhou hierarquia explícita.**
+`GradientHeader` saiu de `/hoje` (o pedido foi explícito sobre isso);
+`HeaderStreak`, que só existia para aparecer sobre essa faixa, foi apagado
+por ficar sem nenhum uso. No lugar: saudação em texto simples → sequência da
+semana em destaque (pílulas SEG–DOM, ativas quando o dia tem `xp_events` —
+o mesmo sinal que já alimenta `touch_streak`, sem tracking novo) → foco do
+dia → "Estudar agora" (Etapa 8: escolher uma duração revela o seletor
+inline, mesmo padrão do `QuickAddTask` da Agenda, e só define uma META
+visível guardada em `localStorage` — o cronômetro em si continua sendo o
+`study_sessions` de sempre, sem corte automático, porque não existe
+infraestrutura de cron nem garantia de aba aberta para impor um corte de
+verdade) → nota geral automática → quiz recomendado → continue
+ouvindo/assistindo → aulas de hoje → próximos eventos. A ordem não é
+estética: é a lista de prioridades do pedido, na mesma sequência.
+
+**Quiz recomendado usa o mesmo campo com nome enganoso que o ADR-042 já
+tinha documentado.** `topic_mastery().subject_id` é, na prática,
+`resources.subject_catalog_id` — convenção antiga, não nova. `getTodaySnapshot`
+pega o pior assunto com `status = 'revisar'`, busca um quiz/simulado não
+tentado naquele `subject_catalog_id`, e cai para "qualquer quiz não tentado"
+se não achar — sem introduzir uma segunda convenção de nome para a mesma
+coluna.
+
+**O que ficou de fora, de propósito.** O card "🏆 Conquistas" do pedido não
+entrou nesta rodada: `achievements`/`user_achievements` existem no schema
+mas nada os popula ou lê hoje, e fabricar um card sobre uma tabela morta
+quebraria o padrão de honestidade que o produto segue desde o ADR-036 (nota
+sem dado não vira "parabéns" nem conquista fingida). Fica registrado como
+próxima etapa natural, não como esquecimento.

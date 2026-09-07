@@ -15,8 +15,16 @@ OUT="${ROOT}/supabase/setup-completo.sql"
 # `|| true`: com `set -e` + `pipefail`, um grep sem casamento derruba o script
 # ANTES de ele escrever o arquivo — foi assim que a geração passou a falhar em
 # silêncio quando as migrations ganharam `if not exists`.
-TABLES=$(grep -hoE "^create table (if not exists )?public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l || true)
-VIEWS=$(grep -hoE "^create (or replace )?view public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l || true)
+#
+# Subtrai o que uma migration posterior derruba (`drop table`/`drop view`),
+# ou a contagem no cabeçalho mente assim que a primeira migration de remoção
+# aparece no histórico.
+TABLES_CREATED=$(grep -hoE "^create table (if not exists )?public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l || true)
+TABLES_DROPPED=$(grep -hoE "^drop table (if exists )?public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l || true)
+VIEWS_CREATED=$(grep -hoE "^create (or replace )?view public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l || true)
+VIEWS_DROPPED=$(grep -hoE "^drop view (if exists )?public\.[a-z_]*" "${ROOT}"/supabase/migrations/*.sql | wc -l || true)
+TABLES=$((TABLES_CREATED - TABLES_DROPPED))
+VIEWS=$((VIEWS_CREATED - VIEWS_DROPPED))
 
 {
   cat <<HEADER

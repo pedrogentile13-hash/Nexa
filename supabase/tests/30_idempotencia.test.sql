@@ -22,7 +22,7 @@ begin
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'public' and c.relkind = 'r';
 
-  assert v_tables = 36, format('esperado 36 tabelas depois de reaplicar, achei %s', v_tables);
+  assert v_tables = 32, format('esperado 32 tabelas depois de reaplicar, achei %s', v_tables);
 
   select count(*) into v_policies from pg_policies where schemaname = 'public';
   assert v_policies > 40, format('políticas sumiram na reaplicação: %s', v_policies);
@@ -39,14 +39,14 @@ $$;
 do $$
 declare
   v_subjects integer;
-  v_activities integer;
+  v_attempts integer;
   v_resources integer;
 begin
   select count(*) into v_subjects from public.subject_catalog;
   assert v_subjects >= 24, format('catálogo encolheu para %s matérias', v_subjects);
 
-  select count(*) into v_activities from public.activities;
-  assert v_activities > 0, 'as notas lançadas nos testes sumiram ao reaplicar';
+  select count(*) into v_attempts from public.quiz_attempts;
+  assert v_attempts > 0, 'as tentativas de quiz/simulado dos testes sumiram ao reaplicar';
 
   select count(*) into v_resources from public.resources;
   assert v_resources > 0, 'a biblioteca sumiu ao reaplicar';
