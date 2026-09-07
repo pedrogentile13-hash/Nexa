@@ -513,6 +513,11 @@ export type ResourceRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Para kind='resumo': texto digitado ou arquivo enviado. */
+  content_format: 'markdown' | 'pdf';
+  pdf_page_count: number | null;
+  pdf_extracted_text: string | null;
+  pdf_status: 'processado' | 'erro' | null;
 };
 
 export type ResourceChapterRow = {
@@ -601,6 +606,7 @@ export type ResourceProgressRow = {
   last_seen_at: string;
   created_at: string;
   updated_at: string;
+  is_favorited: boolean;
 };
 
 export type QuizAttemptRow = {

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireAdmin, resolveSchoolId } from './guard';
+import { extractPdf } from './pdf';
 
 /**
  * Escritas do painel.
@@ -208,6 +209,8 @@ const resourceSchema = z.object({
   subtitle: z.string().trim().max(160).optional().or(z.literal('')),
   description: z.string().trim().max(2000).optional().or(z.literal('')),
   body: z.string().max(200_000).optional().or(z.literal('')),
+  /** Só importa para kind='resumo': markdown (padrão) ou pdf. */
+  contentFormat: z.enum(['markdown', 'pdf']).default('markdown'),
   storagePath: z.string().trim().max(500).optional().or(z.literal('')),
   externalUrl: z
     .string()
@@ -242,6 +245,7 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     subtitle: formData.get('subtitle') || '',
     description: formData.get('description') || '',
     body: formData.get('body') || '',
+    contentFormat: formData.get('contentFormat') || 'markdown',
     storagePath: formData.get('storagePath') || '',
     externalUrl: formData.get('externalUrl') || '',
     thumbnailUrl: formData.get('thumbnailUrl') || '',
@@ -263,7 +267,48 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     return fail('Falta o conteúdo: escreva o texto, envie um arquivo ou informe um link.');
   }
 
+  const isPdfResumo = data.kind === 'resumo' && data.contentFormat === 'pdf';
+  if (isPdfResumo && !data.storagePath) {
+    return fail('Envie o arquivo PDF, ou volte para "Escrever texto".');
+  }
+
   const supabase = await createClient();
+
+  // Extração acontece na hora do envio (ADR-039: síncrono, sem fila) — e só
+  // quando o ARQUIVO é novo. Reabrir o formulário para trocar só o título não
+  // deveria custar uma extração de novo, nem arriscar sobrescrever um texto
+  // já extraído por um download que falhou por acaso.
+  let pdfMeta: { pageCount: number; readingSeconds: number; text: string } | null = null;
+  if (isPdfResumo && data.storagePath) {
+    const pdfPath = data.storagePath;
+    const previousPath = data.id
+      ? (
+          await supabase.from('resources').select('storage_path').eq('id', data.id).maybeSingle()
+        ).data?.storage_path
+      : null;
+
+    if (pdfPath !== previousPath) {
+      const { data: file, error: downloadError } = await supabase.storage
+        .from('nexa-content')
+        .download(pdfPath);
+
+      if (downloadError || !file) {
+        return fail(
+          'Não consegui baixar o PDF enviado para processar. Tente enviar o arquivo de novo.',
+        );
+      }
+
+      try {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        pdfMeta = await extractPdf(buffer);
+      } catch {
+        return fail(
+          'Não consegui ler esse PDF — confira se ele não está corrompido ou protegido por senha.',
+        );
+      }
+    }
+  }
+
   const payload = {
     kind: data.kind,
     subject_catalog_id: data.subjectId,
@@ -272,11 +317,16 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     title: data.title,
     subtitle: data.subtitle || null,
     description: data.description || null,
-    body: data.body || null,
+    body: isPdfResumo ? null : data.body || null,
+    content_format: data.kind === 'resumo' ? data.contentFormat : 'markdown',
     storage_path: data.storagePath || null,
     external_url: data.externalUrl || null,
     thumbnail_url: data.thumbnailUrl || null,
-    duration_seconds: data.durationSeconds ? data.durationSeconds : null,
+    duration_seconds: pdfMeta
+      ? pdfMeta.readingSeconds
+      : data.durationSeconds
+        ? data.durationSeconds
+        : null,
     difficulty: data.difficulty,
     time_limit_seconds: data.timeLimitSeconds ? data.timeLimitSeconds : null,
     xp_reward: data.xpReward,
@@ -288,6 +338,9 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
           .filter(Boolean)
       : [],
     created_by: identity.userId,
+    ...(pdfMeta
+      ? { pdf_status: 'processado' as const, pdf_page_count: pdfMeta.pageCount, pdf_extracted_text: pdfMeta.text }
+      : {}),
   };
 
   if (data.id) {

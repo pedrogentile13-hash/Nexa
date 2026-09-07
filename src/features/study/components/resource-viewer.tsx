@@ -1,4 +1,5 @@
 import { ReaderView } from './reader-view';
+import { PdfReader } from './pdf-reader';
 import { QuizRunner } from './quiz-runner';
 import { MediaPlayer } from './media-player';
 import { ImageCard } from './image-card';
@@ -30,7 +31,11 @@ export function ResourceViewer({
 }) {
   switch (resource.kind) {
     case 'resumo':
-      return <ReaderView resource={resource} />;
+      return resource.contentFormat === 'pdf' ? (
+        <PdfReader resource={resource} />
+      ) : (
+        <ReaderView resource={resource} />
+      );
     case 'quiz':
     case 'simulado':
       return <QuizRunner resource={resource} questions={questions} />;

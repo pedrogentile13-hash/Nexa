@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ListChecks, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { Field, FormFeedback, Select, SubmitButton, Textarea, Toggle } from './form-parts';
 import { MEDIA_KINDS, QUESTION_KINDS, RESOURCE_KINDS, DIFFICULTIES } from '../lib/labels';
 import { MediaUpload } from './media-upload';
@@ -31,6 +32,8 @@ const ACCEPT: Partial<Record<ResourceKind, string>> = {
   imagem: 'image/*',
 };
 
+type ResumoFormat = 'markdown' | 'pdf';
+
 export function ResourceForm({
   options,
   resource,
@@ -44,6 +47,9 @@ export function ResourceForm({
   const [kind, setKind] = useState<ResourceKind>(resource?.kind ?? 'resumo');
   const [subjectId, setSubjectId] = useState(
     resource?.subject_catalog_id ?? options.subjects[0]?.id ?? '',
+  );
+  const [resumoFormat, setResumoFormat] = useState<ResumoFormat>(
+    resource?.content_format === 'pdf' ? 'pdf' : 'markdown',
   );
 
   const isMedia = MEDIA_KINDS.includes(kind);
@@ -148,20 +154,71 @@ export function ResourceForm({
         {/* --------------------------------------------------- conteúdo -- */}
         {kind === 'resumo' && (
           <section className="border-border bg-surface space-y-4 rounded-lg border p-4">
-            <Field
-              label="Texto do resumo"
-              hint="markdown: ## título, **negrito**, - lista, > destaque"
-            >
-              <Textarea
-                name="body"
-                rows={16}
-                defaultValue={resource?.body ?? ''}
-                className="font-mono text-sm leading-relaxed"
-                placeholder={
-                  'No **movimento uniforme** a velocidade não muda...\n\n### Equações que caem na prova\n\n- v = v₀ + a·t'
-                }
-              />
+            <input type="hidden" name="contentFormat" value={resumoFormat} />
+
+            <Field label="Como este resumo chega">
+              <div className="flex gap-2">
+                {(
+                  [
+                    { value: 'markdown', label: 'Escrever texto' },
+                    { value: 'pdf', label: 'Enviar PDF' },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setResumoFormat(option.value)}
+                    aria-pressed={resumoFormat === option.value}
+                    className={cn(
+                      'h-11 flex-1 rounded-md border text-sm font-medium transition-colors',
+                      resumoFormat === option.value
+                        ? 'border-brand bg-brand-soft text-brand-text'
+                        : 'border-border bg-surface text-muted hover:bg-surface-2',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </Field>
+
+            {resumoFormat === 'markdown' ? (
+              <Field
+                label="Texto do resumo"
+                hint="markdown: ## título, **negrito**, - lista, > destaque"
+              >
+                <Textarea
+                  name="body"
+                  rows={16}
+                  defaultValue={resource?.content_format === 'pdf' ? '' : (resource?.body ?? '')}
+                  className="font-mono text-sm leading-relaxed"
+                  placeholder={
+                    'No **movimento uniforme** a velocidade não muda...\n\n### Equações que caem na prova\n\n- v = v₀ + a·t'
+                  }
+                />
+              </Field>
+            ) : (
+              <>
+                <MediaUpload
+                  name="storagePath"
+                  accept="application/pdf"
+                  defaultPath={resource?.content_format === 'pdf' ? resource.storage_path : null}
+                  label="Arquivo PDF"
+                  hint="fica no bucket nexa-content"
+                />
+                <p className="text-subtle text-xs leading-relaxed">
+                  Ao salvar, o Nexa lê o arquivo para contar páginas e estimar o tempo de leitura —
+                  isso acontece na hora, então o envio pode levar alguns segundos a mais num PDF
+                  grande.
+                </p>
+                {resource?.content_format === 'pdf' && resource.pdf_page_count && (
+                  <p className="text-muted text-xs">
+                    Processado da última vez: {resource.pdf_page_count} página
+                    {resource.pdf_page_count === 1 ? '' : 's'}.
+                  </p>
+                )}
+              </>
+            )}
           </section>
         )}
 

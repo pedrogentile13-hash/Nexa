@@ -19,7 +19,7 @@ export const RESOURCE_KINDS: {
     label: 'Resumo',
     plural: 'Resumos',
     icon: 'file-text',
-    hint: 'Texto para ler',
+    hint: 'Texto digitado ou PDF enviado',
   },
   {
     value: 'simulado',

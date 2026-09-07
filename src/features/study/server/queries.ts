@@ -168,8 +168,14 @@ export interface ResourceDetail {
   subjectName: string;
   subjectColor: string;
   topicName: string | null;
+  tags: string[];
   progressPercent: number;
   positionSeconds: number;
+  completedAt: string | null;
+  isFavorited: boolean;
+  /** Só para kind='resumo': texto digitado ou PDF enviado. */
+  contentFormat: 'markdown' | 'pdf';
+  pdfPageCount: number | null;
   chapters: { id: string; label: string; startsAtSeconds: number }[];
   highlights: { id: string; quote: string }[];
 }
@@ -195,7 +201,7 @@ export async function getResourceDetail(id: string): Promise<ResourceDetail | nu
     supabase
       .from('resources')
       .select(
-        'id, kind, title, subtitle, description, body, storage_path, external_url, thumbnail_url, duration_seconds, time_limit_seconds, xp_reward, subject_catalog(name, default_color), content_topics(name)',
+        'id, kind, title, subtitle, description, body, storage_path, external_url, thumbnail_url, duration_seconds, time_limit_seconds, xp_reward, tags, content_format, pdf_page_count, subject_catalog(name, default_color), content_topics(name)',
       )
       .eq('id', id)
       .maybeSingle(),
@@ -206,7 +212,7 @@ export async function getResourceDetail(id: string): Promise<ResourceDetail | nu
       .order('position'),
     supabase
       .from('resource_progress')
-      .select('progress_percent, position_seconds')
+      .select('progress_percent, position_seconds, completed_at, is_favorited')
       .eq('resource_id', id)
       .maybeSingle(),
     supabase.from('highlights').select('id, quote').eq('resource_id', id).order('created_at'),
@@ -235,8 +241,13 @@ export async function getResourceDetail(id: string): Promise<ResourceDetail | nu
     subjectName: subject?.name ?? '',
     subjectColor: subject?.default_color ?? 'blue',
     topicName: topic?.name ?? null,
+    tags: r.tags ?? [],
     progressPercent: Number(progressRes.data?.progress_percent ?? 0),
     positionSeconds: progressRes.data?.position_seconds ?? 0,
+    completedAt: progressRes.data?.completed_at ?? null,
+    isFavorited: progressRes.data?.is_favorited ?? false,
+    contentFormat: r.content_format,
+    pdfPageCount: r.pdf_page_count,
     chapters: (chaptersRes.data ?? []).map((c) => ({
       id: c.id,
       label: c.label,

@@ -843,3 +843,51 @@ usuário podia tomar. Perguntado diretamente, antes de qualquer código.
 - **Ordem das etapas confirmada**: 5 (PDF) → 6 (Simulados) → 7 (Loop Nexa) →
   8 (Estudar agora). A ordem já respeitava a dependência real — o Loop Nexa
   não tem o que conectar sem simulados existindo primeiro.
+
+## ADR-040 · Conteúdo por PDF é o `kind` 'resumo' de sempre, não um novo
+
+**Contexto.** O pedido descreve upload de PDF, pipeline de processamento e um
+leitor dedicado como se fosse um formato de conteúdo à parte. Mas
+`resources_has_payload` (migration `0100_content.sql`) já aceita
+`storage_path` como conteúdo válido para qualquer `kind`, e `resumo` — texto
+para o aluno ler — é exatamente o que um PDF de resumo é, só que o texto vem
+de um arquivo em vez de vir digitado.
+
+**Decisão.** Nenhum `kind` novo. `resources` ganhou quatro colunas
+(migration `20260907000100`): `content_format` ('markdown'|'pdf', o que o
+formulário usa para decidir qual editor mostrar), `pdf_page_count`,
+`pdf_extracted_text` (texto puro, guardado para quando "transformar em
+estudo" existir — sem isso, a etapa de IA precisaria rebaixar o arquivo do
+Storage de novo) e `pdf_status`. `resource_progress` ganhou `is_favorited`.
+
+**Extração: síncrona, com `pdf-parse` v2 — não v1.** A v1 (a versão
+"estável" mais óbvia de instalar) embarca um `pdf.js` de 2017 que rejeitou
+até um PDF gerado pelo ReportLab ("bad XRef entry") — um parser velho demais
+para confiar num upload de professor que pode vir do Google Docs, Canva,
+Word, qualquer coisa. A v2 é reescrita sobre `pdfjs-dist` atual, tem API de
+classe (`new PDFParse({ data }).getText()`) e é anunciada rodando em
+Vercel/Netlify/Cloudflare — testada manualmente contra dois PDFs reais antes
+de virar dependência do projeto.
+
+**Leitor: o visualizador nativo do navegador, não um pdf.js customizado.**
+`<iframe src={mediaUrl}>` entrega ampliar, navegar entre páginas e pesquisar
+termos de graça, pela própria barra de ferramentas do Chrome/Firefox/Safari —
+mais completo do que a maioria dos leitores construídos do zero, e sem
+nenhuma linha de código extra. O preço: o conteúdo do iframe não é acessível
+ao JS da página (não é o mesmo `document`), então progresso não pode ser
+medido pela rolagem como `ReaderView` faz para markdown. Por isso o PDF usa
+"Marcar como concluído" explícito em vez de progresso gradual — uma ação, não
+uma medição, e a diferença é honesta sobre o que a arquitetura permite.
+
+**Favoritar generalizou, a tela de favoritos não.** `is_favorited` vive em
+`resource_progress`, que já é por (aluno, recurso) — então "favoritar"
+funciona para qualquer `kind`, não só PDF, de graça. O que NÃO foi construído
+é a tela "Meus favoritos" que lista tudo que foi marcado: essa é a parte do
+pedido de Favoritos que ficou deliberadamente em aberto na ADR-037, e
+continua em aberto aqui — o toggle existe, a lista não.
+
+**O que fica para quando existir `GEMINI_API_KEY`.** "Transformar em estudo"
+(resumo inteligente, flashcards, questões geradas a partir do PDF) não foi
+construído nesta rodada — reduziria a uma UI sem função por trás. Upload,
+processamento (sem IA), metadados, leitor completo e favoritar funcionam
+integralmente sem a chave; `.env.example` documenta onde ela entra.

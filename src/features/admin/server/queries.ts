@@ -182,6 +182,7 @@ export interface AdminResource {
   durationSeconds: number | null;
   questionCount: number;
   updatedAt: string;
+  contentFormat: 'markdown' | 'pdf';
 }
 
 export interface ResourceFilters {
@@ -201,7 +202,7 @@ export async function listResources(filters: ResourceFilters = {}): Promise<Admi
     // resultado a partir do TEXTO do select, e uma soma de strings vira
     // `string` genérico — aí a linha inteira resolve para erro em vez de linha.
     .select(
-      'id, kind, title, subtitle, school_id, is_published, difficulty, duration_seconds, updated_at, subject_catalog(name, default_color), content_topics(name), schools(name)',
+      'id, kind, title, subtitle, school_id, is_published, difficulty, duration_seconds, updated_at, content_format, subject_catalog(name, default_color), content_topics(name), schools(name)',
     )
     .order('updated_at', { ascending: false })
     .limit(200);
@@ -243,6 +244,7 @@ export async function listResources(filters: ResourceFilters = {}): Promise<Admi
       durationSeconds: r.duration_seconds,
       questionCount: questionCount.get(r.id) ?? 0,
       updatedAt: r.updated_at,
+      contentFormat: r.content_format,
     };
   });
 }

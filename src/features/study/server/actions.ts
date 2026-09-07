@@ -12,6 +12,34 @@ import { createClient } from '@/lib/supabase/server';
  * antes de responder. As funções corrigem no Postgres e devolvem só o veredito.
  */
 
+/**
+ * Favoritar generaliza para qualquer recurso — `resource_progress` já é por
+ * (aluno, recurso) independente de formato — mas a tela dedicada de
+ * "Meus favoritos" continua em aberto (ADR-037). Isto só liga o sinalizador.
+ */
+export async function toggleFavorite(resourceId: string, favorited: boolean): Promise<void> {
+  const parsed = z.string().uuid().safeParse(resourceId);
+  if (!parsed.success) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.from('resource_progress').upsert(
+    {
+      user_id: user.id,
+      resource_id: parsed.data,
+      is_favorited: favorited,
+      last_seen_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,resource_id' },
+  );
+
+  revalidatePath(`/estudar/${resourceId}`);
+}
+
 export async function saveProgress(
   resourceId: string,
   percent: number | null,

@@ -59,7 +59,9 @@ export function ResourceTable({ resources }: { resources: AdminResource[] }) {
                 <span className="block truncate text-sm font-medium">{resource.title}</span>
                 <span className="text-muted block truncate text-xs">
                   {[
-                    kindLabel(resource.kind),
+                    resource.kind === 'resumo' && resource.contentFormat === 'pdf'
+                      ? 'Resumo · PDF'
+                      : kindLabel(resource.kind),
                     resource.subjectName,
                     resource.topicName,
                     duration,
