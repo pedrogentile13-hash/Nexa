@@ -8,6 +8,7 @@ import { InstallCard } from '@/features/install/components/install-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PopEmptyState } from '@/components/ui/empty-state';
 import { signOut } from '@/features/auth/server/actions';
 import { ProfileForm } from '@/features/profile/components/profile-form';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
@@ -145,38 +146,50 @@ export default async function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="divide-border divide-y">
-              {(achievements ?? []).map((achievement) => {
-                const isUnlocked = unlockedIds.has(achievement.id);
-                return (
-                  <li key={achievement.id} className="flex items-center gap-3 py-2.5">
-                    <span
-                      aria-hidden
-                      className={
-                        isUnlocked
-                          ? 'bg-warning-soft text-warning grid size-9 shrink-0 place-items-center rounded-full'
-                          : 'bg-surface-2 text-subtle grid size-9 shrink-0 place-items-center rounded-full'
-                      }
-                    >
-                      <Award className="size-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p
+            {(achievements ?? []).length === 0 ? (
+              <PopEmptyState
+                size="sm"
+                icon={<Trophy className="size-5 text-white" />}
+                title="Suas conquistas aparecem aqui"
+                description="Sequência de estudo, notas e marcos de uso desbloqueiam selos automaticamente."
+              />
+            ) : (
+              <ul className="divide-border divide-y">
+                {(achievements ?? []).map((achievement) => {
+                  const isUnlocked = unlockedIds.has(achievement.id);
+                  return (
+                    <li key={achievement.id} className="flex items-center gap-3 py-2.5">
+                      {/* Desbloqueada ganha o mesmo selo em degradê do resto do
+                          app — uma conquista "elegante" (seção 23 do pedido)
+                          pesa mais que um círculo plano da mesma cor de fundo. */}
+                      <span
+                        aria-hidden
                         className={
                           isUnlocked
-                            ? 'truncate text-sm font-medium'
-                            : 'text-muted truncate text-sm font-medium'
+                            ? 'from-warning to-warning/80 grid size-9 shrink-0 place-items-center rounded-[32%] bg-gradient-to-br shadow-sm'
+                            : 'bg-surface-2 text-subtle grid size-9 shrink-0 place-items-center rounded-full'
                         }
                       >
-                        {achievement.name}
-                      </p>
-                      <p className="text-subtle truncate text-xs">{achievement.description}</p>
-                    </div>
-                    {isUnlocked && <Badge variant="success">Conquistada</Badge>}
-                  </li>
-                );
-              })}
-            </ul>
+                        <Award className={isUnlocked ? 'size-4 text-white' : 'size-4'} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={
+                            isUnlocked
+                              ? 'truncate text-sm font-medium'
+                              : 'text-muted truncate text-sm font-medium'
+                          }
+                        >
+                          {achievement.name}
+                        </p>
+                        <p className="text-subtle truncate text-xs">{achievement.description}</p>
+                      </div>
+                      {isUnlocked && <Badge variant="success">Conquistada</Badge>}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </CardContent>
         </Card>
 

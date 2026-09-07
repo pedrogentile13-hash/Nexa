@@ -84,6 +84,7 @@ export function InstallCard() {
         </ol>
       ) : (
         <Button
+          variant="pop"
           className="mt-3"
           onClick={() => {
             if (platform === 'ios') {

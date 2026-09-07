@@ -784,3 +784,37 @@ alimentar a lista.
 verificação por si só é o trabalho desta etapa. Revisões fica formalmente
 dependente da Etapa 7 (Loop Nexa); Favoritos fica como decisão em aberto,
 a ser desenhada como feature própria se e quando o usuário priorizar.
+
+## ADR-038 · Etapa 4 — selo de conquista em degradê, e o CTA de instalar vira pop
+
+**Contexto.** Gamificação e Perfil, ao contrário de Revisões/Favoritos
+(ADR-037), já existem de verdade: `achievements`/`user_achievements` estão no
+banco e a lista aparece no card "Conquistas" do Perfil desde antes desta
+rodada. O que faltava era o tratamento visual — o pedido original pede
+selos "elegantes e modernos", e o selo desbloqueado usava um círculo plano
+(`bg-warning-soft`) idêntico visualmente a qualquer badge neutro do app.
+
+**Decisão.**
+- O selo de conquista DESBLOQUEADA ganhou o mesmo squircle em degradê usado
+  no mascote do onboarding e nos selos de estado vazio
+  (`rounded-[32%] bg-gradient-to-br from-warning to-warning/80`) — a
+  conquista bloqueada continua um círculo cinza plano, para o contraste entre
+  "tem" e "não tem" continuar óbvio de relance.
+- O card de Conquistas ganhou uma guarda defensiva: se a lista de
+  `achievements` vier vazia (instância sem seed, por exemplo), aparece um
+  `PopEmptyState` em vez de uma lista em branco sem explicação.
+- O botão "Instalar o Nexa" (`InstallCard`, no Perfil) virou `variant="pop"`
+  — é o único CTA daquele cartão, uma ação de "momento" (instalar como app),
+  não uma ação de rotina como salvar um formulário.
+
+**O que NÃO mudou de propósito.** O botão "Salvar alterações" do formulário
+de perfil continua `primary` (não `pop`): salvar configuração é ação
+rotineira, repetida, sem drama — o oposto do que a variant `pop` deveria
+sinalizar. "Sair da conta" continua `ghost`. A distinção de hierarquia entre
+CTA único, ação secundária e ação de rotina que vem sendo aplicada desde a
+Etapa 1 se mantém.
+
+**O que fica de fora, por não ser reskin.** O desbloqueio automático de
+conquista (o trigger/cron que de fato marca `unlocked_at`) não foi construído
+nesta rodada — é lógica de produto, não de visual, e já estava listado como
+pendência antes desta rodada começar (corpo do PR #1).
