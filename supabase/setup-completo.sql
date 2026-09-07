@@ -3596,7 +3596,7 @@ as $$
   order by s.sort_order, s.name;
 $$;
 
-comment on function public.subject_scores is
+comment on function public.subject_scores(uuid) is
   'Nota automática por matéria (70% avaliativo + 30% empenho) — substitui o boletim manual.';
 
 grant execute on function public.subject_scores(uuid) to authenticated;
@@ -3693,7 +3693,7 @@ as $$
   order by b.week_start;
 $$;
 
-comment on function public.performance_evolution is
+comment on function public.performance_evolution(uuid, integer) is
   'Nota geral acumulada, semana a semana — alimenta o gráfico de evolução em Desempenho.';
 
 grant execute on function public.performance_evolution(uuid, integer) to authenticated;
@@ -3739,7 +3739,7 @@ as $$
   order by qa.finished_at desc;
 $$;
 
-comment on function public.simulado_history is
+comment on function public.simulado_history(uuid) is
   'Uma linha por tentativa de simulado finalizada — alimenta o Histórico de Simulados em Desempenho.';
 
 grant execute on function public.simulado_history(uuid) to authenticated;
