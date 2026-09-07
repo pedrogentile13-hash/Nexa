@@ -753,3 +753,34 @@ específico quando o vazio vem de um filtro de FORMATO (`?formato=simulado`,
 com esse filtro por enquanto" — cobre "Exercícios" e "Simulados" da Etapa 2
 sem nenhuma tela nova, porque os dois já passavam pelo mesmo componente
 reskinado na Etapa 1.
+
+## ADR-037 · Etapa 3 tem duas telas, não quatro
+
+**Contexto.** A Etapa 3 do roadmap listava quatro áreas: revisões, podcasts,
+resumos e favoritos. Antes de tocar código, cada uma foi checada contra o
+que existe de verdade no repositório.
+
+**Achado.** Podcasts e resumos são `kind`s de `resources` dentro de Estudar —
+já cobertos pelo `EmptyLibrary` ciente de formato (ADR-036): um aluno em
+`/estudar?formato=podcast` sem nenhum podcast lê "Ainda não há podcasts por
+aqui" pelo mesmo mecanismo testado com simulado e quiz. Nada para construir.
+
+Revisões e favoritos, por outro lado, **não existem como tela nem como
+dado** — não há tabela de favorito, não há rota `/revisoes`, e o único uso da
+palavra "revisão" no código é como texto dentro do resultado de quiz
+("O que revisar"), não uma seção navegável. Não são estados vazios de uma
+tela que existe; são features que ainda não foram construídas.
+
+**Decisão.** Não inventar Favoritos nem Revisões por baixo do guarda-chuva
+"reskin de estado vazio" — isso seria construir feature nova sem que o
+usuário tenha pedido ou decidido o formato dela (o que "favoritar" significa
+no Nexa? um recurso inteiro, como o "Marcar trecho" que já existe no leitor
+de resumo? uma lista dedicada?). Revisões, além disso, depende
+estruturalmente do Loop Nexa (ADR ainda não escrito, tarefa #7 do roadmap) —
+não há o que revisar até existir um simulado com resultado errado para
+alimentar a lista.
+
+**Consequência prática.** Etapa 3 fecha sem alteração de código — a
+verificação por si só é o trabalho desta etapa. Revisões fica formalmente
+dependente da Etapa 7 (Loop Nexa); Favoritos fica como decisão em aberto,
+a ser desenhada como feature própria se e quando o usuário priorizar.
