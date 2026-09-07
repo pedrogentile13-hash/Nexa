@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { NotebookPen, TrendingDown, TrendingUp } from 'lucide-react';
 import { GradientHeader } from '@/components/layout/gradient-header';
 import { PageMain } from '@/components/layout/page-main';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PopEmptyState } from '@/components/ui/empty-state';
 import { Progress } from '@/components/ui/progress';
 import { formatGrade } from '@/features/grades';
 import {
@@ -88,6 +91,13 @@ export default async function PerformancePage() {
   const below = data.subjectBars.filter((b) => b.isBelowPassing);
   const worst = [...data.subjectBars].sort((a, b) => (a.average ?? 99) - (b.average ?? 99));
 
+  // "Nenhuma matéria abaixo da média" é uma frase de parabéns — mas quando o
+  // motivo real é que NENHUMA nota foi lançada ainda, ela mente por omissão.
+  // Sem nota nenhuma, as duas seções de nota (evolução, matérias) somem e dão
+  // lugar a um único estado vazio: aqui não há dois recados incompletos, há
+  // um recado completo ("comece lançando uma nota"), com um próximo passo.
+  const hasGrades = data.subjectBars.length > 0;
+
   // Cada gráfico ganha a frase que ele prova. O aluno lê a frase; o gráfico
   // existe para quem quiser conferir. Um eixo Y sem legenda é decoração.
   const evolutionSentence =
@@ -132,30 +142,50 @@ export default async function PerformancePage() {
           <AverageBadge average={data.overallAverage} delta={data.averageDelta} />
         </div>
 
-        <Card className="min-w-0 lg:col-start-1 lg:row-start-2">
-          <CardContent className="p-4">
-            <p className="text-sm leading-relaxed font-medium">{evolutionSentence}</p>
-            <div className="mt-3">
-              <TermEvolutionChart points={data.termPoints} />
-            </div>
-          </CardContent>
-        </Card>
+        {hasGrades ? (
+          <>
+            <Card className="min-w-0 lg:col-start-1 lg:row-start-2">
+              <CardContent className="p-4">
+                <p className="text-sm leading-relaxed font-medium">{evolutionSentence}</p>
+                <div className="mt-3">
+                  <TermEvolutionChart points={data.termPoints} />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="min-w-0 lg:col-start-1 lg:row-start-3">
-          <CardContent className="p-4">
-            <p className="text-sm leading-relaxed font-medium">{subjectsSentence}</p>
-            <div className="mt-3">
-              <SubjectAveragesChart bars={data.subjectBars} />
-            </div>
-            {data.pendingActivities > 0 && (
-              <p className="text-subtle mt-3 text-xs">
-                {data.pendingActivities}{' '}
-                {data.pendingActivities === 1 ? 'avaliação ainda' : 'avaliações ainda'} por lançar
-                neste período.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+            <Card className="min-w-0 lg:col-start-1 lg:row-start-3">
+              <CardContent className="p-4">
+                <p className="text-sm leading-relaxed font-medium">{subjectsSentence}</p>
+                <div className="mt-3">
+                  <SubjectAveragesChart bars={data.subjectBars} />
+                </div>
+                {data.pendingActivities > 0 && (
+                  <p className="text-subtle mt-3 text-xs">
+                    {data.pendingActivities}{' '}
+                    {data.pendingActivities === 1 ? 'avaliação ainda' : 'avaliações ainda'} por
+                    lançar neste período.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-2">
+            <PopEmptyState
+              icon={<NotebookPen className="text-white" />}
+              title="Seu desempenho começa aqui"
+              description="Lance sua primeira nota para o Nexa acompanhar sua evolução por matéria e por período."
+              action={
+                <Button asChild variant="pop">
+                  <Link href="/disciplinas">
+                    <NotebookPen aria-hidden />
+                    Lançar minha primeira nota
+                  </Link>
+                </Button>
+              }
+            />
+          </div>
+        )}
 
         <Card className="min-w-0 lg:col-start-2 lg:row-start-3">
           <CardHeader>

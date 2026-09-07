@@ -218,7 +218,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
         )}
 
         {visible.length === 0 ? (
-          <EmptyLibrary filtered={Boolean(subjectFilter || kindFilter)} />
+          <EmptyLibrary filtered={Boolean(subjectFilter || kindFilter)} kind={kindFilter} />
         ) : (
           <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {visible.slice(0, 60).map((item) => {
@@ -316,7 +316,23 @@ function FilterChip({
   );
 }
 
-function EmptyLibrary({ filtered }: { filtered: boolean }) {
+function EmptyLibrary({ filtered, kind }: { filtered: boolean; kind?: ResourceKind }) {
+  // Um filtro por FORMATO merece um recado específico ("ainda não há
+  // simulados") em vez do genérico "nada com esse filtro" — é a diferença
+  // entre o aluno entender que o Nexa ainda não tem esse tipo de material e
+  // achar que ele digitou o filtro errado.
+  const title = kind
+    ? `Ainda não há ${KIND_META[kind].plural.toLowerCase()} por aqui`
+    : filtered
+      ? 'Nada com esse filtro por enquanto'
+      : 'A biblioteca ainda está vazia';
+
+  const description = kind
+    ? 'Assim que a escola publicar, aparece aqui — enquanto isso, dá para explorar os outros formatos.'
+    : filtered
+      ? 'Tente outra matéria ou veja o material das demais.'
+      : 'Assim que a escola publicar resumos, simulados e vídeos, eles aparecem aqui.';
+
   return (
     <PopEmptyState
       icon={
@@ -326,16 +342,12 @@ function EmptyLibrary({ filtered }: { filtered: boolean }) {
           <Library className="text-white" strokeWidth={2.25} />
         )
       }
-      title={filtered ? 'Nada com esse filtro por enquanto' : 'A biblioteca ainda está vazia'}
-      description={
-        filtered
-          ? 'Tente outra matéria ou veja o material das demais.'
-          : 'Assim que a escola publicar resumos, simulados e vídeos, eles aparecem aqui.'
-      }
+      title={title}
+      description={description}
       action={
         filtered && (
           <Link href="/estudar" className={popEmptyStateActionClass}>
-            Limpar filtros
+            {kind ? 'Ver todos os formatos' : 'Limpar filtros'}
           </Link>
         )
       }

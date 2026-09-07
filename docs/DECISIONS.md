@@ -722,3 +722,34 @@ a cerimônia de um `<form>` com estado de ação.
 virar um quadrado de ~170px em telas largas (`aspect-square` sem teto de
 tamanho) — bug pré-existente, não introduzido por esta mudança, fora do
 escopo desta etapa. Registrado como sugestão de tarefa separada.
+
+## ADR-036 · Desempenho sem nota não é "parabéns" — é ausência de dado
+
+**Contexto.** A tela Desempenho nunca teve um estado vazio de propósito. Sem
+nenhuma nota lançada, `subjectBars` chega vazio e a tela mostrava DUAS frases
+de gráfico quebradas por omissão: "Nenhuma matéria abaixo da média de
+aprovação neste período" (lida como elogio, quando o motivo real é que não
+há nota nenhuma) ao lado de um gráfico de barras vazio, e "Ainda não há dois
+períodos com nota para comparar" ao lado de outro gráfico vazio — dois recados
+incompletos em vez de um completo.
+
+**Decisão.** Quando `subjectBars.length === 0`, os dois cartões de gráfico
+(evolução, médias por matéria) somem e dão lugar a um único
+`PopEmptyState` — "Seu desempenho começa aqui" com CTA "Lançar minha primeira
+nota" para `/disciplinas`. Os cartões de Nível e Estudo por semana continuam
+de pé: XP e minutos estudados são sinais válidos mesmo sem nenhuma nota
+lançada, então não faz sentido escondê-los atrás de um aviso sobre notas.
+
+**Por que `/disciplinas`, e não "fazer um exercício".** O exemplo do pedido
+original sugere "Faça seu primeiro exercício ou simulado" como CTA — mas no
+Nexa, terminar um quiz não gera uma NOTA (isso é lançamento manual na ficha
+de notas de Disciplinas); um aluno que seguisse esse CTA terminaria um quiz e
+voltaria pro mesmo estado vazio, sem entender por quê. O CTA aponta para onde
+o problema de fato se resolve.
+
+**Estudar — mensagem ciente do formato.** `EmptyLibrary` ganhou um recado
+específico quando o vazio vem de um filtro de FORMATO (`?formato=simulado`,
+`?formato=quiz`): "Ainda não há simulados por aqui" em vez do genérico "Nada
+com esse filtro por enquanto" — cobre "Exercícios" e "Simulados" da Etapa 2
+sem nenhuma tela nova, porque os dois já passavam pelo mesmo componente
+reskinado na Etapa 1.
