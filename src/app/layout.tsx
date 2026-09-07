@@ -10,18 +10,19 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Nexa',
-    template: '%s · Nexa',
+    default: 'Nexa Study',
+    template: '%s · Nexa Study',
   },
   description:
-    'Nexa organiza sua vida acadêmica: o que fazer hoje, suas notas, sua rotina e sua evolução em um só lugar.',
-  applicationName: 'Nexa',
+    'Nexa Study organiza sua vida acadêmica: o que fazer hoje, seu desempenho automático, sua rotina e sua evolução em um só lugar.',
+  applicationName: 'Nexa Study',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
-    // Installed from the iOS share sheet, Nexa opens without Safari chrome —
-    // the difference between "an app" and "a website", per README Parte 3.
+    // Installed from the iOS share sheet, Nexa Study opens without Safari
+    // chrome — the difference between "an app" and "a website", per README
+    // Parte 3.
     capable: true,
-    title: 'Nexa',
+    title: 'Nexa Study',
     statusBarStyle: 'default',
   },
   formatDetection: {

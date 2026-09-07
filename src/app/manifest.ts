@@ -10,10 +10,10 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Nexa — Your Academic Operating System',
-    short_name: 'Nexa',
+    name: 'Nexa Study — Seu estudo, mais longe.',
+    short_name: 'Nexa Study',
     description:
-      'Organize sua vida acadêmica: o que fazer hoje, suas notas, sua rotina e sua evolução.',
+      'Organize sua vida acadêmica: o que fazer hoje, seu desempenho automático, sua rotina e sua evolução.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
@@ -21,7 +21,7 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: 'pt-BR',
     dir: 'ltr',
     background_color: '#f6f7f9',
-    theme_color: '#2563eb',
+    theme_color: '#7c3aed',
     categories: ['education', 'productivity'],
     // Gerados por scripts/generate-icons.mjs a partir da mesma arte do
     // icon.svg. Os três são necessários e nenhum substitui o outro:

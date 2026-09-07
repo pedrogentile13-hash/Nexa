@@ -4,12 +4,15 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import {
+  BarChart3,
+  Bell,
   BookOpen,
   GraduationCap,
   LayoutDashboard,
   Library,
   Route as RouteIcon,
   School,
+  Settings,
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,7 +32,10 @@ const ITEMS = [
   { href: '/admin/trilhas', label: 'Trilhas', Icon: RouteIcon },
   { href: '/admin/materias', label: 'Matérias', Icon: BookOpen },
   { href: '/admin/escolas', label: 'Escolas', Icon: School },
-  { href: '/admin/usuarios', label: 'Pessoas', Icon: Users },
+  { href: '/admin/usuarios', label: 'Usuários', Icon: Users },
+  { href: '/admin/relatorios', label: 'Relatórios', Icon: BarChart3 },
+  { href: '/admin/notificacoes', label: 'Notificações', Icon: Bell },
+  { href: '/admin/configuracoes', label: 'Configurações', Icon: Settings },
 ] as const;
 
 function useActive(href: string, exact?: boolean) {
@@ -89,7 +95,7 @@ export function AdminShell({
                 N
               </span>
               <span className="text-base font-semibold">
-                Nexa <span className="text-muted font-normal">admin</span>
+                Nexa Study <span className="text-muted font-normal">admin</span>
               </span>
             </Link>
             {/* Um school_admin precisa ver, sempre, de qual acervo ele está

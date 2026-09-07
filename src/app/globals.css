@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * Nexa design system.
+ * Nexa Study design system.
  *
  * Two layers, on purpose:
  *   1. Raw palette   — the actual colors. Never referenced by components.
@@ -9,11 +9,13 @@
  *      Components only ever use these, which is what makes dark mode a
  *      12-line override instead of an audit of every file.
  *
- * The brand blue from README Parte 3 (#2563EB) measures 5.2:1 on white: it
- * passes WCAG AA for normal text but fails AAA, so it is used for surfaces,
- * buttons and headings — and `--brand-text` (a darker step) is used whenever
- * brand color carries small text. In dark mode the brand LIGHTENS, because
- * #2563EB on a near-black surface is far too dim to read.
+ * Rebrand (roxo→ciano, identidade "Nexa Study"): o roxo #7C3AED mede 5,70:1
+ * sobre branco — passa AA normal, ainda reprova AAA, mesma faixa do azul
+ * antigo (5,2:1) — então segue o mesmo papel: superfícies, botões e títulos,
+ * com `--brand-text` (um passo mais escuro, #6D28D9, 7,11:1) carregando texto
+ * pequeno. No escuro o brand CLAREIA para #A78BFA (7,19:1 sobre o fundo quase
+ * preto) pela mesma razão de sempre: a versão saturada fica escura demais
+ * sobre um fundo quase preto.
  */
 
 @custom-variant dark (&:is(.dark *));
@@ -33,10 +35,10 @@
   --text-subtle: #8a93a1;
 
   /* Brand */
-  --brand: #2563eb;
-  --brand-hover: #1d4ed8;
-  --brand-text: #1d4ed8; /* brand color carrying small text */
-  --brand-soft: #eaf1fe;
+  --brand: #7c3aed;
+  --brand-hover: #6d28d9;
+  --brand-text: #6d28d9; /* brand color carrying small text */
+  --brand-soft: #f1ebfd;
   --brand-fg: #ffffff;
 
   /* Status */
@@ -48,28 +50,32 @@
   --danger-soft: #fdecea;
 
   /* Focus */
-  --ring: #2563eb;
+  --ring: #7c3aed;
 
   /*
    * Cores de gráfico. Separadas dos tokens de UI porque respondem a outro
    * critério: separação perceptual entre marcas adjacentes, inclusive para
    * daltonismo. Validadas com scripts/validate_palette.js da skill dataviz —
    * o par warning/danger da UI reprovou (ΔE 8.0, indistinguível até com visão
-   * normal), então o gráfico usa duas cores em vez de três.
+   * normal), então o gráfico usa duas cores em vez de três. `--chart-line`
+   * segue o brand (é a série "você"): reprovaria a mesma checagem de ΔE se
+   * ficasse azul num app roxo.
    */
-  --chart-line: #2563eb;
+  --chart-line: #7c3aed;
   --chart-alert: #c2261f;
   --chart-grid: #e3e7ec;
 
-  /* Degradê de cabeçalho da V2 do kit. Fica em token porque aparece em quatro
-     telas — quatro cópias do mesmo `linear-gradient` divergem no primeiro
+  /* Degradê de cabeçalho, identidade Nexa Study. Fica em token porque aparece
+     em várias telas — cópias do mesmo `linear-gradient` divergem no primeiro
      ajuste de matiz.
 
-     O kit termina em ciano #0ea5e9, que mede 2,77:1 com texto branco — reprova
-     até no critério de texto grande (3:1). O fim virou #0369a1: mantém a
-     passagem azul→ciano e o pior ponto da faixa fica em 5,17:1, então o título
-     é legível ao longo de TODA a extensão, não só onde ela é mais escura. */
-  --gradient-header: linear-gradient(135deg, #2563eb 0%, #0369a1 100%);
+     Termina em ciano #0E7490 (não o ciano vibrante do logo, #22D3EE, que mede
+     só 1,9:1 com texto branco e reprovaria até em texto grande): o passo mais
+     escuro mede 5,36:1, o roxo inicial 5,70:1, e o meio do degradê (onde as
+     duas cores se misturam) 6,23:1 — o pior ponto da faixa toda fica em
+     5,36:1, acima do azul→ciano anterior (5,17:1), então o título é legível
+     ao longo de TODA a extensão. */
+  --gradient-header: linear-gradient(135deg, #7c3aed 0%, #0e7490 100%);
   --gradient-header-fg: #ffffff;
 }
 
@@ -85,11 +91,11 @@
   --text-muted: #9aa4b2;
   --text-subtle: #6b7481;
 
-  --brand: #4d86f7;
-  --brand-hover: #6b9bf9;
-  --brand-text: #85aefa;
-  --brand-soft: #141e33;
-  --brand-fg: #06101f;
+  --brand: #a78bfa;
+  --brand-hover: #bda1fb;
+  --brand-text: #c4b5fd;
+  --brand-soft: #211a35;
+  --brand-fg: #14102a;
 
   --success: #4ade80;
   --success-soft: #10261a;
@@ -98,17 +104,17 @@
   --danger: #f87171;
   --danger-soft: #2b1414;
 
-  --ring: #4d86f7;
+  --ring: #a78bfa;
 
   /* Passos próprios do tema escuro, não um espelho do claro. */
-  --chart-line: #4d86f7;
+  --chart-line: #a78bfa;
   --chart-alert: #ef5350;
   --chart-grid: #242a35;
 
   /* No escuro o degradê perde saturação e vira mistura escura da mesma matiz,
-     como o kit define — o azul vibrante do tema claro sobre #0a0c11 vira um
+     roxo→ciano — a versão vibrante do tema claro sobre #0a0c11 viraria um
      bloco que brilha mais que o conteúdo. */
-  --gradient-header: linear-gradient(135deg, #141e33 0%, #123047 100%);
+  --gradient-header: linear-gradient(135deg, #1e1533 0%, #0f2a30 100%);
   --gradient-header-fg: #f2f4f8;
 }
 
