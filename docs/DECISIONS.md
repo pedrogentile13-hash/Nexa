@@ -818,3 +818,28 @@ Etapa 1 se mantém.
 conquista (o trigger/cron que de fato marca `unlocked_at`) não foi construído
 nesta rodada — é lógica de produto, não de visual, e já estava listado como
 pendência antes desta rodada começar (corpo do PR #1).
+
+## ADR-039 · Decisões de arquitetura para as etapas 5-8
+
+**Contexto.** As quatro etapas de reskin (1-4) estavam concluídas; as quatro
+seguintes (conteúdo por PDF, simulados por código, Loop Nexa, "Estudar
+agora") são features novas, e três delas dependiam de decisões que só o
+usuário podia tomar. Perguntado diretamente, antes de qualquer código.
+
+**Decisões.**
+- **Provedor de IA: Google Gemini.** Usado para "transformar PDF em estudo"
+  (resumo/flashcards/quiz gerados a partir do material) e para as
+  recomendações do Loop Nexa. Precisa de uma API key do Google AI Studio
+  configurada como variável de ambiente do projeto — até ela existir, a parte
+  de IA fica desabilitada, mas upload/leitor/metadados do PDF funcionam
+  normalmente (não dependem de IA nenhuma).
+- **Processamento de PDF: síncrono no upload.** Mais simples de construir e
+  depurar; adequado para o tamanho típico de um resumo/material escolar.
+  Revisitar para assíncrono/Edge Function só se os arquivos reais provarem
+  ser grandes ou lentos o bastante para travar a resposta do upload.
+- **Importação de simulado: só colar código na primeira versão.** Upload de
+  arquivo estruturado (.json) fica para depois — não exige redesenhar nada
+  quando for adicionado.
+- **Ordem das etapas confirmada**: 5 (PDF) → 6 (Simulados) → 7 (Loop Nexa) →
+  8 (Estudar agora). A ordem já respeitava a dependência real — o Loop Nexa
+  não tem o que conectar sem simulados existindo primeiro.
