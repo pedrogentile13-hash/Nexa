@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Headphones, Pause, Play, RotateCcw, RotateCw } from 'lucide-react';
+import { Check, Headphones, Pause, Play, RotateCcw, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
@@ -89,35 +89,112 @@ export function MediaPlayer({ resource }: { resource: ResourceDetail }) {
     },
   };
 
+  // No vídeo, o capítulo "concluído" é o que já passou por completo — a
+  // mesma régua usada pra destacar o capítulo ATUAL logo abaixo.
+  function chapterEnd(chapter: ResourceDetail['chapters'][number]): number {
+    return (
+      resource.chapters.find((c) => c.startsAtSeconds > chapter.startsAtSeconds)
+        ?.startsAtSeconds ?? Infinity
+    );
+  }
+
+  const videoBody = (
+    <>
+      <div className="overflow-hidden rounded-xl bg-black">
+        <video {...mediaProps} controls playsInline className="aspect-video w-full" />
+      </div>
+
+      <h1 className="mt-5 text-xl leading-tight font-semibold tracking-tight">{resource.title}</h1>
+      {resource.subtitle && <p className="text-muted mt-1 text-sm">{resource.subtitle}</p>}
+
+      {resource.description && (
+        <section className="mt-6">
+          <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">Resumo</h2>
+          <p className="text-muted text-sm leading-relaxed">{resource.description}</p>
+        </section>
+      )}
+
+      {!resource.mediaUrl && (
+        <p className="text-danger mt-6 text-sm">
+          Este item ainda não tem arquivo nem link. Avise a escola.
+        </p>
+      )}
+    </>
+  );
+
+  if (isVideo) {
+    return (
+      <div style={subjectColorVars(resource.subjectColor)} className="pb-8">
+        <StudyTopBar title={resource.subjectName} subtitle={resource.topicName} />
+
+        <div className="mx-auto max-w-[1200px] px-5 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+          <div className="min-w-0">{videoBody}</div>
+
+          {resource.chapters.length > 0 && (
+            <aside className="mt-8 min-w-0 lg:sticky lg:top-4 lg:mt-0">
+              <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
+                Conteúdo da aula
+              </h2>
+              <ul className="border-border bg-surface divide-border divide-y overflow-hidden rounded-lg border">
+                {resource.chapters.map((chapter) => {
+                  const done = current >= chapterEnd(chapter);
+                  const active = current >= chapter.startsAtSeconds && !done;
+                  return (
+                    <li key={chapter.id}>
+                      <button
+                        type="button"
+                        onClick={() => seekTo(chapter.startsAtSeconds)}
+                        className={cn(
+                          'hover:bg-surface-2 flex h-12 w-full items-center gap-3 px-4 text-left text-sm transition-colors',
+                          active && 'font-semibold',
+                        )}
+                      >
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'grid size-5 shrink-0 place-items-center rounded-full border-2',
+                            done
+                              ? 'border-success bg-success text-white'
+                              : active
+                                ? 'border-brand'
+                                : 'border-border-strong',
+                          )}
+                        >
+                          {done && <Check className="size-3" strokeWidth={3} />}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{chapter.label}</span>
+                        <span className="text-subtle shrink-0 text-xs tabular-nums">
+                          {clockTime(chapter.startsAtSeconds)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </aside>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={subjectColorVars(resource.subjectColor)} className="pb-8">
       <StudyTopBar title={resource.subjectName} subtitle={resource.topicName} />
 
       <div className="mx-auto max-w-2xl px-5">
-        {isVideo ? (
-          <div className="overflow-hidden rounded-xl bg-black">
-            <video {...mediaProps} controls playsInline className="aspect-video w-full" />
-          </div>
-        ) : (
-          <>
-            <div
-              className="grid aspect-square max-h-72 w-full place-items-center rounded-2xl"
-              style={{ backgroundColor: 'var(--subject-soft)', color: 'var(--subject-on-soft)' }}
-            >
-              {resource.thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={resource.thumbnailUrl}
-                  alt=""
-                  className="size-full rounded-2xl object-cover"
-                />
-              ) : (
-                <Headphones className="size-16" aria-hidden />
-              )}
-            </div>
-            <audio {...mediaProps} className="sr-only" />
-          </>
-        )}
+        <div
+          className="grid aspect-square max-h-72 w-full place-items-center rounded-2xl"
+          style={{ backgroundColor: 'var(--subject-soft)', color: 'var(--subject-on-soft)' }}
+        >
+          {resource.thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={resource.thumbnailUrl} alt="" className="size-full rounded-2xl object-cover" />
+          ) : (
+            <Headphones className="size-16" aria-hidden />
+          )}
+        </div>
+        <audio {...mediaProps} className="sr-only" />
 
         <h1 className="mt-5 text-xl leading-tight font-semibold tracking-tight">
           {resource.title}

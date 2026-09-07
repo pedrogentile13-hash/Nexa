@@ -31,6 +31,20 @@ const ICONS: Record<ResourceKind, typeof FileText> = {
   musica: Music,
 };
 
+/** Uma cor por formato — não é a cor da matéria, é a identidade do FORMATO
+ * (todo podcast é roxo, seja de qual matéria for). Reaproveita a mesma
+ * paleta nomeada e acessível de `subjectColorVars`, que não é exclusiva de
+ * matéria — é só "cor categórica com contraste garantido nos dois temas". */
+const KIND_COLOR: Record<ResourceKind, string> = {
+  resumo: 'green',
+  simulado: 'orange',
+  quiz: 'pink',
+  podcast: 'violet',
+  video: 'blue',
+  imagem: 'amber',
+  musica: 'teal',
+};
+
 /**
  * Hub de estudo.
  *
@@ -58,6 +72,28 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-8 md:px-6 md:pt-6 lg:px-8">
+      {!kindFilter && (
+        <div
+          className="relative overflow-hidden rounded-[20px] p-5 text-white"
+          style={{ background: 'var(--gradient-header)' }}
+        >
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-[28px]">
+                Biblioteca
+              </h1>
+              <p className="mt-1.5 text-sm opacity-90">
+                Aprenda do seu jeito. Conteúdo pra cada etapa da sua jornada.
+              </p>
+            </div>
+            <p className="hidden max-w-[180px] shrink-0 rounded-2xl bg-white/15 p-3 text-xs leading-snug backdrop-blur-sm sm:block">
+              “Mais conhecimento, mais possibilidades.”
+              <span className="mt-1 block opacity-80">— Nexa Study</span>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ---------------------------------------------------- matérias -- */}
       {data.subjects.length > 0 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -130,14 +166,15 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
               const Icon = ICONS[kind];
               const count = data.countsByKind[kind];
               return (
-                <li key={kind} className="min-w-0">
+                <li key={kind} className="min-w-0" style={subjectColorVars(KIND_COLOR[kind])}>
                   <Link
                     href={{ pathname: '/estudar', query: { formato: kind } }}
                     className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
                   >
                     <span
                       aria-hidden
-                      className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-lg"
+                      className="grid size-10 shrink-0 place-items-center rounded-lg"
+                      style={{ backgroundColor: 'var(--subject-soft)', color: 'var(--subject-on-soft)' }}
                     >
                       <Icon className="size-5" />
                     </span>
