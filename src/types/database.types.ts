@@ -87,6 +87,13 @@ export type SchoolRow = {
   updated_at: string;
 }
 
+export type NotificationSettings = {
+  dailyReminder: boolean;
+  revisionReminder: boolean;
+  achievementsAndGoals: boolean;
+  newsUpdates: boolean;
+};
+
 export type ProfileRow = {
   id: string;
   full_name: string | null;
@@ -100,6 +107,7 @@ export type ProfileRow = {
   role: UserRole;
   weekly_study_goal_minutes: number;
   daily_study_goal_minutes: number;
+  notification_settings: NotificationSettings;
   onboarded_at: string | null;
   created_at: string;
   updated_at: string;

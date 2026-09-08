@@ -1,0 +1,174 @@
+'use client';
+
+import { useState } from 'react';
+import { ChevronRight, HelpCircle, LogOut, ShieldCheck } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { UnderlineTabs } from '@/components/ui/underline-tabs';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { InstallCard } from '@/features/install/components/install-card';
+import { signOut } from '@/features/auth/server/actions';
+import type { NotificationSettings } from '@/types/database.types';
+import { NotificationSettingsForm } from './notification-settings-form';
+import { ProfileForm } from './profile-form';
+
+type Tab = 'conta' | 'notificacoes' | 'aparencia' | 'privacidade';
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'conta', label: 'Conta' },
+  { value: 'notificacoes', label: 'Notificações' },
+  { value: 'aparencia', label: 'Aparência' },
+  { value: 'privacidade', label: 'Privacidade' },
+];
+
+export function ProfileTabs({
+  email,
+  fullName,
+  gradeLevel,
+  className,
+  dailyGoal,
+  weeklyGoal,
+  timezone,
+  notificationSettings,
+}: {
+  email?: string | null;
+  fullName: string;
+  gradeLevel: string | null;
+  className: string | null;
+  dailyGoal: number;
+  weeklyGoal: number;
+  timezone: string;
+  notificationSettings: NotificationSettings;
+}) {
+  const [tab, setTab] = useState<Tab>('conta');
+
+  return (
+    <div className="min-w-0 lg:col-span-2">
+      <UnderlineTabs
+        label="Seções do perfil"
+        value={tab}
+        onChange={setTab}
+        className="mb-4"
+        options={TABS}
+      />
+
+      {tab === 'conta' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Seus dados</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <dl className="divide-border divide-y text-sm">
+              <Row label="E-mail" value={email} />
+            </dl>
+            <ProfileForm
+              fullName={fullName}
+              gradeLevel={gradeLevel}
+              className={className}
+              dailyGoal={dailyGoal}
+              weeklyGoal={weeklyGoal}
+              timezone={timezone}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'notificacoes' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notificações</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <NotificationSettingsForm initial={notificationSettings} />
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'aparencia' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Aparência</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-muted text-sm">Tema</span>
+              <ThemeToggle />
+            </div>
+            {/* O banner de instalação aparece uma vez e some. Quem recusou
+                naquele momento e depois mudou de ideia precisa de um lugar
+                previsível para procurar — e é aqui que as pessoas procuram. */}
+            <InstallCard />
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'privacidade' && (
+        <Card>
+          <CardContent className="divide-border divide-y p-0">
+            <PrivacyRow
+              icon={<ShieldCheck className="size-4" aria-hidden />}
+              label="Conta e privacidade"
+              comingSoon
+            />
+            <PrivacyRow
+              icon={<HelpCircle className="size-4" aria-hidden />}
+              label="Ajuda e suporte"
+              comingSoon
+            />
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="text-danger flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm font-medium"
+              >
+                <LogOut className="size-4" aria-hidden />
+                Sair da conta
+              </button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-2.5">
+      <dt className="text-muted shrink-0">{label}</dt>
+      <dd className="min-w-0 truncate text-right font-medium">{value ?? '—'}</dd>
+    </div>
+  );
+}
+
+/**
+ * "Conta e privacidade" e "Ajuda e suporte" não têm tela nem conteúdo hoje —
+ * ficam visíveis (é assim que o produto vai crescer) mas desabilitadas, em
+ * vez de linkar para algo que não existe.
+ */
+function PrivacyRow({
+  icon,
+  label,
+  comingSoon,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  comingSoon?: boolean;
+}) {
+  return (
+    <div
+      className={
+        comingSoon
+          ? 'text-subtle flex items-center gap-3 px-4 py-3.5 text-sm font-medium'
+          : 'flex items-center gap-3 px-4 py-3.5 text-sm font-medium'
+      }
+    >
+      {icon}
+      <span className="flex-1">{label}</span>
+      {comingSoon ? (
+        <Badge variant="neutral">Em breve</Badge>
+      ) : (
+        <ChevronRight className="text-subtle size-4" aria-hidden />
+      )}
+    </div>
+  );
+}

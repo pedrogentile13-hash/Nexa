@@ -1,17 +1,14 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { Award, Clock, Flame, LogOut, Trophy, Zap } from 'lucide-react';
+import { Award, Clock, Flame, Trophy, Zap } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { InstallCard } from '@/features/install/components/install-card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopEmptyState } from '@/components/ui/empty-state';
-import { signOut } from '@/features/auth/server/actions';
-import { ProfileForm } from '@/features/profile/components/profile-form';
+import { ProfileTabs } from '@/features/profile/components/profile-tabs';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import type { NotificationSettings } from '@/types/database.types';
 
 export const metadata: Metadata = {
   title: 'Perfil',
@@ -39,7 +36,7 @@ export default async function ProfilePage() {
       supabase
         .from('profiles')
         .select(
-          'full_name, grade_level, class_name, timezone, daily_study_goal_minutes, weekly_study_goal_minutes',
+          'full_name, grade_level, class_name, timezone, daily_study_goal_minutes, weekly_study_goal_minutes, notification_settings',
         )
         .eq('id', user.id)
         .maybeSingle(),
@@ -50,6 +47,12 @@ export default async function ProfilePage() {
 
   const unlockedIds = new Set((unlocked ?? []).map((row) => row.achievement_id));
   const totalHours = Math.floor((stats?.total_study_seconds ?? 0) / 3600);
+  const notificationSettings: NotificationSettings = profile?.notification_settings ?? {
+    dailyReminder: true,
+    revisionReminder: true,
+    achievementsAndGoals: true,
+    newsUpdates: false,
+  };
 
   return (
     <>
@@ -97,42 +100,17 @@ export default async function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Dados ----------------------------------------------------------- */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Seus dados</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <dl className="divide-border divide-y text-sm">
-              <Row label="E-mail" value={user.email} />
-            </dl>
-            <ProfileForm
-              fullName={profile?.full_name ?? ''}
-              gradeLevel={profile?.grade_level ?? null}
-              className={profile?.class_name ?? null}
-              dailyGoal={profile?.daily_study_goal_minutes ?? 45}
-              weeklyGoal={profile?.weekly_study_goal_minutes ?? 300}
-              timezone={profile?.timezone ?? 'America/Sao_Paulo'}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Aparência -------------------------------------------------------- */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Aparência</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-muted text-sm">Tema</span>
-              <ThemeToggle />
-            </div>
-            {/* O banner de instalação aparece uma vez e some. Quem recusou
-                naquele momento e depois mudou de ideia precisa de um lugar
-                previsível para procurar — e é aqui que as pessoas procuram. */}
-            <InstallCard />
-          </CardContent>
-        </Card>
+        {/* Conta/Notificações/Aparência/Privacidade -------------------------- */}
+        <ProfileTabs
+          email={user.email}
+          fullName={profile?.full_name ?? ''}
+          gradeLevel={profile?.grade_level ?? null}
+          className={profile?.class_name ?? null}
+          dailyGoal={profile?.daily_study_goal_minutes ?? 45}
+          weeklyGoal={profile?.weekly_study_goal_minutes ?? 300}
+          timezone={profile?.timezone ?? 'America/Sao_Paulo'}
+          notificationSettings={notificationSettings}
+        />
 
         {/* Conquistas ------------------------------------------------------- */}
         <Card>
@@ -193,23 +171,7 @@ export default async function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Sair ------------------------------------------------------------- */}
-        <form action={signOut}>
-          <Button type="submit" variant="ghost" className="w-full">
-            <LogOut aria-hidden />
-            Sair da conta
-          </Button>
-        </form>
       </PageMain>
     </>
-  );
-}
-
-function Row({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-2.5">
-      <dt className="text-muted shrink-0">{label}</dt>
-      <dd className="min-w-0 truncate text-right font-medium">{value ?? '—'}</dd>
-    </div>
   );
 }

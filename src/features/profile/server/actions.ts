@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import type { NotificationSettings } from '@/types/database.types';
 
 /**
  * Edição do perfil.
@@ -78,4 +79,30 @@ export async function updateProfile(
   // progresso diário. Revalidar só /perfil deixaria as duas coisas velhas.
   revalidatePath('/', 'layout');
   return { status: 'saved' };
+}
+
+/**
+ * Preferências de notificação — sem envio real (push/e-mail) ainda, então
+ * isto só grava a intenção. Cada chamada troca uma chave só (o toggle que o
+ * aluno acabou de clicar), por isso recebe o objeto já mesclado em vez de
+ * reconstruir tudo a partir de FormData.
+ */
+export async function updateNotificationSettings(
+  settings: NotificationSettings,
+): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ notification_settings: settings })
+    .eq('id', user.id);
+
+  if (error) return { ok: false };
+
+  revalidatePath('/perfil');
+  return { ok: true };
 }
