@@ -1,13 +1,17 @@
 import Link from 'next/link';
 import { Flame, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { HeaderSearchToggle } from './header-search-toggle';
+import { NotificationBell } from '@/features/notifications/components/notification-bell';
 
 /**
  * Cabeçalho do app.
  *
- * Carrega só duas informações: a sequência (que é o hábito que o produto quer
- * reforçar) e o acesso ao perfil. Tudo mais que poderia estar aqui compete com
- * a resposta que a tela está tentando dar.
+ * Sequência, busca, notificações e acesso ao perfil — nessa ordem de
+ * prioridade quando o espaço aperta, porque é a ordem em que cada um compete
+ * menos com o que a tela já está tentando dizer. Quando a própria tela tem
+ * uma ação (`action`), ela ainda vence todo o resto: não tem UI genérica que
+ * valha mais do que o que a pessoa veio fazer ali.
  */
 export function AppHeader({
   title,
@@ -59,6 +63,9 @@ export function AppHeader({
               <span className="sr-only">dias seguidos de estudo</span>
             </span>
           )}
+
+          {!action && <HeaderSearchToggle />}
+          {!action && <NotificationBell />}
 
           {!action && (
             <Link

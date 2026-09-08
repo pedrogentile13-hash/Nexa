@@ -16,6 +16,9 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NotificationBell } from '@/features/notifications/components/notification-bell';
+import { SearchBar } from '@/features/search/components/search-bar';
+import { searchAdmin } from '@/features/search/server/actions';
 
 /**
  * Shell do painel.
@@ -78,10 +81,18 @@ function NavLink({
 export function AdminShell({
   children,
   scopeLabel,
+  fullName,
+  avatarUrl,
+  roleLabel,
 }: {
   children: React.ReactNode;
   scopeLabel: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+  roleLabel: string;
 }) {
+  const initial = fullName?.trim()[0]?.toUpperCase() ?? '?';
+
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
       <aside className="border-border bg-surface shrink-0 border-b lg:w-60 lg:border-r lg:border-b-0">
@@ -122,7 +133,40 @@ export function AdminShell({
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1">{children}</main>
+      <div className="min-w-0 flex-1">
+        {/* Barra superior: busca de conteúdo/pessoas/escolas + sino +
+            identidade de quem está logado. Fica aqui, uma vez só no shell, em
+            vez de em cada AdminHeader — assim toda tela do painel ganha as
+            três coisas de graça, sem repetir prop em cada página. */}
+        <header className="border-border bg-surface sticky top-0 z-30 flex items-center gap-3 border-b px-5 py-3">
+          <div className="min-w-0 flex-1">
+            <SearchBar
+              placeholder="Buscar conteúdos, usuários, escolas…"
+              search={searchAdmin}
+              contentOnlyAdminHref
+            />
+          </div>
+
+          <NotificationBell />
+
+          <div className="flex shrink-0 items-center gap-2.5 pl-1">
+            <span className="bg-brand-soft text-brand-text grid size-9 shrink-0 place-items-center overflow-hidden rounded-full text-sm font-semibold">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" className="size-full object-cover" />
+              ) : (
+                initial
+              )}
+            </span>
+            <span className="hidden leading-tight sm:block">
+              <span className="block text-sm font-semibold">{fullName ?? 'Você'}</span>
+              <span className="text-subtle block text-xs">{roleLabel}</span>
+            </span>
+          </div>
+        </header>
+
+        <main className="min-w-0">{children}</main>
+      </div>
     </div>
   );
 }

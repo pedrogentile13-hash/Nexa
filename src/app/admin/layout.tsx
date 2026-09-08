@@ -14,5 +14,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     ? 'Administração geral · todas as escolas'
     : `Escola: ${identity.schoolName ?? 'sem escola vinculada'}`;
 
-  return <AdminShell scopeLabel={scope}>{children}</AdminShell>;
+  return (
+    <AdminShell
+      scopeLabel={scope}
+      fullName={identity.fullName}
+      avatarUrl={identity.avatarUrl}
+      roleLabel={identity.isGlobal ? 'Admin geral' : 'Admin da escola'}
+    >
+      {children}
+    </AdminShell>
+  );
 }

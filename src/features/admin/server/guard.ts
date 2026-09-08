@@ -18,6 +18,7 @@ export interface AdminIdentity {
   schoolId: string | null;
   schoolName: string | null;
   fullName: string | null;
+  avatarUrl: string | null;
   /** Admin global enxerga e edita todas as escolas; school_admin só a dele. */
   isGlobal: boolean;
 }
@@ -31,7 +32,7 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
 
   const { data } = await supabase
     .from('profiles')
-    .select('role, school_id, full_name, schools(name)')
+    .select('role, school_id, full_name, avatar_url, schools(name)')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -45,6 +46,7 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
     schoolId: data.school_id,
     schoolName: school?.name ?? null,
     fullName: data.full_name,
+    avatarUrl: data.avatar_url,
     isGlobal: data.role === 'admin',
   };
 }
