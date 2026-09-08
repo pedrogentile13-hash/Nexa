@@ -9,6 +9,7 @@ import {
   addTrackLesson,
   addTrackSection,
   attachLessonResource,
+  deleteTrack,
   deleteTrackLesson,
   detachLessonResource,
 } from '../server/actions';
@@ -236,6 +237,17 @@ export function TrackBuilder({
           <Plus aria-hidden />
           Adicionar assunto
         </Button>
+      </form>
+
+      <form action={deleteTrack} className="border-border border-t pt-4">
+        <input type="hidden" name="id" value={trackId} />
+        <Button type="submit" variant="ghost" className="text-danger hover:bg-danger-soft">
+          <Trash2 aria-hidden />
+          Excluir esta trilha
+        </Button>
+        <p className="text-subtle mt-1.5 text-xs">
+          Apaga também os assuntos, as lições e o progresso que os alunos tinham nela.
+        </p>
       </form>
     </div>
   );

@@ -700,6 +700,19 @@ export async function saveTrack(_prev: AdminState, formData: FormData): Promise<
   redirect(`/admin/trilhas/${created.id}`);
 }
 
+export async function deleteTrack(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  // Seções, lições, vínculos com recurso e progresso do aluno saem juntos —
+  // todos têm `on delete cascade` até chegar em `tracks`.
+  await supabase.from('tracks').delete().eq('id', id);
+  revalidatePath('/admin/trilhas');
+  redirect('/admin/trilhas');
+}
+
 export async function addTrackSection(formData: FormData): Promise<void> {
   await requireAdmin();
   const trackId = formData.get('trackId');
