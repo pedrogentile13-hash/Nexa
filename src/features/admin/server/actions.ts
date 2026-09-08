@@ -513,19 +513,24 @@ export async function deleteQuestion(formData: FormData): Promise<void> {
 // ------------------------------------------------- simulado por código -----
 
 const importSimuladoSchema = z.object({
+  kind: z.enum(['quiz', 'simulado']),
   subjectId: z.string().uuid('Escolha a matéria.'),
   topicId: z.string().uuid().optional().or(z.literal('')),
   schoolId: z.string().optional(),
-  title: z.string().trim().min(2, 'Dê um título ao simulado.').max(200),
+  title: z.string().trim().min(2, 'Dê um título.').max(200),
   description: z.string().trim().max(2000).optional().or(z.literal('')),
   difficulty: z.enum(['facil', 'medio', 'dificil']),
   timeLimitSeconds: z.coerce.number().int().min(0).max(86400).optional(),
   tags: z.string().max(300).optional().or(z.literal('')),
-  code: z.string().min(1, 'Cole o código do simulado.'),
+  code: z.string().min(1, 'Cole o código.'),
 });
 
 /**
- * Publica um simulado inteiro a partir do código colado.
+ * Publica um quiz ou simulado inteiro a partir do código colado.
+ *
+ * Mesmo formato de código para os dois formatos — o que muda é só o `kind`
+ * gravado no recurso e se o tempo de prova faz sentido (só simulado tem
+ * cronômetro; quiz nunca teve essa noção em nenhum outro lugar do app).
  *
  * Revalida no servidor mesmo o formulário já tendo travado o botão "Publicar"
  * enquanto havia erro — o código veio de um `<textarea>`, e nada impede que
@@ -535,6 +540,7 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
   const identity = await requireAdmin();
 
   const parsed = importSimuladoSchema.safeParse({
+    kind: formData.get('kind') || 'simulado',
     subjectId: formData.get('subjectId'),
     topicId: formData.get('topicId') || '',
     schoolId: formData.get('schoolId') || undefined,
@@ -581,17 +587,19 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
   const { data: resource, error: resourceError } = await supabase
     .from('resources')
     .insert({
-      kind: 'simulado' as const,
+      kind: data.kind,
       subject_catalog_id: data.subjectId,
       topic_id: data.topicId || null,
       school_id: resolveSchoolId(identity, data.schoolId ?? null),
       title: data.title,
       description: data.description || null,
       difficulty: data.difficulty,
-      time_limit_seconds: data.timeLimitSeconds || null,
+      // Cronômetro só existe pra simulado — o quiz nunca teve essa noção em
+      // nenhuma outra tela do app, então importado por código não é diferente.
+      time_limit_seconds: data.kind === 'simulado' ? data.timeLimitSeconds || null : null,
       xp_reward: 100,
-      // Um simulado importado nasce sempre como rascunho — publicar é uma
-      // decisão de quem revisou a prévia, nunca um efeito colateral do envio.
+      // Nasce sempre como rascunho — publicar é uma decisão de quem revisou a
+      // prévia, nunca um efeito colateral do envio.
       is_published: false,
       tags,
       created_by: identity.userId,
@@ -600,7 +608,7 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
     .single();
 
   if (resourceError || !resource) {
-    return fail(resourceError?.message ?? 'Não consegui criar o simulado.');
+    return fail(resourceError?.message ?? `Não consegui criar o ${data.kind}.`);
   }
 
   for (const question of result.questions) {
@@ -617,11 +625,11 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
       .single();
 
     if (questionError || !createdQuestion) {
-      // O simulado já existe (como rascunho) com o que deu certo até aqui —
+      // O recurso já existe (como rascunho) com o que deu certo até aqui —
       // apagar tudo por causa de uma questão isolada jogaria fora o trabalho
       // de importar as outras. O admin revisa e completa manualmente.
       return fail(
-        `Simulado criado, mas parei na questão ${question.index}: ${questionError?.message ?? 'erro desconhecido'}. Complete o resto pela tela de questões.`,
+        `${data.kind === 'quiz' ? 'Quiz' : 'Simulado'} criado, mas parei na questão ${question.index}: ${questionError?.message ?? 'erro desconhecido'}. Complete o resto pela tela de questões.`,
       );
     }
 
@@ -636,7 +644,7 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
 
     if (optionsError) {
       return fail(
-        `Simulado criado, mas parei nas alternativas da questão ${question.index}: ${optionsError.message}. Complete o resto pela tela de questões.`,
+        `${data.kind === 'quiz' ? 'Quiz' : 'Simulado'} criado, mas parei nas alternativas da questão ${question.index}: ${optionsError.message}. Complete o resto pela tela de questões.`,
       );
     }
   }

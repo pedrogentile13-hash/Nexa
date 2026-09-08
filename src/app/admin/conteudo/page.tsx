@@ -42,7 +42,7 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
             <Button asChild variant="secondary">
               <Link href="/admin/conteudo/importar-simulado">
                 <FlaskConical aria-hidden />
-                Importar simulado
+                Importar por código
               </Link>
             </Button>
             <Button asChild>

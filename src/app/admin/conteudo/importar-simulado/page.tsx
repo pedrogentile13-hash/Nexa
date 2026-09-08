@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { getResourceFormOptions } from '@/features/admin/server/queries';
 import { requireAdmin } from '@/features/admin/server/guard';
 
-export const metadata = { title: 'Importar simulado' };
+export const metadata = { title: 'Importar quiz ou simulado' };
 
 export default async function ImportSimuladoPage() {
   const identity = await requireAdmin();
@@ -15,7 +15,7 @@ export default async function ImportSimuladoPage() {
   return (
     <>
       <AdminHeader
-        title="Importar simulado por código"
+        title="Importar quiz ou simulado por código"
         description="Cole a estrutura, confira a prévia e publique — sem digitar questão por questão."
         action={
           <Button asChild variant="secondary">

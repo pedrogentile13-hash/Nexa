@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from 'react';
 import { AlertTriangle, Check, ClipboardList } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { Field, FormFeedback, Select, SubmitButton, Textarea } from './form-parts';
 import { DIFFICULTIES } from '../lib/labels';
 import { parseSimuladoCode } from '../lib/simulado-import';
@@ -10,6 +11,12 @@ import { importSimulado, type AdminState } from '../server/actions';
 import type { ResourceFormOptions } from '../server/queries';
 
 const INITIAL: AdminState = { status: 'idle' };
+
+const KINDS = [
+  { value: 'simulado', label: 'Simulado' },
+  { value: 'quiz', label: 'Quiz' },
+] as const;
+type ImportKind = (typeof KINDS)[number]['value'];
 
 const PLACEHOLDER = `{
   "simulation": {
@@ -30,7 +37,11 @@ const PLACEHOLDER = `{
 }`;
 
 /**
- * Importar simulado por código.
+ * Importar quiz ou simulado por código.
+ *
+ * O mesmo formato de JSON serve para os dois — o que muda é só o `kind`
+ * gravado no recurso e o cronômetro, que só faz sentido pra simulado (quiz
+ * nunca teve essa noção em nenhuma outra tela).
  *
  * A validação roda no CLIENTE a cada tecla — `parseSimuladoCode` é puro, sem
  * banco, então não há razão para esperar uma ida ao servidor só para saber se
@@ -45,6 +56,7 @@ export function SimuladoImporter({
   canChooseSchool: boolean;
 }) {
   const [state, formAction] = useActionState(importSimulado, INITIAL);
+  const [kind, setKind] = useState<ImportKind>('simulado');
   const [code, setCode] = useState('');
   const [subjectId, setSubjectId] = useState(options.subjects[0]?.id ?? '');
   const [title, setTitle] = useState('');
@@ -62,6 +74,16 @@ export function SimuladoImporter({
     <form action={formAction} className="grid gap-6 lg:grid-cols-[420px_1fr]">
       <div className="space-y-4">
         <section className="border-border bg-surface space-y-4 rounded-lg border p-4">
+          <Field label="Formato">
+            <Select name="kind" value={kind} onChange={(e) => setKind(e.target.value as ImportKind)}>
+              {KINDS.map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Matéria">
               <Select
@@ -108,7 +130,7 @@ export function SimuladoImporter({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
-              placeholder="Simulado de Matemática"
+              placeholder={kind === 'quiz' ? 'Quiz de Matemática' : 'Simulado de Matemática'}
             />
           </Field>
 
@@ -122,7 +144,7 @@ export function SimuladoImporter({
             />
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className={cn('grid gap-4', kind === 'simulado' && 'sm:grid-cols-2')}>
             <Field label="Dificuldade">
               <Select name="difficulty" defaultValue="medio">
                 {DIFFICULTIES.map((d) => (
@@ -132,9 +154,13 @@ export function SimuladoImporter({
                 ))}
               </Select>
             </Field>
-            <Field label="Tempo de prova" hint="em segundos · 0 = sem limite">
-              <Input name="timeLimitSeconds" type="number" min={0} defaultValue={1200} />
-            </Field>
+            {/* Quiz não tem cronômetro em nenhuma outra tela do app — pedir
+                esse campo aqui só confundiria quem está importando um. */}
+            {kind === 'simulado' && (
+              <Field label="Tempo de prova" hint="em segundos · 0 = sem limite">
+                <Input name="timeLimitSeconds" type="number" min={0} defaultValue={1200} />
+              </Field>
+            )}
           </div>
 
           <Field label="Etiquetas" hint="separadas por vírgula, além do código">
@@ -143,7 +169,7 @@ export function SimuladoImporter({
         </section>
 
         <section className="border-border bg-surface space-y-3 rounded-lg border p-4">
-          <Field label="Código do simulado" hint="cole o JSON estruturado">
+          <Field label="Código" hint="cole o JSON estruturado">
             <Textarea
               name="code"
               rows={14}
@@ -162,7 +188,7 @@ export function SimuladoImporter({
             {!code.trim()
               ? 'Cole o código para continuar'
               : result.ok
-                ? 'Publicar simulado'
+                ? `Publicar ${kind}`
                 : 'Corrija os erros para publicar'}
           </SubmitButton>
           <FormFeedback state={state} />
