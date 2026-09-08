@@ -12,9 +12,11 @@ import {
   Menu,
   Route as RouteIcon,
   RotateCcw,
+  Shield,
   Sparkles,
   Target,
   TrendingUp,
+  User,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,6 +28,11 @@ import { cn } from '@/lib/utils';
  * cada um com 65px, estreito demais pro polegar de quem anda enquanto usa).
  * A Nexa Study cresceu pra 10 seções, então o que não cabe no rodapé vai para
  * "Mais" — uma folha que sobe de baixo, não uma segunda barra escondida.
+ *
+ * Perfil e Admin também moram só em "Mais": nenhum dos dois tinha lugar
+ * nenhum no celular antes disso — o avatar do `AppHeader` some em telas que
+ * usam um cabeçalho próprio (o degradê de Hoje, por exemplo), e o item Admin
+ * só existia na sidebar de desktop.
  *
  * Some no desktop — lá a mesma navegação vira sidebar (`SideNav`).
  */
@@ -44,14 +51,18 @@ const MORE_ITEMS = [
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
   { href: '/nexa-ia', label: 'Nexa IA', Icon: Sparkles },
   { href: '/metas', label: 'Metas', Icon: Target },
+  { href: '/perfil', label: 'Perfil', Icon: User },
 ] as const;
 
-export function BottomNav() {
+const ADMIN_ITEM = { href: '/admin', label: 'Admin', Icon: Shield } as const;
+
+export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const moreItems = isAdmin ? [...MORE_ITEMS, ADMIN_ITEM] : MORE_ITEMS;
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const moreActive = MORE_ITEMS.some((item) => isActive(item.href));
+  const moreActive = moreItems.some((item) => isActive(item.href));
 
   return (
     <>
@@ -80,7 +91,7 @@ export function BottomNav() {
               </button>
             </div>
             <ul className="grid grid-cols-3 gap-2">
-              {MORE_ITEMS.map(({ href, label, Icon }) => {
+              {moreItems.map(({ href, label, Icon }) => {
                 const active = isActive(href);
                 return (
                   <li key={href}>

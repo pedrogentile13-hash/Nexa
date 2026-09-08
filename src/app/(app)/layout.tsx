@@ -44,7 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {/* pb-nav reserva a altura da barra + o indicador de home do iPhone. */}
         <div className="pb-nav md:pb-8">{children}</div>
       </div>
-      <BottomNav />
+      <BottomNav isAdmin={isAdmin} />
       {/* Fica no shell, não em uma tela: o convite deve alcançar quem já está
           usando o app, e não depender de o aluno passar por uma página
           específica. Ele mesmo decide se aparece. */}
