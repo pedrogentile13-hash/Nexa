@@ -63,8 +63,12 @@ export function ResourceForm({
 
         <section className="border-border bg-surface space-y-4 rounded-lg border p-4">
           <Field label="Formato">
+            {/* Um <select disabled> não é enviado no submit do formulário —
+                por isso o valor real vai num input oculto à parte, que
+                continua presente mesmo com o select travado na edição. */}
+            {resource && <input type="hidden" name="kind" value={kind} />}
             <Select
-              name="kind"
+              name={resource ? undefined : 'kind'}
               value={kind}
               onChange={(e) => setKind(e.target.value as ResourceKind)}
               disabled={Boolean(resource)}
