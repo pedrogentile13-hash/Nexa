@@ -26,14 +26,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: profile } = user
     ? await supabase
         .from('profiles')
-        .select('full_name, avatar_url')
+        .select('full_name, avatar_url, role')
         .eq('id', user.id)
         .maybeSingle()
     : { data: null };
 
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
+
   return (
     <div className="flex min-h-dvh">
-      <SideNav name={profile?.full_name ?? null} avatarUrl={profile?.avatar_url ?? null} />
+      <SideNav
+        name={profile?.full_name ?? null}
+        avatarUrl={profile?.avatar_url ?? null}
+        isAdmin={isAdmin}
+      />
       <div className="min-w-0 flex-1">
         {/* pb-nav reserva a altura da barra + o indicador de home do iPhone. */}
         <div className="pb-nav md:pb-8">{children}</div>

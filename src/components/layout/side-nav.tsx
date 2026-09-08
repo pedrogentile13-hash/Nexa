@@ -11,6 +11,7 @@ import {
   Home,
   Route as RouteIcon,
   RotateCcw,
+  Shield,
   Sparkles,
   Target,
   TrendingUp,
@@ -28,8 +29,12 @@ import { cn } from '@/lib/utils';
  * que o produto recebeu, não é estético: separa "o que eu faço" de "o que eu
  * consulto".
  *
- * O avatar fica na base, junto do cartão de incentivo — perfil não é um
- * destino do loop principal.
+ * Espaçamento deliberadamente apertado (sem cartão de incentivo, sem folga
+ * extra entre itens): com até 11 destinos + avatar, a coluna precisa caber
+ * inteira sem rolar em janelas comuns — `overflow-y-auto` continua como rede
+ * de segurança só para telas realmente baixas, não como plano principal.
+ *
+ * O avatar fica na base — perfil não é um destino do loop principal.
  */
 
 interface NavItem {
@@ -54,13 +59,16 @@ const SECONDARY_ITEMS: NavItem[] = [
   { href: '/desempenho', label: 'Desempenho', Icon: TrendingUp },
 ];
 
+/** Só aparece para quem tem `role` admin/school_admin — ver `(app)/layout.tsx`. */
+const ADMIN_ITEM: NavItem = { href: '/admin', label: 'Admin', Icon: Shield };
+
 function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
   return (
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors',
+        'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors',
         active
           ? 'text-brand-fg font-semibold shadow-sm'
           : 'text-muted hover:bg-surface-2 hover:text-text font-medium',
@@ -76,25 +84,28 @@ function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
 export function SideNav({
   name,
   avatarUrl,
+  isAdmin,
 }: {
   name?: string | null;
   avatarUrl?: string | null;
+  isAdmin?: boolean;
 } = {}) {
   const pathname = usePathname();
   const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
   const firstName = name?.trim()?.split(/\s+/)[0] ?? null;
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const secondaryItems = isAdmin ? [...SECONDARY_ITEMS, ADMIN_ITEM] : SECONDARY_ITEMS;
 
   return (
     <nav
       aria-label="Navegação principal"
       className="border-border bg-surface hidden w-64 shrink-0 flex-col border-r md:flex"
     >
-      <div className="sticky top-0 flex h-dvh flex-col gap-1 overflow-y-auto p-4">
+      <div className="sticky top-0 flex h-dvh flex-col gap-0.5 overflow-y-auto p-3">
         {/* Logo — placeholder até o arquivo de marca (SVG) chegar; a estrutura
             (ícone + wordmark de duas linhas) já é a definitiva. */}
-        <Link href="/hoje" aria-label="Nexa Study · início" className="mb-5 flex items-center gap-2.5 px-1">
+        <Link href="/hoje" aria-label="Nexa Study · início" className="mb-3 flex items-center gap-2.5 px-1">
           <span
             aria-hidden
             className="grid size-9 shrink-0 place-items-center rounded-xl text-base font-bold text-white"
@@ -116,31 +127,21 @@ export function SideNav({
           ))}
         </div>
 
-        <div className="border-border my-3 border-t" />
+        <div className="border-border my-2 border-t" />
 
         <div className="space-y-0.5">
-          {SECONDARY_ITEMS.map((item) => (
+          {secondaryItems.map((item) => (
             <NavLink key={item.href} {...item} active={isActive(item.href)} />
           ))}
         </div>
 
-        {/* Cartão de incentivo — fecha a coluna com identidade, como a prévia
-            visual mostra em todas as telas. */}
-        <div
-          className="mt-4 rounded-2xl p-4 text-white"
-          style={{ background: 'var(--gradient-header)' }}
-        >
-          <p className="text-sm leading-snug font-semibold">Seu estudo, mais longe.</p>
-          <p className="mt-1 text-xs leading-relaxed opacity-90">
-            Disciplina hoje, resultados amanhã.
-          </p>
-        </div>
+        <div className="flex-1" />
 
         <Link
           href="/perfil"
           aria-current={isActive('/perfil') ? 'page' : undefined}
           className={cn(
-            'mt-3 flex items-center gap-2.5 rounded-xl p-2 transition-colors',
+            'mt-2 flex items-center gap-2.5 rounded-xl p-2 transition-colors',
             isActive('/perfil') ? 'bg-brand-soft' : 'hover:bg-surface-2',
           )}
         >
