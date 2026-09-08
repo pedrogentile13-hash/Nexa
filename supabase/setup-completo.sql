@@ -3481,16 +3481,18 @@ grant execute on function public.bootstrap_student(
 -- Fórmula (documentada com números redondos de propósito, pra dar pra
 -- explicar ao aluno "por que essa nota"):
 --
---   nota da matéria = 70% avaliativo + 30% empenho
+--   nota da matéria = 70% avaliativo + 30% atividades
 --
 --   avaliativo = média ponderada da TENTATIVA MAIS RECENTE de cada
 --     quiz/simulado da matéria (simulado pesa 2, quiz pesa 1). Nula se o
 --     aluno nunca fez nenhum — nunca vira nota zero por ausência de dado.
 --
---   empenho (0–100) = 40% conteúdo concluído (teto em 8 itens — depois disso
---     assistir mais não aumenta o índice, é a defesa contra "maratonar vídeo
---     pra subir nota") + 30% regularidade (dias com estudo nos últimos 14) +
---     30% sequência atual (`user_stats.current_streak`, teto em 14 dias).
+--   atividades (0–100) = (conteúdo concluído / conteúdo publicado na
+--     matéria) × 100 — com 1 atividade publicada só existem dois resultados
+--     possíveis (0 ou 100), com 2 existem três (0, 50, 100), e assim por
+--     diante. Sem nenhum conteúdo publicado ainda, fica nulo — não é 0 nem
+--     100, não há o que medir — e a nota da matéria usa só o avaliativo
+--     nesse caso, sem dividir 30% sobre um lado vazio.
 -- ============================================================================
 
 -- --------------------------------------------------------------- subject_scores --
@@ -3540,6 +3542,17 @@ as $$
     from attempt_scored
     group by subject_catalog_id
   ),
+  -- Atividade = conteúdo (resumo/podcast/vídeo/imagem) PUBLICADO e visível
+  -- para este aluno — mesma regra de visibilidade de `resource_library()`:
+  -- global (sem escola) ou da escola dele.
+  content_available as (
+    select r.subject_catalog_id, count(*) as content_total
+    from public.resources r
+    where r.kind in ('resumo', 'podcast', 'video', 'imagem')
+      and r.is_published
+      and (r.school_id is null or r.school_id = public.current_school_id(p_user_id))
+    group by r.subject_catalog_id
+  ),
   content_done as (
     select r.subject_catalog_id, count(distinct rp.resource_id) as content_completed
     from public.resource_progress rp
@@ -3548,30 +3561,15 @@ as $$
       and r.kind in ('resumo', 'podcast', 'video', 'imagem')
     group by r.subject_catalog_id
   ),
-  regularity as (
-    select ss.subject_id, count(distinct ss.local_date) as active_days
-    from public.study_sessions ss
-    where ss.user_id = p_user_id
-      and ss.local_date >= public.user_local_date(p_user_id) - 13
-    group by ss.subject_id
-  ),
-  streak as (
-    select coalesce(
-      (select us.current_streak from public.user_stats us where us.user_id = p_user_id), 0
-    ) as current_streak
-  ),
-  empenho as (
+  atividades as (
     select
-      s.id as subject_id,
-      least(1, coalesce(cd.content_completed, 0) / 8.0) * 40
-      + least(1, coalesce(reg.active_days, 0) / 14.0) * 30
-      + least(1, coalesce(st.current_streak, 0) / 14.0) * 30
-      as empenho_index
-    from public.subjects s
-    left join content_done cd on cd.subject_catalog_id = s.catalog_id
-    left join regularity reg on reg.subject_id = s.id
-    cross join streak st
-    where s.user_id = p_user_id and s.archived_at is null
+      ca.subject_catalog_id,
+      case
+        when ca.content_total = 0 then null
+        else round(coalesce(cd.content_completed, 0)::numeric / ca.content_total * 10, 2)
+      end as atividades_score
+    from content_available ca
+    left join content_done cd on cd.subject_catalog_id = ca.subject_catalog_id
   )
   select
     s.id,
@@ -3579,9 +3577,12 @@ as $$
     s.color,
     s.catalog_id is not null,
     round(a.assessment_score, 2),
-    round(e.empenho_index, 1),
-    case when a.assessment_score is not null
-      then round(a.assessment_score * 0.7 + e.empenho_index / 10 * 0.3, 2)
+    coalesce(act.atividades_score, 0) * 10,
+    case
+      when a.assessment_score is not null and act.atividades_score is not null
+        then round(a.assessment_score * 0.7 + act.atividades_score * 0.3, 2)
+      when a.assessment_score is not null
+        then round(a.assessment_score, 2)
     end,
     coalesce(a.quizzes_done, 0)::integer,
     coalesce(a.simulados_done, 0)::integer,
@@ -3591,13 +3592,13 @@ as $$
   from public.subjects s
   left join assessment a on a.subject_catalog_id = s.catalog_id
   left join content_done cd on cd.subject_catalog_id = s.catalog_id
-  left join empenho e on e.subject_id = s.id
+  left join atividades act on act.subject_catalog_id = s.catalog_id
   where s.user_id = p_user_id and s.archived_at is null
   order by s.sort_order, s.name;
 $$;
 
 comment on function public.subject_scores(uuid) is
-  'Nota automática por matéria (70% avaliativo + 30% empenho) — substitui o boletim manual.';
+  'Nota automática por matéria (70% avaliativo + 30% atividades concluídas) — substitui o boletim manual.';
 
 grant execute on function public.subject_scores(uuid) to authenticated;
 

@@ -144,8 +144,10 @@ end;
 $$;
 
 -- --------------------------------------------------------- 2 · nota automática --
--- Quiz: 1 de 2 (50%). Simulado: 2 de 2 (100%, pesa 2). Resumo concluído: 1.
--- Uma sessão de estudo hoje: regularidade = 1/14.
+-- Quiz: 1 de 2 (50%). Simulado: 2 de 2 (100%, pesa 2). Resumo concluído: 1 de 1
+-- publicado em Matemática (então atividades = 100%). A sessão de estudo abaixo
+-- não entra mais na nota — fica só como fixture usada por outros testes
+-- (sync do timer, isolamento entre alunos) mais adiante neste arquivo.
 do $$
 declare
   v_matematica uuid;
@@ -201,13 +203,14 @@ begin
   assert round(v_row.assessment_score, 2) = 8.33,
     format('assessment_score: esperado 8.33, veio %s', v_row.assessment_score);
 
-  -- empenho = min(1,1/8)·40 + min(1,1/14)·30 + min(1,1/14)·30 = 5 + 2,142857·2 = 9,2857 → 9.3
-  assert round(v_row.empenho_index, 1) = 9.3,
-    format('empenho_index: esperado 9.3, veio %s', v_row.empenho_index);
+  -- atividades = conteúdo concluído / conteúdo publicado = 1/1 · 10 = 10 → empenho_index 100.0
+  -- (só existe 1 resumo publicado em Matemática na fixture, e está concluído)
+  assert round(v_row.empenho_index, 1) = 100.0,
+    format('empenho_index: esperado 100.0, veio %s', v_row.empenho_index);
 
-  -- final = 8,3333·0.7 + 9,2857/10·0.3 = 5,8333 + 0,27857 = 6,1119 → 6.11
-  assert round(v_row.blended_score, 2) = 6.11,
-    format('blended_score: esperado 6.11, veio %s', v_row.blended_score);
+  -- final = 8,3333·0.7 + 10·0.3 = 5,8333 + 3 = 8,8333 → 8.83
+  assert round(v_row.blended_score, 2) = 8.83,
+    format('blended_score: esperado 8.83, veio %s', v_row.blended_score);
 
   assert v_row.passing_grade = 6.0, 'passing_grade deve ser a constante 6,0';
   assert v_row.target_grade is null, 'Alice não definiu meta nenhuma ainda';
