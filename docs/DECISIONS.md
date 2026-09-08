@@ -1107,3 +1107,104 @@ mas nada os popula ou lê hoje, e fabricar um card sobre uma tabela morta
 quebraria o padrão de honestidade que o produto segue desde o ADR-036 (nota
 sem dado não vira "parabéns" nem conquista fingida). Fica registrado como
 próxima etapa natural, não como esquecimento.
+
+## ADR-044 · Nexa Study — reforma de identidade e seis seções novas
+
+**Contexto.** O usuário trouxe uma identidade visual nova (gradiente
+roxo→ciano, nome "Nexa Study") e um PDF de 17 telas com uma navegação bem
+maior: de 5 seções (Hoje/Agenda/Estudar/Matérias/Desempenho) para 10
+(Início, Matérias, Simulados, Trilhas, Agenda, Revisões, Nexa IA,
+Biblioteca, Metas, Desempenho). Perguntado antes de qualquer código: nav
+mobile = 5 fixos + "Mais"; Revisões substitui `/erros` (não coexistem);
+Nexa IA nesta rodada é só estrutura, sem chamada de LLM real; ordem de
+entrega = reskin do que já existe primeiro, seções novas depois.
+
+**Identidade e navegação (Fase 0-1) — reskin, não reescrita.** Trocar a
+marca para roxo/ciano foi editar `--brand*`/`--gradient-header` em
+`globals.css` (light + dark, contraste WCAG recalculado no comentário do
+arquivo) — o resto do design system (tokens semânticos, `Card`/`Badge`/
+`Progress` etc.) não muda de forma, só de cor. A navegação, que já era um
+array simples (`side-nav.tsx`), ganhou os 5 itens novos na mesma estrutura.
+O rodapé mobile mantém as 5 posições fixas que motivaram a fusão de telas
+no ADR-042 (`Início/Biblioteca/Agenda/Matérias/Desempenho`) mas agora abre
+um botão "Mais" para as outras 5 — resolvendo o mesmo limite de espaço sem
+precisar fundir telas de novo.
+
+**Trilhas ganha `category`, e o valor default não é arbitrário.**
+`tracks.category` (enum `enem`/`fundamental`/`reforco`/`carreiras`/
+`habilidades`) tem default `'reforco'` porque a única trilha semeada hoje
+("Trilha de Física") é exatamente isso — reforço de conteúdo de uma
+matéria. Nenhuma trilha existente fica sem categoria depois da migração. A
+listagem nova (`/trilhas`) precisou de um sinal de recência
+("continue de onde parou") que a view `v_track_lessons_resolved` não
+carregava — resolvido lendo `lesson_progress.updated_at` direto (ela já tem
+a coluna), sem alterar a view: alterar uma view já usada por outra migration
+via `create or replace` quebra a reaplicação de `setup-completo.sql` sobre
+um banco existente sempre que a nova versão MUDA a posição/conjunto de
+colunas (Postgres recusa "cannot drop columns from view"), e o caminho real
+de instalação deste projeto é colar o arquivo inteiro de novo — não uma
+migration por vez.
+
+**Revisões substitui `/erros` — o ADR-042 é revertido, não emendado.**
+Naquela época, "Meus erros" e "Revisões de hoje" viraram uma tela só porque
+descreviam o mesmo dado (questões erradas) e não havia posição de navegação
+sobrando para uma segunda tela. As duas premissas mudaram: o usuário pediu
+uma seção de Revisões genuinamente mais ampla (fila hoje/atrasadas/
+próximas/concluídas, com repetição espaçada de conteúdo concluído, não só
+questões erradas) e o rodapé "5 fixos + Mais" desta mesma rodada resolveu o
+limite de espaço que impedia uma tela nova. `content_reviews` é um log de
+eventos (uma linha por confirmação, não por recurso) — mesmo padrão de
+`quiz_attempts`/`study_sessions` — porque contar "revisões de hoje" exige
+saber QUANDO cada confirmação aconteceu, não só o estado atual. A função
+`review_queue()` junta `recent_errors()` (inalterada, sempre "hoje") com
+conteúdo vencido por repetição espaçada (3→7→14→30 dias, avançando um passo
+por confirmação, parando em 30) — mesmo padrão `security definer` do
+ADR-042, pelo mesmo motivo: read the gabarito exige privilégio elevado.
+
+**`long_term_goals` é a única tabela do produto onde o aluno digita um
+número, e isso não contradiz o ADR-043.** A régua de "nunca fabricar dado"
+(nota automática, sem input manual) vale para o que o PRODUTO consegue
+medir — quizzes feitos, minutos estudados, questões respondidas. Uma meta de
+vida ("passar no ENEM", "entrar em Engenharia") não é algo que o sistema
+tem como medir automaticamente; deixar o aluno dizer o quanto acha que
+avançou não é fabricar uma métrica, é registrar uma auto-avaliação
+explícita sobre algo fora do alcance de qualquer contagem. Os quatro
+indicadores do topo de `/metas` (horas/matérias/atividades/sequência)
+continuam 100% derivados — só a meta de cada um é escolha do aluno
+(`profiles.monthly_activities_goal`/`monthly_subjects_goal` são novos; a
+meta de horas deriva de `weekly_study_goal_minutes × 4` em vez de duplicar
+um campo que já existe).
+
+**Nexa IA é estrutura completa, sem provedor ligado — e o provedor já tem
+resposta, do ADR-039.** Sessões e mensagens (`ai_chat_sessions`/
+`ai_chat_messages`) são reais e persistem normalmente; a única coisa fixa é
+a resposta do "assistente", porque falta a chave de API. O ADR-039 já havia
+decidido Google Gemini como provedor do projeto (para PDF→estudo e as
+recomendações do Loop Nexa) — não há razão para outro provedor só para o
+chat, mas a chave em si continua sendo uma variável de ambiente que só o
+usuário pode configurar. Todo o ponto de troca fica isolado em uma única
+função (`replyTo()`, `features/nexa-ia/server/actions.ts`): quando a chave
+existir, essa função passa a chamar a API em vez de devolver texto fixo, e
+nada mais no schema, na UI ou nas policies de RLS precisa mudar.
+
+**Tempo de estudo por trilha ficou de fora — não existe cronômetro por
+recurso, e aproximar seria prometer uma precisão que o dado não tem.** O
+plano original cogitava somar `resource_progress.position_seconds` como
+"tempo de estudo" da trilha, mas essa coluna é posição de reprodução de
+mídia (onde o aluno parou), não segundos efetivamente gastos — e para
+resumos de leitura não existe tempo registrado algum. `/trilhas/[id]`
+mostra em vez disso dois números honestos: questões respondidas (soma de
+`quiz_attempts.total_count` dos recursos da trilha) e materiais concluídos
+(`resource_progress.completed_at`).
+
+**O que ficou de fora, de propósito.** Sincronização com Google Agenda/
+Outlook (falta credencial OAuth que só o usuário pode gerar) — o cartão
+"Sincronize sua agenda" fica visível, com o botão desabilitado. Conquistas
+de trilha (badge por trilha concluída) e o desbloqueio automático de
+`achievements` continuam fora, pela mesma razão do ADR-038/043: nada os
+popula hoje. Admin → Relatórios/Notificações/Configurações viraram nav +
+página "em construção" — sem mockup de conteúdo para essas três, inventar o
+que ainda não foi desenhado quebraria o mesmo padrão de honestidade. Os
+arquivos de logo (SVG/PNG em alta resolução) continuam pendentes do
+usuário — não é possível vetorizar com fidelidade a partir do PNG colado no
+chat.
