@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import {
   CalendarPlus,
+  CalendarSync,
   CalendarX,
   ChevronLeft,
   ChevronRight,
@@ -290,7 +291,7 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
 
       {/* Próximos eventos — só no desktop; no celular o modo "Lista" já cobre
           a mesma necessidade, e duas listas iguais empilhadas seriam ruído. */}
-      <aside className="hidden lg:sticky lg:top-4 lg:block">
+      <aside className="hidden space-y-4 lg:sticky lg:top-4 lg:block">
         <Card>
           <CardHeader>
             <CardTitle>Próximos eventos</CardTitle>
@@ -327,6 +328,31 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
                 })}
               </ul>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Integração de calendário externo — fora de escopo desta rodada
+            (exige credencial OAuth do Google/Microsoft que só o dono do
+            projeto pode gerar). O cartão fica visível, com o botão
+            desabilitado, em vez de sumir e parecer que a ideia foi
+            esquecida. */}
+        <Card>
+          <CardContent className="flex items-start gap-3 p-4">
+            <span
+              aria-hidden
+              className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl"
+            >
+              <CalendarSync className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Sincronize sua agenda</p>
+              <p className="text-muted mt-0.5 text-xs leading-relaxed">
+                Conecte com o Google Agenda e não perca seus compromissos.
+              </p>
+              <Button variant="secondary" size="sm" className="mt-2.5" disabled>
+                Em breve
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </aside>

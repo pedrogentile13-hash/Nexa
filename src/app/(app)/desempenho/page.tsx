@@ -12,7 +12,6 @@ import {
   TrendingUp,
   Trophy,
 } from 'lucide-react';
-import { GradientHeader } from '@/components/layout/gradient-header';
 import { PageMain } from '@/components/layout/page-main';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -195,26 +194,36 @@ export default async function PerformancePage() {
 
   return (
     <>
-      {/* No celular o degradê; no desktop, um cabeçalho claro com o número em
-          azul, como o guia mostra. Numa tela larga a faixa colorida ocuparia
-          uma fatia de área que não carrega informação nenhuma. */}
-      <div className="md:hidden">
-        <GradientHeader
-          title="Desempenho"
-          subtitle="Nota automática — quizzes, simulados e empenho"
-          right={<AverageBadge average={data.overallScore} delta={delta} onGradient />}
-        />
+      <div
+        className="relative overflow-hidden rounded-b-[20px] p-5 text-white md:mx-4 md:mt-4 md:rounded-[20px] lg:mx-6 lg:mt-6"
+        style={{ background: 'var(--gradient-header)' }}
+      >
+        <div className="relative mx-auto flex w-full max-w-[1440px] items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-[28px]">
+              Seu progresso em foco.
+            </h1>
+            <p className="mt-1.5 text-sm opacity-90">
+              Acompanhe seu desempenho, identifique pontos de melhoria e evolua sempre.
+            </p>
+          </div>
+          <AverageBadge average={data.overallScore} delta={delta} onGradient />
+        </div>
       </div>
 
       <PageMain className="grid gap-4 pt-4 md:pt-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6">
-        <div className="hidden items-start justify-between gap-4 md:flex lg:col-span-2">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Desempenho</h1>
-            <p className="text-muted mt-0.5 text-sm">
-              Nota automática — quizzes, simulados e empenho
-            </p>
-          </div>
-          <AverageBadge average={data.overallScore} delta={delta} />
+        {/* Números diretos em vez de uma "taxa de conclusão" sem denominador
+            claro — o que existe pra contar é isto: quanto foi feito. */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:col-span-2 lg:row-start-1">
+          <StatTile icon={CheckCircle2} value={String(totalQuizzes)} label="Quizzes feitos" />
+          <StatTile icon={Trophy} value={String(totalSimulados)} label="Simulados feitos" />
+          <StatTile icon={NotebookPen} value={String(totalContent)} label="Conteúdos concluídos" />
+          <StatTile icon={Flame} value={String(data.currentStreak)} label="Sequência atual" />
+          <StatTile
+            icon={Target}
+            value={studyHours.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}
+            label="Horas de estudo"
+          />
         </div>
 
         {hasScores ? (
@@ -376,20 +385,6 @@ export default async function PerformancePage() {
             </CardContent>
           </Card>
         )}
-
-        {/* Números diretos em vez de uma "taxa de conclusão" sem denominador
-            claro — o que existe pra contar é isto: quanto foi feito. */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:col-span-2">
-          <StatTile icon={CheckCircle2} value={String(totalQuizzes)} label="Quizzes feitos" />
-          <StatTile icon={Trophy} value={String(totalSimulados)} label="Simulados feitos" />
-          <StatTile icon={NotebookPen} value={String(totalContent)} label="Conteúdos concluídos" />
-          <StatTile icon={Flame} value={String(data.currentStreak)} label="Sequência atual" />
-          <StatTile
-            icon={Target}
-            value={studyHours.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}
-            label="Horas de estudo"
-          />
-        </div>
 
         {data.simuladoHistory.length > 0 && (
           <Card className="min-w-0 lg:col-span-2">
