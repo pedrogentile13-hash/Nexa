@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Video,
 } from 'lucide-react';
+import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { Card, CardContent } from '@/components/ui/card';
 import { ProgressRing } from '@/components/ui/progress-ring';
@@ -28,20 +29,6 @@ import { greetingFor, longDate, relativeDay } from '../lib/greeting';
 import { daysBetween } from '../lib/ranking';
 import type { RankedFocus } from '../lib/ranking';
 import type { ResumeItem, TodaySnapshot } from '../server/queries';
-
-/** Frases curtas, no mesmo tom do resto do produto — uma por dia, estável no servidor. */
-const QUOTES = [
-  'Pequenos avanços, grandes conquistas.',
-  'Disciplina hoje, resultados amanhã.',
-  'Constância vale mais que intensidade.',
-  'Um passo de cada vez chega longe.',
-  'Seu esforço de hoje é o resultado de amanhã.',
-];
-
-function quoteOf(isoDate: string): string {
-  const day = Number(isoDate.slice(8, 10)) || 0;
-  return QUOTES[day % QUOTES.length] ?? QUOTES[0]!;
-}
 
 /**
  * A tela Hoje, separada da busca de dados.
@@ -205,37 +192,21 @@ export function TodayView({
   }
 
   return (
-    <PageMain className="grid gap-4 pt-4 md:pt-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6">
-      {/* Saudação, com a identidade de volta no topo — a prévia visual da
-          reforma pediu explicitamente o degradê e a citação decorativa de
-          volta, ao contrário do layout anterior. */}
-      <div
-        className="relative min-w-0 overflow-hidden rounded-[20px] p-5 text-white lg:col-start-1 lg:row-start-1"
-        style={{ background: 'var(--gradient-header)' }}
-      >
-        <div className="relative flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-[28px]">
-              {snapshot.greetingName ? `${greeting}, ${snapshot.greetingName}!` : `${greeting}!`}{' '}
-              👋
-            </h1>
-            <p className="mt-1.5 text-sm opacity-90">
-              {longDate(snapshot.today)} · veja o que está acontecendo hoje
-            </p>
-          </div>
-          <p className="hidden max-w-[180px] shrink-0 rounded-2xl bg-white/15 p-3 text-xs leading-snug backdrop-blur-sm sm:block">
-            “{quoteOf(snapshot.today)}”
-            <span className="mt-1 block opacity-80">— Nexa Study</span>
-          </p>
+    <>
+      <AppHeader
+        title={snapshot.greetingName ? `${greeting}, ${snapshot.greetingName}!` : `${greeting}!`}
+        subtitle={longDate(snapshot.today)}
+        avatarUrl={snapshot.avatarUrl}
+        name={snapshot.greetingName}
+      />
+
+      <PageMain className="grid gap-4 pt-4 md:pt-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6">
+        <div className="hidden min-w-0 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:block">
+          <MiniCalendar today={snapshot.today} dotsByDate={calendarDots} />
         </div>
-      </div>
 
-      <div className="hidden min-w-0 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:block">
-        <MiniCalendar today={snapshot.today} dotsByDate={calendarDots} />
-      </div>
-
-      {/* Estatísticas rápidas ------------------------------------------------ */}
-      <div className="grid min-w-0 grid-cols-3 gap-2.5 lg:col-start-1 lg:row-start-2 lg:gap-3">
+        {/* Estatísticas rápidas ------------------------------------------------ */}
+        <div className="grid min-w-0 grid-cols-3 gap-2.5 lg:col-start-1 lg:row-start-1 lg:gap-3">
         <StatTile
           icon={<Flame className="size-4.5" aria-hidden />}
           label="Sequência"
@@ -259,7 +230,7 @@ export function TodayView({
       </div>
 
       {/* Sequência em destaque ---------------------------------------------- */}
-      <div className="min-w-0 lg:col-start-1 lg:row-start-3">
+      <div className="min-w-0 lg:col-start-1 lg:row-start-2">
         <StreakWeek
           weekDays={snapshot.weekDays}
           currentStreak={snapshot.streak}
@@ -270,7 +241,7 @@ export function TodayView({
       </div>
 
       {/* Foco do dia ------------------------------------------------------ */}
-      <section aria-labelledby="foco" className="min-w-0 lg:col-start-1 lg:row-start-4">
+      <section aria-labelledby="foco" className="min-w-0 lg:col-start-1 lg:row-start-3">
         <SectionTitle
           icon={<Crosshair className="text-brand size-4" aria-hidden />}
           hint={
@@ -364,7 +335,7 @@ export function TodayView({
       </div>
 
       {/* Estudar agora (Etapa 8) -------------------------------------------- */}
-      <div className="min-w-0 lg:col-start-1 lg:row-start-5">
+      <div className="min-w-0 lg:col-start-1 lg:row-start-4">
         <StudyNowCard
           runningSessionId={snapshot.runningSessionId}
           startedAt={snapshot.runningSessionStartedAt}
@@ -375,7 +346,7 @@ export function TodayView({
       {snapshot.recommendedQuiz && (
         <Link
           href={`/estudar/${snapshot.recommendedQuiz.id}`}
-          className="border-border bg-surface hover:bg-surface-2 flex min-w-0 items-center gap-3 rounded-[20px] border p-4 transition-colors lg:col-start-1 lg:row-start-6"
+          className="border-border bg-surface hover:bg-surface-2 flex min-w-0 items-center gap-3 rounded-[20px] border p-4 transition-colors lg:col-start-1 lg:row-start-5"
         >
           <span
             aria-hidden
@@ -398,7 +369,7 @@ export function TodayView({
 
       {/* Continue ouvindo / assistindo ------------------------------------- */}
       {(snapshot.resumeAudio || snapshot.resumeVideo) && (
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:col-start-1 lg:row-start-7">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:col-start-1 lg:row-start-6">
           {snapshot.resumeAudio && (
             <ResumeCard
               item={snapshot.resumeAudio}
@@ -418,7 +389,7 @@ export function TodayView({
 
       {/* Aulas de hoje ---------------------------------------------------- */}
       {snapshot.classesToday.length > 0 && (
-        <section aria-labelledby="aulas" className="min-w-0 lg:col-start-1 lg:row-start-8">
+        <section aria-labelledby="aulas" className="min-w-0 lg:col-start-1 lg:row-start-7">
           <SectionTitle icon={<CalendarClock className="text-brand size-4" aria-hidden />}>
             <span id="aulas">Aulas de hoje</span>
           </SectionTitle>
@@ -452,7 +423,7 @@ export function TodayView({
 
       {/* O que vem por aí -------------------------------------------------- */}
       {snapshot.upcoming.length > 0 && (
-        <section aria-labelledby="proximos" className="min-w-0 lg:col-start-1 lg:row-start-9">
+        <section aria-labelledby="proximos" className="min-w-0 lg:col-start-1 lg:row-start-8">
           <SectionTitle
             action={
               <Link
@@ -500,6 +471,7 @@ export function TodayView({
           </Card>
         </section>
       )}
-    </PageMain>
+      </PageMain>
+    </>
   );
 }

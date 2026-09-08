@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Trophy,
 } from 'lucide-react';
+import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,32 +72,13 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-/**
- * A nota e a variação, na mesma peça.
- *
- * Existe uma versão para o degradê e outra para o fundo claro porque o verde e
- * o vermelho do tema não têm contraste suficiente sobre o azul — sobre a faixa
- * eles viram superfícies translúcidas, e sobre o claro voltam a ser os tokens.
- */
-function AverageBadge({
-  average,
-  delta,
-  onGradient = false,
-}: {
-  average: number | null;
-  delta: number | null;
-  onGradient?: boolean;
-}) {
+/** A nota e a variação, na mesma peça. */
+function AverageBadge({ average, delta }: { average: number | null; delta: number | null }) {
   const up = (delta ?? 0) > 0;
 
   return (
     <div className="flex shrink-0 items-center gap-2 text-right">
-      <span
-        className={cn(
-          'tabular text-3xl leading-none font-semibold md:text-4xl',
-          onGradient ? '' : 'text-brand-text',
-        )}
-      >
+      <span className="tabular text-brand-text text-2xl leading-none font-semibold">
         {formatGrade(average, 1)}
       </span>
 
@@ -104,15 +86,8 @@ function AverageBadge({
         <span
           className={cn(
             'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold tabular-nums',
-            !onGradient && (up ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'),
+            up ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger',
           )}
-          style={
-            onGradient
-              ? {
-                  backgroundColor: up ? 'rgba(74, 222, 128, 0.22)' : 'rgba(248, 113, 113, 0.22)',
-                }
-              : undefined
-          }
         >
           {up ? (
             <TrendingUp className="size-3.5" aria-hidden />
@@ -194,22 +169,11 @@ export default async function PerformancePage() {
 
   return (
     <>
-      <div
-        className="relative overflow-hidden rounded-b-[20px] p-5 text-white md:mx-4 md:mt-4 md:rounded-[20px] lg:mx-6 lg:mt-6"
-        style={{ background: 'var(--gradient-header)' }}
-      >
-        <div className="relative mx-auto flex w-full max-w-[1440px] items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-[28px]">
-              Seu progresso em foco.
-            </h1>
-            <p className="mt-1.5 text-sm opacity-90">
-              Acompanhe seu desempenho, identifique pontos de melhoria e evolua sempre.
-            </p>
-          </div>
-          <AverageBadge average={data.overallScore} delta={delta} onGradient />
-        </div>
-      </div>
+      <AppHeader
+        title="Seu progresso em foco."
+        subtitle="Acompanhe seu desempenho, identifique pontos de melhoria e evolua sempre."
+        action={<AverageBadge average={data.overallScore} delta={delta} />}
+      />
 
       <PageMain className="grid gap-4 pt-4 md:pt-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6">
         {/* Números diretos em vez de uma "taxa de conclusão" sem denominador

@@ -38,28 +38,6 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-8 md:px-6 md:pt-6 lg:px-8">
-      {!kindFilter && (
-        <div
-          className="relative overflow-hidden rounded-[20px] p-5 text-white"
-          style={{ background: 'var(--gradient-header)' }}
-        >
-          <div className="relative flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-[28px]">
-                Biblioteca
-              </h1>
-              <p className="mt-1.5 text-sm opacity-90">
-                Aprenda do seu jeito. Conteúdo pra cada etapa da sua jornada.
-              </p>
-            </div>
-            <p className="hidden max-w-[180px] shrink-0 rounded-2xl bg-white/15 p-3 text-xs leading-snug backdrop-blur-sm sm:block">
-              “Mais conhecimento, mais possibilidades.”
-              <span className="mt-1 block opacity-80">— Nexa Study</span>
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* ---------------------------------------------------- matérias -- */}
       {data.subjects.length > 0 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
