@@ -108,6 +108,8 @@ export type ProfileRow = {
   role: UserRole;
   weekly_study_goal_minutes: number;
   daily_study_goal_minutes: number;
+  monthly_activities_goal: number;
+  monthly_subjects_goal: number;
   notification_settings: NotificationSettings;
   onboarded_at: string | null;
   created_at: string;
@@ -491,6 +493,16 @@ export type ContentReviewRow = {
   reviewed_at: string;
 };
 
+export type LongTermGoalRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  icon: string;
+  progress_percent: number;
+  created_at: string;
+  updated_at: string;
+};
+
 /* ------------------------------------------------------------- views --- */
 
 export type VResourceLibraryRow = {
@@ -571,6 +583,7 @@ export type Database = {
       highlights: Table<HighlightRow>;
       flashcard_reviews: Table<FlashcardReviewRow>;
       content_reviews: Table<ContentReviewRow>;
+      long_term_goals: Table<LongTermGoalRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
