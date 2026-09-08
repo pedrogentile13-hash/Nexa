@@ -648,6 +648,7 @@ const trackSchema = z.object({
   schoolId: z.string().optional(),
   title: z.string().trim().min(2, 'Dê um título à trilha.').max(160),
   description: z.string().trim().max(1000).optional().or(z.literal('')),
+  category: z.enum(['enem', 'fundamental', 'reforco', 'carreiras', 'habilidades']),
   isPublished: z.boolean(),
 });
 
@@ -660,6 +661,7 @@ export async function saveTrack(_prev: AdminState, formData: FormData): Promise<
     schoolId: formData.get('schoolId') || undefined,
     title: formData.get('title'),
     description: formData.get('description') || '',
+    category: formData.get('category'),
     isPublished: formData.get('isPublished') === 'on' || formData.get('isPublished') === 'true',
   });
   if (!parsed.success) return fail(firstIssue(parsed.error));
@@ -670,6 +672,7 @@ export async function saveTrack(_prev: AdminState, formData: FormData): Promise<
     school_id: resolveSchoolId(identity, parsed.data.schoolId ?? null),
     title: parsed.data.title,
     description: parsed.data.description || null,
+    category: parsed.data.category,
     is_published: parsed.data.isPublished,
     created_by: identity.userId,
   };

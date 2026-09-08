@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import type { AdminIdentity } from './guard';
-import type { Difficulty, ResourceKind } from '@/types/database.types';
+import type { Difficulty, ResourceKind, TrackCategory } from '@/types/database.types';
 
 /**
  * Leituras do painel.
@@ -326,6 +326,7 @@ export interface AdminTrack {
   description: string | null;
   subjectName: string;
   schoolName: string | null;
+  category: TrackCategory;
   isPublished: boolean;
   lessonCount: number;
 }
@@ -336,7 +337,7 @@ export async function listTracks(): Promise<AdminTrack[]> {
   const [tracksRes, lessonsRes] = await Promise.all([
     supabase
       .from('tracks')
-      .select('id, title, description, is_published, subject_catalog(name), schools(name)')
+      .select('id, title, description, category, is_published, subject_catalog(name), schools(name)')
       .order('sort_order'),
     supabase.from('v_track_lessons_resolved').select('track_id'),
   ]);
@@ -355,6 +356,7 @@ export async function listTracks(): Promise<AdminTrack[]> {
       description: t.description,
       subjectName: subject?.name ?? '—',
       schoolName: school?.name ?? null,
+      category: t.category,
       isPublished: t.is_published,
       lessonCount: lessonCount.get(t.id) ?? 0,
     };

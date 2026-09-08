@@ -4,6 +4,7 @@ import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { TrackCreator } from '@/features/admin/components/track-creator';
 import { listSchools, listTracks, listSubjectsWithTopics } from '@/features/admin/server/queries';
 import { requireAdmin } from '@/features/admin/server/guard';
+import { trackCategoryLabel } from '@/lib/design/track-category';
 import { cn } from '@/lib/utils';
 
 export const metadata = { title: 'Trilhas' };
@@ -45,8 +46,8 @@ export default async function TracksPage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{track.title}</span>
                       <span className="text-muted text-xs">
-                        {track.subjectName} · {track.lessonCount}{' '}
-                        {track.lessonCount === 1 ? 'lição' : 'lições'} ·{' '}
+                        {track.subjectName} · {trackCategoryLabel(track.category)} ·{' '}
+                        {track.lessonCount} {track.lessonCount === 1 ? 'lição' : 'lições'} ·{' '}
                         {track.schoolName ?? 'todas as escolas'}
                       </span>
                     </span>

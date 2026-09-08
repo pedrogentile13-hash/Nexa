@@ -158,7 +158,7 @@ export function LessonView({ lesson, resources }: { lesson: Lesson; resources: L
               </p>
             )}
             <Button asChild variant="secondary" className="mt-3">
-              <Link href={`/estudar/trilha/${lesson.trackId}`}>Voltar à trilha</Link>
+              <Link href={`/trilhas/${lesson.trackId}`}>Voltar à trilha</Link>
             </Button>
           </div>
         ) : (

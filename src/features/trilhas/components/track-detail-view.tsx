@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { Check, ChevronRight, Circle, Lock, Play, Star } from 'lucide-react';
+import { Check, ChevronRight, Circle, ClipboardList, FileCheck2, Lock, Play, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
-import { StudyTopBar } from './study-top-bar';
-import type { TrackView as TrackData } from '../server/queries';
+import { ProgressRing } from '@/components/ui/progress-ring';
+import { StudyTopBar } from '@/features/study/components/study-top-bar';
+import type { TrackStats, TrackView as TrackData } from '../server/queries';
 
 /**
  * Trilha da matéria.
@@ -30,11 +31,12 @@ const STATE_META = {
   locked: { Icon: Lock, label: 'Bloqueado', tone: 'muted' },
 } as const;
 
-export function TrackView({ track }: { track: TrackData }) {
+export function TrackDetailView({ track, stats }: { track: TrackData; stats: TrackStats }) {
   const totals = track.sections.reduce(
     (acc, section) => ({ done: acc.done + section.done, total: acc.total + section.total }),
     { done: 0, total: 0 },
   );
+  const percent = totals.total === 0 ? 0 : Math.round((totals.done / totals.total) * 100);
 
   const nextLesson = track.sections
     .flatMap((s) => s.lessons)
@@ -46,25 +48,28 @@ export function TrackView({ track }: { track: TrackData }) {
 
       <div className="mx-auto max-w-2xl px-5">
         <header className="mb-6">
-          <p className="text-muted text-sm">
-            {totals.total === 0
-              ? 'Esta trilha ainda não tem lições.'
-              : `Lição ${Math.min(totals.done + 1, totals.total)} de ${totals.total}`}
-          </p>
           {track.description && (
-            <p className="text-muted mt-1 text-sm leading-relaxed">{track.description}</p>
+            <p className="text-muted mb-4 text-sm leading-relaxed">{track.description}</p>
           )}
 
-          {totals.total > 0 && (
-            <div className="bg-surface-2 mt-3 h-2 rounded-full">
-              <div
-                className="h-full rounded-full transition-[width]"
-                style={{
-                  width: `${(totals.done / totals.total) * 100}%`,
-                  backgroundColor: 'var(--subject-base)',
-                }}
+          <div className="border-border bg-surface flex items-center gap-4 rounded-2xl border p-4">
+            <ProgressRing value={percent} label={`Progresso da trilha: ${percent}%`} size={64} strokeWidth={6}>
+              <span className="tabular text-sm font-semibold">{percent}%</span>
+            </ProgressRing>
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
+              <StatTile icon={ClipboardList} value={String(stats.questionsAnswered)} label="Questões resolvidas" />
+              <StatTile
+                icon={FileCheck2}
+                value={`${stats.materialsDone}/${stats.materialsTotal}`}
+                label="Materiais concluídos"
               />
             </div>
+          </div>
+
+          {nextLesson && (
+            <p className="text-muted mt-3 text-xs">
+              <span className="text-text font-medium">Próxima meta:</span> {nextLesson.title}
+            </p>
           )}
         </header>
 
@@ -171,6 +176,26 @@ export function TrackView({ track }: { track: TrackData }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function StatTile({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: typeof ClipboardList;
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="flex items-center gap-1 text-sm leading-none font-semibold">
+        <Icon className="size-3.5 shrink-0" aria-hidden />
+        <span className="tabular truncate">{value}</span>
+      </p>
+      <p className="text-muted mt-1 text-xs leading-tight">{label}</p>
     </div>
   );
 }

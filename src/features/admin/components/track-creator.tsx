@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { TRACK_CATEGORIES } from '@/lib/design/track-category';
 import { Field, FormFeedback, Select, SubmitButton, Textarea, Toggle } from './form-parts';
 import { saveTrack, type AdminState } from '../server/actions';
 
@@ -43,6 +44,16 @@ export function TrackCreator({
           rows={2}
           placeholder="Do movimento uniforme às Leis de Newton, uma lição por vez."
         />
+      </Field>
+
+      <Field label="Categoria" hint="onde ela aparece na listagem do aluno">
+        <Select name="category" defaultValue="reforco" required>
+          {TRACK_CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </Select>
       </Field>
 
       {canChooseSchool && (

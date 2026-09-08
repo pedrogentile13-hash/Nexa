@@ -175,7 +175,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
             {data.tracks.map((track) => (
               <li key={track.id} className="min-w-0">
                 <Link
-                  href={`/estudar/trilha/${track.id}`}
+                  href={`/trilhas/${track.id}`}
                   className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
                 >
                   <span

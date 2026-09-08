@@ -49,6 +49,7 @@ export type XpSourceType =
 export type UserRole = 'student' | 'school_admin' | 'admin';
 export type ResourceKind = 'resumo' | 'podcast' | 'video' | 'imagem' | 'musica' | 'quiz' | 'simulado';
 export type Difficulty = 'facil' | 'medio' | 'dificil';
+export type TrackCategory = 'enem' | 'fundamental' | 'reforco' | 'carreiras' | 'habilidades';
 export type LessonState = 'available' | 'in_progress' | 'done' | 'mastered';
 export type AchievementCategory =
   | 'geral'
@@ -380,6 +381,7 @@ export type TrackRow = {
   title: string;
   description: string | null;
   grade_levels: string[];
+  category: TrackCategory;
   is_published: boolean;
   sort_order: number;
   created_by: string | null;

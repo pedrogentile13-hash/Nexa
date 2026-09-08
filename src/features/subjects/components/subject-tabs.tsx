@@ -157,7 +157,7 @@ export function SubjectTabs({
               return (
                 <Link
                   key={track.id}
-                  href={`/estudar/trilha/${track.id}`}
+                  href={`/trilhas/${track.id}`}
                   className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-2xl border p-4 transition-colors"
                 >
                   <span
