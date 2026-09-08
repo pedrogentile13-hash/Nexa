@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Highlighter, Minus, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { Check, Highlighter, Minus, Plus, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
@@ -13,9 +14,12 @@ import type { ResourceDetail } from '../server/queries';
 /**
  * Leitor de resumo.
  *
- * O progresso é medido pela ROLAGEM, não por um botão "concluí". Um botão mede
- * intenção; a rolagem mede leitura, e é ela que faz "continuar de onde parou"
- * cair no lugar certo quando o aluno volta no dia seguinte.
+ * O progresso é medido pela ROLAGEM por padrão — é ela que faz "continuar de
+ * onde parou" cair no lugar certo quando o aluno volta no dia seguinte. Mas a
+ * rolagem pode não chegar a 95% (resumo curto que cabe na tela, aluno que lê
+ * fora do app e só quer registrar), e desde que essa nota passou a valer 30%
+ * da matéria, depender só da rolagem deixa de ser opcional — por isso o botão
+ * explícito "Marcar como concluído" abaixo, mesmo padrão do leitor de PDF.
  *
  * O tamanho da fonte é ajustável e persistido no aparelho: um resumo de sete
  * minutos lido no ônibus não tem o mesmo tamanho confortável de um lido na mesa.
@@ -28,11 +32,22 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
   const [sizeIndex, setSizeIndex] = useState(1);
   const [percent, setPercent] = useState(resource.progressPercent);
   const [selection, setSelection] = useState<string | null>(null);
+  const [isDone, setIsDone] = useState(Boolean(resource.completedAt));
   const articleRef = useRef<HTMLElement>(null);
+  const [, startTransition] = useTransition();
 
   const [persist] = useDebouncedCallback((value: number) => {
+    if (value >= 95) setIsDone(true);
     void saveProgress(resource.id, value, null, value >= 95);
   }, 1200);
+
+  function onMarkDone() {
+    setIsDone(true);
+    setPercent(100);
+    startTransition(async () => {
+      await saveProgress(resource.id, 100, null, true);
+    });
+  }
 
   useEffect(() => {
     try {
@@ -160,6 +175,20 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
             </ul>
           </section>
         )}
+
+        <div className="mt-8">
+          {isDone ? (
+            <p className="bg-success-soft text-success flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium">
+              <Check className="size-4" aria-hidden />
+              Concluído
+            </p>
+          ) : (
+            <Button size="lg" className="w-full" onClick={onMarkDone}>
+              <Check aria-hidden />
+              Marcar como concluído
+            </Button>
+          )}
+        </div>
       </article>
 
       {/* Ação de marcar aparece só quando há seleção — barra fixa com um botão

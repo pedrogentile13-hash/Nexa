@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check, Headphones, Pause, Play, RotateCcw, RotateCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
@@ -33,11 +34,23 @@ export function MediaPlayer({ resource }: { resource: ResourceDetail }) {
   const [current, setCurrent] = useState(resource.positionSeconds);
   const [duration, setDuration] = useState(resource.durationSeconds ?? 0);
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
+  const [isDone, setIsDone] = useState(Boolean(resource.completedAt));
+  const [, startTransition] = useTransition();
 
   const [persist] = useDebouncedCallback((seconds: number, total: number) => {
     const percent = total > 0 ? Math.min(100, (seconds / total) * 100) : 0;
+    if (percent >= 95) setIsDone(true);
     void saveProgress(resource.id, percent, Math.round(seconds), percent >= 95);
   }, 4000);
+
+  // Assistir/ouvir até 95% já marca sozinho — o botão é pra quando isso não
+  // acontece (episódio mais curto que o corte, aluno que só quer confirmar).
+  function onMarkDone() {
+    setIsDone(true);
+    startTransition(async () => {
+      await saveProgress(resource.id, 100, Math.round(duration), true);
+    });
+  }
 
   // Retoma exatamente onde parou. Sem isso, "continuar de onde parou" levaria
   // ao início do episódio, que é o mesmo que não retomar.
@@ -119,6 +132,20 @@ export function MediaPlayer({ resource }: { resource: ResourceDetail }) {
           Este item ainda não tem arquivo nem link. Avise a escola.
         </p>
       )}
+
+      <div className="mt-6">
+        {isDone ? (
+          <p className="bg-success-soft text-success flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium">
+            <Check className="size-4" aria-hidden />
+            Concluído
+          </p>
+        ) : (
+          <Button size="lg" className="w-full" onClick={onMarkDone}>
+            <Check aria-hidden />
+            Marcar como concluído
+          </Button>
+        )}
+      </div>
     </>
   );
 
@@ -322,6 +349,20 @@ export function MediaPlayer({ resource }: { resource: ResourceDetail }) {
             Este item ainda não tem arquivo nem link. Avise a escola.
           </p>
         )}
+
+        <div className="mt-6">
+          {isDone ? (
+            <p className="bg-success-soft text-success flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium">
+              <Check className="size-4" aria-hidden />
+              Concluído
+            </p>
+          ) : (
+            <Button size="lg" className="w-full" onClick={onMarkDone}>
+              <Check aria-hidden />
+              Marcar como concluído
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
