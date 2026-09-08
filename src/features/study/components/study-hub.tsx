@@ -2,48 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  CircleHelp,
-  ClipboardList,
-  FileText,
-  Headphones,
-  Image as ImageIcon,
-  Library,
-  Music,
-  Play,
-  Route as RouteIcon,
-  SearchX,
-} from 'lucide-react';
+import { Library, Route as RouteIcon, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-state';
 import { subjectColorVars } from '@/lib/design/subject-colors';
+import { RESOURCE_KIND_COLOR as KIND_COLOR, RESOURCE_KIND_ICON as ICONS } from '@/lib/design/resource-kind';
 import { KIND_META, KIND_ORDER, humanDuration } from '../lib/format';
 import type { StudyHubData } from '../server/queries';
 import type { ResourceKind } from '@/types/database.types';
-
-const ICONS: Record<ResourceKind, typeof FileText> = {
-  resumo: FileText,
-  simulado: ClipboardList,
-  quiz: CircleHelp,
-  podcast: Headphones,
-  video: Play,
-  imagem: ImageIcon,
-  musica: Music,
-};
-
-/** Uma cor por formato — não é a cor da matéria, é a identidade do FORMATO
- * (todo podcast é roxo, seja de qual matéria for). Reaproveita a mesma
- * paleta nomeada e acessível de `subjectColorVars`, que não é exclusiva de
- * matéria — é só "cor categórica com contraste garantido nos dois temas". */
-const KIND_COLOR: Record<ResourceKind, string> = {
-  resumo: 'green',
-  simulado: 'orange',
-  quiz: 'pink',
-  podcast: 'violet',
-  video: 'blue',
-  imagem: 'amber',
-  musica: 'teal',
-};
 
 /**
  * Hub de estudo.

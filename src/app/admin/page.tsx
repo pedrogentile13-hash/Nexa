@@ -6,6 +6,8 @@ import { getAdminOverview } from '@/features/admin/server/queries';
 import { requireAdmin } from '@/features/admin/server/guard';
 import { RESOURCE_KINDS, kindPlural } from '@/features/admin/lib/labels';
 import { Button } from '@/components/ui/button';
+import { RESOURCE_KIND_COLOR, RESOURCE_KIND_ICON } from '@/lib/design/resource-kind';
+import { subjectColorVars } from '@/lib/design/subject-colors';
 import { cn } from '@/lib/utils';
 
 export const metadata = { title: 'Visão geral' };
@@ -53,17 +55,31 @@ export default async function AdminHomePage() {
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {RESOURCE_KINDS.map((kind) => {
               const count = overview.publishedByKind.find((k) => k.kind === kind.value)?.count ?? 0;
+              const Icon = RESOURCE_KIND_ICON[kind.value];
               return (
                 <li key={kind.value}>
                   <Link
                     href={{ pathname: '/admin/conteudo', query: { kind: kind.value } }}
                     className={cn(
-                      'border-border bg-surface hover:bg-surface-2 block rounded-lg border p-4 transition-colors',
+                      'border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-4 transition-colors',
                       count === 0 && 'opacity-70',
                     )}
                   >
-                    <span className="text-2xl font-semibold tabular-nums">{count}</span>
-                    <span className="text-muted mt-0.5 block text-sm">{kind.plural}</span>
+                    <span
+                      aria-hidden
+                      className="grid size-10 shrink-0 place-items-center rounded-xl"
+                      style={{
+                        ...subjectColorVars(RESOURCE_KIND_COLOR[kind.value]),
+                        background: 'var(--subject-soft)',
+                        color: 'var(--subject-on-soft)',
+                      }}
+                    >
+                      <Icon className="size-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-2xl font-semibold tabular-nums">{count}</span>
+                      <span className="text-muted block truncate text-sm">{kind.plural}</span>
+                    </span>
                   </Link>
                 </li>
               );
@@ -173,7 +189,12 @@ function StatCard({
       href={href}
       className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-4 transition-colors"
     >
-      <Icon className="text-muted size-5 shrink-0" aria-hidden />
+      <span
+        aria-hidden
+        className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl"
+      >
+        <Icon className="size-5" />
+      </span>
       <span>
         <span className="block text-xl font-semibold tabular-nums">{value}</span>
         <span className="text-muted text-xs">{label}</span>
