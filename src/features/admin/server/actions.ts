@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireAdmin, resolveSchoolId } from './guard';
-import { extractPdf } from './pdf';
 import { parseSimuladoCode } from '../lib/simulado-import';
 
 /**
@@ -300,6 +299,12 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
       }
 
       try {
+        // Import só acontece aqui dentro, e não no topo do arquivo: `pdf.ts`
+        // carrega `pdfjs-dist`, que arrasta consigo todo o resto das ações
+        // deste módulo (excluir, publicar matéria etc.) para o mesmo pacote
+        // da função serverless — e derrubava TODAS elas se essa biblioteca
+        // falhasse ao carregar, mesmo quando nenhum PDF estava em jogo.
+        const { extractPdf } = await import('./pdf');
         const buffer = Buffer.from(await file.arrayBuffer());
         pdfMeta = await extractPdf(buffer);
       } catch {
