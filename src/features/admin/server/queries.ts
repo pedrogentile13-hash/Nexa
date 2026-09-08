@@ -388,7 +388,7 @@ export async function getTrackDetail(trackId: string) {
       .order('position'),
     supabase.from('track_lessons').select('*').order('position'),
     supabase.from('track_lesson_resources').select('*').order('position'),
-    supabase.from('resources').select('id, title, kind').order('title'),
+    supabase.from('resources').select('id, title, kind, is_published').order('title'),
   ]);
 
   const sectionIds = new Set((sectionsRes.data ?? []).map((s) => s.id));

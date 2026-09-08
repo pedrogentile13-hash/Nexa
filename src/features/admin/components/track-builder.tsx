@@ -61,7 +61,7 @@ export function TrackBuilder({
   sections: Section[];
   lessons: Lesson[];
   links: Link[];
-  resources: { id: string; title: string; kind: ResourceKind }[];
+  resources: { id: string; title: string; kind: ResourceKind; is_published: boolean }[];
 }) {
   const resourceById = new Map(resources.map((r) => [r.id, r]));
 
@@ -136,6 +136,14 @@ export function TrackBuilder({
                                         {kindLabel(resource.kind)}
                                       </span>
                                     )}
+                                    {resource && !resource.is_published && (
+                                      <span
+                                        className="bg-warning-soft text-warning ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium"
+                                        title="Rascunho: o aluno não vê este material até você publicá-lo em Conteúdo."
+                                      >
+                                        rascunho — aluno não vê
+                                      </span>
+                                    )}
                                   </span>
                                   <form action={detachLessonResource}>
                                     <input type="hidden" name="id" value={link.id} />
@@ -168,6 +176,7 @@ export function TrackBuilder({
                             {resources.map((r) => (
                               <option key={r.id} value={r.id}>
                                 {kindLabel(r.kind)} · {r.title}
+                                {!r.is_published ? ' (rascunho — publique antes)' : ''}
                               </option>
                             ))}
                           </Select>
