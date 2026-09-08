@@ -232,6 +232,29 @@ const resourceSchema = z.object({
   tags: z.string().max(300).optional().or(z.literal('')),
 });
 
+/**
+ * Avisa quem cursa a matéria que um conteúdo novo saiu do rascunho.
+ *
+ * `notify_subject_students` roda como `security definer` no banco — é o que
+ * permite gravar notificação para OUTRO usuário, coisa que a RLS de
+ * `notifications` (cada um só escreve a própria) nunca deixaria escrito
+ * direto daqui. Falha de notificação nunca derruba a publicação em si: o
+ * conteúdo já está salvo de qualquer jeito.
+ */
+async function notifyPublished(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  subjectCatalogId: string,
+  title: string,
+  resourceId: string,
+): Promise<void> {
+  await supabase.rpc('notify_subject_students', {
+    p_subject_catalog_id: subjectCatalogId,
+    p_title: 'Novo conteúdo publicado',
+    p_body: title,
+    p_link: `/estudar/${resourceId}`,
+  });
+}
+
 export async function saveResource(_prev: AdminState, formData: FormData): Promise<AdminState> {
   const identity = await requireAdmin();
 
@@ -350,8 +373,21 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
   };
 
   if (data.id) {
+    // Lido ANTES do update — é o único jeito de saber se esta escrita é
+    // quem está publicando agora, ou só editando algo que já era público.
+    const { data: previous } = await supabase
+      .from('resources')
+      .select('is_published')
+      .eq('id', data.id)
+      .maybeSingle();
+
     const { error } = await supabase.from('resources').update(payload).eq('id', data.id);
     if (error) return fail(error.message);
+
+    if (data.isPublished && !previous?.is_published) {
+      await notifyPublished(supabase, data.subjectId, data.title, data.id);
+    }
+
     revalidatePath('/admin/conteudo');
     revalidatePath(`/admin/conteudo/${data.id}`);
     return ok;
@@ -364,6 +400,10 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     .single();
 
   if (error) return fail(error.message);
+
+  if (data.isPublished) {
+    await notifyPublished(supabase, data.subjectId, data.title, created.id);
+  }
 
   revalidatePath('/admin/conteudo');
   // Quiz e simulado nascem vazios: o próximo passo real é cadastrar questões,
@@ -382,7 +422,18 @@ export async function toggleResourcePublished(formData: FormData): Promise<void>
   if (typeof id !== 'string') return;
 
   const supabase = await createClient();
+  const { data: resource } = await supabase
+    .from('resources')
+    .select('is_published, subject_catalog_id, title')
+    .eq('id', id)
+    .maybeSingle();
+
   await supabase.from('resources').update({ is_published: next }).eq('id', id);
+
+  if (next && resource && !resource.is_published) {
+    await notifyPublished(supabase, resource.subject_catalog_id, resource.title, id);
+  }
+
   revalidatePath('/admin/conteudo');
   revalidatePath(`/admin/conteudo/${id}`);
 }
