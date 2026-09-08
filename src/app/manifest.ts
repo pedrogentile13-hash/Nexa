@@ -23,17 +23,17 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: '#f6f7f9',
     theme_color: '#7c3aed',
     categories: ['education', 'productivity'],
-    // Gerados por scripts/generate-icons.mjs a partir da mesma arte do
-    // icon.svg. Os três são necessários e nenhum substitui o outro:
-    //   • SVG      — favicon nítido em qualquer densidade
+    // Gerados por scripts/generate-icons.mjs a partir de public/brand/logo-mark-src.png
+    // (a arte oficial da marca). 192/512 e maskable são necessários e nenhum
+    // substitui o outro:
     //   • 192/512  — o que o Android usa na tela inicial e no splash
     //   • maskable — recortado na forma do sistema (círculo, squircle, gota);
     //                sem ele o Android desenha o ícone dentro de um quadrado
     //                branco, que é a cara de app mal instalado
-    // O ícone do iOS não entra aqui: vem de src/app/apple-icon.png, que o Next
-    // publica como <link rel="apple-touch-icon">.
+    // O favicon vem de src/app/icon.png, e o ícone do iOS de
+    // src/app/apple-icon.png — os dois seguem a convenção de arquivo do Next,
+    // que já publica as tags <link> certas sozinho.
     icons: [
-      { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
       { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },

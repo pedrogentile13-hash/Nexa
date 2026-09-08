@@ -88,12 +88,8 @@ export function AdminShell({
         <div className="lg:sticky lg:top-0">
           <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 lg:block">
             <Link href="/admin" className="flex items-center gap-2.5">
-              <span
-                aria-hidden
-                className="bg-brand text-brand-fg grid size-8 place-items-center rounded-lg text-sm font-bold"
-              >
-                N
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image */}
+              <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-8 shrink-0" />
               <span className="text-base font-semibold">
                 Nexa Study <span className="text-muted font-normal">admin</span>
               </span>

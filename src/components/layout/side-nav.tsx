@@ -103,16 +103,9 @@ export function SideNav({
       className="border-border bg-surface hidden w-64 shrink-0 flex-col border-r md:flex"
     >
       <div className="sticky top-0 flex h-dvh flex-col gap-0.5 overflow-y-auto p-3">
-        {/* Logo — placeholder até o arquivo de marca (SVG) chegar; a estrutura
-            (ícone + wordmark de duas linhas) já é a definitiva. */}
         <Link href="/hoje" aria-label="Nexa Study · início" className="mb-3 flex items-center gap-2.5 px-1">
-          <span
-            aria-hidden
-            className="grid size-9 shrink-0 place-items-center rounded-xl text-base font-bold text-white"
-            style={{ background: 'var(--gradient-header)' }}
-          >
-            N
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image */}
+          <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-9 shrink-0" />
           <span className="leading-none">
             <span className="block text-base font-bold tracking-tight">NEXA</span>
             <span className="text-subtle block text-[10px] font-semibold tracking-[0.2em]">
