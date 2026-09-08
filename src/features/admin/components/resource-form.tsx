@@ -63,15 +63,10 @@ export function ResourceForm({
 
         <section className="border-border bg-surface space-y-4 rounded-lg border p-4">
           <Field label="Formato">
-            {/* Um <select disabled> não é enviado no submit do formulário —
-                por isso o valor real vai num input oculto à parte, que
-                continua presente mesmo com o select travado na edição. */}
-            {resource && <input type="hidden" name="kind" value={kind} />}
             <Select
-              name={resource ? undefined : 'kind'}
+              name="kind"
               value={kind}
               onChange={(e) => setKind(e.target.value as ResourceKind)}
-              disabled={Boolean(resource)}
             >
               {RESOURCE_KINDS.map((k) => (
                 <option key={k.value} value={k.value}>
@@ -81,8 +76,8 @@ export function ResourceForm({
             </Select>
             {resource && (
               <p className="text-subtle mt-1.5 text-xs">
-                O formato não muda depois de criado: um resumo virando simulado deixaria para trás
-                um texto sem tela e questões sem dono.
+                Trocar o formato não apaga o que já foi cadastrado no formato antigo (questões,
+                texto extraído do PDF etc.) — esse conteúdo antigo só deixa de aparecer aqui.
               </p>
             )}
           </Field>
