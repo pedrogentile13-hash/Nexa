@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
-import { ComingSoon } from '@/components/layout/coming-soon';
+import { NexaIaView } from '@/features/nexa-ia/components/nexa-ia-view';
+import { getChatMessages, getChatSessions } from '@/features/nexa-ia/server/queries';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -13,24 +13,25 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function NexaIaPage() {
+export default async function NexaIaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sessao?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  const { sessao } = await searchParams;
+  const sessions = await getChatSessions(user.id);
+
+  const activeSessionId = sessao && sessions.some((s) => s.id === sessao) ? sessao : null;
+  const messages = activeSessionId ? await getChatMessages(activeSessionId) : [];
 
   return (
     <>
       <AppHeader title="Nexa IA" subtitle="Seu assistente de estudos" />
-      <PageMain className="pt-4">
-        <ComingSoon
-          Icon={Sparkles}
-          title="Nexa IA está a caminho"
-          description="Em breve: um assistente que explica conteúdo, resume texto, gera questões e tira dúvidas, sempre no contexto do que você está estudando."
-          items={[
-            'Chat com histórico de conversas',
-            'Explicações, resumos e questões sob medida',
-            'Acesso direto a partir de qualquer conteúdo',
-          ]}
-        />
+      <PageMain className="pt-4 md:pt-6">
+        <NexaIaView sessions={sessions} activeSessionId={activeSessionId} messages={messages} />
       </PageMain>
     </>
   );

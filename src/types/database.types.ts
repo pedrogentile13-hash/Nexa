@@ -503,6 +503,24 @@ export type LongTermGoalRow = {
   updated_at: string;
 };
 
+export type AiChatRole = 'user' | 'assistant';
+
+export type AiChatSessionRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AiChatMessageRow = {
+  id: string;
+  session_id: string;
+  role: AiChatRole;
+  content: string;
+  created_at: string;
+};
+
 /* ------------------------------------------------------------- views --- */
 
 export type VResourceLibraryRow = {
@@ -584,6 +602,8 @@ export type Database = {
       flashcard_reviews: Table<FlashcardReviewRow>;
       content_reviews: Table<ContentReviewRow>;
       long_term_goals: Table<LongTermGoalRow>;
+      ai_chat_sessions: Table<AiChatSessionRow>;
+      ai_chat_messages: Table<AiChatMessageRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
