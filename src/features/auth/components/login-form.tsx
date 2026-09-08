@@ -7,7 +7,6 @@ import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, MailCheck, UserPlus } fro
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
 import { authenticate, signInWithGoogle } from '../server/actions';
 import type { AuthFormState, AuthMode } from '../schemas';
 
@@ -97,38 +96,27 @@ function GoogleButton({ next }: { next: string }) {
   );
 }
 
-/** Alternador Entrar / Criar conta. Um toque, sem trocar de tela. */
-function ModeTabs({ mode, onChange }: { mode: AuthMode; onChange: (mode: AuthMode) => void }) {
-  const tabs: Array<{ value: AuthMode; label: string }> = [
-    { value: 'signin', label: 'Entrar' },
-    { value: 'signup', label: 'Criar conta' },
-  ];
-  const active = mode === 'signup' ? 'signup' : 'signin';
-
+/**
+ * Alternador Entrar / Criar conta — um link, não abas.
+ *
+ * Uma pergunta e resposta ("Ainda não tem conta? Cadastre-se") em vez de duas
+ * abas competindo por atenção: quem chegou aqui quase sempre já sabe se tem
+ * conta ou não, então o link é a pergunta certa a responder, não uma escolha
+ * entre dois botões do mesmo tamanho.
+ */
+function ModeSwitchLink({ mode, onChange }: { mode: AuthMode; onChange: (mode: AuthMode) => void }) {
+  const isSignup = mode === 'signup';
   return (
-    <div
-      role="tablist"
-      aria-label="Entrar ou criar conta"
-      className="bg-surface-2 flex rounded-md p-1"
-    >
-      {tabs.map((tab) => (
-        <button
-          key={tab.value}
-          type="button"
-          role="tab"
-          aria-selected={active === tab.value}
-          onClick={() => onChange(tab.value)}
-          className={cn(
-            'h-11 flex-1 rounded-lg text-sm transition-colors',
-            active === tab.value
-              ? 'bg-surface text-brand-text font-semibold shadow-sm'
-              : 'text-muted hover:text-text font-medium',
-          )}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
+    <p className="text-muted text-right text-sm">
+      {isSignup ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}{' '}
+      <button
+        type="button"
+        onClick={() => onChange(isSignup ? 'signin' : 'signup')}
+        className="text-brand-text font-semibold underline-offset-4 hover:underline"
+      >
+        {isSignup ? 'Entrar' : 'Cadastre-se'}
+      </button>
+    </p>
   );
 }
 
@@ -150,6 +138,10 @@ function PasswordField({
         {mode === 'signup' && <span className="text-subtle text-xs">mínimo 8 caracteres</span>}
       </div>
       <div className="relative">
+        <Lock
+          className="text-subtle pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
+          aria-hidden
+        />
         <Input
           id="password"
           name="password"
@@ -158,7 +150,7 @@ function PasswordField({
           minLength={mode === 'signup' ? 8 : undefined}
           placeholder="••••••••"
           required
-          className="pr-12"
+          className="pr-12 pl-10"
           aria-describedby={describedBy}
           aria-invalid={invalid ? true : undefined}
         />
@@ -220,15 +212,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
 
   return (
     <div className="space-y-5">
-      <GoogleButton next={next} />
-
-      <div className="flex items-center gap-3" aria-hidden>
-        <span className="bg-border h-px flex-1" />
-        <span className="text-subtle text-xs">ou</span>
-        <span className="bg-border h-px flex-1" />
-      </div>
-
-      {mode !== 'magic' && <ModeTabs mode={mode} onChange={setMode} />}
+      {mode !== 'magic' && <ModeSwitchLink mode={mode} onChange={setMode} />}
 
       <form action={formAction} className="space-y-3">
         <input type="hidden" name="next" value={next} />
@@ -236,19 +220,26 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
 
         <div>
           <Label htmlFor="email">E-mail</Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            autoCapitalize="none"
-            spellCheck={false}
-            placeholder="voce@escola.com.br"
-            required
-            aria-describedby={errorId}
-            aria-invalid={fieldWithError === 'email' ? true : undefined}
-          />
+          <div className="relative">
+            <Mail
+              className="text-subtle pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
+              aria-hidden
+            />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="voce@escola.com.br"
+              required
+              className="pl-10"
+              aria-describedby={errorId}
+              aria-invalid={fieldWithError === 'email' ? true : undefined}
+            />
+          </div>
         </div>
 
         {mode !== 'magic' && (
@@ -300,6 +291,18 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
           </button>
         )}
       </div>
+
+      {mode !== 'magic' && (
+        <>
+          <div className="flex items-center gap-3" aria-hidden>
+            <span className="bg-border h-px flex-1" />
+            <span className="text-subtle text-xs">ou continue com</span>
+            <span className="bg-border h-px flex-1" />
+          </div>
+
+          <GoogleButton next={next} />
+        </>
+      )}
     </div>
   );
 }
