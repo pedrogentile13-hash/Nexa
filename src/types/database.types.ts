@@ -483,6 +483,14 @@ export type FlashcardReviewRow = {
   reviewed_at: string;
 };
 
+export type ContentReviewRow = {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  interval_step: number;
+  reviewed_at: string;
+};
+
 /* ------------------------------------------------------------- views --- */
 
 export type VResourceLibraryRow = {
@@ -562,6 +570,7 @@ export type Database = {
       lesson_progress: Table<LessonProgressRow>;
       highlights: Table<HighlightRow>;
       flashcard_reviews: Table<FlashcardReviewRow>;
+      content_reviews: Table<ContentReviewRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -663,6 +672,28 @@ export type Database = {
         }[];
       };
       dismiss_question_error: { Args: { p_question_id: string }; Returns: undefined };
+      review_queue: {
+        Args: { p_user_id?: string };
+        Returns: {
+          kind: 'erro' | 'conteudo';
+          bucket: 'atrasada' | 'hoje' | 'proxima' | 'concluida';
+          question_id: string | null;
+          resource_id: string;
+          resource_title: string;
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          topic_name: string | null;
+          statement: string | null;
+          explanation: string | null;
+          chosen_body: string | null;
+          correct_body: string | null;
+          answered_at: string | null;
+          due_date: string;
+          next_interval_step: number;
+          resource_kind: ResourceKind | null;
+        }[];
+      };
       subject_scores: {
         Args: { p_user_id?: string };
         Returns: {

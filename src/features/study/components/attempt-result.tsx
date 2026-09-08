@@ -144,11 +144,11 @@ export function AttemptResult({
                 </span>
                 <ChevronRight className="text-muted size-4 shrink-0" aria-hidden />
               </Link>
-              {/* A Central de Erros junta os erros de TODOS os simulados e
-                  quizzes, não só deste — vale como próximo passo mesmo quando o
-                  material acima já foi revisado. */}
+              {/* Revisões junta os erros de TODOS os simulados e quizzes, não
+                  só deste — vale como próximo passo mesmo quando o material
+                  acima já foi revisado. */}
               <Link
-                href="/erros"
+                href="/revisoes"
                 className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
               >
                 <span

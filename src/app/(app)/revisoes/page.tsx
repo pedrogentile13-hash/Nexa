@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { RotateCcw } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
-import { PageMain } from '@/components/layout/page-main';
-import { ComingSoon } from '@/components/layout/coming-soon';
-import { getCurrentUser } from '@/lib/supabase/server';
+import { RevisoesView } from '@/features/revisoes/components/revisoes-view';
+import { getReviewQueue } from '@/features/revisoes/server/queries';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
   title: 'Revisões',
@@ -17,21 +16,16 @@ export default async function RevisoesPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
+  const supabase = await createClient();
+  const [items, { data: stats }] = await Promise.all([
+    getReviewQueue(user.id),
+    supabase.from('user_stats').select('current_streak').eq('user_id', user.id).maybeSingle(),
+  ]);
+
   return (
     <>
       <AppHeader title="Revisões" subtitle="Fixe o que você já estudou" />
-      <PageMain className="pt-4">
-        <ComingSoon
-          Icon={RotateCcw}
-          title="Revisões inteligentes chegando"
-          description="Em breve: uma fila que organiza o que revisar hoje, o que vem a seguir e o que está atrasado — juntando questões erradas e conteúdo estudado. Enquanto isso, a Central de Erros continua em /erros normalmente."
-          items={[
-            'Revisões de hoje, próximas, atrasadas e concluídas',
-            'Repetição espaçada baseada no que você já estudou',
-            'Sequência de dias revisando e contador de conteúdos revisados',
-          ]}
-        />
-      </PageMain>
+      <RevisoesView items={items} currentStreak={stats?.current_streak ?? 0} />
     </>
   );
 }

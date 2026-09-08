@@ -331,7 +331,7 @@ export default async function PerformancePage() {
                 </p>
               </div>
               <Button asChild variant="pop" size="sm" className="w-full shrink-0 sm:w-auto">
-                <Link href="/erros">Começar revisão</Link>
+                <Link href="/revisoes">Começar revisão</Link>
               </Button>
             </CardContent>
           </Card>
