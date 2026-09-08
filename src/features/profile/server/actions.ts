@@ -82,6 +82,49 @@ export async function updateProfile(
 }
 
 /**
+ * Foto de perfil.
+ *
+ * O upload em si acontece no cliente, direto pro Storage (mesmo motivo do
+ * `MediaUpload` do admin: passar o arquivo por uma Server Action significa
+ * carregar a imagem inteira na memória do servidor à toa). Esta função só
+ * grava o CAMINHO depois que o arquivo já está no bucket — a RLS de
+ * `avatars` é quem garante que o caminho pertence a quem está chamando.
+ */
+export async function updateAvatarPath(path: string | null): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+
+  if (path !== null) {
+    // O caminho tem que começar com o próprio uid — a mesma regra que a RLS
+    // do bucket já aplica na escrita, checada de novo aqui pra nunca gravar
+    // em `profiles` uma URL que aponta pro arquivo de outra pessoa.
+    const parsed = z
+      .string()
+      .max(300)
+      .refine((value) => value.startsWith(`${user.id}/`))
+      .safeParse(path);
+    if (!parsed.success) return { ok: false };
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('avatars').getPublicUrl(path ?? '');
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ avatar_url: path ? publicUrl : null })
+    .eq('id', user.id);
+
+  if (error) return { ok: false };
+
+  revalidatePath('/', 'layout');
+  return { ok: true };
+}
+
+/**
  * Preferências de notificação — sem envio real (push/e-mail) ainda, então
  * isto só grava a intenção. Cada chamada troca uma chave só (o toggle que o
  * aluno acabou de clicar), por isso recebe o objeto já mesclado em vez de

@@ -6,6 +6,7 @@ import { PageMain } from '@/components/layout/page-main';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopEmptyState } from '@/components/ui/empty-state';
+import { AvatarUpload } from '@/features/profile/components/avatar-upload';
 import { ProfileTabs } from '@/features/profile/components/profile-tabs';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import type { NotificationSettings } from '@/types/database.types';
@@ -16,14 +17,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = 'force-dynamic';
-
-/** Iniciais para o avatar: duas letras no máximo, como o kit desenha. */
-function initials(value: string): string {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return (parts[0] ?? '').slice(0, 2).toUpperCase();
-  return `${parts[0]?.[0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase();
-}
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -36,7 +29,7 @@ export default async function ProfilePage() {
       supabase
         .from('profiles')
         .select(
-          'full_name, grade_level, class_name, timezone, daily_study_goal_minutes, weekly_study_goal_minutes, notification_settings',
+          'full_name, avatar_url, grade_level, class_name, timezone, daily_study_goal_minutes, weekly_study_goal_minutes, notification_settings',
         )
         .eq('id', user.id)
         .maybeSingle(),
@@ -62,12 +55,11 @@ export default async function ProfilePage() {
         {/* Identidade, como no kit: avatar, quem é, e o que conquistou ----- */}
         <Card className="min-w-0 lg:col-span-2">
           <CardContent className="flex items-center gap-4 p-4">
-            <span
-              aria-hidden
-              className="bg-brand-soft text-brand-text grid size-14 shrink-0 place-items-center rounded-full text-lg font-semibold"
-            >
-              {initials(profile?.full_name ?? user.email ?? '?')}
-            </span>
+            <AvatarUpload
+              userId={user.id}
+              avatarUrl={profile?.avatar_url ?? null}
+              fullName={profile?.full_name ?? user.email ?? '?'}
+            />
 
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-base font-semibold">
