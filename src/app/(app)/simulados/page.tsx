@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { ClipboardCheck } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
-import { ComingSoon } from '@/components/layout/coming-soon';
+import { SimuladosView } from '@/features/simulados/components/simulados-view';
+import { getSimuladoCatalog } from '@/features/simulados/server/queries';
+import { getSimuladoHistory } from '@/features/performance/server/queries';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -17,20 +18,16 @@ export default async function SimuladosPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
+  const [catalog, history] = await Promise.all([
+    getSimuladoCatalog(),
+    getSimuladoHistory(user.id),
+  ]);
+
   return (
     <>
-      <AppHeader title="Simulados" subtitle="Sua seção dedicada de simulados" />
-      <PageMain className="pt-4">
-        <ComingSoon
-          Icon={ClipboardCheck}
-          title="Simulados ganha uma seção própria"
-          description="Em breve: todos os simulados disponíveis e seu histórico completo de tentativas, num só lugar — os simulados continuam funcionando normalmente em Biblioteca e Matérias enquanto isso."
-          items={[
-            'Lista de simulados disponíveis por matéria',
-            'Histórico de tentativas com nota, acertos e tempo',
-            'Acesso rápido para refazer ou ver o resultado detalhado',
-          ]}
-        />
+      <AppHeader title="Simulados" subtitle="Disponíveis e seu histórico de tentativas" />
+      <PageMain className="pt-4 md:pt-6">
+        <SimuladosView catalog={catalog} history={history} />
       </PageMain>
     </>
   );

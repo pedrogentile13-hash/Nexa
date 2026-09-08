@@ -386,37 +386,25 @@ export default async function PerformancePage() {
           </Card>
         )}
 
+        {/* A lista completa de tentativas mora em Simulados agora — antes
+            vivia aqui inteira, duplicando o que aquela seção também mostra. */}
         {data.simuladoHistory.length > 0 && (
-          <Card className="min-w-0 lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Histórico de simulados</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ul className="divide-border divide-y">
-                {data.simuladoHistory.map((attempt) => (
-                  <li key={attempt.attemptId}>
-                    <Link
-                      href={`/estudar/${attempt.resourceId}/resultado?tentativa=${attempt.attemptId}`}
-                      className="hover:bg-surface-2 flex items-center gap-3 px-4 py-3 transition-colors"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{attempt.resourceTitle}</p>
-                        <p className="text-subtle text-xs">
-                          {attempt.subjectName ?? 'Sem matéria'} ·{' '}
-                          {new Date(attempt.finishedAt).toLocaleDateString('pt-BR')} ·{' '}
-                          {attempt.correctCount}/{attempt.totalCount} acertos
-                        </p>
-                      </div>
-                      <span className="tabular shrink-0 text-sm font-semibold">
-                        {Math.round(attempt.percent)}%
-                      </span>
-                      <RotateCcw className="text-subtle size-4 shrink-0" aria-hidden />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+          <Link
+            href="/simulados"
+            className="border-border bg-surface hover:bg-surface-2 flex min-w-0 items-center gap-3 rounded-lg border p-4 transition-colors lg:col-span-2"
+          >
+            <span className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl">
+              <Trophy className="size-5" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Ver histórico de simulados</p>
+              <p className="text-muted text-xs">
+                {data.simuladoHistory.length}{' '}
+                {data.simuladoHistory.length === 1 ? 'tentativa registrada' : 'tentativas registradas'}
+              </p>
+            </div>
+            <RotateCcw className="text-subtle size-4 shrink-0" aria-hidden />
+          </Link>
         )}
 
         {/* O gráfico não pode ser a única forma de ler os números. */}
