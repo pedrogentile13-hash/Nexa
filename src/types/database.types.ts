@@ -521,6 +521,25 @@ export type AiChatMessageRow = {
   created_at: string;
 };
 
+export type NotificationRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
+export type PushSubscriptionRow = {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth_key: string;
+  created_at: string;
+};
+
 /* ------------------------------------------------------------- views --- */
 
 export type VResourceLibraryRow = {
@@ -604,6 +623,8 @@ export type Database = {
       long_term_goals: Table<LongTermGoalRow>;
       ai_chat_sessions: Table<AiChatSessionRow>;
       ai_chat_messages: Table<AiChatMessageRow>;
+      notifications: Table<NotificationRow>;
+      push_subscriptions: Table<PushSubscriptionRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -705,6 +726,15 @@ export type Database = {
         }[];
       };
       dismiss_question_error: { Args: { p_question_id: string }; Returns: undefined };
+      notify_subject_students: {
+        Args: {
+          p_subject_catalog_id: string;
+          p_title: string;
+          p_body: string;
+          p_link?: string | null;
+        };
+        Returns: undefined;
+      };
       review_queue: {
         Args: { p_user_id?: string };
         Returns: {

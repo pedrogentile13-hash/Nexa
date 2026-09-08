@@ -4115,6 +4115,83 @@ end;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────
+-- 20260908000800_notifications.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  title text not null check (length(btrim(title)) between 1 and 160),
+  body text check (body is null or length(btrim(body)) <= 500),
+  link text,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notifications_user_idx on public.notifications (user_id, created_at desc);
+create index if not exists notifications_user_unread_idx
+  on public.notifications (user_id) where read_at is null;
+
+alter table public.notifications enable row level security;
+
+drop policy if exists notifications_select_own on public.notifications;
+create policy notifications_select_own on public.notifications
+  for select to authenticated using (user_id = auth.uid());
+
+drop policy if exists notifications_update_own on public.notifications;
+create policy notifications_update_own on public.notifications
+  for update to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth_key text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists push_subscriptions_user_idx on public.push_subscriptions (user_id);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists push_subscriptions_all_own on public.push_subscriptions;
+create policy push_subscriptions_all_own on public.push_subscriptions
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create or replace function public.notify_subject_students(
+  p_subject_catalog_id uuid,
+  p_title text,
+  p_body text,
+  p_link text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1 from public.profiles where id = auth.uid() and role in ('admin', 'school_admin')
+  ) then
+    raise exception 'not authorized';
+  end if;
+
+  insert into public.notifications (user_id, title, body, link)
+  select distinct s.user_id, p_title, p_body, p_link
+  from public.subjects s
+  where s.catalog_id = p_subject_catalog_id
+    and s.archived_at is null;
+end;
+$$;
+
+grant execute on function public.notify_subject_students(uuid, text, text, text) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
 -- seed.sql
 -- ─────────────────────────────────────────────────────────────────────
 
