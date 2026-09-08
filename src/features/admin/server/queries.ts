@@ -215,13 +215,20 @@ export async function listResources(filters: ResourceFilters = {}): Promise<Admi
   if (filters.status === 'rascunho') query = query.eq('is_published', false);
   if (filters.search) query = query.ilike('title', `%${filters.search}%`);
 
-  const [{ data }, questionsRes] = await Promise.all([
-    query,
-    supabase.from('questions').select('resource_id'),
-  ]);
+  const { data } = await query;
+
+  // Só as questões dos recursos que já vieram na página — a tabela de
+  // questões cresce sem parar (uma por pergunta de cada simulado/quiz já
+  // cadastrado), e trazer ela inteira aqui era o request mais pesado desta
+  // tela sem nenhum ganho: no máximo 200 recursos entram no `.limit()` acima.
+  const resourceIds = (data ?? []).map((r) => r.id);
+  const { data: questionsData } =
+    resourceIds.length > 0
+      ? await supabase.from('questions').select('resource_id').in('resource_id', resourceIds)
+      : { data: [] };
 
   const questionCount = new Map<string, number>();
-  for (const q of questionsRes.data ?? []) {
+  for (const q of questionsData ?? []) {
     questionCount.set(q.resource_id, (questionCount.get(q.resource_id) ?? 0) + 1);
   }
 
