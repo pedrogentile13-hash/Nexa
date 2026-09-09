@@ -828,12 +828,16 @@ export async function addTrackLesson(formData: FormData): Promise<void> {
   if (typeof trackId === 'string') revalidatePath(`/admin/trilhas/${trackId}`);
 }
 
-export async function attachLessonResource(formData: FormData): Promise<void> {
+export async function attachLessonResource(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
   await requireAdmin();
   const lessonId = formData.get('lessonId');
   const resourceId = formData.get('resourceId');
   const trackId = formData.get('trackId');
-  if (typeof lessonId !== 'string' || typeof resourceId !== 'string' || !resourceId) return;
+  if (typeof lessonId !== 'string') return fail('Lição inválida.');
+  if (typeof resourceId !== 'string' || !resourceId) return fail('Escolha um conteúdo.');
 
   const supabase = await createClient();
   const { data: last } = await supabase
@@ -844,11 +848,23 @@ export async function attachLessonResource(formData: FormData): Promise<void> {
     .limit(1)
     .maybeSingle();
 
-  await supabase
+  const { error } = await supabase
     .from('track_lesson_resources')
     .insert({ lesson_id: lessonId, resource_id: resourceId, position: (last?.position ?? 0) + 1 });
 
+  // Sem checar o erro, uma falha (constraint de par repetido, RLS, o que
+  // for) travava o botão "Juntar" num silêncio total — a lição parecia
+  // aceitar o clique e não guardava nada, sem nenhum aviso do porquê.
+  if (error) {
+    return fail(
+      error.code === '23505'
+        ? 'Este conteúdo já está nesta lição.'
+        : 'Não consegui juntar esse conteúdo. Tente de novo.',
+    );
+  }
+
   if (typeof trackId === 'string') revalidatePath(`/admin/trilhas/${trackId}`);
+  return ok;
 }
 
 export async function detachLessonResource(formData: FormData): Promise<void> {

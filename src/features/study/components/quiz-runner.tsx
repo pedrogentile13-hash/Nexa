@@ -87,18 +87,21 @@ export function QuizRunner({
   }
 
   function submitAnswer(optionId: string) {
-    if (!attemptId || !question || verdict) return;
+    if (!attemptId || !question || chosen) return;
     setChosen(optionId);
 
+    // `answerQuestion` devolve `null` em qualquer falha (rede, RLS, o que
+    // for) — sem lançar. Se o "Continuar" ficasse preso a `verdict`, uma
+    // resposta que não voltou travava o aluno na questão pra sempre, sem
+    // nenhum aviso. O avanço agora depende só de `chosen` (escolha local,
+    // sempre confiável); o veredito é um bônus quando a chamada dá certo,
+    // nunca um bloqueio.
     startTransition(async () => {
       const result = await answerQuestion(attemptId, question.question_id, optionId);
-      setAnswered((current) => ({
-        ...current,
-        [question.question_id]: result?.isCorrect ?? false,
-      }));
-      // O simulado registra e segue; só o quiz revela na hora.
-      if (isQuiz && result) setVerdict(result);
-      else advance();
+      if (result) {
+        setAnswered((current) => ({ ...current, [question.question_id]: result.isCorrect }));
+        if (isQuiz) setVerdict(result);
+      }
     });
   }
 
@@ -314,7 +317,7 @@ export function QuizRunner({
                 <button
                   type="button"
                   onClick={() => submitAnswer(option.id)}
-                  disabled={Boolean(verdict) || pending}
+                  disabled={Boolean(chosen)}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-lg border p-3.5 text-left transition-colors',
                     'min-h-[56px]',
@@ -452,26 +455,28 @@ export function QuizRunner({
       </aside>
       </div>
 
-      {/* No simulado a resposta já avança sozinha, então o rodapé serve para
-          pular sem responder. No quiz ele é o "continuar" depois de ler a
-          explicação — e por isso só aparece quando há explicação para ler. */}
+      {/* O avanço nunca fica preso a uma resposta de servidor: depende só de
+          `chosen` (estado local, sempre confiável), nunca de `verdict`
+          (que pode não chegar) nem de `pending` (a gravação continua em
+          segundo plano, sem travar a navegação). */}
       <div className="pb-safe border-border bg-bg/90 fixed inset-x-0 bottom-0 z-40 border-t px-5 py-3 backdrop-blur-lg">
         <div className="mx-auto max-w-2xl">
           {isQuiz ? (
-            <Button size="lg" className="w-full" onClick={advance} disabled={!verdict || pending}>
-              {pending && <Loader2 className="animate-spin" aria-hidden />}
+            <Button size="lg" className="w-full" onClick={advance} disabled={!chosen}>
               {index + 1 === total ? 'Ver resultado' : 'Continuar'}
             </Button>
           ) : (
             <Button
               size="lg"
-              variant="secondary"
+              variant={chosen ? 'primary' : 'secondary'}
               className="w-full"
               onClick={advance}
-              disabled={pending}
             >
-              {pending && <Loader2 className="animate-spin" aria-hidden />}
-              {index + 1 === total ? 'Entregar simulado' : 'Pular esta questão'}
+              {index + 1 === total
+                ? 'Entregar simulado'
+                : chosen
+                  ? 'Avançar'
+                  : 'Pular esta questão'}
             </Button>
           )}
         </div>

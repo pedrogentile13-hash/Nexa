@@ -141,4 +141,51 @@ $$;
 
 reset role;
 
+-- ------------------------------- profiles: quem consegue ESCREVER --------
+-- Regressão do bug em que `profiles` só tinha `profiles_update_own` — o
+-- admin conseguia LER outros perfis (bloco acima) mas o `update` de
+-- papel/escola de um aluno era recusado em silêncio pela RLS (zero linhas
+-- afetadas, sem erro), e a tela de Usuários parecia "não salvar nada".
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666601'; -- ADMIN
+set role authenticated;
+
+do $$
+begin
+  update public.profiles set school_id = '77777777-0000-0000-0000-000000000002'
+  where id = '66666666-6666-6666-6666-666666666603'; -- ALUNO_A -> escola B
+
+  assert (select school_id from public.profiles
+          where id = '66666666-6666-6666-6666-666666666603')
+       = '77777777-0000-0000-0000-000000000002',
+    'admin geral não conseguiu mudar a escola de uma aluna';
+
+  -- devolve como estava, pra não bagunçar os blocos acima se a suíte rodar
+  -- os testes fora de ordem no futuro.
+  update public.profiles set school_id = '77777777-0000-0000-0000-000000000001'
+  where id = '66666666-6666-6666-6666-666666666603';
+end;
+$$;
+
+reset role;
+
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666603'; -- ALUNO_A
+set role authenticated;
+
+do $$
+declare
+  v_rows integer;
+begin
+  -- RLS não levanta exceção num update sem permissão — ela só filtra a
+  -- linha do WHERE, e o resultado é zero linhas afetadas, em silêncio
+  -- (o mesmo comportamento que causou o bug original). Por isso o teste
+  -- confere a contagem de linhas, não uma exceção.
+  update public.profiles set full_name = 'sequestrado'
+  where id = '66666666-6666-6666-6666-666666666604'; -- ALUNO_B
+  get diagnostics v_rows = row_count;
+  assert v_rows = 0, 'aluna conseguiu escrever no perfil de outro aluno';
+end;
+$$;
+
+reset role;
+
 select 'ok' as result;

@@ -1,9 +1,10 @@
 'use client';
 
+import { useActionState } from 'react';
 import { Lock, Plus, Trash2, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from './form-parts';
+import { FormFeedback, Select } from './form-parts';
 import { kindLabel } from '../lib/labels';
 import {
   addTrackLesson,
@@ -12,8 +13,54 @@ import {
   deleteTrack,
   deleteTrackLesson,
   detachLessonResource,
+  type AdminState,
 } from '../server/actions';
 import type { ResourceKind } from '@/types/database.types';
+
+const INITIAL: AdminState = { status: 'idle' };
+
+/**
+ * Formulário próprio, não inline: `useActionState` é um hook, e o formulário
+ * de "juntar material" vive dentro de um `.map()` de lições — precisa da
+ * própria instância por lição pra mostrar o erro certo (ex.: "já está nesta
+ * lição") sem misturar com as outras.
+ */
+function AttachResourceForm({
+  lessonId,
+  trackId,
+  resources,
+}: {
+  lessonId: string;
+  trackId: string;
+  resources: { id: string; title: string; kind: ResourceKind; is_published: boolean }[];
+}) {
+  const [state, formAction] = useActionState(attachLessonResource, INITIAL);
+
+  return (
+    <form action={formAction} className="mt-2 space-y-1.5">
+      <div className="flex flex-wrap gap-2">
+        <input type="hidden" name="lessonId" value={lessonId} />
+        <input type="hidden" name="trackId" value={trackId} />
+        <Select name="resourceId" className="min-w-[200px] flex-1" defaultValue="">
+          <option value="" disabled>
+            Juntar material à lição…
+          </option>
+          {resources.map((r) => (
+            <option key={r.id} value={r.id}>
+              {kindLabel(r.kind)} · {r.title}
+              {!r.is_published ? ' (rascunho — publique antes)' : ''}
+            </option>
+          ))}
+        </Select>
+        <Button type="submit" variant="secondary">
+          <Plus aria-hidden />
+          Juntar
+        </Button>
+      </div>
+      <FormFeedback state={state} />
+    </form>
+  );
+}
 
 /**
  * Montagem da trilha.
@@ -162,29 +209,13 @@ export function TrackBuilder({
                           </ul>
                         )}
 
-                        <form action={attachLessonResource} className="mt-2 flex flex-wrap gap-2">
-                          <input type="hidden" name="lessonId" value={lesson.id} />
-                          <input type="hidden" name="trackId" value={trackId} />
-                          <Select
-                            name="resourceId"
-                            className="min-w-[200px] flex-1"
-                            defaultValue=""
-                          >
-                            <option value="" disabled>
-                              Juntar material à lição…
-                            </option>
-                            {resources.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {kindLabel(r.kind)} · {r.title}
-                                {!r.is_published ? ' (rascunho — publique antes)' : ''}
-                              </option>
-                            ))}
-                          </Select>
-                          <Button type="submit" variant="secondary">
-                            <Plus aria-hidden />
-                            Juntar
-                          </Button>
-                        </form>
+                        <AttachResourceForm
+                          lessonId={lesson.id}
+                          trackId={trackId}
+                          resources={resources.filter(
+                            (r) => !lessonLinks.some((link) => link.resource_id === r.id),
+                          )}
+                        />
                       </div>
 
                       <form action={deleteTrackLesson}>
