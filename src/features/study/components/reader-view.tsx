@@ -194,9 +194,13 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
       </article>
 
       {/* Ação de marcar aparece só quando há seleção — barra fixa com um botão
-          que quase nunca serve é barra roubando espaço de leitura. */}
+          que quase nunca serve é barra roubando espaço de leitura.
+
+          `bottom-[...]` no celular, não `bottom-0`: mesmo motivo do rodapé
+          do quiz — a barra de navegação inferior também é `fixed bottom-0`
+          e, renderizada depois, pintava por cima deste botão. */}
       {selection && (
-        <div className="pb-safe fixed inset-x-0 bottom-0 z-40 px-4 pb-4">
+        <div className="pb-safe fixed inset-x-0 bottom-[calc(4.25rem_+_env(safe-area-inset-bottom))] z-40 px-4 pb-4 md:bottom-0">
           <button
             type="button"
             onClick={() => {

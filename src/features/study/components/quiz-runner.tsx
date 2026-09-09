@@ -458,8 +458,16 @@ export function QuizRunner({
       {/* O avanço nunca fica preso a uma resposta de servidor: depende só de
           `chosen` (estado local, sempre confiável), nunca de `verdict`
           (que pode não chegar) nem de `pending` (a gravação continua em
-          segundo plano, sem travar a navegação). */}
-      <div className="pb-safe border-border bg-bg/90 fixed inset-x-0 bottom-0 z-40 border-t px-5 py-3 backdrop-blur-lg">
+          segundo plano, sem travar a navegação).
+
+          `bottom-[...]` no celular, não `bottom-0`: a barra de navegação
+          inferior (`BottomNav`) também é `fixed bottom-0`, e por ser
+          renderizada depois no HTML ela pintava por cima deste rodapé,
+          escondendo o botão inteiro atrás dela. O deslocamento é a mesma
+          altura reservada em `.pb-nav` (globals.css) — no desktop a barra
+          de navegação some (`md:hidden`) e este rodapé volta a encostar no
+          fim da tela. */}
+      <div className="pb-safe border-border bg-bg/90 fixed inset-x-0 bottom-[calc(4.25rem_+_env(safe-area-inset-bottom))] z-40 border-t px-5 py-3 backdrop-blur-lg md:bottom-0">
         <div className="mx-auto max-w-2xl">
           {isQuiz ? (
             <Button size="lg" className="w-full" onClick={advance} disabled={!chosen}>
