@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BarChart3, BookOpen, Flame, GraduationCap, Trophy } from 'lucide-react';
+import { BarChart3, BookOpen, Download, Flame, GraduationCap, Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopEmptyState } from '@/components/ui/empty-state';
 import type { AdminReportsOverview } from '../server/queries';
@@ -38,6 +38,18 @@ export function ReportsOverview({ data }: { data: AdminReportsOverview }) {
 
   return (
     <div className="space-y-4 p-5">
+      <div className="flex justify-end">
+        {/* `<a>`, não `Link`: é um download de verdade (GET com
+            Content-Disposition), não uma navegação de cliente. */}
+        <a
+          href="/admin/relatorios/export"
+          className="border-border bg-surface hover:bg-surface-2 inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium"
+        >
+          <Download className="size-4" aria-hidden />
+          Exportar PDF
+        </a>
+      </div>
+
       {bySchool.length === 0 ? (
         <PopEmptyState
           icon={<BarChart3 className="text-white" />}
