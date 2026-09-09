@@ -903,11 +903,10 @@ export async function setPersonRole(_prev: AdminState, formData: FormData): Prom
     .from('profiles')
     .update({
       role: parsed.data.role,
-      // school_admin sem escola não administra nada; vincular junto evita o
-      // estado intermediário em que o painel abre vazio sem dizer por quê.
-      ...(parsed.data.role === 'school_admin' && parsed.data.schoolId
-        ? { school_id: parsed.data.schoolId }
-        : {}),
+      // A escola é salva pra QUALQUER papel escolhido no seletor — inclusive
+      // student. Antes só gravava quando o papel era school_admin, e o
+      // seletor de escola de um aluno virava um botão que não fazia nada.
+      school_id: parsed.data.schoolId ? parsed.data.schoolId : null,
     })
     .eq('id', parsed.data.userId);
 

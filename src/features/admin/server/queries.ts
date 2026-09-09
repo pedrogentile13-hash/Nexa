@@ -1,6 +1,16 @@
 import { createClient } from '@/lib/supabase/server';
 import type { AdminIdentity } from './guard';
 import type { Difficulty, ResourceKind, TrackCategory } from '@/types/database.types';
+import {
+  groupByWeek,
+  mapSimuladoAttempt,
+  mapSubjectScore,
+  weekLabel,
+  type ScoreEvolutionPoint,
+  type SimuladoAttempt,
+  type StudyWeek,
+  type SubjectScore,
+} from '@/features/performance/server/queries';
 
 /**
  * Leituras do painel.
@@ -417,7 +427,7 @@ export interface AdminPerson {
   createdAt: string;
 }
 
-export async function listPeople(search?: string): Promise<AdminPerson[]> {
+export async function listPeople(search?: string, schoolId?: string): Promise<AdminPerson[]> {
   const supabase = await createClient();
 
   let query = supabase
@@ -427,6 +437,7 @@ export async function listPeople(search?: string): Promise<AdminPerson[]> {
     .limit(100);
 
   if (search) query = query.ilike('full_name', `%${search}%`);
+  if (schoolId) query = query.eq('school_id', schoolId);
 
   const { data } = await query;
 
@@ -441,4 +452,183 @@ export async function listPeople(search?: string): Promise<AdminPerson[]> {
       createdAt: p.created_at,
     };
   });
+}
+
+/** Um único perfil administrado — base do relatório individual e da checagem de escola. */
+export async function getPersonById(userId: string): Promise<AdminPerson | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, full_name, role, school_id, created_at, schools(name)')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (!data) return null;
+  const school = data.schools as unknown as { name: string } | null;
+  return {
+    id: data.id,
+    fullName: data.full_name,
+    role: data.role,
+    schoolId: data.school_id,
+    schoolName: school?.name ?? null,
+    createdAt: data.created_at,
+  };
+}
+
+// ----------------------------------------------------------- relatórios --
+
+export interface AdminStudentReport {
+  person: AdminPerson;
+  stats: {
+    xp: number;
+    level: number;
+    currentStreak: number;
+    longestStreak: number;
+    totalStudySeconds: number;
+    lastActiveLocalDate: string | null;
+  } | null;
+  subjectScores: SubjectScore[];
+  scoreEvolution: ScoreEvolutionPoint[];
+  simuladoHistory: SimuladoAttempt[];
+  studyWeeks: StudyWeek[];
+}
+
+/**
+ * Desempenho de UM aluno, para o admin — nunca chamado sem passar antes por
+ * `admin_subject_scores`/`admin_user_stats`/etc., que checam por dentro se
+ * quem pediu é admin geral ou admin da escola DELE. `null` quando o perfil
+ * não existe; a RPC de autorização é quem barra escola errada (o chamador
+ * trata isso como 404, não como lista vazia).
+ */
+export async function getAdminStudentReport(userId: string): Promise<AdminStudentReport | null> {
+  const person = await getPersonById(userId);
+  if (!person) return null;
+
+  const supabase = await createClient();
+  const [statsRes, scoresRes, evolutionRes, simuladosRes, sessionsRes] = await Promise.all([
+    supabase.rpc('admin_user_stats', { p_target_user_id: userId }),
+    supabase.rpc('admin_subject_scores', { p_target_user_id: userId }),
+    supabase.rpc('admin_performance_evolution', { p_target_user_id: userId }),
+    supabase.rpc('admin_simulado_history', { p_target_user_id: userId }),
+    supabase.rpc('admin_study_sessions', { p_target_user_id: userId }),
+  ]);
+
+  const statsRow = statsRes.data?.[0];
+
+  return {
+    person,
+    stats: statsRow
+      ? {
+          xp: statsRow.xp,
+          level: statsRow.level,
+          currentStreak: statsRow.current_streak,
+          longestStreak: statsRow.longest_streak,
+          totalStudySeconds: Number(statsRow.total_study_seconds),
+          lastActiveLocalDate: statsRow.last_active_local_date,
+        }
+      : null,
+    subjectScores: (scoresRes.data ?? []).map(mapSubjectScore),
+    scoreEvolution: (evolutionRes.data ?? []).map((row) => ({
+      weekStart: row.week_start,
+      label: weekLabel(row.week_start),
+      assessmentScore: row.assessment_score,
+      empenhoIndex: row.empenho_index,
+      blendedScore: row.blended_score,
+    })),
+    simuladoHistory: (simuladosRes.data ?? []).map(mapSimuladoAttempt),
+    studyWeeks: groupByWeek(sessionsRes.data ?? []),
+  };
+}
+
+export interface AdminSchoolSummary {
+  schoolId: string | null;
+  schoolName: string;
+  studentCount: number;
+  activeLast7dCount: number;
+  totalStudySeconds: number;
+  avgCurrentStreak: number;
+  quizzesDone30d: number;
+  simuladosDone30d: number;
+}
+
+export interface AdminReportsOverview {
+  bySchool: AdminSchoolSummary[];
+  contentOverview: AdminOverview;
+}
+
+/**
+ * Relatório geral. Admin de escola vê só a própria; admin geral vê cada
+ * escola cadastrada mais uma linha "todas as escolas" (`schoolId: null`).
+ */
+export async function getAdminReportsOverview(
+  identity: AdminIdentity,
+): Promise<AdminReportsOverview> {
+  const supabase = await createClient();
+
+  if (!identity.isGlobal) {
+    const [summaryRes, contentOverview] = await Promise.all([
+      supabase.rpc('admin_school_summary', { p_school_id: identity.schoolId }),
+      getAdminOverview(),
+    ]);
+    const row = summaryRes.data?.[0];
+    return {
+      bySchool: row
+        ? [
+            {
+              schoolId: identity.schoolId,
+              schoolName: identity.schoolName ?? 'Sua escola',
+              studentCount: row.student_count,
+              activeLast7dCount: row.active_last_7d_count,
+              totalStudySeconds: Number(row.total_study_seconds),
+              avgCurrentStreak: Number(row.avg_current_streak),
+              quizzesDone30d: row.quizzes_done_30d,
+              simuladosDone30d: row.simulados_done_30d,
+            },
+          ]
+        : [],
+      contentOverview,
+    };
+  }
+
+  const [schools, contentOverview] = await Promise.all([listSchools(), getAdminOverview()]);
+
+  const [allSchoolsRes, ...perSchoolRes] = await Promise.all([
+    supabase.rpc('admin_school_summary', { p_school_id: null }),
+    ...schools.map((s) => supabase.rpc('admin_school_summary', { p_school_id: s.id })),
+  ]);
+
+  function toSummary(
+    schoolId: string | null,
+    schoolName: string,
+    row: {
+      student_count: number;
+      active_last_7d_count: number;
+      total_study_seconds: number;
+      avg_current_streak: number;
+      quizzes_done_30d: number;
+      simulados_done_30d: number;
+    },
+  ): AdminSchoolSummary {
+    return {
+      schoolId,
+      schoolName,
+      studentCount: row.student_count,
+      activeLast7dCount: row.active_last_7d_count,
+      totalStudySeconds: Number(row.total_study_seconds),
+      avgCurrentStreak: Number(row.avg_current_streak),
+      quizzesDone30d: row.quizzes_done_30d,
+      simuladosDone30d: row.simulados_done_30d,
+    };
+  }
+
+  const bySchool: AdminSchoolSummary[] = [];
+  const allRow = allSchoolsRes.data?.[0];
+  if (allRow) bySchool.push(toSummary(null, 'Todas as escolas', allRow));
+
+  schools.forEach((school, index) => {
+    const row = perSchoolRes[index]?.data?.[0];
+    if (row) bySchool.push(toSummary(school.id, school.name, row));
+  });
+
+  return { bySchool, contentOverview };
 }

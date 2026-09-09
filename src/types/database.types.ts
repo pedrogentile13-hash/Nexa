@@ -802,6 +802,74 @@ export type Database = {
           finished_at: string;
         }[];
       };
+      admin_subject_scores: {
+        Args: { p_target_user_id: string };
+        Returns: {
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          has_content: boolean;
+          assessment_score: number | null;
+          empenho_index: number;
+          blended_score: number | null;
+          quizzes_done: number;
+          simulados_done: number;
+          content_completed: number;
+          target_grade: number | null;
+          passing_grade: number;
+        }[];
+      };
+      admin_performance_evolution: {
+        Args: { p_target_user_id: string; p_weeks?: number };
+        Returns: {
+          week_start: string;
+          assessment_score: number | null;
+          empenho_index: number;
+          blended_score: number | null;
+        }[];
+      };
+      admin_simulado_history: {
+        Args: { p_target_user_id: string };
+        Returns: {
+          attempt_id: string;
+          resource_id: string;
+          resource_title: string;
+          subject_id: string | null;
+          subject_name: string | null;
+          subject_color: string | null;
+          correct_count: number;
+          total_count: number;
+          percent: number;
+          duration_seconds: number;
+          finished_at: string;
+        }[];
+      };
+      admin_study_sessions: {
+        Args: { p_target_user_id: string };
+        Returns: { local_date: string; duration_seconds: number }[];
+      };
+      admin_user_stats: {
+        Args: { p_target_user_id: string };
+        Returns: {
+          xp: number;
+          level: number;
+          current_streak: number;
+          longest_streak: number;
+          total_study_seconds: number;
+          last_active_local_date: string | null;
+        }[];
+      };
+      admin_school_summary: {
+        Args: { p_school_id?: string | null };
+        Returns: {
+          student_count: number;
+          active_last_7d_count: number;
+          total_study_seconds: number;
+          avg_current_streak: number;
+          quizzes_done_30d: number;
+          simulados_done_30d: number;
+        }[];
+      };
       mark_resource_progress: {
         Args: {
           p_resource_id: string;

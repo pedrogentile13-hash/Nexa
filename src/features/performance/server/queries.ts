@@ -83,7 +83,7 @@ export interface PerformanceData {
   topicMastery: TopicMastery[];
 }
 
-function mapSubjectScore(row: {
+export function mapSubjectScore(row: {
   subject_id: string;
   subject_name: string;
   subject_color: string;
@@ -141,7 +141,7 @@ export function computeOverallScore(scores: { blendedScore: number | null }[]): 
   return graded.reduce((sum, s) => sum + (s.blendedScore ?? 0), 0) / graded.length;
 }
 
-function mapSimuladoAttempt(row: {
+export function mapSimuladoAttempt(row: {
   attempt_id: string;
   resource_id: string;
   resource_title: string;
@@ -250,7 +250,7 @@ export async function getPerformance(userId: string): Promise<PerformanceData> {
 
 export { xpToNextLevel };
 
-function weekLabel(weekStart: string): string {
+export function weekLabel(weekStart: string): string {
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -259,7 +259,7 @@ function weekLabel(weekStart: string): string {
 }
 
 /** Agrupa sessões por semana ISO, mantendo as 12 últimas com algum estudo. */
-function groupByWeek(rows: { local_date: string; duration_seconds: number }[]): StudyWeek[] {
+export function groupByWeek(rows: { local_date: string; duration_seconds: number }[]): StudyWeek[] {
   const byWeek = new Map<string, number>();
 
   for (const row of rows) {
