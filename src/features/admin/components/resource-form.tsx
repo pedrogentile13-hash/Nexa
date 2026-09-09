@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Field, FormFeedback, Select, SubmitButton, Textarea, Toggle } from './form-parts';
 import { MEDIA_KINDS, QUESTION_KINDS, RESOURCE_KINDS, DIFFICULTIES } from '../lib/labels';
+import { BIMESTRES } from '@/lib/design/bimestre';
 import { MediaUpload } from './media-upload';
 import { deleteResource, saveResource, type AdminState } from '../server/actions';
 import type { ResourceFormOptions } from '../server/queries';
@@ -332,6 +333,17 @@ export function ResourceForm({
               defaultValue={resource?.tags?.join(', ') ?? ''}
               placeholder="prova, revisão, enem"
             />
+          </Field>
+
+          <Field label="Bimestre" hint="opcional — filtro da Biblioteca">
+            <Select name="bimestre" defaultValue={resource?.bimestre?.toString() ?? ''}>
+              <option value="">Sem bimestre</option>
+              {BIMESTRES.map((b) => (
+                <option key={b.value} value={b.value}>
+                  {b.label}
+                </option>
+              ))}
+            </Select>
           </Field>
 
           <Toggle

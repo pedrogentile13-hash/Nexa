@@ -151,7 +151,16 @@ create policy flashcard_reviews_all_own on public.flashcard_reviews
 -- outra escola sairia inteiro.
 -- ============================================================================
 
-create or replace view public.v_resource_library
+-- `drop` + `create` em vez de `create or replace`: uma migration posterior
+-- (20260908000900) acrescenta a coluna `bimestre` a esta view, e
+-- `create or replace view` recusa mudar o conjunto de colunas de uma view
+-- existente. Sem o `drop` aqui, reaplicar todo o histórico de migrations do
+-- zero sobre um banco que já passou por 20260908000900 quebra neste
+-- statement, bem antes de chegar lá. Nada mais depende desta view (é folha),
+-- então o drop é seguro.
+drop view if exists public.v_resource_library;
+
+create view public.v_resource_library
 with (security_invoker = true) as
 select
   r.id,

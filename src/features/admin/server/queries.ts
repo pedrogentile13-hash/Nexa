@@ -183,6 +183,7 @@ export interface AdminResource {
   questionCount: number;
   updatedAt: string;
   contentFormat: 'markdown' | 'pdf';
+  bimestre: number | null;
 }
 
 export interface ResourceFilters {
@@ -191,6 +192,7 @@ export interface ResourceFilters {
   schoolId?: string;
   status?: 'todos' | 'publicado' | 'rascunho';
   search?: string;
+  bimestre?: number;
 }
 
 export async function listResources(filters: ResourceFilters = {}): Promise<AdminResource[]> {
@@ -202,7 +204,7 @@ export async function listResources(filters: ResourceFilters = {}): Promise<Admi
     // resultado a partir do TEXTO do select, e uma soma de strings vira
     // `string` genérico — aí a linha inteira resolve para erro em vez de linha.
     .select(
-      'id, kind, title, subtitle, school_id, is_published, difficulty, duration_seconds, updated_at, content_format, subject_catalog(name, default_color), content_topics(name), schools(name)',
+      'id, kind, title, subtitle, school_id, is_published, difficulty, duration_seconds, updated_at, content_format, bimestre, subject_catalog(name, default_color), content_topics(name), schools(name)',
     )
     .order('updated_at', { ascending: false })
     .limit(200);
@@ -214,6 +216,7 @@ export async function listResources(filters: ResourceFilters = {}): Promise<Admi
   if (filters.status === 'publicado') query = query.eq('is_published', true);
   if (filters.status === 'rascunho') query = query.eq('is_published', false);
   if (filters.search) query = query.ilike('title', `%${filters.search}%`);
+  if (filters.bimestre) query = query.eq('bimestre', filters.bimestre);
 
   const { data } = await query;
 
@@ -252,6 +255,7 @@ export async function listResources(filters: ResourceFilters = {}): Promise<Admi
       questionCount: questionCount.get(r.id) ?? 0,
       updatedAt: r.updated_at,
       contentFormat: r.content_format,
+      bimestre: r.bimestre,
     };
   });
 }

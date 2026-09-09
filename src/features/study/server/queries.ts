@@ -27,6 +27,8 @@ export interface LibraryItem {
   questionCount: number;
   /** 0–100. Vem de `resource_progress`; 0 quando o aluno nunca abriu. */
   progressPercent: number;
+  /** 1 a 4, ou `null` quando o recurso não é amarrado a um bimestre específico. */
+  bimestre: number | null;
 }
 
 export interface StudyHubData {
@@ -47,7 +49,10 @@ const EMPTY_COUNTS: Record<ResourceKind, number> = {
   musica: 0,
 };
 
-export async function getStudyHub(subjectFilter?: string): Promise<StudyHubData> {
+export async function getStudyHub(
+  subjectFilter?: string,
+  bimestreFilter?: number,
+): Promise<StudyHubData> {
   const supabase = await createClient();
 
   const [libraryRes, progressRes, lessonsRes, tracksRes, mySubjectsRes] = await Promise.all([
@@ -89,6 +94,7 @@ export async function getStudyHub(subjectFilter?: string): Promise<StudyHubData>
     topicName: r.topic_name,
     questionCount: Number(r.question_count ?? 0),
     progressPercent: Number(progressByResource.get(r.id)?.progress_percent ?? 0),
+    bimestre: r.bimestre,
   }));
 
   // Matéria que o aluno cursa primeiro; dentro disso, a ordem do catálogo.
@@ -107,7 +113,8 @@ export async function getStudyHub(subjectFilter?: string): Promise<StudyHubData>
     }
   }
 
-  const items = subjectFilter ? all.filter((i) => i.subjectId === subjectFilter) : all;
+  let items = subjectFilter ? all.filter((i) => i.subjectId === subjectFilter) : all;
+  if (bimestreFilter) items = items.filter((i) => i.bimestre === bimestreFilter);
 
   // "Continuar de onde parou": o mais recente que começou e não terminou.
   // Um item concluído não é uma pendência, e oferecê-lo de novo no topo faz a

@@ -10,7 +10,7 @@
 -- já rodou uma versão anterior, adiciona só o que falta e deixa o resto como
 -- está. Nenhum dado seu é apagado — nem notas, nem rotina, nem conteúdo.
 --
--- Cria as 36 tabelas, as políticas de RLS, as 2 views, as funções e o
+-- Cria as 38 tabelas, as políticas de RLS, as 1 views, as funções e o
 -- conteúdo inicial (matérias, conquistas e a biblioteca de estudo).
 --
 -- DEPOIS DE RODAR, para virar administrador do painel /admin, rode também:
@@ -2274,7 +2274,16 @@ create policy flashcard_reviews_all_own on public.flashcard_reviews
 -- outra escola sairia inteiro.
 -- ============================================================================
 
-create or replace view public.v_resource_library
+-- `drop` + `create` em vez de `create or replace`: uma migration posterior
+-- (20260908000900) acrescenta a coluna `bimestre` a esta view, e
+-- `create or replace view` recusa mudar o conjunto de colunas de uma view
+-- existente. Sem o `drop` aqui, reaplicar todo o histórico de migrations do
+-- zero sobre um banco que já passou por 20260908000900 quebra neste
+-- statement, bem antes de chegar lá. Nada mais depende desta view (é folha),
+-- então o drop é seguro.
+drop view if exists public.v_resource_library;
+
+create view public.v_resource_library
 with (security_invoker = true) as
 select
   r.id,
@@ -3481,18 +3490,16 @@ grant execute on function public.bootstrap_student(
 -- Fórmula (documentada com números redondos de propósito, pra dar pra
 -- explicar ao aluno "por que essa nota"):
 --
---   nota da matéria = 70% avaliativo + 30% atividades
+--   nota da matéria = 70% avaliativo + 30% empenho
 --
 --   avaliativo = média ponderada da TENTATIVA MAIS RECENTE de cada
 --     quiz/simulado da matéria (simulado pesa 2, quiz pesa 1). Nula se o
 --     aluno nunca fez nenhum — nunca vira nota zero por ausência de dado.
 --
---   atividades (0–100) = (conteúdo concluído / conteúdo publicado na
---     matéria) × 100 — com 1 atividade publicada só existem dois resultados
---     possíveis (0 ou 100), com 2 existem três (0, 50, 100), e assim por
---     diante. Sem nenhum conteúdo publicado ainda, fica nulo — não é 0 nem
---     100, não há o que medir — e a nota da matéria usa só o avaliativo
---     nesse caso, sem dividir 30% sobre um lado vazio.
+--   empenho (0–100) = 40% conteúdo concluído (teto em 8 itens — depois disso
+--     assistir mais não aumenta o índice, é a defesa contra "maratonar vídeo
+--     pra subir nota") + 30% regularidade (dias com estudo nos últimos 14) +
+--     30% sequência atual (`user_stats.current_streak`, teto em 14 dias).
 -- ============================================================================
 
 -- --------------------------------------------------------------- subject_scores --
@@ -3542,17 +3549,6 @@ as $$
     from attempt_scored
     group by subject_catalog_id
   ),
-  -- Atividade = conteúdo (resumo/podcast/vídeo/imagem) PUBLICADO e visível
-  -- para este aluno — mesma regra de visibilidade de `resource_library()`:
-  -- global (sem escola) ou da escola dele.
-  content_available as (
-    select r.subject_catalog_id, count(*) as content_total
-    from public.resources r
-    where r.kind in ('resumo', 'podcast', 'video', 'imagem')
-      and r.is_published
-      and (r.school_id is null or r.school_id = public.current_school_id(p_user_id))
-    group by r.subject_catalog_id
-  ),
   content_done as (
     select r.subject_catalog_id, count(distinct rp.resource_id) as content_completed
     from public.resource_progress rp
@@ -3561,15 +3557,30 @@ as $$
       and r.kind in ('resumo', 'podcast', 'video', 'imagem')
     group by r.subject_catalog_id
   ),
-  atividades as (
+  regularity as (
+    select ss.subject_id, count(distinct ss.local_date) as active_days
+    from public.study_sessions ss
+    where ss.user_id = p_user_id
+      and ss.local_date >= public.user_local_date(p_user_id) - 13
+    group by ss.subject_id
+  ),
+  streak as (
+    select coalesce(
+      (select us.current_streak from public.user_stats us where us.user_id = p_user_id), 0
+    ) as current_streak
+  ),
+  empenho as (
     select
-      ca.subject_catalog_id,
-      case
-        when ca.content_total = 0 then null
-        else round(coalesce(cd.content_completed, 0)::numeric / ca.content_total * 10, 2)
-      end as atividades_score
-    from content_available ca
-    left join content_done cd on cd.subject_catalog_id = ca.subject_catalog_id
+      s.id as subject_id,
+      least(1, coalesce(cd.content_completed, 0) / 8.0) * 40
+      + least(1, coalesce(reg.active_days, 0) / 14.0) * 30
+      + least(1, coalesce(st.current_streak, 0) / 14.0) * 30
+      as empenho_index
+    from public.subjects s
+    left join content_done cd on cd.subject_catalog_id = s.catalog_id
+    left join regularity reg on reg.subject_id = s.id
+    cross join streak st
+    where s.user_id = p_user_id and s.archived_at is null
   )
   select
     s.id,
@@ -3577,12 +3588,9 @@ as $$
     s.color,
     s.catalog_id is not null,
     round(a.assessment_score, 2),
-    coalesce(act.atividades_score, 0) * 10,
-    case
-      when a.assessment_score is not null and act.atividades_score is not null
-        then round(a.assessment_score * 0.7 + act.atividades_score * 0.3, 2)
-      when a.assessment_score is not null
-        then round(a.assessment_score, 2)
+    round(e.empenho_index, 1),
+    case when a.assessment_score is not null
+      then round(a.assessment_score * 0.7 + e.empenho_index / 10 * 0.3, 2)
     end,
     coalesce(a.quizzes_done, 0)::integer,
     coalesce(a.simulados_done, 0)::integer,
@@ -3592,13 +3600,13 @@ as $$
   from public.subjects s
   left join assessment a on a.subject_catalog_id = s.catalog_id
   left join content_done cd on cd.subject_catalog_id = s.catalog_id
-  left join atividades act on act.subject_catalog_id = s.catalog_id
+  left join empenho e on e.subject_id = s.id
   where s.user_id = p_user_id and s.archived_at is null
   order by s.sort_order, s.name;
 $$;
 
 comment on function public.subject_scores(uuid) is
-  'Nota automática por matéria (70% avaliativo + 30% atividades concluídas) — substitui o boletim manual.';
+  'Nota automática por matéria (70% avaliativo + 30% empenho) — substitui o boletim manual.';
 
 grant execute on function public.subject_scores(uuid) to authenticated;
 
@@ -4068,8 +4076,167 @@ create policy ai_chat_messages_all_own on public.ai_chat_messages
   ));
 
 -- ─────────────────────────────────────────────────────────────────────
+-- 20260908000600_atividades_score.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa Study — 0908 (6) · Nota de atividades substitui o empenho composto
+--
+-- Pedido do usuário: os 30% da nota que não são prova devem refletir
+-- ATIVIDADES — conteúdo publicado na matéria que o aluno concluiu ou não —
+-- e nada mais. Regularidade (dias ativos) e sequência (streak) saem da conta:
+-- eram um proxy de esforço, mas não são "atividade" no sentido de tarefa que
+-- existe pra ser feita.
+--
+-- Fórmula nova dos 30%:
+--
+--   atividades = (conteúdo concluído / conteúdo publicado na matéria) × 10
+--
+-- Com 1 atividade publicada, só existem dois resultados possíveis (0 ou 10);
+-- com 2, três (0, 5, 10); e assim por diante — é a tabela que o usuário
+-- descreveu, sem arredondamento escondido.
+--
+-- Sem conteúdo publicado na matéria ainda: fica nulo (não é 0 nem 10 — não há
+-- o que medir), mesma regra de "nunca fabricar nota" que já vale para
+-- `assessment_score`. Nesse caso a nota da matéria usa só o avaliativo, sem
+-- forçar a divisão por 30%/70% sobre um lado vazio.
+--
+-- `empenho_index` continua sendo o nome da coluna (0–100) — é só o cálculo
+-- que muda; o rótulo "Empenho (30%)" na tela de Matérias segue correto porque
+-- 30% da nota é exatamente o que essa coluna representa.
+--
+-- `performance_evolution()` (o gráfico de evolução semanal) mantém a fórmula
+-- simplificada e independente que já tinha antes (60% conteúdo + 40%
+-- regularidade, documentada de propósito como diferente) — o usuário pediu a
+-- NOTA da matéria, não o gráfico histórico, e reconstituir "quantas
+-- atividades existiam há 8 semanas" para cada matéria não é possível sem
+-- inventar dado.
+-- ============================================================================
+
+create or replace function public.subject_scores(p_user_id uuid default auth.uid())
+returns table (
+  subject_id uuid,
+  subject_name text,
+  subject_color text,
+  has_content boolean,
+  assessment_score numeric,
+  empenho_index numeric,
+  blended_score numeric,
+  quizzes_done integer,
+  simulados_done integer,
+  content_completed integer,
+  target_grade numeric,
+  passing_grade numeric
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with latest_attempt as (
+    select distinct on (qa.resource_id)
+      qa.resource_id, qa.correct_count, qa.total_count
+    from public.quiz_attempts qa
+    where qa.user_id = p_user_id and qa.finished_at is not null
+    order by qa.resource_id, qa.finished_at desc
+  ),
+  attempt_scored as (
+    select
+      r.subject_catalog_id,
+      r.kind,
+      la.correct_count::numeric / greatest(la.total_count, 1) as percent,
+      case when r.kind = 'simulado' then 2 else 1 end as attempt_weight
+    from latest_attempt la
+    join public.resources r on r.id = la.resource_id
+    where r.kind in ('quiz', 'simulado')
+  ),
+  assessment as (
+    select
+      subject_catalog_id,
+      sum(percent * attempt_weight) / nullif(sum(attempt_weight), 0) * 10 as assessment_score,
+      count(*) filter (where kind = 'quiz') as quizzes_done,
+      count(*) filter (where kind = 'simulado') as simulados_done
+    from attempt_scored
+    group by subject_catalog_id
+  ),
+  -- Atividade = conteúdo (resumo/podcast/vídeo/imagem) PUBLICADO e visível
+  -- para este aluno — mesma regra de visibilidade de `resource_library()`:
+  -- global (sem escola) ou da escola dele.
+  content_available as (
+    select r.subject_catalog_id, count(*) as content_total
+    from public.resources r
+    where r.kind in ('resumo', 'podcast', 'video', 'imagem')
+      and r.is_published
+      and (r.school_id is null or r.school_id = public.current_school_id(p_user_id))
+    group by r.subject_catalog_id
+  ),
+  content_done as (
+    select r.subject_catalog_id, count(distinct rp.resource_id) as content_completed
+    from public.resource_progress rp
+    join public.resources r on r.id = rp.resource_id
+    where rp.user_id = p_user_id and rp.completed_at is not null
+      and r.kind in ('resumo', 'podcast', 'video', 'imagem')
+    group by r.subject_catalog_id
+  ),
+  atividades as (
+    select
+      ca.subject_catalog_id,
+      case
+        when ca.content_total = 0 then null
+        else round(coalesce(cd.content_completed, 0)::numeric / ca.content_total * 10, 2)
+      end as atividades_score
+    from content_available ca
+    left join content_done cd on cd.subject_catalog_id = ca.subject_catalog_id
+  )
+  select
+    s.id,
+    s.name,
+    s.color,
+    s.catalog_id is not null,
+    round(a.assessment_score, 2),
+    coalesce(act.atividades_score, 0) * 10,
+    case
+      when a.assessment_score is not null and act.atividades_score is not null
+        then round(a.assessment_score * 0.7 + act.atividades_score * 0.3, 2)
+      when a.assessment_score is not null
+        then round(a.assessment_score, 2)
+    end,
+    coalesce(a.quizzes_done, 0)::integer,
+    coalesce(a.simulados_done, 0)::integer,
+    coalesce(cd.content_completed, 0)::integer,
+    s.target_grade,
+    6.0
+  from public.subjects s
+  left join assessment a on a.subject_catalog_id = s.catalog_id
+  left join content_done cd on cd.subject_catalog_id = s.catalog_id
+  left join atividades act on act.subject_catalog_id = s.catalog_id
+  where s.user_id = p_user_id and s.archived_at is null
+  order by s.sort_order, s.name;
+$$;
+
+comment on function public.subject_scores(uuid) is
+  'Nota automática por matéria (70% avaliativo + 30% atividades concluídas) — substitui o boletim manual.';
+
+grant execute on function public.subject_scores(uuid) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
 -- 20260908000700_avatars.sql
 -- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa Study — 0908 (7) · Bucket de foto de perfil
+--
+-- Diferente de `nexa-content` (só admin escreve), aqui é o próprio aluno que
+-- sobe o arquivo, e só o SEU arquivo — por isso a policy de escrita não olha
+-- o cargo, olha o CAMINHO: o objeto tem que morar numa pasta com o próprio
+-- `auth.uid()` (`avatars/<user_id>/arquivo.jpg`), garantido no cliente pelo
+-- código que monta o path, e garantido de novo aqui pela RLS, que é a que
+-- realmente impede um aluno de sobrescrever a foto de outro.
+--
+-- Leitura pública pelo mesmo motivo do bucket de conteúdo: URL assinada
+-- expira, e uma foto de perfil que some depois de uma hora é pior do que
+-- nunca ter tido foto.
+-- ============================================================================
 
 do $$
 begin
@@ -4083,7 +4250,7 @@ begin
     'avatars',
     'avatars',
     true,
-    5242880,
+    5242880, -- 5 MB: sobra para uma foto de perfil, e barra vídeo/PDF disfarçado
     array['image/png', 'image/jpeg', 'image/webp']
   )
   on conflict (id) do update
@@ -4118,11 +4285,32 @@ $$;
 -- 20260908000800_notifications.sql
 -- ─────────────────────────────────────────────────────────────────────
 
+-- ============================================================================
+-- Nexa Study — 0908 (8) · Notificações (central no app + push no aparelho)
+--
+-- Duas tabelas, dois propósitos diferentes:
+--
+--   • `notifications`      — o que aparece no sininho dentro do app. Sempre
+--     existe, independente do aluno ter aceitado push ou não.
+--   • `push_subscriptions` — o "endereço" do navegador/aparelho pra onde o
+--     servidor pode empurrar um aviso mesmo com o app fechado. Um usuário
+--     pode ter mais de uma (celular + computador), por isso é tabela própria
+--     em vez de uma coluna em `profiles`.
+--
+-- Gatilho real, não fabricado: por enquanto só um evento cria notificação —
+-- um admin publica conteúdo novo numa matéria que o aluno cursa
+-- (`notify_subject_students`, chamada por `saveResource`/
+-- `toggleResourcePublished`). Mais gatilhos entram conforme o produto pedir;
+-- não inventamos uma central cheia de avisos que nada dispara de verdade.
+-- ============================================================================
+
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   title text not null check (length(btrim(title)) between 1 and 160),
   body text check (body is null or length(btrim(body)) <= 500),
+  -- Caminho relativo do app pra onde o toque leva (ex.: '/estudar/<id>').
+  -- Nulo quando o aviso não tem destino próprio.
   link text,
   read_at timestamptz,
   created_at timestamptz not null default now()
@@ -4138,12 +4326,14 @@ drop policy if exists notifications_select_own on public.notifications;
 create policy notifications_select_own on public.notifications
   for select to authenticated using (user_id = auth.uid());
 
+-- Só marcar como lida — o conteúdo do aviso não é do aluno editar.
 drop policy if exists notifications_update_own on public.notifications;
 create policy notifications_update_own on public.notifications
   for update to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+-- ------------------------------------------------------- push_subscriptions --
 create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -4163,6 +4353,10 @@ create policy push_subscriptions_all_own on public.push_subscriptions
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+-- --------------------------------------------------- notify_subject_students --
+-- `security definer` porque isto grava notificação PARA OUTRO usuário — RLS
+-- de `notifications` só deixa cada um escrever a própria. Só admin/
+-- school_admin pode chamar, checado aqui dentro, não só pela grant.
 create or replace function public.notify_subject_students(
   p_subject_catalog_id uuid,
   p_title text,
@@ -4190,6 +4384,70 @@ end;
 $$;
 
 grant execute on function public.notify_subject_students(uuid, text, text, text) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260908000900_resource_bimestre.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa Study — 0908 (9) · Bimestre no acervo
+--
+-- Biblioteca ganha um filtro por bimestre — enum fixo 1–4, não pasta livre —
+-- mesmo padrão de `tracks.category`. `null` significa "vale o ano todo / não
+-- amarrado a um bimestre específico" e é o default: nenhum recurso existente
+-- fica classificado errado por causa desta migração.
+--
+-- Não é o mesmo `terms`/`academic_years` do calendário pessoal do aluno
+-- (onboarding, `timetable_slots.term_id`) — aquilo é uma linha por aluno por
+-- período; isto é uma classificação do conteúdo em si, escrita pelo admin uma
+-- vez, valendo para todo mundo que enxerga o recurso.
+-- ============================================================================
+
+alter table public.resources
+  add column if not exists bimestre smallint
+    check (bimestre is null or bimestre between 1 and 4);
+
+create index if not exists resources_bimestre_idx
+  on public.resources (bimestre) where bimestre is not null;
+
+-- `create or replace view` recusa mudar o conjunto de colunas de uma view
+-- existente — e como esta migration é reaplicada (via setup-completo.sql)
+-- por cima de um banco onde a definição ORIGINAL de `v_resource_library`
+-- (sem `bimestre`, de 20260904000200) acabou de rodar de novo, `replace`
+-- quebraria com "cannot drop columns from view". `drop` + `create` resolve:
+-- nada mais depende desta view (é folha), então o drop é seguro.
+drop view if exists public.v_resource_library;
+
+create view public.v_resource_library
+with (security_invoker = true) as
+select
+  r.id,
+  r.kind,
+  r.title,
+  r.subtitle,
+  r.description,
+  r.thumbnail_url,
+  r.duration_seconds,
+  r.difficulty,
+  r.xp_reward,
+  r.school_id,
+  r.subject_catalog_id,
+  sc.name  as subject_name,
+  sc.slug  as subject_slug,
+  sc.default_color as subject_color,
+  r.topic_id,
+  t.name   as topic_name,
+  r.sort_order,
+  r.published_at,
+  (select count(*) from public.questions q where q.resource_id = r.id) as question_count,
+  r.bimestre
+from public.resources r
+join public.subject_catalog sc on sc.id = r.subject_catalog_id
+left join public.content_topics t on t.id = r.topic_id
+where r.is_published;
+
+comment on view public.v_resource_library is
+  'Biblioteca publicada e visível para quem consulta, já com matéria e assunto resolvidos.';
 
 -- ─────────────────────────────────────────────────────────────────────
 -- seed.sql

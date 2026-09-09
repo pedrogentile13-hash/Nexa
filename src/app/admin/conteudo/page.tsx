@@ -14,7 +14,14 @@ import type { ResourceKind } from '@/types/database.types';
 
 export const metadata = { title: 'Conteúdo' };
 
-type Search = { kind?: string; subject?: string; school?: string; status?: string; q?: string };
+type Search = {
+  kind?: string;
+  subject?: string;
+  school?: string;
+  status?: string;
+  q?: string;
+  bimestre?: string;
+};
 
 export default async function ContentPage({ searchParams }: { searchParams: Promise<Search> }) {
   const identity = await requireAdmin();
@@ -27,6 +34,7 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
       schoolId: params.school,
       status: (params.status as 'publicado' | 'rascunho') ?? 'todos',
       search: params.q,
+      bimestre: params.bimestre ? Number(params.bimestre) : undefined,
     }),
     listSubjectsWithTopics(),
     identity.isGlobal ? listSchools() : Promise.resolve([]),

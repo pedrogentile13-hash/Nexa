@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select } from './form-parts';
 import { RESOURCE_KINDS } from '../lib/labels';
+import { BIMESTRES } from '@/lib/design/bimestre';
 
 /**
  * Filtros da biblioteca.
@@ -14,7 +15,14 @@ import { RESOURCE_KINDS } from '../lib/labels';
  * que é o que acontece o tempo todo quando se publica dez itens seguidos.
  */
 
-type Current = { kind?: string; subject?: string; school?: string; status?: string; q?: string };
+type Current = {
+  kind?: string;
+  subject?: string;
+  school?: string;
+  status?: string;
+  q?: string;
+  bimestre?: string;
+};
 
 export function ResourceFilterBar({
   subjects,
@@ -38,7 +46,12 @@ export function ResourceFilterBar({
   }
 
   const hasFilter = Boolean(
-    current.kind || current.subject || current.school || current.status || current.q,
+    current.kind ||
+      current.subject ||
+      current.school ||
+      current.status ||
+      current.q ||
+      current.bimestre,
   );
 
   return (
@@ -121,6 +134,22 @@ export function ResourceFilterBar({
         <option value="todos">Publicados e rascunhos</option>
         <option value="publicado">Só publicados</option>
         <option value="rascunho">Só rascunhos</option>
+      </Select>
+
+      <Select
+        aria-label="Bimestre"
+        value={current.bimestre ?? 'todos'}
+        onChange={(e) =>
+          apply({ bimestre: e.target.value === 'todos' ? undefined : e.target.value })
+        }
+        className="w-auto"
+      >
+        <option value="todos">Todos os bimestres</option>
+        {BIMESTRES.map((b) => (
+          <option key={b.value} value={b.value}>
+            {b.label}
+          </option>
+        ))}
       </Select>
 
       {hasFilter && (

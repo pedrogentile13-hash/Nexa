@@ -8,6 +8,7 @@ import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-s
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { RESOURCE_KIND_COLOR as KIND_COLOR, RESOURCE_KIND_ICON as ICONS } from '@/lib/design/resource-kind';
 import { KIND_META, KIND_ORDER, humanDuration } from '../lib/format';
+import { BIMESTRES } from '@/lib/design/bimestre';
 import type { StudyHubData } from '../server/queries';
 import type { ResourceKind } from '@/types/database.types';
 
@@ -25,6 +26,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
   const router = useRouter();
   const params = useSearchParams();
   const subjectFilter = params.get('materia');
+  const bimestreFilter = params.get('bimestre');
 
   function setParam(key: string, value: string | null) {
     const next = new URLSearchParams(params.toString());
@@ -34,7 +36,10 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
     router.push(qs ? `/estudar?${qs}` : '/estudar');
   }
 
-  const visible = kindFilter ? data.items.filter((i) => i.kind === kindFilter) : data.items;
+  let visible = kindFilter ? data.items.filter((i) => i.kind === kindFilter) : data.items;
+  if (bimestreFilter) visible = visible.filter((i) => i.bimestre === Number(bimestreFilter));
+
+  const hasBimestre = data.items.some((i) => i.bimestre);
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-8 md:px-6 md:pt-6 lg:px-8">
@@ -57,8 +62,26 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
         </div>
       )}
 
+      {/* ---------------------------------------------------- bimestre -- */}
+      {hasBimestre && (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+          <FilterChip active={!bimestreFilter} onClick={() => setParam('bimestre', null)}>
+            Todos os bimestres
+          </FilterChip>
+          {BIMESTRES.map((b) => (
+            <FilterChip
+              key={b.value}
+              active={bimestreFilter === String(b.value)}
+              onClick={() => setParam('bimestre', String(b.value))}
+            >
+              {b.label}
+            </FilterChip>
+          ))}
+        </div>
+      )}
+
       {/* --------------------------------------------------- continuar -- */}
-      {data.continueItem && !kindFilter && (
+      {data.continueItem && !kindFilter && !bimestreFilter && (
         <section>
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Continuar de onde parou
@@ -100,7 +123,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
       )}
 
       {/* ---------------------------------------------------- formatos -- */}
-      {!kindFilter && (
+      {!kindFilter && !bimestreFilter && (
         <section>
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Formatos
@@ -139,7 +162,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
       )}
 
       {/* ----------------------------------------------------- trilhas -- */}
-      {!kindFilter && data.tracks.length > 0 && (
+      {!kindFilter && !bimestreFilter && data.tracks.length > 0 && (
         <section>
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Trilhas por matéria
@@ -199,7 +222,10 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
         )}
 
         {visible.length === 0 ? (
-          <EmptyLibrary filtered={Boolean(subjectFilter || kindFilter)} kind={kindFilter} />
+          <EmptyLibrary
+            filtered={Boolean(subjectFilter || kindFilter || bimestreFilter)}
+            kind={kindFilter}
+          />
         ) : (
           <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {visible.slice(0, 60).map((item) => {

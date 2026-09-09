@@ -343,6 +343,8 @@ export type ResourceRow = {
   pdf_page_count: number | null;
   pdf_extracted_text: string | null;
   pdf_status: 'processado' | 'erro' | null;
+  /** 1 a 4, ou `null` quando o recurso não é amarrado a um bimestre específico. */
+  bimestre: number | null;
 };
 
 export type ResourceChapterRow = {
@@ -562,6 +564,7 @@ export type VResourceLibraryRow = {
   sort_order: number;
   published_at: string | null;
   question_count: number;
+  bimestre: number | null;
 };
 
 export type VTrackLessonResolvedRow = {

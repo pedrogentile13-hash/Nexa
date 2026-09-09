@@ -230,6 +230,7 @@ const resourceSchema = z.object({
   xpReward: z.coerce.number().int().min(0).max(1000),
   isPublished: z.boolean(),
   tags: z.string().max(300).optional().or(z.literal('')),
+  bimestre: z.coerce.number().int().min(1).max(4).optional(),
 });
 
 /**
@@ -278,6 +279,7 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     xpReward: formData.get('xpReward') || 0,
     isPublished: formData.get('isPublished') === 'on' || formData.get('isPublished') === 'true',
     tags: formData.get('tags') || '',
+    bimestre: formData.get('bimestre') || undefined,
   });
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
@@ -366,6 +368,7 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
           .map((t) => t.trim())
           .filter(Boolean)
       : [],
+    bimestre: data.bimestre ?? null,
     created_by: identity.userId,
     ...(pdfMeta
       ? { pdf_status: 'processado' as const, pdf_page_count: pdfMeta.pageCount, pdf_extracted_text: pdfMeta.text }
