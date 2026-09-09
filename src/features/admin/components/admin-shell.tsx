@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import {
+  ArrowLeft,
   BarChart3,
   Bell,
   BookOpen,
@@ -139,6 +140,18 @@ export function AdminShell({
             vez de em cada AdminHeader — assim toda tela do painel ganha as
             três coisas de graça, sem repetir prop em cada página. */}
         <header className="border-border bg-surface sticky top-0 z-30 flex items-center gap-3 border-b px-5 py-3">
+          {/* No celular a barra lateral não fica visível (é uma faixa de
+              navegação, não um menu fixo), e o "Voltar ao app" de lá some
+              junto — sem isto, quem entra no painel pelo celular fica preso
+              nele, sem nenhum jeito de voltar pro app do aluno. */}
+          <Link
+            href="/hoje"
+            aria-label="Voltar ao app"
+            className="text-muted hover:bg-surface-2 hover:text-text grid size-11 shrink-0 place-items-center rounded-md lg:hidden"
+          >
+            <ArrowLeft className="size-5" aria-hidden />
+          </Link>
+
           <div className="min-w-0 flex-1">
             <SearchBar
               placeholder="Buscar conteúdos, usuários, escolas…"
