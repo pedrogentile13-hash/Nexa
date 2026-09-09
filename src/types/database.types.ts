@@ -34,7 +34,7 @@ export type TaskKind =
   | 'project'
   | 'custom'
   | 'prova';
-export type StudySource = 'timer' | 'manual';
+export type StudySource = 'timer' | 'manual' | 'content';
 export type AttachmentKind = 'summary' | 'exercise' | 'file' | 'link';
 export type XpSourceType =
   | 'task'

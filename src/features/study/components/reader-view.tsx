@@ -9,6 +9,7 @@ import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { StudyTopBar } from './study-top-bar';
 import { addHighlight, removeHighlight, saveProgress } from '../server/actions';
 import { Markdown } from './markdown';
+import { useContentTimeTracking } from '../hooks/use-content-time-tracking';
 import type { ResourceDetail } from '../server/queries';
 
 /**
@@ -29,6 +30,7 @@ const SIZES = ['text-[15px]', 'text-base', 'text-lg', 'text-xl'] as const;
 const STORAGE_KEY = 'nexa:reader-size';
 
 export function ReaderView({ resource }: { resource: ResourceDetail }) {
+  useContentTimeTracking(resource.id);
   const [sizeIndex, setSizeIndex] = useState(1);
   const [percent, setPercent] = useState(resource.progressPercent);
   const [selection, setSelection] = useState<string | null>(null);

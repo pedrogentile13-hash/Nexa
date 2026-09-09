@@ -8,6 +8,7 @@ import { subjectColorVars } from '@/lib/design/subject-colors';
 import { StudyTopBar } from './study-top-bar';
 import { reviewFlashcard } from '../server/actions';
 import { Markdown } from './markdown';
+import { useContentTimeTracking } from '../hooks/use-content-time-tracking';
 import type { ResourceDetail } from '../server/queries';
 
 /**
@@ -18,6 +19,7 @@ import type { ResourceDetail } from '../server/queries';
  * transforma a figura em revisão — e é o que alimenta o que reaparece depois.
  */
 export function ImageCard({ resource }: { resource: ResourceDetail }) {
+  useContentTimeTracking(resource.id);
   const [flipped, setFlipped] = useState(false);
   const [answered, setAnswered] = useState<boolean | null>(null);
   const [, startTransition] = useTransition();

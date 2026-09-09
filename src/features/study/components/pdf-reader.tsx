@@ -8,6 +8,7 @@ import { subjectColorVars } from '@/lib/design/subject-colors';
 import { humanDuration } from '../lib/format';
 import { saveProgress, toggleFavorite } from '../server/actions';
 import { StudyTopBar } from './study-top-bar';
+import { useContentTimeTracking } from '../hooks/use-content-time-tracking';
 import type { ResourceDetail } from '../server/queries';
 
 /**
@@ -24,6 +25,7 @@ import type { ResourceDetail } from '../server/queries';
  * em vez do gradual que `ReaderView` faz para markdown.
  */
 export function PdfReader({ resource }: { resource: ResourceDetail }) {
+  useContentTimeTracking(resource.id);
   const [isFavorited, setIsFavorited] = useState(resource.isFavorited);
   const [isDone, setIsDone] = useState(Boolean(resource.completedAt));
   const [, startTransition] = useTransition();

@@ -9,6 +9,7 @@ import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { StudyTopBar } from './study-top-bar';
 import { clockTime } from '../lib/format';
 import { saveProgress } from '../server/actions';
+import { useContentTimeTracking } from '../hooks/use-content-time-tracking';
 import type { ResourceDetail } from '../server/queries';
 
 /**
@@ -31,6 +32,7 @@ export function MediaPlayer({ resource }: { resource: ResourceDetail }) {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
 
   const [playing, setPlaying] = useState(false);
+  useContentTimeTracking(resource.id, playing);
   const [current, setCurrent] = useState(resource.positionSeconds);
   const [duration, setDuration] = useState(resource.durationSeconds ?? 0);
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
