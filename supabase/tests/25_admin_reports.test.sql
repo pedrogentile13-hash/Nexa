@@ -94,6 +94,48 @@ begin
     assert false, 'aluno conseguiu chamar admin_user_stats sobre outro aluno';
   exception when insufficient_privilege then null;
   end;
+
+  -- `profiles`: só a própria linha — este bloco protege contra a regressão
+  -- que existia antes de `profiles_select_admin` (RLS silenciosamente vazia
+  -- pra qualquer papel, não só pra aluno).
+  assert (select count(*) from public.profiles) = 1,
+    'aluno enxergou o perfil de alguém além do próprio';
+end;
+$$;
+
+reset role;
+
+-- ------------------------------------- profiles: quem enxerga quem -------
+-- Regressão do bug em que `profiles` só tinha `profiles_select_own` — um
+-- admin (geral ou de escola) não conseguia ler o PERFIL de ninguém além de
+-- si mesmo, o que quebrava tanto /admin/usuarios quanto o relatório
+-- individual antes mesmo de chegar nas funções admin_*.
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666601';
+set role authenticated;
+
+do $$
+begin
+  assert (select count(*) from public.profiles
+          where id in ('66666666-6666-6666-6666-666666666602',
+                       '66666666-6666-6666-6666-666666666603',
+                       '66666666-6666-6666-6666-666666666604')) = 3,
+    'admin geral não enxergou os três perfis de teste';
+end;
+$$;
+
+reset role;
+
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666602';
+set role authenticated;
+
+do $$
+begin
+  assert (select count(*) from public.profiles
+          where id = '66666666-6666-6666-6666-666666666603') = 1,
+    'admin da escola A não enxergou a aluna da própria escola';
+  assert (select count(*) from public.profiles
+          where id = '66666666-6666-6666-6666-666666666604') = 0,
+    'admin da escola A enxergou aluno de OUTRA escola';
 end;
 $$;
 

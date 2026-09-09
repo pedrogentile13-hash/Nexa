@@ -13,30 +13,23 @@ export default async function PeoplePage({
   const identity = await requireAdmin();
   const params = await searchParams;
 
-  if (!identity.isGlobal) {
-    return (
-      <>
-        <AdminHeader title="Pessoas" />
-        <div className="p-5">
-          <div className="border-border bg-surface rounded-lg border p-6 text-center">
-            <p className="text-sm font-medium">Só a administração geral muda papéis.</p>
-            <p className="text-muted mt-1 text-sm">
-              Dar acesso de administrador é uma decisão que atravessa escolas, então ela não fica
-              dentro de uma.
-            </p>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  const [people, schools] = await Promise.all([listPeople(params.q), listSchools()]);
+  // Admin de escola enxerga a própria lista (pra chegar no relatório dos
+  // próprios alunos), mas não edita papel — dar acesso de administrador é
+  // uma decisão que atravessa escolas, então ela não fica dentro de uma.
+  const [people, schools] = await Promise.all([
+    listPeople(params.q, identity.isGlobal ? undefined : (identity.schoolId ?? undefined)),
+    identity.isGlobal ? listSchools() : Promise.resolve([]),
+  ]);
 
   return (
     <>
       <AdminHeader
         title="Pessoas"
-        description="Quem administra o quê. Todo o resto do app continua sendo do aluno."
+        description={
+          identity.isGlobal
+            ? 'Quem administra o quê. Todo o resto do app continua sendo do aluno.'
+            : 'Alunos e admins da sua escola. Só a administração geral muda papéis.'
+        }
       />
       <div className="p-5">
         <PeopleManager
@@ -44,6 +37,7 @@ export default async function PeoplePage({
           schools={schools.map((s) => ({ id: s.id, name: s.name }))}
           currentUserId={identity.userId}
           search={params.q ?? ''}
+          readOnly={!identity.isGlobal}
         />
       </div>
     </>

@@ -1,8 +1,9 @@
 'use client';
 
 import { useActionState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, ShieldCheck, User } from 'lucide-react';
+import { BarChart3, Search, ShieldCheck, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -23,11 +24,14 @@ export function PeopleManager({
   schools,
   currentUserId,
   search,
+  readOnly = false,
 }: {
   people: AdminPerson[];
   schools: { id: string; name: string }[];
   currentUserId: string;
   search: string;
+  /** Admin de escola vê a lista pra chegar no relatório, mas não edita papel/escola. */
+  readOnly?: boolean;
 }) {
   const [state, formAction] = useActionState(setPersonRole, INITIAL);
   const router = useRouter();
@@ -74,47 +78,59 @@ export function PeopleManager({
               </span>
 
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">
+                <Link
+                  href={`/admin/usuarios/${person.id}`}
+                  className="block truncate text-sm font-medium hover:underline"
+                >
                   {person.fullName ?? 'Sem nome'}
                   {isSelf && <span className="text-subtle ml-2 text-xs font-normal">você</span>}
-                </span>
+                </Link>
                 <span className="text-muted text-xs">
                   {ROLE_LABEL[person.role] ?? person.role}
                   {person.schoolName ? ` · ${person.schoolName}` : ''}
                 </span>
               </span>
 
-              <form action={formAction} className="flex flex-wrap items-center gap-2">
-                <input type="hidden" name="userId" value={person.id} />
-                <Select
-                  name="role"
-                  defaultValue={person.role}
-                  className="w-auto"
-                  aria-label={`Papel de ${person.fullName ?? 'pessoa'}`}
-                  disabled={isSelf}
-                >
-                  <option value="student">Aluno</option>
-                  <option value="school_admin">Admin da escola</option>
-                  <option value="admin">Admin geral</option>
-                </Select>
-                <Select
-                  name="schoolId"
-                  defaultValue={person.schoolId ?? ''}
-                  className="w-auto"
-                  aria-label="Escola"
-                  disabled={isSelf}
-                >
-                  <option value="">Sem escola</option>
-                  {schools.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
-                <Button type="submit" variant="secondary" disabled={isSelf}>
-                  Aplicar
-                </Button>
-              </form>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/admin/usuarios/${person.id}`}>
+                  <BarChart3 aria-hidden />
+                  Ver relatório
+                </Link>
+              </Button>
+
+              {!readOnly && (
+                <form action={formAction} className="flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="userId" value={person.id} />
+                  <Select
+                    name="role"
+                    defaultValue={person.role}
+                    className="w-auto"
+                    aria-label={`Papel de ${person.fullName ?? 'pessoa'}`}
+                    disabled={isSelf}
+                  >
+                    <option value="student">Aluno</option>
+                    <option value="school_admin">Admin da escola</option>
+                    <option value="admin">Admin geral</option>
+                  </Select>
+                  <Select
+                    name="schoolId"
+                    defaultValue={person.schoolId ?? ''}
+                    className="w-auto"
+                    aria-label="Escola"
+                    disabled={isSelf}
+                  >
+                    <option value="">Sem escola</option>
+                    {schools.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button type="submit" variant="secondary" disabled={isSelf}>
+                    Aplicar
+                  </Button>
+                </form>
+              )}
             </li>
           );
         })}
