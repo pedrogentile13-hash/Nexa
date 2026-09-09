@@ -1,4 +1,4 @@
-import { Download, Flame, NotebookPen, Target, Trophy } from 'lucide-react';
+import { Flame, NotebookPen, Target, Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { PopEmptyState } from '@/components/ui/empty-state';
@@ -52,23 +52,12 @@ export function StudentReport({ report }: { report: AdminStudentReport }) {
 
   return (
     <div className="space-y-4 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{person.fullName ?? 'Sem nome'}</h1>
-          <p className="text-muted text-sm">
-            {ROLE_LABEL[person.role] ?? person.role}
-            {person.schoolName ? ` · ${person.schoolName}` : ''}
-          </p>
-        </div>
-        {/* `<a>`, não `Link`: é um download de verdade (GET com
-            Content-Disposition), não uma navegação de cliente. */}
-        <a
-          href={`/admin/usuarios/${person.id}/export`}
-          className="border-border bg-surface hover:bg-surface-2 inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium"
-        >
-          <Download className="size-4" aria-hidden />
-          Exportar PDF
-        </a>
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">{person.fullName ?? 'Sem nome'}</h1>
+        <p className="text-muted text-sm">
+          {ROLE_LABEL[person.role] ?? person.role}
+          {person.schoolName ? ` · ${person.schoolName}` : ''}
+        </p>
       </div>
 
       {!stats ? (
