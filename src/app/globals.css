@@ -262,4 +262,17 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /*
+   * Exportar relatório em PDF sem nenhuma dependência de geração server-side
+   * (ver `PrintButton`): a impressão nativa do navegador ("Salvar como PDF"
+   * já embutida em todo navegador moderno) faz o trabalho. `.no-print` some
+   * da folha impressa — nav lateral, barra superior, botões de ação — sem
+   * precisar de nenhum componente/rota dedicados a imprimir.
+   */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
 }

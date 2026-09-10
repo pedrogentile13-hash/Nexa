@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, HelpCircle, LogOut, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import type { Route } from 'next';
+import { ChevronRight, FileText, HelpCircle, LogOut, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UnderlineTabs } from '@/components/ui/underline-tabs';
@@ -115,6 +117,16 @@ export function ProfileTabs({
               label="Ajuda e suporte"
               comingSoon
             />
+            <PrivacyRow
+              icon={<ShieldCheck className="size-4" aria-hidden />}
+              label="Política de Privacidade"
+              href="/politica-de-privacidade"
+            />
+            <PrivacyRow
+              icon={<FileText className="size-4" aria-hidden />}
+              label="Termos de Uso"
+              href="/termos-de-uso"
+            />
             <form action={signOut}>
               <button
                 type="submit"
@@ -143,17 +155,44 @@ function Row({ label, value }: { label: string; value?: string | null }) {
 /**
  * "Conta e privacidade" e "Ajuda e suporte" não têm tela nem conteúdo hoje —
  * ficam visíveis (é assim que o produto vai crescer) mas desabilitadas, em
- * vez de linkar para algo que não existe.
+ * vez de linkar para algo que não existe. Política de Privacidade e Termos de
+ * Uso já têm página real (`(legal)`), então essas linkam de verdade.
  */
 function PrivacyRow({
   icon,
   label,
   comingSoon,
+  href,
 }: {
   icon: React.ReactNode;
   label: string;
   comingSoon?: boolean;
+  href?: Route;
 }) {
+  const content = (
+    <>
+      {icon}
+      <span className="flex-1">{label}</span>
+      {comingSoon ? (
+        <Badge variant="neutral">Em breve</Badge>
+      ) : (
+        <ChevronRight className="text-subtle size-4" aria-hidden />
+      )}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        target="_blank"
+        className="hover:bg-surface-2 flex items-center gap-3 px-4 py-3.5 text-sm font-medium"
+      >
+        {content}
+      </Link>
+    );
+  }
+
   return (
     <div
       className={
@@ -162,13 +201,7 @@ function PrivacyRow({
           : 'flex items-center gap-3 px-4 py-3.5 text-sm font-medium'
       }
     >
-      {icon}
-      <span className="flex-1">{label}</span>
-      {comingSoon ? (
-        <Badge variant="neutral">Em breve</Badge>
-      ) : (
-        <ChevronRight className="text-subtle size-4" aria-hidden />
-      )}
+      {content}
     </div>
   );
 }

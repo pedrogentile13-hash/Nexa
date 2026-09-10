@@ -1,15 +1,24 @@
+import dynamic from 'next/dynamic';
 import { Flame, NotebookPen, Target, Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { PopEmptyState } from '@/components/ui/empty-state';
 import { formatGrade } from '@/lib/format/grade';
 import { levelForXp, levelProgressPercent, xpToNextLevel } from '@/features/performance/lib/level';
-import {
-  ScoreEvolutionChart,
-  StudyWeeksChart,
-  SubjectScoresChart,
-} from '@/features/performance/components/charts';
 import type { AdminStudentReport } from '../server/queries';
+import { PrintButton } from './print-button';
+
+// `recharts` corta num chunk à parte em vez de somar ao JS do relatório —
+// ver o mesmo comentário em `src/app/(app)/desempenho/page.tsx`.
+const ScoreEvolutionChart = dynamic(() =>
+  import('@/features/performance/components/charts').then((m) => m.ScoreEvolutionChart),
+);
+const StudyWeeksChart = dynamic(() =>
+  import('@/features/performance/components/charts').then((m) => m.StudyWeeksChart),
+);
+const SubjectScoresChart = dynamic(() =>
+  import('@/features/performance/components/charts').then((m) => m.SubjectScoresChart),
+);
 
 const ROLE_LABEL: Record<string, string> = {
   student: 'Aluno',
@@ -52,12 +61,17 @@ export function StudentReport({ report }: { report: AdminStudentReport }) {
 
   return (
     <div className="space-y-4 p-5">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">{person.fullName ?? 'Sem nome'}</h1>
-        <p className="text-muted text-sm">
-          {ROLE_LABEL[person.role] ?? person.role}
-          {person.schoolName ? ` · ${person.schoolName}` : ''}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{person.fullName ?? 'Sem nome'}</h1>
+          <p className="text-muted text-sm">
+            {ROLE_LABEL[person.role] ?? person.role}
+            {person.schoolName ? ` · ${person.schoolName}` : ''}
+          </p>
+        </div>
+        <div className="no-print">
+          <PrintButton />
+        </div>
       </div>
 
       {!stats ? (

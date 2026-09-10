@@ -338,8 +338,8 @@ export type ResourceRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  /** Para kind='resumo': texto digitado ou arquivo enviado. */
-  content_format: 'markdown' | 'pdf';
+  /** Para kind='resumo': texto digitado, arquivo enviado ou HTML incorporado (sandboxed). */
+  content_format: 'markdown' | 'pdf' | 'html';
   pdf_page_count: number | null;
   pdf_extracted_text: string | null;
   pdf_status: 'processado' | 'erro' | null;

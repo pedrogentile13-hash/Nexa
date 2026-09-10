@@ -61,7 +61,9 @@ export function ResourceTable({ resources }: { resources: AdminResource[] }) {
                   {[
                     resource.kind === 'resumo' && resource.contentFormat === 'pdf'
                       ? 'Resumo · PDF'
-                      : kindLabel(resource.kind),
+                      : resource.kind === 'resumo' && resource.contentFormat === 'html'
+                        ? 'Resumo · HTML'
+                        : kindLabel(resource.kind),
                     resource.subjectName,
                     resource.topicName,
                     duration,

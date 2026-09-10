@@ -74,6 +74,24 @@ begin
 end;
 $$;
 
+-- `content_format` aceita os três formatos de resumo — 'html' é o mais novo
+-- (resumo interativo) — e recusa qualquer outro valor.
+insert into public.resources (id, subject_catalog_id, kind, title, body, content_format, is_published)
+values ('cccccccc-0000-0000-0000-000000000004', :'fisica_id', 'resumo',
+        'Linha do tempo interativa', '<p>conteúdo</p>', 'html', true);
+
+do $$
+begin
+  begin
+    insert into public.resources (id, subject_catalog_id, kind, title, body, content_format)
+    values ('cccccccc-0000-0000-0000-000000000005', (select id from public.subject_catalog where slug = 'fisica'),
+            'resumo', 'Formato inválido', 'x', 'docx');
+    assert false, 'o banco aceitou um content_format fora de markdown/pdf/html';
+  exception when check_violation then null;
+  end;
+end;
+$$;
+
 -- Um simulado com duas questões.
 insert into public.resources (id, subject_catalog_id, topic_id, kind, title, is_published, xp_reward)
 values ('cccccccc-0000-0000-0000-000000000010', :'fisica_id',

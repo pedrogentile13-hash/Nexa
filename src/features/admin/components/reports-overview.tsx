@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopEmptyState } from '@/components/ui/empty-state';
 import type { AdminReportsOverview } from '../server/queries';
 import { kindLabel } from '../lib/labels';
+import { PrintButton } from './print-button';
 
 function StatTile({
   icon: Icon,
@@ -38,6 +39,10 @@ export function ReportsOverview({ data }: { data: AdminReportsOverview }) {
 
   return (
     <div className="space-y-4 p-5">
+      <div className="no-print flex justify-end">
+        <PrintButton />
+      </div>
+
       {bySchool.length === 0 ? (
         <PopEmptyState
           icon={<BarChart3 className="text-white" />}

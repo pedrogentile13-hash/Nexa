@@ -16,6 +16,10 @@ const PUBLIC_PREFIXES = [
   '/manifest.webmanifest',
   '/icon',
   '/apple-icon',
+  // Lidas por qualquer um, com ou sem conta — inclusive por quem ainda está
+  // decidindo se cria uma, no link do rodapé do cadastro.
+  '/politica-de-privacidade',
+  '/termos-de-uso',
 ];
 
 const ONBOARDING_PATH = '/bem-vindo';
@@ -97,13 +101,27 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Signed in. One profile read decides between onboarding and the app; it is
-  // the only query the middleware runs, and it is a primary-key lookup.
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('onboarded_at')
-    .eq('id', user.id)
-    .maybeSingle();
+  // Signed in. One profile read decides between onboarding e o app; é a
+  // única consulta que o middleware faz, e é uma busca por chave primária.
+  //
+  // Em try/catch pelo mesmo motivo do getUser() acima: uma falha transitória
+  // aqui não pode derrubar o middleware inteiro (sem `error.tsx` possível
+  // neste nível) — o app inteiro ficaria inacessível por causa de uma
+  // consulta que nem decide autenticação, só onboarding. Sem perfil,
+  // `onboarded` cai para `false`, que na pior hipótese manda um aluno já
+  // onboarded de volta para /bem-vindo — recuperável com um clique, bem
+  // menos grave que uma página em branco.
+  let profile: { onboarded_at: string | null } | null = null;
+  try {
+    const result = await supabase
+      .from('profiles')
+      .select('onboarded_at')
+      .eq('id', user.id)
+      .maybeSingle();
+    profile = result.data;
+  } catch {
+    profile = null;
+  }
 
   const onboarded = Boolean(profile?.onboarded_at);
 

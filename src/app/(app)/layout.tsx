@@ -1,7 +1,7 @@
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { SideNav } from '@/components/layout/side-nav';
 import { InstallPrompt } from '@/features/install/components/install-prompt';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 /**
  * Shell do app autenticado.
@@ -17,9 +17,11 @@ import { createClient } from '@/lib/supabase/server';
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // `getCurrentUser()` (não `supabase.auth.getUser()` direto): cada página
+  // sob `(app)` chama `getCurrentUser()` de novo, e sem passar pela mesma
+  // função com `cache()` esta chamada do layout não teria como ser deduzida
+  // com a delas — pagaria seu próprio round-trip de rede à parte.
+  const user = await getCurrentUser();
 
   // Uma leitura minúscula por chave primária. O middleware já garantiu que
   // existe sessão, então isto nunca corre para um visitante anônimo.

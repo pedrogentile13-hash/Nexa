@@ -18,7 +18,9 @@ import { parseSimuladoCode } from '../lib/simulado-import';
  */
 
 export type AdminState =
-  { status: 'idle' } | { status: 'saved' } | { status: 'error'; message: string };
+  | { status: 'idle' }
+  | { status: 'saved'; warning?: string }
+  | { status: 'error'; message: string };
 
 const ok: AdminState = { status: 'saved' };
 const fail = (message: string): AdminState => ({ status: 'error', message });
@@ -210,7 +212,7 @@ const resourceSchema = z.object({
   description: z.string().trim().max(2000).optional().or(z.literal('')),
   body: z.string().max(200_000).optional().or(z.literal('')),
   /** Só importa para kind='resumo': markdown (padrão) ou pdf. */
-  contentFormat: z.enum(['markdown', 'pdf']).default('markdown'),
+  contentFormat: z.enum(['markdown', 'pdf', 'html']).default('markdown'),
   storagePath: z.string().trim().max(500).optional().or(z.literal('')),
   externalUrl: z
     .string()
@@ -304,6 +306,14 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
   // deveria custar uma extração de novo, nem arriscar sobrescrever um texto
   // já extraído por um download que falhou por acaso.
   let pdfMeta: { pageCount: number; readingSeconds: number; text: string } | null = null;
+  // A extração é auxiliar (tempo de leitura estimado, contagem de páginas) —
+  // o leitor do aluno embute o PDF original num `<iframe>` e não depende
+  // dela pra nada. Por isso uma falha aqui NUNCA aborta o salvamento: fazia
+  // isso antes, e qualquer causa (PDF ruim, mas também binário nativo
+  // ausente, timeout, falta de memória na function) travava o admin sem
+  // conseguir publicar o PDF de jeito nenhum, com uma mensagem genérica que
+  // não dizia qual dos dois motivos era.
+  let pdfExtractionFailed = false;
   if (isPdfResumo && data.storagePath) {
     const pdfPath = data.storagePath;
     const previousPath = data.id
@@ -332,10 +342,11 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
         const { extractPdf } = await import('./pdf');
         const buffer = Buffer.from(await file.arrayBuffer());
         pdfMeta = await extractPdf(buffer);
-      } catch {
-        return fail(
-          'Não consegui ler esse PDF — confira se ele não está corrompido ou protegido por senha.',
-        );
+      } catch (extractError) {
+        // Único jeito de diferenciar "PDF corrompido" de "binário nativo
+        // ausente no Netlify" depois, olhando os logs de função.
+        console.error('[extractPdf] falhou', extractError);
+        pdfExtractionFailed = true;
       }
     }
   }
@@ -372,8 +383,14 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     created_by: identity.userId,
     ...(pdfMeta
       ? { pdf_status: 'processado' as const, pdf_page_count: pdfMeta.pageCount, pdf_extracted_text: pdfMeta.text }
-      : {}),
+      : pdfExtractionFailed
+        ? { pdf_status: 'erro' as const, pdf_page_count: null, pdf_extracted_text: null }
+        : {}),
   };
+
+  const warning = pdfExtractionFailed
+    ? 'não consegui processar o texto do PDF automaticamente (tempo de leitura pode ficar impreciso). O aluno já consegue abrir e ler o arquivo normalmente.'
+    : undefined;
 
   if (data.id) {
     // Lido ANTES do update — é o único jeito de saber se esta escrita é
@@ -393,7 +410,7 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
 
     revalidatePath('/admin/conteudo');
     revalidatePath(`/admin/conteudo/${data.id}`);
-    return ok;
+    return warning ? { status: 'saved', warning } : ok;
   }
 
   const { data: created, error } = await supabase

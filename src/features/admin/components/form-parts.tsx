@@ -113,6 +113,13 @@ export function SubmitButton({
 
 export function FormFeedback({ state }: { state: AdminState }) {
   if (state.status === 'idle') return null;
+  if (state.status === 'saved' && state.warning) {
+    return (
+      <p role="status" className="text-warning text-sm font-medium">
+        Salvo — {state.warning}
+      </p>
+    );
+  }
   return (
     <p
       role="status"

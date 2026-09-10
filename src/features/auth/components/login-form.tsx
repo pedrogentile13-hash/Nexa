@@ -257,6 +257,24 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
         )}
 
         <SubmitButton mode={mode} />
+
+        {mode === 'signup' && (
+          <p className="text-subtle text-center text-xs leading-relaxed">
+            Ao criar conta, você concorda com os{' '}
+            <Link href="/termos-de-uso" className="underline underline-offset-2" target="_blank">
+              Termos de Uso
+            </Link>{' '}
+            e a{' '}
+            <Link
+              href="/politica-de-privacidade"
+              className="underline underline-offset-2"
+              target="_blank"
+            >
+              Política de Privacidade
+            </Link>
+            .
+          </p>
+        )}
       </form>
 
       <div className="flex items-center justify-between gap-3">

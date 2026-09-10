@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import Image from 'next/image';
 import { Check, Headphones, Pause, Play, RotateCcw, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -213,12 +214,17 @@ export function MediaPlayer({ resource }: { resource: ResourceDetail }) {
 
       <div className="mx-auto max-w-2xl px-5">
         <div
-          className="grid aspect-square max-h-72 w-full place-items-center rounded-2xl"
+          className="relative grid aspect-square max-h-72 w-full place-items-center overflow-hidden rounded-2xl"
           style={{ backgroundColor: 'var(--subject-soft)', color: 'var(--subject-on-soft)' }}
         >
           {resource.thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={resource.thumbnailUrl} alt="" className="size-full rounded-2xl object-cover" />
+            <Image
+              src={resource.thumbnailUrl}
+              alt=""
+              fill
+              sizes="(min-width: 672px) 672px, 100vw"
+              className="object-cover"
+            />
           ) : (
             <Headphones className="size-16" aria-hidden />
           )}

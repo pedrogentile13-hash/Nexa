@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Image from 'next/image';
 import { Check, RotateCw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -58,8 +59,19 @@ export function ImageCard({ resource }: { resource: ResourceDetail }) {
               </div>
             </div>
           ) : resource.mediaUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={resource.mediaUrl} alt={resource.title} className="w-full object-contain" />
+            // Proporção real desconhecida (varia por recurso) — `width`/`height`
+            // aqui são só o que o next/image exige para calcular tamanhos, o
+            // `style` sobrescreve para a imagem manter a proporção natural
+            // carregada, igual a um `<img>` sem `height` fixo.
+            <Image
+              src={resource.mediaUrl}
+              alt={resource.title}
+              width={1200}
+              height={900}
+              sizes="(min-width: 672px) 672px, 100vw"
+              style={{ width: '100%', height: 'auto' }}
+              className="object-contain"
+            />
           ) : (
             <div className="text-muted grid min-h-[240px] place-items-center p-6 text-sm">
               Este item ainda não tem imagem.

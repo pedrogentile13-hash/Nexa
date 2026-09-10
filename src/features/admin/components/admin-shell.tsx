@@ -96,7 +96,7 @@ export function AdminShell({
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
-      <aside className="border-border bg-surface shrink-0 border-b lg:w-60 lg:border-r lg:border-b-0">
+      <aside className="no-print border-border bg-surface shrink-0 border-b lg:w-60 lg:border-r lg:border-b-0">
         <div className="lg:sticky lg:top-0">
           <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 lg:block">
             <Link href="/admin" className="flex items-center gap-2.5">
@@ -139,7 +139,7 @@ export function AdminShell({
             identidade de quem está logado. Fica aqui, uma vez só no shell, em
             vez de em cada AdminHeader — assim toda tela do painel ganha as
             três coisas de graça, sem repetir prop em cada página. */}
-        <header className="border-border bg-surface sticky top-0 z-30 flex items-center gap-3 border-b px-5 py-3">
+        <header className="no-print border-border bg-surface sticky top-0 z-30 flex items-center gap-3 border-b px-5 py-3">
           {/* No celular a barra lateral não fica visível (é uma faixa de
               navegação, não um menu fixo), e o "Voltar ao app" de lá some
               junto — sem isto, quem entra no painel pelo celular fica preso

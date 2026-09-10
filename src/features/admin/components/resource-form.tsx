@@ -33,7 +33,7 @@ const ACCEPT: Partial<Record<ResourceKind, string>> = {
   imagem: 'image/*',
 };
 
-type ResumoFormat = 'markdown' | 'pdf';
+type ResumoFormat = 'markdown' | 'pdf' | 'html';
 
 export function ResourceForm({
   options,
@@ -50,7 +50,9 @@ export function ResourceForm({
     resource?.subject_catalog_id ?? options.subjects[0]?.id ?? '',
   );
   const [resumoFormat, setResumoFormat] = useState<ResumoFormat>(
-    resource?.content_format === 'pdf' ? 'pdf' : 'markdown',
+    resource?.content_format === 'pdf' || resource?.content_format === 'html'
+      ? resource.content_format
+      : 'markdown',
   );
 
   const isMedia = MEDIA_KINDS.includes(kind);
@@ -162,6 +164,7 @@ export function ResourceForm({
                   [
                     { value: 'markdown', label: 'Escrever texto' },
                     { value: 'pdf', label: 'Enviar PDF' },
+                    { value: 'html', label: 'HTML interativo' },
                   ] as const
                 ).map((option) => (
                   <button
@@ -182,7 +185,7 @@ export function ResourceForm({
               </div>
             </Field>
 
-            {resumoFormat === 'markdown' ? (
+            {resumoFormat === 'markdown' && (
               <Field
                 label="Texto do resumo"
                 hint="markdown: ## título, **negrito**, - lista, > destaque"
@@ -190,14 +193,16 @@ export function ResourceForm({
                 <Textarea
                   name="body"
                   rows={16}
-                  defaultValue={resource?.content_format === 'pdf' ? '' : (resource?.body ?? '')}
+                  defaultValue={resource?.content_format === 'markdown' ? (resource?.body ?? '') : ''}
                   className="font-mono text-sm leading-relaxed"
                   placeholder={
                     'No **movimento uniforme** a velocidade não muda...\n\n### Equações que caem na prova\n\n- v = v₀ + a·t'
                   }
                 />
               </Field>
-            ) : (
+            )}
+
+            {resumoFormat === 'pdf' && (
               <>
                 <MediaUpload
                   name="storagePath"
@@ -217,7 +222,31 @@ export function ResourceForm({
                     {resource.pdf_page_count === 1 ? '' : 's'}.
                   </p>
                 )}
+                {resource?.content_format === 'pdf' && resource.pdf_status === 'erro' && (
+                  <p className="bg-warning-soft text-warning rounded-md px-3 py-2 text-xs leading-relaxed">
+                    Não consegui processar o texto deste PDF automaticamente — o aluno já consegue
+                    abrir e ler normalmente, mas o tempo de leitura estimado pode ficar impreciso.
+                    Enviar o arquivo de novo tenta o processamento outra vez.
+                  </p>
+                )}
               </>
+            )}
+
+            {resumoFormat === 'html' && (
+              <Field label="Código HTML" hint="exibido isolado (sandbox), sem CSS/JS do resto do site">
+                <Textarea
+                  name="body"
+                  rows={16}
+                  defaultValue={resource?.content_format === 'html' ? (resource?.body ?? '') : ''}
+                  className="font-mono text-sm leading-relaxed"
+                  placeholder={'<h2>Linha do tempo</h2>\n<div class="linha">...</div>\n<style>...</style>'}
+                />
+                <p className="bg-warning-soft text-warning mt-2 rounded-md px-3 py-2 text-xs leading-relaxed">
+                  Este HTML é exibido isolado num sandbox — sem acesso a cookies, dados de outros
+                  alunos ou ao resto do app, mesmo que contenha JavaScript. Ainda assim, só cole
+                  conteúdo de confiança: ele pode fazer requisições próprias de rede.
+                </p>
+              </Field>
             )}
           </section>
         )}

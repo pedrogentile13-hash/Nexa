@@ -282,18 +282,49 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
   // Os títulos/tipos dos materiais vêm numa segunda consulta em lote porque a
   // primeira só devolve ids — uma consulta por linha aqui viraria até 15 idas
   // ao banco para a tela mais aberta do produto.
+  //
+  // Esta consulta, a de quiz recomendado (principal) e a de fallback do quiz
+  // recomendado não dependem entre si — só do que o batch acima já resolveu —
+  // então disparam juntas em `Promise.all` abaixo em vez de uma fila
+  // sequencial de `await`s, que pagava a soma das três latências à toa.
   const resumeRows = resumeRes.data ?? [];
+  const worstToReview = [...(masteryRes.data ?? [])]
+    .filter((m) => m.status === 'revisar')
+    .sort((a, b) => a.mastery_percent - b.mastery_percent)[0];
+  const attemptedResourceIds = new Set((attemptsRes.data ?? []).map((a) => a.resource_id));
+
+  const [resumeResourcesRes, primaryQuizRes, fallbackQuizRes] = await Promise.all([
+    resumeRows.length > 0
+      ? supabase
+          .from('v_resource_library')
+          .select('id, title, kind, subject_name')
+          .in(
+            'id',
+            resumeRows.map((r) => r.resource_id),
+          )
+      : Promise.resolve({ data: null }),
+    worstToReview
+      ? supabase
+          .from('v_resource_library')
+          .select('id, title, kind, subject_name')
+          .in('kind', ['quiz', 'simulado'])
+          .eq('subject_catalog_id', worstToReview.subject_id)
+          .order('sort_order')
+          .limit(30)
+      : Promise.resolve({ data: null }),
+    supabase
+      .from('v_resource_library')
+      .select('id, title, kind, subject_name')
+      .in('kind', ['quiz', 'simulado'])
+      .order('sort_order')
+      .limit(30),
+  ]);
+
   let resume: ResumeItem | null = null;
   let resumeAudio: ResumeItem | null = null;
   let resumeVideo: ResumeItem | null = null;
   if (resumeRows.length > 0) {
-    const { data: resources } = await supabase
-      .from('v_resource_library')
-      .select('id, title, kind, subject_name')
-      .in(
-        'id',
-        resumeRows.map((r) => r.resource_id),
-      );
+    const resources = resumeResourcesRes.data;
     const resourceById = new Map((resources ?? []).map((r) => [r.id, r]));
 
     const toResumeItem = (row: (typeof resumeRows)[number] | undefined): ResumeItem | null => {
@@ -347,46 +378,18 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
   // domínio ("revisar"). `topic_mastery().subject_id` é na verdade o
   // `subject_catalog_id` do recurso (mesma convenção usada pela função SQL
   // desde a etapa 7) — é por isso que dá pra ligar direto em `resources`.
-  const attemptedResourceIds = new Set((attemptsRes.data ?? []).map((a) => a.resource_id));
-  const worstToReview = [...(masteryRes.data ?? [])]
-    .filter((m) => m.status === 'revisar')
-    .sort((a, b) => a.mastery_percent - b.mastery_percent)[0];
-
+  // As duas consultas (principal e fallback) já foram disparadas em paralelo
+  // acima — aqui só escolhe qual delas rendeu um recurso não tentado.
   let recommendedQuiz: RecommendedQuiz | null = null;
-  if (worstToReview) {
-    const { data } = await supabase
-      .from('v_resource_library')
-      .select('id, title, kind, subject_name')
-      .in('kind', ['quiz', 'simulado'])
-      .eq('subject_catalog_id', worstToReview.subject_id)
-      .order('sort_order')
-      .limit(30);
-    const pick = (data ?? []).find((r) => !attemptedResourceIds.has(r.id));
-    if (pick) {
-      recommendedQuiz = {
-        id: pick.id,
-        title: pick.title,
-        kind: pick.kind as 'quiz' | 'simulado',
-        subjectName: pick.subject_name,
-      };
-    }
-  }
-  if (!recommendedQuiz) {
-    const { data } = await supabase
-      .from('v_resource_library')
-      .select('id, title, kind, subject_name')
-      .in('kind', ['quiz', 'simulado'])
-      .order('sort_order')
-      .limit(30);
-    const pick = (data ?? []).find((r) => !attemptedResourceIds.has(r.id));
-    if (pick) {
-      recommendedQuiz = {
-        id: pick.id,
-        title: pick.title,
-        kind: pick.kind as 'quiz' | 'simulado',
-        subjectName: pick.subject_name,
-      };
-    }
+  const primaryPick = (primaryQuizRes.data ?? []).find((r) => !attemptedResourceIds.has(r.id));
+  const pick = primaryPick ?? (fallbackQuizRes.data ?? []).find((r) => !attemptedResourceIds.has(r.id));
+  if (pick) {
+    recommendedQuiz = {
+      id: pick.id,
+      title: pick.title,
+      kind: pick.kind as 'quiz' | 'simulado',
+      subjectName: pick.subject_name,
+    };
   }
 
   return {

@@ -181,7 +181,7 @@ export interface ResourceDetail {
   completedAt: string | null;
   isFavorited: boolean;
   /** Só para kind='resumo': texto digitado ou PDF enviado. */
-  contentFormat: 'markdown' | 'pdf';
+  contentFormat: 'markdown' | 'pdf' | 'html';
   pdfPageCount: number | null;
   chapters: { id: string; label: string; startsAtSeconds: number }[];
   highlights: { id: string; quote: string }[];

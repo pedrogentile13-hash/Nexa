@@ -192,7 +192,7 @@ export interface AdminResource {
   durationSeconds: number | null;
   questionCount: number;
   updatedAt: string;
-  contentFormat: 'markdown' | 'pdf';
+  contentFormat: 'markdown' | 'pdf' | 'html';
   bimestre: number | null;
 }
 

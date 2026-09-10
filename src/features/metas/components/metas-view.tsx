@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
+import dynamic from 'next/dynamic';
 import { Check, Clock, Flame, Loader2, Plus, Target, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { PopEmptyState } from '@/components/ui/empty-state';
-import { StudyWeeksChart } from '@/features/performance/components/charts';
+
+// `recharts` corta num chunk à parte — ver o mesmo comentário em
+// `src/app/(app)/desempenho/page.tsx`. Aqui, por ser Client Component,
+// `ssr: false` também evita renderizar o gráfico no servidor à toa.
+const StudyWeeksChart = dynamic(
+  () => import('@/features/performance/components/charts').then((m) => m.StudyWeeksChart),
+  { ssr: false },
+);
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { GOAL_ICONS, goalIcon } from '@/lib/design/goal-icon';
 import {

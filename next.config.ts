@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
     // Keeps Server Action payloads small; grade edits are tiny objects.
     serverActions: { bodySizeLimit: '1mb' },
   },
+  // Thumbnails e imagens de conteúdo vêm do bucket público do Supabase
+  // Storage — sem isto, `next/image` recusa a URL (hostname não configurado)
+  // em produção, mesmo funcionando em `next dev`.
+  images: {
+    remotePatterns: [{ protocol: 'https', hostname: '**.supabase.co', pathname: '/storage/**' }],
+  },
   eslint: { ignoreDuringBuilds: false },
   typescript: { ignoreBuildErrors: false },
   // `pdf-parse` (via `pdfjs-dist`) carrega o binário nativo de `@napi-rs/canvas`

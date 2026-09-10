@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+// Renomeado para `loadChart`: o próprio arquivo já exporta um `dynamic`
+// (config de rota do Next, `force-dynamic` abaixo) — mesmo nome, coisas
+// diferentes, e o import perderia para essa declaração de módulo.
+import loadChart from 'next/dynamic';
 import {
   Brain,
   CheckCircle2,
@@ -19,12 +23,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopEmptyState } from '@/components/ui/empty-state';
 import { Progress } from '@/components/ui/progress';
 import { formatGrade } from '@/lib/format/grade';
-import {
-  AssessmentVsEmpenhoChart,
-  ScoreEvolutionChart,
-  StudyWeeksChart,
-  SubjectScoresChart,
-} from '@/features/performance/components/charts';
 import { levelProgressPercent } from '@/features/performance/lib/level';
 import {
   getPerformance,
@@ -33,6 +31,24 @@ import {
 } from '@/features/performance/server/queries';
 import { getCurrentUser } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
+
+// `recharts` é pesado e só entra no bundle desta página — `dynamic()` corta o
+// código dos gráficos num chunk à parte em vez de somá-lo ao JS inicial de
+// `/desempenho`. Sem `ssr: false` (não é permitido em Server Component): o
+// HTML ainda vem pronto no primeiro request, só o carregamento do bundle é
+// que fica separado do resto da página.
+const AssessmentVsEmpenhoChart = loadChart(() =>
+  import('@/features/performance/components/charts').then((m) => m.AssessmentVsEmpenhoChart),
+);
+const ScoreEvolutionChart = loadChart(() =>
+  import('@/features/performance/components/charts').then((m) => m.ScoreEvolutionChart),
+);
+const StudyWeeksChart = loadChart(() =>
+  import('@/features/performance/components/charts').then((m) => m.StudyWeeksChart),
+);
+const SubjectScoresChart = loadChart(() =>
+  import('@/features/performance/components/charts').then((m) => m.SubjectScoresChart),
+);
 
 const PASSING_GRADE = 6;
 

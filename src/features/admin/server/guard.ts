@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import type { UserRole } from '@/types/database.types';
@@ -23,7 +24,13 @@ export interface AdminIdentity {
   isGlobal: boolean;
 }
 
-export async function getAdminIdentity(): Promise<AdminIdentity | null> {
+/**
+ * `cache()` dedupe: `/admin/layout.tsx` e a página que ele envolve (ex.
+ * `/admin/page.tsx`) cada um chamava `requireAdmin()` de forma independente —
+ * dois `getUser()` (rede) + duas leituras de `profiles` idênticas por
+ * navegação. `cache()` funde chamadas repetidas dentro do mesmo request.
+ */
+export const getAdminIdentity = cache(async (): Promise<AdminIdentity | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -49,7 +56,7 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
     avatarUrl: data.avatar_url,
     isGlobal: data.role === 'admin',
   };
-}
+});
 
 /** Versão que corta o render. Use em toda page e Server Action do painel. */
 export async function requireAdmin(): Promise<AdminIdentity> {
