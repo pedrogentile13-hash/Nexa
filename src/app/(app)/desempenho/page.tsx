@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopEmptyState } from '@/components/ui/empty-state';
 import { Progress } from '@/components/ui/progress';
+import { StatTile } from '@/components/ui/stat-tile';
 import { formatGrade } from '@/lib/format/grade';
 import { levelProgressPercent } from '@/features/performance/lib/level';
 import {
@@ -114,28 +115,6 @@ function AverageBadge({ average, delta }: { average: number | null; delta: numbe
           {formatGrade(Math.abs(delta), 1)}
         </span>
       )}
-    </div>
-  );
-}
-
-function StatTile({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: typeof Flame;
-  value: string;
-  label: string;
-}) {
-  return (
-    <div className="border-border bg-surface flex items-center gap-3 rounded-2xl border p-3">
-      <span className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl">
-        <Icon className="size-4.5" aria-hidden />
-      </span>
-      <div className="min-w-0">
-        <p className="tabular text-lg leading-none font-semibold">{value}</p>
-        <p className="text-muted mt-1 text-xs leading-tight">{label}</p>
-      </div>
     </div>
   );
 }

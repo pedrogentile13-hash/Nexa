@@ -116,6 +116,7 @@ export async function finishAttempt(attemptId: string): Promise<FinishResult | n
 
   revalidatePath('/estudar');
   revalidatePath('/desempenho');
+  revalidatePath('/ranking');
 
   return {
     correctCount: data[0].correct_count,
@@ -144,6 +145,7 @@ export async function completeLesson(
   if (error || !data?.[0]) return null;
 
   revalidatePath('/estudar');
+  revalidatePath('/ranking');
   return { state: data[0].state, xpAwarded: data[0].xp_awarded };
 }
 

@@ -3,6 +3,7 @@ import { Flame, NotebookPen, Target, Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { PopEmptyState } from '@/components/ui/empty-state';
+import { StatTile } from '@/components/ui/stat-tile';
 import { formatGrade } from '@/lib/format/grade';
 import { levelForXp, levelProgressPercent, xpToNextLevel } from '@/features/performance/lib/level';
 import type { AdminStudentReport } from '../server/queries';
@@ -25,28 +26,6 @@ const ROLE_LABEL: Record<string, string> = {
   school_admin: 'Admin da escola',
   admin: 'Admin geral',
 };
-
-function StatTile({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: typeof Flame;
-  value: string;
-  label: string;
-}) {
-  return (
-    <div className="border-border bg-surface flex items-center gap-3 rounded-2xl border p-3">
-      <span className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl">
-        <Icon className="size-4.5" aria-hidden />
-      </span>
-      <div className="min-w-0">
-        <p className="tabular text-lg leading-none font-semibold">{value}</p>
-        <p className="text-muted mt-1 text-xs leading-tight">{label}</p>
-      </div>
-    </div>
-  );
-}
 
 export function StudentReport({ report }: { report: AdminStudentReport }) {
   const { person, stats, subjectScores, scoreEvolution, simuladoHistory, studyWeeks } = report;

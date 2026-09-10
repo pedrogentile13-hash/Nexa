@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Award, Clock, Flame, Trophy, Zap } from 'lucide-react';
+import { Clock, Flame, Trophy, Zap } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PopEmptyState } from '@/components/ui/empty-state';
 import { AvatarUpload } from '@/features/profile/components/avatar-upload';
 import { ProfileTabs } from '@/features/profile/components/profile-tabs';
+import { AchievementsList, type AchievementListItem } from '@/features/profile/components/achievements-list';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import type { NotificationSettings } from '@/types/database.types';
 
@@ -24,7 +25,7 @@ export default async function ProfilePage() {
 
   const supabase = await createClient();
 
-  const [{ data: profile }, { data: stats }, { data: unlocked }, { data: achievements }] =
+  const [{ data: profile }, { data: stats }, { data: userAchievements }, { data: achievements }] =
     await Promise.all([
       supabase
         .from('profiles')
@@ -34,11 +35,25 @@ export default async function ProfilePage() {
         .eq('id', user.id)
         .maybeSingle(),
       supabase.from('user_stats').select('*').eq('user_id', user.id).maybeSingle(),
-      supabase.from('user_achievements').select('achievement_id').not('unlocked_at', 'is', null),
+      supabase.from('user_achievements').select('achievement_id, progress, unlocked_at'),
       supabase.from('achievements').select('*').order('sort_order'),
     ]);
 
-  const unlockedIds = new Set((unlocked ?? []).map((row) => row.achievement_id));
+  const progressById = new Map((userAchievements ?? []).map((row) => [row.achievement_id, row]));
+  // Conquistas desativadas (ex.: ligadas a nota manual, removida) somem da
+  // lista pra quem nunca desbloqueou — mas quem já tem o selo não o perde.
+  const achievementItems: AchievementListItem[] = (achievements ?? [])
+    .filter((a) => a.is_active || progressById.get(a.id)?.unlocked_at != null)
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      description: a.description,
+      rarity: a.rarity,
+      progress: progressById.get(a.id)?.progress ?? 0,
+      threshold: a.threshold,
+      unlockedAt: progressById.get(a.id)?.unlocked_at ?? null,
+    }));
+  const unlockedCount = achievementItems.filter((a) => a.unlockedAt != null).length;
   const totalHours = Math.floor((stats?.total_study_seconds ?? 0) / 3600);
   const notificationSettings: NotificationSettings = profile?.notification_settings ?? {
     dailyReminder: true,
@@ -111,55 +126,18 @@ export default async function ProfilePage() {
               <Trophy className="text-brand size-4" aria-hidden />
               Conquistas
               <Badge variant="neutral" className="ml-auto">
-                {unlockedIds.size}/{achievements?.length ?? 0}
+                {unlockedCount}/{achievementItems.length}
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {(achievements ?? []).length === 0 ? (
-              <PopEmptyState
-                size="sm"
-                icon={<Trophy className="size-5 text-white" />}
-                title="Suas conquistas aparecem aqui"
-                description="Sequência de estudo, notas e marcos de uso desbloqueiam selos automaticamente."
-              />
-            ) : (
-              <ul className="divide-border divide-y">
-                {(achievements ?? []).map((achievement) => {
-                  const isUnlocked = unlockedIds.has(achievement.id);
-                  return (
-                    <li key={achievement.id} className="flex items-center gap-3 py-2.5">
-                      {/* Desbloqueada ganha o mesmo selo em degradê do resto do
-                          app — uma conquista "elegante" (seção 23 do pedido)
-                          pesa mais que um círculo plano da mesma cor de fundo. */}
-                      <span
-                        aria-hidden
-                        className={
-                          isUnlocked
-                            ? 'from-warning to-warning/80 grid size-9 shrink-0 place-items-center rounded-[32%] bg-gradient-to-br shadow-sm'
-                            : 'bg-surface-2 text-subtle grid size-9 shrink-0 place-items-center rounded-full'
-                        }
-                      >
-                        <Award className={isUnlocked ? 'size-4 text-white' : 'size-4'} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={
-                            isUnlocked
-                              ? 'truncate text-sm font-medium'
-                              : 'text-muted truncate text-sm font-medium'
-                          }
-                        >
-                          {achievement.name}
-                        </p>
-                        <p className="text-subtle truncate text-xs">{achievement.description}</p>
-                      </div>
-                      {isUnlocked && <Badge variant="success">Conquistada</Badge>}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            <AchievementsList achievements={achievementItems} variant="compacta" />
+            <Link
+              href="/conquistas"
+              className="text-brand mt-3 inline-block text-sm font-medium hover:underline"
+            >
+              Ver todas as conquistas →
+            </Link>
           </CardContent>
         </Card>
 

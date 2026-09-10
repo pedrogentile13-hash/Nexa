@@ -65,6 +65,7 @@ export async function toggleRoutine(routineId: string, done: boolean): Promise<v
   }
 
   revalidatePath('/hoje');
+  revalidatePath('/ranking');
 }
 
 /** Conclui ou reabre uma tarefa. */
@@ -94,6 +95,7 @@ export async function toggleTask(taskId: string, done: boolean): Promise<void> {
 
   revalidatePath('/hoje');
   revalidatePath('/agenda');
+  revalidatePath('/ranking');
 }
 
 const startSessionSchema = z.object({
@@ -169,4 +171,5 @@ export async function stopStudySession(sessionId: string): Promise<void> {
   }
 
   revalidatePath('/hoje');
+  revalidatePath('/ranking');
 }

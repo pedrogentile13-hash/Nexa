@@ -51,22 +51,35 @@ on conflict (slug) do update
 -- Rows, not code: a new achievement ships without a deploy.
 -- Tone follows README Parte 3 — every one of these rewards showing up, never
 -- punishes falling behind.
-insert into public.achievements (id, name, description, icon, category, metric, threshold, xp_reward, sort_order)
+-- `first_steps` tem xp_reward 0 de propósito: os 50 XP de "configurar o
+-- Nexa" já são pagos direto pela função de onboarding
+-- (`award_xp(50, 'Configurou o Nexa', ...)`, migração 0907_3) — o motor de
+-- conquistas (0910_2) só carimba o selo no mesmo instante, sem pagar de novo.
+-- `first_grade`/`ten_grades` (métrica `grades_logged`) ficam inativas: nota
+-- manual não existe mais desde o boletim automático.
+insert into public.achievements (id, name, description, icon, category, metric, threshold, xp_reward, rarity, is_active, sort_order)
 values
-  ('first_steps',    'Primeiros passos',   'Você configurou o Nexa. Bem-vindo.',                'sparkles',    'geral',        'onboarded',        1,  50,  10),
-  ('first_grade',    'Primeira nota',      'Você registrou sua primeira nota.',                 'clipboard-check', 'notas',    'grades_logged',    1,  30,  20),
-  ('ten_grades',     'Boletim em dia',     'Dez notas registradas.',                            'clipboard-list',  'notas',    'grades_logged',   10, 100,  30),
-  ('first_session',  'Cronômetro ligado',  'Sua primeira sessão de estudo.',                    'timer',       'estudo',       'sessions',         1,  30,  40),
-  ('study_10h',      '10 horas de foco',   'Dez horas estudadas no Nexa.',                      'hourglass',   'estudo',       'study_minutes',  600, 200,  50),
-  ('study_50h',      '50 horas de foco',   'Cinquenta horas estudadas. Isso é constância.',     'flame',       'estudo',       'study_minutes', 3000, 500,  60),
-  ('streak_3',       'Três dias seguidos', 'Você apareceu três dias em sequência.',             'flame',       'constancia',   'streak_days',      3,  60,  70),
-  ('streak_7',       'Uma semana inteira', 'Sete dias seguidos de presença.',                   'flame',       'constancia',   'streak_days',      7, 150,  80),
-  ('streak_30',      'Um mês de rotina',   'Trinta dias seguidos. Virou hábito.',               'trophy',      'constancia',   'streak_days',     30, 600,  90),
-  ('checklist_day',  'Dia completo',       'Você concluiu todo o checklist de um dia.',         'check-check', 'organizacao',  'perfect_days',     1,  40, 100),
-  ('checklist_week', 'Semana completa',    'Sete dias de checklist concluído.',                 'calendar-check', 'organizacao', 'perfect_days',   7, 250, 110),
-  ('tasks_25',       'Nada esquecido',     'Vinte e cinco tarefas concluídas.',                 'list-checks', 'organizacao',  'tasks_done',      25, 200, 120),
-  ('goal_reached',   'Meta batida',        'Uma disciplina alcançou a meta que você definiu.',  'target',      'notas',        'goals_reached',    1, 300, 130),
-  ('all_passing',    'Tudo em ordem',      'Todas as disciplinas acima da média no bimestre.',  'shield-check','notas',        'all_passing',      1, 400, 140)
+  ('first_steps',    'Primeiros passos',   'Você configurou o Nexa. Bem-vindo.',                'sparkles',    'geral',        'onboarded',        1,  0,   'comum',    true,  10),
+  ('first_grade',    'Primeira nota',      'Você registrou sua primeira nota.',                 'clipboard-check', 'notas',    'grades_logged',    1,  30,  'comum',    false, 20),
+  ('ten_grades',     'Boletim em dia',     'Dez notas registradas.',                            'clipboard-list',  'notas',    'grades_logged',   10, 100, 'rara',     false, 30),
+  ('first_session',  'Cronômetro ligado',  'Sua primeira sessão de estudo.',                    'timer',       'estudo',       'sessions',         1,  30,  'comum',    true,  40),
+  ('study_10h',      '10 horas de foco',   'Dez horas estudadas no Nexa.',                      'hourglass',   'estudo',       'study_minutes',  600, 200,  'rara',     true,  50),
+  ('study_50h',      '50 horas de foco',   'Cinquenta horas estudadas. Isso é constância.',     'flame',       'estudo',       'study_minutes', 3000, 500,  'epica',    true,  60),
+  ('streak_3',       'Três dias seguidos', 'Você apareceu três dias em sequência.',             'flame',       'constancia',   'streak_days',      3,  60,  'comum',    true,  70),
+  ('streak_7',       'Uma semana inteira', 'Sete dias seguidos de presença.',                   'flame',       'constancia',   'streak_days',      7, 150,  'rara',     true,  80),
+  ('streak_30',      'Um mês de rotina',   'Trinta dias seguidos. Virou hábito.',               'trophy',      'constancia',   'streak_days',     30, 600,  'epica',    true,  90),
+  ('checklist_day',  'Dia completo',       'Você concluiu todo o checklist de um dia.',         'check-check', 'organizacao',  'perfect_days',     1,  40,  'comum',    true,  100),
+  ('checklist_week', 'Semana completa',    'Sete dias de checklist concluído.',                 'calendar-check', 'organizacao', 'perfect_days',   7, 250, 'rara',     true,  110),
+  ('tasks_25',       'Nada esquecido',     'Vinte e cinco tarefas concluídas.',                 'list-checks', 'organizacao',  'tasks_done',      25, 200,  'rara',     true,  120),
+  ('goal_reached',   'Meta batida',        'Uma disciplina alcançou a meta que você definiu.',  'target',      'notas',        'goals_reached',    1, 300,  'rara',     true,  130),
+  ('all_passing',    'Tudo em ordem',      'Todas as disciplinas acima da média no bimestre.',  'shield-check','notas',        'all_passing',      1, 400,  'epica',    true,  140),
+  ('first_simulado',       'Primeiro simulado',   'Você terminou seu primeiro simulado.',              'clipboard-check', 'estudo', 'simulados_done',     1,  100, 'comum',    true, 150),
+  ('questions_100',        '100 questões',        'Cem questões respondidas em quizzes e simulados.',  'help-circle',     'estudo', 'questions_answered', 100, 150, 'comum',    true, 160),
+  ('questions_500',        '500 questões',        'Quinhentas questões — o hábito pegou.',             'help-circle',     'estudo', 'questions_answered', 500, 400, 'rara',     true, 170),
+  ('questions_1000',       '1000 questões',       'Mil questões respondidas. Sério.',                  'help-circle',     'estudo', 'questions_answered', 1000, 800, 'epica',   true, 180),
+  ('first_subject_graded', 'Primeira matéria',    'Uma matéria já tem nota automática calculada.',     'graduation-cap',  'notas',  'subjects_graded',    1,  80,  'comum',    true, 190),
+  ('study_100h',           '100 horas de foco',   'Cem horas estudadas no Nexa.',                      'hourglass',       'estudo', 'study_minutes',      6000, 700, 'rara',    true, 200),
+  ('study_500h',           '500 horas de foco',   'Quinhentas horas. Isso é outro nível.',              'flame',           'estudo', 'study_minutes',      30000, 1500, 'lendaria', true, 210)
 on conflict (id) do update
   set name = excluded.name,
       description = excluded.description,
@@ -75,6 +88,8 @@ on conflict (id) do update
       metric = excluded.metric,
       threshold = excluded.threshold,
       xp_reward = excluded.xp_reward,
+      rarity = excluded.rarity,
+      is_active = excluded.is_active,
       sort_order = excluded.sort_order;
 
 -- ============================================================================

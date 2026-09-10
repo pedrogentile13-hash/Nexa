@@ -2,31 +2,10 @@ import Link from 'next/link';
 import { BarChart3, BookOpen, Flame, GraduationCap, Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopEmptyState } from '@/components/ui/empty-state';
+import { StatTile } from '@/components/ui/stat-tile';
 import type { AdminReportsOverview } from '../server/queries';
 import { kindLabel } from '../lib/labels';
 import { PrintButton } from './print-button';
-
-function StatTile({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: typeof Flame;
-  value: string;
-  label: string;
-}) {
-  return (
-    <div className="border-border bg-surface flex items-center gap-3 rounded-2xl border p-3">
-      <span className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl">
-        <Icon className="size-4.5" aria-hidden />
-      </span>
-      <div className="min-w-0">
-        <p className="tabular text-lg leading-none font-semibold">{value}</p>
-        <p className="text-muted mt-1 text-xs leading-tight">{label}</p>
-      </div>
-    </div>
-  );
-}
 
 function studyHoursOf(seconds: number): string {
   return (Math.round((seconds / 3600) * 10) / 10).toLocaleString('pt-BR', {

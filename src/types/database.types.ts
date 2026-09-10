@@ -275,6 +275,8 @@ export type XpEventRow = {
   created_at: string;
 }
 
+export type AchievementRarity = 'comum' | 'rara' | 'epica' | 'lendaria';
+
 export type AchievementRow = {
   id: string;
   name: string;
@@ -284,6 +286,7 @@ export type AchievementRow = {
   metric: string;
   threshold: number;
   xp_reward: number;
+  rarity: AchievementRarity;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -648,6 +651,38 @@ export type Database = {
         Returns: number;
       };
       touch_streak: { Args: { p_user_id?: string }; Returns: number };
+      check_achievements: { Args: { p_user_id?: string }; Returns: void };
+      school_ranking: {
+        Args: {
+          p_scope?: 'escola' | 'turma';
+          p_class_name?: string | null;
+          p_period?: 'hoje' | 'semana' | 'mes' | 'geral';
+          p_school_id?: string | null;
+        };
+        Returns: {
+          user_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          class_name: string | null;
+          xp: number;
+          level: number;
+          current_streak: number;
+          questions_answered: number;
+          study_hours: number;
+          rank: number;
+          previous_rank: number | null;
+        }[];
+      };
+      ranking_evolution: {
+        Args: { p_user_id?: string; p_days?: number };
+        Returns: {
+          day: string;
+          me_xp: number;
+          school_avg_xp: number;
+          top1_xp: number;
+        }[];
+      };
+      student_profile_card: { Args: { p_user_id: string }; Returns: Json | null };
       is_admin: { Args: { p_user_id?: string }; Returns: boolean };
       current_school_id: { Args: { p_user_id?: string }; Returns: string | null };
       can_manage_school: { Args: { p_school_id: string | null; p_user_id?: string }; Returns: boolean };

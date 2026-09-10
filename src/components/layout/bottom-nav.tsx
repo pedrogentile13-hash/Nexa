@@ -16,6 +16,7 @@ import {
   Sparkles,
   Target,
   TrendingUp,
+  Trophy,
   User,
   X,
 } from 'lucide-react';
@@ -46,6 +47,7 @@ const FIXED_ITEMS = [
 ] as const;
 
 const MORE_ITEMS = [
+  { href: '/ranking', label: 'Ranking', Icon: Trophy },
   { href: '/simulados', label: 'Simulados', Icon: ClipboardCheck },
   { href: '/trilhas', label: 'Trilhas', Icon: RouteIcon },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },

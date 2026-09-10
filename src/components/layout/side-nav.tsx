@@ -15,6 +15,7 @@ import {
   Sparkles,
   Target,
   TrendingUp,
+  Trophy,
   User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -57,6 +58,7 @@ const SECONDARY_ITEMS: NavItem[] = [
   { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
   { href: '/metas', label: 'Metas', Icon: Target },
   { href: '/desempenho', label: 'Desempenho', Icon: TrendingUp },
+  { href: '/ranking', label: 'Ranking', Icon: Trophy },
 ];
 
 /** Só aparece para quem tem `role` admin/school_admin — ver `(app)/layout.tsx`. */

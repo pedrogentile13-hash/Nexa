@@ -292,25 +292,30 @@ end;
 $$;
 
 -- --------------------------------------------------- 4 · XP idempotency ----
+-- `v_after_first`, não `v_before + 10`: `award_xp` agora dispara
+-- `check_achievements` ao final, e o fixture acima (sessão de estudo) pode
+-- muito bem cruzar o threshold de alguma conquista na primeira chamada —
+-- comportamento novo e correto. O que este teste prova continua o mesmo:
+-- reawardar a MESMA fonte não soma nada, nem XP direto nem de conquista.
 do $$
 declare
   v_task uuid;
   v_first integer;
   v_second integer;
-  v_before integer;
+  v_after_first integer;
 begin
-  select xp into v_before from public.user_stats where user_id = auth.uid();
-
   insert into public.tasks (user_id, title) values (auth.uid(), 'Tarefa de teste')
   returning id into v_task;
 
   v_first := public.award_xp(10, 'Tarefa concluída', 'task', v_task);
-  v_second := public.award_xp(10, 'Tarefa concluída', 'task', v_task);
-
   assert v_first = 10, format('first award should grant 10, got %s', v_first);
+
+  select xp into v_after_first from public.user_stats where user_id = auth.uid();
+
+  v_second := public.award_xp(10, 'Tarefa concluída', 'task', v_task);
   assert v_second = 0, format('re-awarding the same source must grant 0, got %s', v_second);
-  assert (select xp from public.user_stats where user_id = auth.uid()) = v_before + 10,
-    'XP total should only reflect the one real award';
+  assert (select xp from public.user_stats where user_id = auth.uid()) = v_after_first,
+    're-awarding the same source must not change XP, directly or via achievements';
 end;
 $$;
 
