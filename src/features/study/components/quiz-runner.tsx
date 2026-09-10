@@ -87,7 +87,16 @@ export function QuizRunner({
   }
 
   function submitAnswer(optionId: string) {
-    if (!attemptId || !question || chosen) return;
+    if (!attemptId || !question) return;
+    if (chosen === optionId) return;
+    // No quiz a resposta trava assim que chega o veredito — é o que faz o
+    // "certo/errado" logo abaixo valer alguma coisa. No simulado não existe
+    // veredito nenhum até o fim, então travar na primeira resposta só criava
+    // um jeito de errar por acidente sem chance de corrigir: um toque errado
+    // ficava definitivo. `answer_quiz_question` já aceita trocar de
+    // alternativa antes de encerrar ("a última vale") — faltava só deixar o
+    // botão clicável de novo.
+    if (isQuiz && chosen) return;
     setChosen(optionId);
 
     // `answerQuestion` devolve `null` em qualquer falha (rede, RLS, o que
@@ -317,7 +326,7 @@ export function QuizRunner({
                 <button
                   type="button"
                   onClick={() => submitAnswer(option.id)}
-                  disabled={Boolean(chosen)}
+                  disabled={isQuiz && Boolean(chosen)}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-lg border p-3.5 text-left transition-colors',
                     'min-h-[56px]',
