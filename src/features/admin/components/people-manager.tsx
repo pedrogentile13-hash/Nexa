@@ -101,8 +101,15 @@ export function PeopleManager({
               {!readOnly && (
                 <form action={formAction} className="flex flex-wrap items-center gap-2">
                   <input type="hidden" name="userId" value={person.id} />
+                  {/* Rebaixar o próprio papel é bloqueado no servidor (deixaria o
+                      painel sem dono) — o seletor fica travado no papel atual pra
+                      não parecer que dá pra mudar e falhar só ao aplicar. Mas
+                      escola é independente disso: nada impede o próprio admin de
+                      se vincular a uma escola, então esse campo (e o botão) não
+                      têm por que ficar bloqueados junto. */}
+                  {isSelf && <input type="hidden" name="role" value={person.role} />}
                   <Select
-                    name="role"
+                    name={isSelf ? undefined : 'role'}
                     defaultValue={person.role}
                     className="w-auto"
                     aria-label={`Papel de ${person.fullName ?? 'pessoa'}`}
@@ -117,7 +124,6 @@ export function PeopleManager({
                     defaultValue={person.schoolId ?? ''}
                     className="w-auto"
                     aria-label="Escola"
-                    disabled={isSelf}
                   >
                     <option value="">Sem escola</option>
                     {schools.map((s) => (
@@ -126,7 +132,7 @@ export function PeopleManager({
                       </option>
                     ))}
                   </Select>
-                  <Button type="submit" variant="secondary" disabled={isSelf}>
+                  <Button type="submit" variant="secondary">
                     Aplicar
                   </Button>
                 </form>
