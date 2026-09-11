@@ -3,45 +3,24 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import {
-  ArrowLeft,
-  BarChart3,
-  Bell,
-  BookOpen,
-  GraduationCap,
-  LayoutDashboard,
-  Library,
-  Route as RouteIcon,
-  School,
-  Settings,
-  Users,
-  Users2,
-} from 'lucide-react';
+import { ArrowLeft, Bell, GraduationCap, Layers, LayoutDashboard, Library } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
-import { SearchBar } from '@/features/search/components/search-bar';
-import { searchAdmin } from '@/features/search/server/actions';
 
 /**
- * Shell do painel.
+ * Shell da área do professor — construído do zero, de propósito.
  *
- * Ao contrário do app do aluno, aqui o desktop é o formato principal: cadastrar
- * um simulado de 20 questões no celular é possível e ninguém faz. A navegação
- * é lateral em tela larga e vira uma faixa rolável no topo em tela estreita —
- * o suficiente para conferir e publicar do celular, não para escrever.
+ * O usuário pediu explicitamente uma área NOVA e personalizada, separada do
+ * painel admin: não é `AdminShell` com um item a mais. A navegação é bem
+ * mais enxuta (4 destinos, sem sub-menus) porque o escopo de um professor
+ * também é — matéria(s)+turma(s) atribuídas, nunca a escola inteira.
  */
 
 const ITEMS = [
-  { href: '/admin', label: 'Visão geral', Icon: LayoutDashboard, exact: true },
-  { href: '/admin/conteudo', label: 'Conteúdo', Icon: Library },
-  { href: '/admin/trilhas', label: 'Trilhas', Icon: RouteIcon },
-  { href: '/admin/materias', label: 'Matérias', Icon: BookOpen },
-  { href: '/admin/escolas', label: 'Escolas', Icon: School },
-  { href: '/admin/usuarios', label: 'Usuários', Icon: Users },
-  { href: '/admin/professores', label: 'Professores', Icon: Users2 },
-  { href: '/admin/relatorios', label: 'Relatórios', Icon: BarChart3 },
-  { href: '/admin/notificacoes', label: 'Notificações', Icon: Bell },
-  { href: '/admin/configuracoes', label: 'Configurações', Icon: Settings },
+  { href: '/professor', label: 'Painel', Icon: LayoutDashboard, exact: true },
+  { href: '/professor/turmas', label: 'Turmas', Icon: Layers },
+  { href: '/professor/conteudo', label: 'Conteúdo', Icon: Library },
+  { href: '/professor/avisos', label: 'Avisos', Icon: Bell },
 ] as const;
 
 function useActive(href: string, exact?: boolean) {
@@ -54,13 +33,11 @@ function NavLink({
   label,
   Icon,
   exact,
-  compact,
 }: {
   href: Route;
   label: string;
-  Icon: typeof School;
+  Icon: typeof Layers;
   exact?: boolean;
-  compact?: boolean;
 }) {
   const active = useActive(href, exact);
   return (
@@ -68,11 +45,11 @@ function NavLink({
       href={href}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-2.5 rounded-md text-sm whitespace-nowrap transition-colors',
-        compact ? 'h-11 px-3' : 'h-11 px-3',
+        'flex items-center gap-2.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors',
+        'h-11',
         active
           ? 'bg-brand-soft text-brand-text font-semibold'
-          : 'text-muted hover:bg-surface-2 hover:text-text font-medium',
+          : 'text-muted hover:bg-surface-2 hover:text-text',
       )}
     >
       <Icon className="size-[18px] shrink-0" aria-hidden strokeWidth={active ? 2.4 : 1.9} />
@@ -81,18 +58,16 @@ function NavLink({
   );
 }
 
-export function AdminShell({
+export function TeacherShell({
   children,
   scopeLabel,
   fullName,
   avatarUrl,
-  roleLabel,
 }: {
   children: React.ReactNode;
   scopeLabel: string;
   fullName: string | null;
   avatarUrl: string | null;
-  roleLabel: string;
 }) {
   const initial = fullName?.trim()[0]?.toUpperCase() ?? '?';
 
@@ -101,22 +76,20 @@ export function AdminShell({
       <aside className="no-print border-border bg-surface shrink-0 border-b lg:w-60 lg:border-r lg:border-b-0">
         <div className="lg:sticky lg:top-0">
           <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 lg:block">
-            <Link href="/admin" className="flex items-center gap-2.5">
+            <Link href="/professor" className="flex items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image */}
               <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-8 shrink-0" />
               <span className="text-base font-semibold">
-                Nexa Study <span className="text-muted font-normal">admin</span>
+                Nexa Study <span className="text-muted font-normal">professor</span>
               </span>
             </Link>
-            {/* Um school_admin precisa ver, sempre, de qual acervo ele está
-                cuidando — senão publica para a escola errada sem perceber. */}
             <span className="text-subtle truncate text-xs lg:mt-2 lg:block lg:px-0.5">
               {scopeLabel}
             </span>
           </div>
 
           <nav
-            aria-label="Navegação do painel"
+            aria-label="Navegação do professor"
             className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-visible"
           >
             {ITEMS.map((item) => (
@@ -137,15 +110,7 @@ export function AdminShell({
       </aside>
 
       <div className="min-w-0 flex-1">
-        {/* Barra superior: busca de conteúdo/pessoas/escolas + sino +
-            identidade de quem está logado. Fica aqui, uma vez só no shell, em
-            vez de em cada AdminHeader — assim toda tela do painel ganha as
-            três coisas de graça, sem repetir prop em cada página. */}
         <header className="no-print border-border bg-surface sticky top-0 z-30 flex items-center gap-3 border-b px-5 py-3">
-          {/* No celular a barra lateral não fica visível (é uma faixa de
-              navegação, não um menu fixo), e o "Voltar ao app" de lá some
-              junto — sem isto, quem entra no painel pelo celular fica preso
-              nele, sem nenhum jeito de voltar pro app do aluno. */}
           <Link
             href="/hoje"
             aria-label="Voltar ao app"
@@ -154,13 +119,7 @@ export function AdminShell({
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
 
-          <div className="min-w-0 flex-1">
-            <SearchBar
-              placeholder="Buscar conteúdos, usuários, escolas…"
-              search={searchAdmin}
-              contentOnlyAdminHref
-            />
-          </div>
+          <div className="min-w-0 flex-1" />
 
           <NotificationBell />
 
@@ -175,7 +134,7 @@ export function AdminShell({
             </span>
             <span className="hidden leading-tight sm:block">
               <span className="block text-sm font-semibold">{fullName ?? 'Você'}</span>
-              <span className="text-subtle block text-xs">{roleLabel}</span>
+              <span className="text-subtle block text-xs">Professor</span>
             </span>
           </div>
         </header>
@@ -186,8 +145,8 @@ export function AdminShell({
   );
 }
 
-/** Cabeçalho padrão de página do painel. */
-export function AdminHeader({
+/** Cabeçalho padrão de página do professor — mesmo padrão do `AdminHeader`. */
+export function TeacherHeader({
   title,
   description,
   action,

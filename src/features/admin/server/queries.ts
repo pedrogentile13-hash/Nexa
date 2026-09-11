@@ -475,6 +475,72 @@ export async function getPersonById(userId: string): Promise<AdminPerson | null>
   };
 }
 
+// ------------------------------------------------------------ professores --
+
+export interface AdminTeacherAssignment {
+  id: string;
+  teacherId: string;
+  teacherName: string | null;
+  schoolId: string;
+  schoolName: string | null;
+  subjectCatalogId: string;
+  subjectName: string;
+  className: string;
+}
+
+/** Todo vínculo professor→matéria+turma que este admin pode gerenciar (a RLS já escopa por escola). */
+export async function listTeacherAssignments(): Promise<AdminTeacherAssignment[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('teacher_assignments')
+    .select(
+      'id, teacher_id, school_id, subject_catalog_id, class_name, profiles(full_name), schools(name), subject_catalog(name)',
+    )
+    .order('class_name');
+
+  return (data ?? []).map((row) => {
+    const teacher = row.profiles as unknown as { full_name: string | null } | null;
+    const school = row.schools as unknown as { name: string } | null;
+    const subject = row.subject_catalog as unknown as { name: string } | null;
+    return {
+      id: row.id,
+      teacherId: row.teacher_id,
+      teacherName: teacher?.full_name ?? null,
+      schoolId: row.school_id,
+      schoolName: school?.name ?? null,
+      subjectCatalogId: row.subject_catalog_id,
+      subjectName: subject?.name ?? '—',
+      className: row.class_name,
+    };
+  });
+}
+
+/** Só os professores (papel `teacher_admin`) — pra popular o seletor do formulário de atribuição. */
+export async function listTeachers(schoolId?: string): Promise<AdminPerson[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from('profiles')
+    .select('id, full_name, role, school_id, created_at, schools(name)')
+    .eq('role', 'teacher_admin')
+    .order('full_name');
+
+  if (schoolId) query = query.eq('school_id', schoolId);
+
+  const { data } = await query;
+
+  return (data ?? []).map((p) => {
+    const school = p.schools as unknown as { name: string } | null;
+    return {
+      id: p.id,
+      fullName: p.full_name,
+      role: p.role,
+      schoolId: p.school_id,
+      schoolName: school?.name ?? null,
+      createdAt: p.created_at,
+    };
+  });
+}
+
 // ----------------------------------------------------------- relatórios --
 
 export interface AdminStudentReport {

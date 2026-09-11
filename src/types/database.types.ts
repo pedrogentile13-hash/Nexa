@@ -46,7 +46,7 @@ export type XpSourceType =
   | 'quiz'
   | 'lesson'
   | 'resource';
-export type UserRole = 'student' | 'school_admin' | 'admin';
+export type UserRole = 'student' | 'school_admin' | 'admin' | 'teacher_admin';
 export type ResourceKind = 'resumo' | 'podcast' | 'video' | 'imagem' | 'musica' | 'quiz' | 'simulado';
 export type Difficulty = 'facil' | 'medio' | 'dificil';
 export type TrackCategory = 'enem' | 'fundamental' | 'reforco' | 'carreiras' | 'habilidades';
@@ -545,6 +545,16 @@ export type PushSubscriptionRow = {
   created_at: string;
 };
 
+export type TeacherAssignmentRow = {
+  id: string;
+  teacher_id: string;
+  school_id: string;
+  subject_catalog_id: string;
+  class_name: string;
+  created_by: string | null;
+  created_at: string;
+};
+
 /* ------------------------------------------------------------- views --- */
 
 export type VResourceLibraryRow = {
@@ -631,6 +641,7 @@ export type Database = {
       ai_chat_messages: Table<AiChatMessageRow>;
       notifications: Table<NotificationRow>;
       push_subscriptions: Table<PushSubscriptionRow>;
+      teacher_assignments: Table<TeacherAssignmentRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -941,6 +952,25 @@ export type Database = {
           quizzes_done_30d: number;
           simulados_done_30d: number;
         }[];
+      };
+      is_teacher_of: {
+        Args: { p_school_id: string; p_subject_catalog_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
+      is_teacher_of_student: {
+        Args: { p_target_user_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
+      notify_class: {
+        Args: {
+          p_class_name: string;
+          p_subject_catalog_id: string;
+          p_school_id: string;
+          p_title: string;
+          p_body: string | null;
+          p_link?: string | null;
+        };
+        Returns: undefined;
       };
       mark_resource_progress: {
         Args: {

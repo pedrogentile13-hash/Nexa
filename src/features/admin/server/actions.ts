@@ -921,7 +921,7 @@ export async function deleteTrackLesson(formData: FormData): Promise<void> {
 
 const roleSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(['student', 'school_admin', 'admin']),
+  role: z.enum(['student', 'teacher_admin', 'school_admin', 'admin']),
   schoolId: z.string().optional(),
 });
 
@@ -958,4 +958,58 @@ export async function setPersonRole(_prev: AdminState, formData: FormData): Prom
 
   revalidatePath('/admin/usuarios');
   return ok;
+}
+
+// ------------------------------------------------------------ professores --
+
+const teacherAssignmentSchema = z.object({
+  teacherId: z.string().uuid('Escolha o professor.'),
+  schoolId: z.string().uuid('Escolha a escola.'),
+  subjectCatalogId: z.string().uuid('Escolha a matéria.'),
+  className: z.string().trim().min(1, 'Informe a turma.').max(80),
+});
+
+export async function saveTeacherAssignment(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+
+  const parsed = teacherAssignmentSchema.safeParse({
+    teacherId: formData.get('teacherId'),
+    schoolId: formData.get('schoolId'),
+    subjectCatalogId: formData.get('subjectCatalogId'),
+    className: formData.get('className'),
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const schoolId = resolveSchoolId(identity, parsed.data.schoolId);
+  if (!schoolId) return fail('Escolha uma escola.');
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('teacher_assignments').insert({
+    teacher_id: parsed.data.teacherId,
+    school_id: schoolId,
+    subject_catalog_id: parsed.data.subjectCatalogId,
+    class_name: parsed.data.className,
+    created_by: identity.userId,
+  });
+
+  if (error) {
+    return fail(
+      error.code === '23505'
+        ? 'Este professor já está atribuído a essa matéria nessa turma.'
+        : error.message,
+    );
+  }
+
+  revalidatePath('/admin/professores');
+  return ok;
+}
+
+export async function deleteTeacherAssignment(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('teacher_assignments').delete().eq('id', id);
+  revalidatePath('/admin/professores');
 }
