@@ -14,6 +14,8 @@ import type { NotificationSettings } from '@/types/database.types';
 import { NotificationSettingsForm } from './notification-settings-form';
 import { ProfileForm } from './profile-form';
 import { SchoolPicker, type CurrentSchool } from './school-picker';
+import { ClassPicker } from './class-picker';
+import type { ClassOption } from '@/features/classes/server/queries';
 
 type Tab = 'conta' | 'notificacoes' | 'aparencia' | 'privacidade';
 
@@ -28,19 +30,23 @@ export function ProfileTabs({
   email,
   fullName,
   gradeLevel,
-  className,
   dailyGoal,
   weeklyGoal,
   currentSchool,
+  currentClassId,
+  currentClassName,
+  schoolClasses,
   notificationSettings,
 }: {
   email?: string | null;
   fullName: string;
   gradeLevel: string | null;
-  className: string | null;
   dailyGoal: number;
   weeklyGoal: number;
   currentSchool: CurrentSchool | null;
+  currentClassId: string | null;
+  currentClassName: string | null;
+  schoolClasses: ClassOption[];
   notificationSettings: NotificationSettings;
 }) {
   const [tab, setTab] = useState<Tab>('conta');
@@ -70,11 +76,20 @@ export function ProfileTabs({
               <SchoolPicker currentSchool={currentSchool} />
             </div>
 
+            <div className="border-border space-y-3 border-t pt-4">
+              <h3 className="text-muted text-xs font-semibold tracking-wide uppercase">Turma</h3>
+              <ClassPicker
+                currentSchoolId={currentSchool?.id ?? null}
+                currentClassId={currentClassId}
+                currentClassName={currentClassName}
+                classes={schoolClasses}
+              />
+            </div>
+
             <div className="border-border border-t pt-4">
               <ProfileForm
                 fullName={fullName}
                 gradeLevel={gradeLevel}
-                className={className}
                 dailyGoal={dailyGoal}
                 weeklyGoal={weeklyGoal}
               />

@@ -9,10 +9,10 @@ const INITIAL: AdminState = { status: 'idle' };
 
 export function TeacherNoticeForm({
   subjects,
-  classNames,
+  classes,
 }: {
   subjects: { id: string; name: string }[];
-  classNames: string[];
+  classes: { id: string; name: string }[];
 }) {
   const [state, formAction] = useActionState(notifyMyClass, INITIAL);
 
@@ -20,11 +20,11 @@ export function TeacherNoticeForm({
     <form action={formAction} className="border-border bg-surface max-w-xl space-y-4 rounded-2xl border p-4">
       <div className="grid grid-cols-2 gap-3">
         <Field label="Turma">
-          <Select name="className" required>
+          <Select name="classId" required>
             <option value="">Escolha…</option>
-            {classNames.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </Select>

@@ -60,7 +60,7 @@ export function MediaUpload({
       setStatus('error');
       setMessage(
         /policy|denied|unauthorized/i.test(error.message)
-          ? 'O Storage recusou o envio. Confirme que seu perfil é admin e que o bucket nexa-content existe.'
+          ? 'O Storage recusou o envio. Confirme que seu perfil tem permissão de gerenciar conteúdo e que o bucket nexa-content existe.'
           : error.message,
       );
       return;

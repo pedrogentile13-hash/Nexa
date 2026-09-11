@@ -2,14 +2,13 @@
 
 import { useActionState, useState } from 'react';
 import { GraduationCap, Plus, Trash2, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { Field, FormFeedback, Select, SubmitButton } from './form-parts';
 import {
   deleteTeacherAssignment,
   saveTeacherAssignment,
   type AdminState,
 } from '../server/actions';
-import type { AdminPerson, AdminTeacherAssignment } from '../server/queries';
+import type { AdminClassOption, AdminPerson, AdminTeacherAssignment } from '../server/queries';
 
 /**
  * Atribuição de professor a matéria+turma.
@@ -26,12 +25,14 @@ export function TeacherAssignmentsManager({
   teachers,
   subjects,
   schools,
+  classes,
   isGlobal,
 }: {
   assignments: AdminTeacherAssignment[];
   teachers: AdminPerson[];
   subjects: { id: string; name: string }[];
   schools: { id: string; name: string }[];
+  classes: AdminClassOption[];
   isGlobal: boolean;
 }) {
   const [state, formAction] = useActionState(saveTeacherAssignment, INITIAL);
@@ -145,8 +146,18 @@ export function TeacherAssignmentsManager({
                   </Select>
                 </Field>
 
-                <Field label="Turma">
-                  <Input name="className" required placeholder="9A" />
+                <Field
+                  label="Turma"
+                  hint={classes.length === 0 ? 'nenhuma turma cadastrada ainda' : undefined}
+                >
+                  <Select name="classId" required disabled={classes.length === 0}>
+                    <option value="">Escolha…</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.schoolName ? `${c.name} — ${c.schoolName}` : c.name}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
 
                 <FormFeedback state={state} />

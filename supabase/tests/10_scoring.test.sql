@@ -94,7 +94,6 @@ set role authenticated;
 select public.bootstrap_student(
   p_full_name => 'Alice Aluna',
   p_grade_level => '9º ano',
-  p_class_name => '9A',
   p_school_id => null,
   p_timezone => 'America/Sao_Paulo',
   p_year_label => '2026',

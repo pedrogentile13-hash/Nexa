@@ -18,7 +18,7 @@ export default async function TeacherNoticesPage() {
       <div className="p-5">
         <TeacherNoticeForm
           subjects={teacherSubjectOptions(assignments)}
-          classNames={teacherClassOptions(assignments)}
+          classes={teacherClassOptions(assignments)}
         />
       </div>
     </>

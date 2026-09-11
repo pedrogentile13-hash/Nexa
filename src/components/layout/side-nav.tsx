@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Trophy,
   User,
+  Users2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -63,6 +64,8 @@ const SECONDARY_ITEMS: NavItem[] = [
 
 /** Só aparece para quem tem `role` admin/school_admin — ver `(app)/layout.tsx`. */
 const ADMIN_ITEM: NavItem = { href: '/admin', label: 'Admin', Icon: Shield };
+/** Só aparece para quem tem `role` teacher_admin — ver `(app)/layout.tsx`. */
+const TEACHER_ITEM: NavItem = { href: '/professor', label: 'Professor', Icon: Users2 };
 
 function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
   return (
@@ -87,17 +90,23 @@ export function SideNav({
   name,
   avatarUrl,
   isAdmin,
+  isTeacher,
 }: {
   name?: string | null;
   avatarUrl?: string | null;
   isAdmin?: boolean;
+  isTeacher?: boolean;
 } = {}) {
   const pathname = usePathname();
   const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
   const firstName = name?.trim()?.split(/\s+/)[0] ?? null;
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const secondaryItems = isAdmin ? [...SECONDARY_ITEMS, ADMIN_ITEM] : SECONDARY_ITEMS;
+  const secondaryItems = [
+    ...SECONDARY_ITEMS,
+    ...(isAdmin ? [ADMIN_ITEM] : []),
+    ...(isTeacher ? [TEACHER_ITEM] : []),
+  ];
 
   return (
     <nav

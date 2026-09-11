@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import type { AdminIdentity } from './guard';
+import type { AdminIdentity, ContentIdentity } from './guard';
 import type { Difficulty, ResourceKind, TrackCategory } from '@/types/database.types';
 import {
   groupByWeek,
@@ -198,7 +198,8 @@ export interface AdminResource {
 
 export interface ResourceFilters {
   kind?: ResourceKind | 'todos';
-  subjectId?: string;
+  /** Uma matéria (seletor do admin) ou várias (professor, restrito às atribuídas a ele). */
+  subjectId?: string | string[];
   schoolId?: string;
   status?: 'todos' | 'publicado' | 'rascunho';
   search?: string;
@@ -220,7 +221,8 @@ export async function listResources(filters: ResourceFilters = {}): Promise<Admi
     .limit(200);
 
   if (filters.kind && filters.kind !== 'todos') query = query.eq('kind', filters.kind);
-  if (filters.subjectId) query = query.eq('subject_catalog_id', filters.subjectId);
+  if (Array.isArray(filters.subjectId)) query = query.in('subject_catalog_id', filters.subjectId);
+  else if (filters.subjectId) query = query.eq('subject_catalog_id', filters.subjectId);
   if (filters.schoolId === 'global') query = query.is('school_id', null);
   else if (filters.schoolId) query = query.eq('school_id', filters.schoolId);
   if (filters.status === 'publicado') query = query.eq('is_published', true);
@@ -278,7 +280,7 @@ export interface ResourceFormOptions {
 }
 
 export async function getResourceFormOptions(
-  identity: AdminIdentity,
+  identity: AdminIdentity | ContentIdentity,
 ): Promise<ResourceFormOptions> {
   const supabase = await createClient();
 
@@ -297,8 +299,18 @@ export async function getResourceFormOptions(
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
   ]);
 
+  // Professor: a lista de matérias encolhe pra só as atribuídas a ele — o
+  // resto da função (tópicos, escolas) não muda, é o mesmo recorte que
+  // `assertSubjectAllowed` já reforça na escrita.
+  const allowedSubjectIds =
+    'allowedSubjectCatalogIds' in identity ? identity.allowedSubjectCatalogIds : 'all';
+  const subjects =
+    allowedSubjectIds === 'all'
+      ? (subjectsRes.data ?? [])
+      : (subjectsRes.data ?? []).filter((s) => allowedSubjectIds.includes(s.id));
+
   return {
-    subjects: subjectsRes.data ?? [],
+    subjects,
     topics: (topicsRes.data ?? []).map((t) => ({
       id: t.id,
       name: t.name,
@@ -485,6 +497,7 @@ export interface AdminTeacherAssignment {
   schoolName: string | null;
   subjectCatalogId: string;
   subjectName: string;
+  classId: string;
   className: string;
 }
 
@@ -494,14 +507,15 @@ export async function listTeacherAssignments(): Promise<AdminTeacherAssignment[]
   const { data } = await supabase
     .from('teacher_assignments')
     .select(
-      'id, teacher_id, school_id, subject_catalog_id, class_name, profiles(full_name), schools(name), subject_catalog(name)',
+      'id, teacher_id, school_id, subject_catalog_id, class_id, profiles(full_name), schools(name), subject_catalog(name), classes(name)',
     )
-    .order('class_name');
+    .order('created_at');
 
   return (data ?? []).map((row) => {
     const teacher = row.profiles as unknown as { full_name: string | null } | null;
     const school = row.schools as unknown as { name: string } | null;
     const subject = row.subject_catalog as unknown as { name: string } | null;
+    const klass = row.classes as unknown as { name: string } | null;
     return {
       id: row.id,
       teacherId: row.teacher_id,
@@ -510,7 +524,58 @@ export async function listTeacherAssignments(): Promise<AdminTeacherAssignment[]
       schoolName: school?.name ?? null,
       subjectCatalogId: row.subject_catalog_id,
       subjectName: subject?.name ?? '—',
-      className: row.class_name,
+      classId: row.class_id,
+      className: klass?.name ?? '—',
+    };
+  });
+}
+
+export interface AdminClassOption {
+  id: string;
+  name: string;
+  schoolName: string | null;
+}
+
+/** Todas as turmas de todas as escolas — só pro admin geral (escolhe a escola no próprio formulário). */
+export async function listAllClasses(): Promise<AdminClassOption[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from('classes').select('id, name, schools(name)').order('name');
+
+  return (data ?? []).map((row) => {
+    const school = row.schools as unknown as { name: string } | null;
+    return { id: row.id, name: row.name, schoolName: school?.name ?? null };
+  });
+}
+
+export interface AdminClass {
+  id: string;
+  name: string;
+  schoolId: string;
+  schoolName: string | null;
+  studentCount: number;
+}
+
+/** CRUD de `/admin/turmas` — a RLS já restringe school_admin à própria escola. */
+export async function listClasses(): Promise<AdminClass[]> {
+  const supabase = await createClient();
+  const [{ data }, { data: studentCounts }] = await Promise.all([
+    supabase.from('classes').select('id, name, school_id, schools(name)').order('name'),
+    supabase.from('profiles').select('class_id').eq('role', 'student').not('class_id', 'is', null),
+  ]);
+
+  const countByClass = new Map<string, number>();
+  for (const row of studentCounts ?? []) {
+    if (row.class_id) countByClass.set(row.class_id, (countByClass.get(row.class_id) ?? 0) + 1);
+  }
+
+  return (data ?? []).map((row) => {
+    const school = row.schools as unknown as { name: string } | null;
+    return {
+      id: row.id,
+      name: row.name,
+      schoolId: row.school_id,
+      schoolName: school?.name ?? null,
+      studentCount: countByClass.get(row.id) ?? 0,
     };
   });
 }

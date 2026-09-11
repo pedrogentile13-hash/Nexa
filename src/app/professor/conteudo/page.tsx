@@ -1,34 +1,44 @@
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { FlaskConical, Plus } from 'lucide-react';
 import { TeacherHeader } from '@/features/teacher/components/teacher-shell';
-import { TeacherResourceList } from '@/features/teacher/components/teacher-resource-list';
+import { ResourceTable } from '@/features/admin/components/resource-table';
+import { listResources } from '@/features/admin/server/queries';
 import { Button } from '@/components/ui/button';
-import { requireTeacher, getTeacherAssignments } from '@/features/teacher/server/guard';
-import { getTeacherContent } from '@/features/teacher/server/queries';
+import { requireContentManager } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Conteúdo' };
 
 export default async function TeacherContentPage() {
-  const identity = await requireTeacher();
-  const assignments = await getTeacherAssignments(identity.userId);
-  const resources = await getTeacherContent(assignments);
+  const identity = await requireContentManager();
+  const resources =
+    identity.allowedSubjectCatalogIds === 'all'
+      ? []
+      : await listResources({ subjectId: identity.allowedSubjectCatalogIds });
 
   return (
     <>
       <TeacherHeader
         title="Conteúdo"
-        description="Resumos, vídeos e simulados das suas matérias."
+        description="Resumos, vídeos, quiz e simulados das suas matérias."
         action={
-          <Button asChild>
-            <Link href="/professor/conteudo/novo">
-              <Plus aria-hidden />
-              Novo conteúdo
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="secondary">
+              <Link href="/professor/conteudo/importar-simulado">
+                <FlaskConical aria-hidden />
+                Importar por código
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/professor/conteudo/novo">
+                <Plus aria-hidden />
+                Novo conteúdo
+              </Link>
+            </Button>
+          </div>
         }
       />
       <div className="p-5">
-        <TeacherResourceList resources={resources} />
+        <ResourceTable resources={resources} basePath="/professor/conteudo" />
       </div>
     </>
   );

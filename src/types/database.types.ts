@@ -101,7 +101,7 @@ export type ProfileRow = {
   avatar_url: string | null;
   school_id: string | null;
   grade_level: string | null;
-  class_name: string | null;
+  class_id: string | null;
   timezone: string;
   locale: string;
   theme_preference: ThemePreference;
@@ -550,7 +550,15 @@ export type TeacherAssignmentRow = {
   teacher_id: string;
   school_id: string;
   subject_catalog_id: string;
-  class_name: string;
+  class_id: string;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type ClassRow = {
+  id: string;
+  school_id: string;
+  name: string;
   created_by: string | null;
   created_at: string;
 };
@@ -642,6 +650,7 @@ export type Database = {
       notifications: Table<NotificationRow>;
       push_subscriptions: Table<PushSubscriptionRow>;
       teacher_assignments: Table<TeacherAssignmentRow>;
+      classes: Table<ClassRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -667,7 +676,7 @@ export type Database = {
       school_ranking: {
         Args: {
           p_scope?: 'escola' | 'turma';
-          p_class_name?: string | null;
+          p_class_id?: string | null;
           p_period?: 'hoje' | 'semana' | 'mes' | 'geral';
           p_school_id?: string | null;
         };
@@ -963,7 +972,7 @@ export type Database = {
       };
       notify_class: {
         Args: {
-          p_class_name: string;
+          p_class_id: string;
           p_subject_catalog_id: string;
           p_school_id: string;
           p_title: string;
@@ -990,7 +999,6 @@ export type Database = {
         Args: {
           p_full_name: string;
           p_grade_level?: string | null;
-          p_class_name?: string | null;
           p_school_id?: string | null;
           p_timezone?: string;
           p_year_label?: string | null;

@@ -87,7 +87,7 @@ const ORDER_KEY: Record<RankingOrderBy, keyof RankingRow> = {
 
 export async function getRankingPage(filters: {
   scope: RankingScope;
-  className: string | null;
+  classId: string | null;
   period: RankingPeriod;
   orderBy: RankingOrderBy;
 }): Promise<RankingPage | null> {
@@ -110,7 +110,7 @@ export async function getRankingPage(filters: {
     supabase.from('profiles').select('school_id').eq('id', user.id).maybeSingle(),
     supabase.rpc('school_ranking', {
       p_scope: filters.scope,
-      p_class_name: filters.scope === 'turma' ? filters.className : null,
+      p_class_id: filters.scope === 'turma' ? filters.classId : null,
       p_period: filters.period,
     }),
     supabase.rpc('ranking_evolution', { p_user_id: user.id, p_days: 30 }),

@@ -15,13 +15,11 @@ const INITIAL: ProfileState = { status: 'idle' };
 export function ProfileForm({
   fullName,
   gradeLevel,
-  className,
   dailyGoal,
   weeklyGoal,
 }: {
   fullName: string;
   gradeLevel: string | null;
-  className: string | null;
   dailyGoal: number;
   weeklyGoal: number;
 }) {
@@ -61,11 +59,6 @@ export function ProfileForm({
               </option>
             ))}
           </select>
-        </div>
-
-        <div>
-          <Label htmlFor="className">Turma</Label>
-          <Input id="className" name="className" defaultValue={className ?? ''} maxLength={20} />
         </div>
       </div>
 

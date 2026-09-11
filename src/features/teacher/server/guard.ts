@@ -23,6 +23,7 @@ export interface TeacherAssignment {
   id: string;
   subjectCatalogId: string;
   subjectName: string;
+  classId: string;
   className: string;
 }
 
@@ -65,17 +66,19 @@ export const getTeacherAssignments = cache(
     const supabase = await createClient();
     const { data } = await supabase
       .from('teacher_assignments')
-      .select('id, subject_catalog_id, class_name, subject_catalog(name)')
+      .select('id, subject_catalog_id, class_id, subject_catalog(name), classes(name)')
       .eq('teacher_id', teacherId)
-      .order('class_name');
+      .order('created_at');
 
     return (data ?? []).map((row) => {
       const subject = row.subject_catalog as unknown as { name: string } | null;
+      const klass = row.classes as unknown as { name: string } | null;
       return {
         id: row.id,
         subjectCatalogId: row.subject_catalog_id,
         subjectName: subject?.name ?? '—',
-        className: row.class_name,
+        classId: row.class_id,
+        className: klass?.name ?? '—',
       };
     });
   },

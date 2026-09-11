@@ -40,8 +40,22 @@ create table if not exists public.teacher_assignments (
 );
 
 create index if not exists teacher_assignments_teacher_idx on public.teacher_assignments (teacher_id);
-create index if not exists teacher_assignments_scope_idx
-  on public.teacher_assignments (school_id, subject_catalog_id, class_name);
+
+-- `class_name` foi substituída por `class_id` (FK) em 20260912000100 — num
+-- reaplicar do zero, esta linha roda ANTES daquela migração, mas já sobre
+-- um banco onde a coluna já não existe mais (idempotência do
+-- setup-completo.sql). O índice em si é recriado lá, sobre `class_id`.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'teacher_assignments' and column_name = 'class_name'
+  ) then
+    execute 'create index if not exists teacher_assignments_scope_idx
+      on public.teacher_assignments (school_id, subject_catalog_id, class_name)';
+  end if;
+end;
+$$;
 
 alter table public.teacher_assignments enable row level security;
 
@@ -88,25 +102,42 @@ $$;
 -- do aluno alvo. (A matéria não restringe aqui, de propósito — ver Fase D
 -- do plano: relatório do aluno mostrado por inteiro, não filtrado por
 -- matéria, pra reaproveitar o mesmo relatório do admin sem lógica nova.)
-create or replace function public.is_teacher_of_student(
-  p_target_user_id uuid,
-  p_user_id uuid default auth.uid()
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.teacher_assignments ta
-    join public.profiles p on p.id = ta.teacher_id
-    join public.profiles target on target.id = p_target_user_id
-    where ta.teacher_id = p_user_id
-      and p.role = 'teacher_admin'
-      and ta.school_id = target.school_id
-      and ta.class_name = target.class_name
-  );
+-- `class_name` foi substituída por `class_id` (FK) em 20260912000100 — a
+-- versão de baixo (comparando por nome de turma) só existe pra funcionar
+-- entre esta migração e aquela, numa instalação do zero. Numa reaplicação
+-- (`class_name` já não existe mais), a linguagem `sql` desta função
+-- validaria as colunas NA HORA de criar — por isso o guarda: sem ele, a
+-- própria reaplicação do setup quebraria antes de chegar na versão nova.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'teacher_assignments' and column_name = 'class_name'
+  ) then
+    execute $ddl$
+      create or replace function public.is_teacher_of_student(
+        p_target_user_id uuid,
+        p_user_id uuid default auth.uid()
+      )
+      returns boolean
+      language sql
+      stable
+      security definer
+      set search_path = public
+      as $inner$
+        select exists (
+          select 1 from public.teacher_assignments ta
+          join public.profiles p on p.id = ta.teacher_id
+          join public.profiles target on target.id = p_target_user_id
+          where ta.teacher_id = p_user_id
+            and p.role = 'teacher_admin'
+            and ta.school_id = target.school_id
+            and ta.class_name = target.class_name
+        );
+      $inner$;
+    $ddl$;
+  end if;
+end;
 $$;
 
 -- ---------------------------------------------- leitura: RPCs admin_* ------

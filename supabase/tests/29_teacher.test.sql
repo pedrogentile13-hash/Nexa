@@ -28,6 +28,17 @@ insert into public.schools (id, name, city, state, is_verified) values
   ('90909090-0000-0000-0000-000000000001', 'Colégio Gama (professor fixture)', 'Recife', 'PE', true),
   ('90909090-0000-0000-0000-000000000002', 'Colégio Delta (professor fixture)', 'Olinda', 'PE', true);
 
+-- "9A" do Gama e "9A" do Delta são turmas DIFERENTES (escolas diferentes) —
+-- cada uma com seu próprio id, mesmo nome.
+\set GAMA_9A  '90909090-0000-0000-0000-0000000c9a01'
+\set GAMA_9B  '90909090-0000-0000-0000-0000000c9a02'
+\set DELTA_9A '90909090-0000-0000-0000-0000000c9a03'
+
+insert into public.classes (id, school_id, name) values
+  (:'GAMA_9A', '90909090-0000-0000-0000-000000000001', '9A'),
+  (:'GAMA_9B', '90909090-0000-0000-0000-000000000001', '9B'),
+  (:'DELTA_9A', '90909090-0000-0000-0000-000000000002', '9A');
+
 update public.profiles set role = 'admin' where id = :'ADMIN';
 
 -- Ana leciona Física na turma "9A" do Gama. Bia não tem atribuição nenhuma.
@@ -37,12 +48,13 @@ update public.profiles set role = 'teacher_admin', school_id = '90909090-0000-00
   where id = :'PROF_BIA';
 
 -- Aluno A: 9A do Gama (na turma da Ana). Aluno B: 9B do Gama (fora da turma
--- da Ana, mesma escola). Aluno C: 9A do Delta (mesma turma, escola diferente).
-update public.profiles set school_id = '90909090-0000-0000-0000-000000000001', class_name = '9A'
+-- da Ana, mesma escola). Aluno C: 9A do Delta (mesmo NOME de turma, mas é
+-- uma linha de `classes` diferente — escola diferente).
+update public.profiles set school_id = '90909090-0000-0000-0000-000000000001', class_id = :'GAMA_9A'
   where id = :'ALUNO_A';
-update public.profiles set school_id = '90909090-0000-0000-0000-000000000001', class_name = '9B'
+update public.profiles set school_id = '90909090-0000-0000-0000-000000000001', class_id = :'GAMA_9B'
   where id = :'ALUNO_B';
-update public.profiles set school_id = '90909090-0000-0000-0000-000000000002', class_name = '9A'
+update public.profiles set school_id = '90909090-0000-0000-0000-000000000002', class_id = :'DELTA_9A'
   where id = :'ALUNO_C';
 
 select id from public.subject_catalog where slug = 'fisica' \gset fisica_
@@ -64,8 +76,8 @@ values
 set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666666';
 set role authenticated;
 
-insert into public.teacher_assignments (teacher_id, school_id, subject_catalog_id, class_name)
-values (:'PROF_ANA', '90909090-0000-0000-0000-000000000001', :'fisica_id', '9A');
+insert into public.teacher_assignments (teacher_id, school_id, subject_catalog_id, class_id)
+values (:'PROF_ANA', '90909090-0000-0000-0000-000000000001', :'fisica_id', :'GAMA_9A');
 
 -- Bia não recebe atribuição nenhuma — cobre o caso "professor sem vínculo".
 
@@ -193,7 +205,7 @@ $$;
 set "request.jwt.claim.sub" = '77777777-7777-7777-7777-777777777701';
 set role authenticated;
 
-select public.notify_class('9A', :'fisica_id', '90909090-0000-0000-0000-000000000001', 'Prova amanhã', 'Não esqueça a calculadora.');
+select public.notify_class(:'GAMA_9A', :'fisica_id', '90909090-0000-0000-0000-000000000001', 'Prova amanhã', 'Não esqueça a calculadora.');
 
 -- `notifications` só é legível pelo próprio dono (RLS) — checar como
 -- superusuário, não como Ana, senão a query filtraria tudo que não é dela
@@ -226,7 +238,8 @@ set role authenticated;
 do $$
 begin
   begin
-    perform public.notify_class('9A', (select id from public.subject_catalog where slug = 'fisica'),
+    perform public.notify_class('90909090-0000-0000-0000-0000000c9a01'::uuid,
+      (select id from public.subject_catalog where slug = 'fisica'),
       '90909090-0000-0000-0000-000000000001', 'Não deveria enviar', null);
     assert false, 'Bia (sem atribuição) NÃO deveria conseguir chamar notify_class';
   exception when insufficient_privilege then null;

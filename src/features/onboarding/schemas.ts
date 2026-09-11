@@ -17,7 +17,6 @@ export const onboardingSchema = z
       .min(2, 'Diga seu nome para eu saber como te chamar.')
       .max(80, 'Nome muito longo.'),
     gradeLevel: z.string().trim().min(1, 'Escolha sua série.').max(40),
-    className: z.string().trim().max(20).optional().nullable(),
     catalogIds: z.array(z.string().uuid()).max(40),
     customSubjects: z.array(z.string().trim().min(1).max(80)).max(20),
     dailyGoalMinutes: z.number().int().min(0).max(1440),

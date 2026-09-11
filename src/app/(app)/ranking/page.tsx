@@ -6,7 +6,8 @@ import { PopEmptyState } from '@/components/ui/empty-state';
 import { School } from 'lucide-react';
 import { getRankingPage, type RankingOrderBy, type RankingPeriod, type RankingScope } from '@/features/ranking/server/queries';
 import { RankingView } from '@/features/ranking/components/ranking-view';
-import { getCurrentUser } from '@/lib/supabase/server';
+import { listSchoolClasses } from '@/features/classes/server/queries';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
   title: 'Ranking',
@@ -37,9 +38,19 @@ export default async function RankingPage({
   const orderBy = ORDERS.includes(params.ordenar as RankingOrderBy)
     ? (params.ordenar as RankingOrderBy)
     : 'xp';
-  const className = params.turma ?? null;
+  const classId = params.turma ?? null;
 
-  const data = await getRankingPage({ scope, className, period, orderBy });
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('school_id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const [data, classes] = await Promise.all([
+    getRankingPage({ scope, classId, period, orderBy }),
+    profile?.school_id ? listSchoolClasses(profile.school_id) : Promise.resolve([]),
+  ]);
 
   return (
     <>
@@ -54,7 +65,14 @@ export default async function RankingPage({
             />
           </div>
         ) : (
-          <RankingView data={data} scope={scope} period={period} orderBy={orderBy} className={className} />
+          <RankingView
+            data={data}
+            scope={scope}
+            period={period}
+            orderBy={orderBy}
+            classId={classId}
+            classes={classes}
+          />
         )}
       </PageMain>
     </>

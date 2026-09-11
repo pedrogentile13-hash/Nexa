@@ -34,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : { data: null };
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
+  const isTeacher = profile?.role === 'teacher_admin';
 
   return (
     <div className="flex min-h-dvh">
@@ -41,12 +42,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         name={profile?.full_name ?? null}
         avatarUrl={profile?.avatar_url ?? null}
         isAdmin={isAdmin}
+        isTeacher={isTeacher}
       />
       <div className="min-w-0 flex-1">
         {/* pb-nav reserva a altura da barra + o indicador de home do iPhone. */}
         <div className="pb-nav md:pb-8">{children}</div>
       </div>
-      <BottomNav isAdmin={isAdmin} />
+      <BottomNav isAdmin={isAdmin} isTeacher={isTeacher} />
       {/* Fica no shell, não em uma tela: o convite deve alcançar quem já está
           usando o app, e não depender de o aluno passar por uma página
           específica. Ele mesmo decide se aparece. */}

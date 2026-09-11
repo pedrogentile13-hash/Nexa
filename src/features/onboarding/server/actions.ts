@@ -51,7 +51,6 @@ export async function completeOnboarding(
   const { error } = await supabase.rpc('bootstrap_student', {
     p_full_name: data.fullName,
     p_grade_level: data.gradeLevel,
-    p_class_name: data.className ?? null,
     p_school_id: null,
     p_timezone: data.timezone,
     p_year_label: null,

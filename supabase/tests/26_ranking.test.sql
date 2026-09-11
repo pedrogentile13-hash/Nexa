@@ -28,9 +28,17 @@ insert into public.schools (id, name, city, state, is_verified) values
   (:'ESCOLA_X', 'Escola X (ranking fixture)', 'São Paulo', 'SP', true),
   (:'ESCOLA_Y', 'Escola Y (ranking fixture)', 'São Paulo', 'SP', true);
 
-update public.profiles set school_id = :'ESCOLA_X', class_name = '9A' where id = :'CARLOS';
-update public.profiles set school_id = :'ESCOLA_X', class_name = '9B' where id = :'DIANA';
-update public.profiles set school_id = :'ESCOLA_Y', class_name = '9A' where id = :'ERIC';
+insert into public.classes (id, school_id, name) values
+  ('99990000-0000-0000-0000-00000000ca9a', :'ESCOLA_X', '9A'),
+  ('99990000-0000-0000-0000-00000000ca9b', :'ESCOLA_X', '9B'),
+  ('99990000-0000-0000-0000-00000000ca9c', :'ESCOLA_Y', '9A');
+
+\set TURMA_X9A '99990000-0000-0000-0000-00000000ca9a'
+\set TURMA_X9B '99990000-0000-0000-0000-00000000ca9b'
+
+update public.profiles set school_id = :'ESCOLA_X', class_id = :'TURMA_X9A' where id = :'CARLOS';
+update public.profiles set school_id = :'ESCOLA_X', class_id = :'TURMA_X9B' where id = :'DIANA';
+update public.profiles set school_id = :'ESCOLA_Y', class_id = '99990000-0000-0000-0000-00000000ca9c' where id = :'ERIC';
 
 -- ============================================================================
 -- 1 · check_achievements não paga xp_reward duas vezes (regressão da recursão)
@@ -108,10 +116,12 @@ do $$
 declare
   v_linhas integer;
 begin
-  select count(*) into v_linhas from public.school_ranking('turma', '9A', 'geral', null);
+  select count(*) into v_linhas from public.school_ranking(
+    'turma', '99990000-0000-0000-0000-00000000ca9a'::uuid, 'geral', null);
   assert v_linhas = 1, format('esperado só CARLOS na turma 9A da escola X, veio %s', v_linhas);
 
-  select count(*) into v_linhas from public.school_ranking('turma', '9B', 'geral', null);
+  select count(*) into v_linhas from public.school_ranking(
+    'turma', '99990000-0000-0000-0000-00000000ca9b'::uuid, 'geral', null);
   assert v_linhas = 1, format('esperado só DIANA na turma 9B, veio %s', v_linhas);
 end;
 $$;

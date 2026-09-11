@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { requireAdmin, resolveSchoolId } from './guard';
+import { assertSubjectAllowed, requireAdmin, requireContentManager, resolveSchoolId } from './guard';
 import { parseSimuladoCode } from '../lib/simulado-import';
 
 /**
@@ -259,7 +259,7 @@ async function notifyPublished(
 }
 
 export async function saveResource(_prev: AdminState, formData: FormData): Promise<AdminState> {
-  const identity = await requireAdmin();
+  const identity = await requireContentManager();
 
   const parsed = resourceSchema.safeParse({
     id: formData.get('id') || undefined,
@@ -286,6 +286,9 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
   const data = parsed.data;
+
+  const scopeError = assertSubjectAllowed(identity, data.subjectId);
+  if (scopeError) return fail(scopeError);
 
   // O check `resources_has_payload` no banco recusaria isso, mas com uma
   // mensagem de constraint. Aqui a recusa é em português e diz o que fazer.
@@ -411,8 +414,8 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
       await notifyPublished(supabase, data.subjectId, data.title, data.id, payload.school_id);
     }
 
-    revalidatePath('/admin/conteudo');
-    revalidatePath(`/admin/conteudo/${data.id}`);
+    revalidatePath(identity.basePath);
+    revalidatePath(`${identity.basePath}/${data.id}`);
     return warning ? { status: 'saved', warning } : ok;
   }
 
@@ -428,18 +431,18 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     await notifyPublished(supabase, data.subjectId, data.title, created.id, payload.school_id);
   }
 
-  revalidatePath('/admin/conteudo');
+  revalidatePath(identity.basePath);
   // Quiz e simulado nascem vazios: o próximo passo real é cadastrar questões,
   // então a ação leva direto para lá em vez de devolver a uma lista.
   redirect(
     data.kind === 'quiz' || data.kind === 'simulado'
-      ? `/admin/conteudo/${created.id}/questoes`
-      : `/admin/conteudo/${created.id}`,
+      ? `${identity.basePath}/${created.id}/questoes`
+      : `${identity.basePath}/${created.id}`,
   );
 }
 
 export async function toggleResourcePublished(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const identity = await requireContentManager();
   const id = formData.get('id');
   const next = formData.get('next') === 'true';
   if (typeof id !== 'string') return;
@@ -463,19 +466,19 @@ export async function toggleResourcePublished(formData: FormData): Promise<void>
     );
   }
 
-  revalidatePath('/admin/conteudo');
-  revalidatePath(`/admin/conteudo/${id}`);
+  revalidatePath(identity.basePath);
+  revalidatePath(`${identity.basePath}/${id}`);
 }
 
 export async function deleteResource(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const identity = await requireContentManager();
   const id = formData.get('id');
   if (typeof id !== 'string') return;
 
   const supabase = await createClient();
   await supabase.from('resources').delete().eq('id', id);
-  revalidatePath('/admin/conteudo');
-  redirect('/admin/conteudo');
+  revalidatePath(identity.basePath);
+  redirect(identity.basePath);
 }
 
 // --------------------------------------------------------------- questões --
@@ -495,7 +498,7 @@ const questionSchema = z.object({
 });
 
 export async function saveQuestion(_prev: AdminState, formData: FormData): Promise<AdminState> {
-  await requireAdmin();
+  const identity = await requireContentManager();
 
   const options = formData
     .getAll('option')
@@ -575,19 +578,19 @@ export async function saveQuestion(_prev: AdminState, formData: FormData): Promi
 
   if (optionsError) return fail(optionsError.message);
 
-  revalidatePath(`/admin/conteudo/${resourceId}/questoes`);
+  revalidatePath(`${identity.basePath}/${resourceId}/questoes`);
   return ok;
 }
 
 export async function deleteQuestion(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const identity = await requireContentManager();
   const id = formData.get('id');
   const resourceId = formData.get('resourceId');
   if (typeof id !== 'string') return;
 
   const supabase = await createClient();
   await supabase.from('questions').delete().eq('id', id);
-  if (typeof resourceId === 'string') revalidatePath(`/admin/conteudo/${resourceId}/questoes`);
+  if (typeof resourceId === 'string') revalidatePath(`${identity.basePath}/${resourceId}/questoes`);
 }
 
 // ------------------------------------------------- simulado por código -----
@@ -617,7 +620,7 @@ const importSimuladoSchema = z.object({
  * ele tenha mudado entre a última validação no cliente e o clique.
  */
 export async function importSimulado(_prev: AdminState, formData: FormData): Promise<AdminState> {
-  const identity = await requireAdmin();
+  const identity = await requireContentManager();
 
   const parsed = importSimuladoSchema.safeParse({
     kind: formData.get('kind') || 'simulado',
@@ -634,6 +637,10 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
   const data = parsed.data;
+
+  const scopeError = assertSubjectAllowed(identity, data.subjectId);
+  if (scopeError) return fail(scopeError);
+
   const result = parseSimuladoCode(data.code);
   if (!result.ok) {
     const firstError =
@@ -731,8 +738,8 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
     }
   }
 
-  revalidatePath('/admin/conteudo');
-  redirect(`/admin/conteudo/${resource.id}/questoes`);
+  revalidatePath(identity.basePath);
+  redirect(`${identity.basePath}/${resource.id}/questoes`);
 }
 
 // ---------------------------------------------------------------- trilhas --
@@ -960,13 +967,61 @@ export async function setPersonRole(_prev: AdminState, formData: FormData): Prom
   return ok;
 }
 
+// ----------------------------------------------------------------- turmas --
+
+const classSchema = z.object({
+  id: z.string().uuid().optional(),
+  schoolId: z.string().optional(),
+  name: z.string().trim().min(1, 'Dê um nome à turma.').max(40),
+});
+
+export async function saveClass(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+
+  const parsed = classSchema.safeParse({
+    id: formData.get('id') || undefined,
+    schoolId: formData.get('schoolId') || undefined,
+    name: formData.get('name'),
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const schoolId = resolveSchoolId(identity, parsed.data.schoolId ?? null);
+  if (!schoolId) return fail('Escolha uma escola.');
+
+  const supabase = await createClient();
+  const payload = { school_id: schoolId, name: parsed.data.name, created_by: identity.userId };
+
+  const { error } = parsed.data.id
+    ? await supabase.from('classes').update(payload).eq('id', parsed.data.id)
+    : await supabase.from('classes').insert(payload);
+
+  if (error) {
+    return fail(
+      error.code === '23505' ? 'Essa escola já tem uma turma com esse nome.' : error.message,
+    );
+  }
+
+  revalidatePath('/admin/turmas');
+  return ok;
+}
+
+export async function deleteClass(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('classes').delete().eq('id', id);
+  revalidatePath('/admin/turmas');
+}
+
 // ------------------------------------------------------------ professores --
 
 const teacherAssignmentSchema = z.object({
   teacherId: z.string().uuid('Escolha o professor.'),
   schoolId: z.string().uuid('Escolha a escola.'),
   subjectCatalogId: z.string().uuid('Escolha a matéria.'),
-  className: z.string().trim().min(1, 'Informe a turma.').max(80),
+  classId: z.string().uuid('Escolha a turma.'),
 });
 
 export async function saveTeacherAssignment(_prev: AdminState, formData: FormData): Promise<AdminState> {
@@ -976,7 +1031,7 @@ export async function saveTeacherAssignment(_prev: AdminState, formData: FormDat
     teacherId: formData.get('teacherId'),
     schoolId: formData.get('schoolId'),
     subjectCatalogId: formData.get('subjectCatalogId'),
-    className: formData.get('className'),
+    classId: formData.get('classId'),
   });
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
@@ -988,7 +1043,7 @@ export async function saveTeacherAssignment(_prev: AdminState, formData: FormDat
     teacher_id: parsed.data.teacherId,
     school_id: schoolId,
     subject_catalog_id: parsed.data.subjectCatalogId,
-    class_name: parsed.data.className,
+    class_id: parsed.data.classId,
     created_by: identity.userId,
   });
 

@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server';
-import type { ResourceKind } from '@/types/database.types';
 import { getAdminStudentReport, type AdminStudentReport } from '@/features/admin/server/queries';
 import type { TeacherAssignment, TeacherIdentity } from './guard';
 
@@ -28,16 +27,16 @@ export async function getTeacherRoster(
   assignments: TeacherAssignment[],
   schoolId: string,
 ): Promise<TeacherRosterStudent[]> {
-  const classNames = [...new Set(assignments.map((a) => a.className))];
-  if (classNames.length === 0) return [];
+  const classIds = [...new Set(assignments.map((a) => a.classId))];
+  if (classIds.length === 0) return [];
 
   const supabase = await createClient();
   const { data } = await supabase
     .from('profiles')
-    .select('id, full_name, avatar_url, class_name')
+    .select('id, full_name, avatar_url, class_id, classes(name)')
     .eq('school_id', schoolId)
     .eq('role', 'student')
-    .in('class_name', classNames)
+    .in('class_id', classIds)
     .order('full_name');
 
   const students = data ?? [];
@@ -50,11 +49,12 @@ export async function getTeacherRoster(
 
   return withStats.map(({ s, res }) => {
     const row = res.data?.[0];
+    const klass = s.classes as unknown as { name: string } | null;
     return {
       id: s.id,
       fullName: s.full_name,
       avatarUrl: s.avatar_url,
-      className: s.class_name ?? '—',
+      className: klass?.name ?? '—',
       xp: row?.xp ?? 0,
       level: row?.level ?? 1,
       currentStreak: row?.current_streak ?? 0,
@@ -68,70 +68,6 @@ export async function getTeacherStudentReport(studentId: string): Promise<AdminS
   return getAdminStudentReport(studentId);
 }
 
-export interface TeacherResource {
-  id: string;
-  kind: ResourceKind;
-  title: string;
-  subjectName: string;
-  isPublished: boolean;
-  updatedAt: string;
-}
-
-export async function getTeacherContent(assignments: TeacherAssignment[]): Promise<TeacherResource[]> {
-  const subjectIds = [...new Set(assignments.map((a) => a.subjectCatalogId))];
-  if (subjectIds.length === 0) return [];
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('resources')
-    .select('id, kind, title, is_published, updated_at, subject_catalog(name)')
-    .in('subject_catalog_id', subjectIds)
-    .order('updated_at', { ascending: false })
-    .limit(200);
-
-  return (data ?? []).map((r) => {
-    const subject = r.subject_catalog as unknown as { name: string } | null;
-    return {
-      id: r.id,
-      kind: r.kind,
-      title: r.title,
-      subjectName: subject?.name ?? '—',
-      isPublished: r.is_published,
-      updatedAt: r.updated_at,
-    };
-  });
-}
-
-export async function getTeacherResource(id: string) {
-  const supabase = await createClient();
-  const { data } = await supabase.from('resources').select('*').eq('id', id).maybeSingle();
-  return data;
-}
-
-export async function getTeacherResourceQuestions(resourceId: string) {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('questions')
-    .select('id, position, statement, explanation, difficulty, points')
-    .eq('resource_id', resourceId)
-    .order('position');
-
-  const ids = (data ?? []).map((q) => q.id);
-  const { data: optionsData } =
-    ids.length > 0
-      ? await supabase
-          .from('question_options')
-          .select('id, question_id, position, body, is_correct')
-          .in('question_id', ids)
-          .order('position')
-      : { data: [] };
-
-  return (data ?? []).map((q) => ({
-    ...q,
-    options: (optionsData ?? []).filter((o) => o.question_id === q.id),
-  }));
-}
-
 /** Nome+id de cada matéria do professor — pra popular o seletor do formulário. */
 export function teacherSubjectOptions(assignments: TeacherAssignment[]) {
   const seen = new Map<string, string>();
@@ -139,8 +75,10 @@ export function teacherSubjectOptions(assignments: TeacherAssignment[]) {
   return [...seen.entries()].map(([id, name]) => ({ id, name }));
 }
 
-export function teacherClassOptions(assignments: TeacherAssignment[]): string[] {
-  return [...new Set(assignments.map((a) => a.className))];
+export function teacherClassOptions(assignments: TeacherAssignment[]): { id: string; name: string }[] {
+  const seen = new Map<string, string>();
+  for (const a of assignments) seen.set(a.classId, a.className);
+  return [...seen.entries()].map(([id, name]) => ({ id, name }));
 }
 
 export function teacherSummary(identity: TeacherIdentity, assignments: TeacherAssignment[]) {

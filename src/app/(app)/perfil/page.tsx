@@ -10,6 +10,7 @@ import { AvatarUpload } from '@/features/profile/components/avatar-upload';
 import { ProfileTabs } from '@/features/profile/components/profile-tabs';
 import type { AchievementListItem } from '@/features/profile/components/achievements-list';
 import { RARITY_LABEL } from '@/features/ranking/lib/rarity';
+import { listSchoolClasses } from '@/features/classes/server/queries';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import type { NotificationSettings } from '@/types/database.types';
 
@@ -31,7 +32,7 @@ export default async function ProfilePage() {
       supabase
         .from('profiles')
         .select(
-          'full_name, avatar_url, grade_level, class_name, daily_study_goal_minutes, weekly_study_goal_minutes, notification_settings, schools(id, name, city, state)',
+          'full_name, avatar_url, grade_level, class_id, classes(name), daily_study_goal_minutes, weekly_study_goal_minutes, notification_settings, schools(id, name, city, state)',
         )
         .eq('id', user.id)
         .maybeSingle(),
@@ -59,12 +60,14 @@ export default async function ProfilePage() {
     .filter((a) => a.unlockedAt != null)
     .sort((a, b) => new Date(b.unlockedAt!).getTime() - new Date(a.unlockedAt!).getTime())
     .slice(0, 8);
+  const classInfo = profile?.classes as unknown as { name: string } | null;
   const school = profile?.schools as unknown as {
     id: string;
     name: string;
     city: string | null;
     state: string | null;
   } | null;
+  const schoolClasses = school ? await listSchoolClasses(school.id) : [];
   const totalHours = Math.floor((stats?.total_study_seconds ?? 0) / 3600);
   const notificationSettings: NotificationSettings = profile?.notification_settings ?? {
     dailyReminder: true,
@@ -92,8 +95,7 @@ export default async function ProfilePage() {
                 {profile?.full_name ?? user.email}
               </h2>
               <p className="text-muted truncate text-sm">
-                {[profile?.grade_level, profile?.class_name].filter(Boolean).join(' · ') ||
-                  user.email}
+                {[profile?.grade_level, classInfo?.name].filter(Boolean).join(' · ') || user.email}
               </p>
 
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -123,10 +125,12 @@ export default async function ProfilePage() {
           email={user.email}
           fullName={profile?.full_name ?? ''}
           gradeLevel={profile?.grade_level ?? null}
-          className={profile?.class_name ?? null}
           dailyGoal={profile?.daily_study_goal_minutes ?? 45}
           weeklyGoal={profile?.weekly_study_goal_minutes ?? 300}
           currentSchool={school}
+          currentClassId={profile?.class_id ?? null}
+          currentClassName={classInfo?.name ?? null}
+          schoolClasses={schoolClasses}
           notificationSettings={notificationSettings}
         />
 

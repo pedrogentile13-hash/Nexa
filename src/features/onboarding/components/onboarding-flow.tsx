@@ -61,7 +61,6 @@ export function OnboardingFlow({ catalog, coreSubjectIds, defaultName, fallbackT
 
   const [fullName, setFullName] = useState(defaultName);
   const [gradeLevel, setGradeLevel] = useState<string>('9º ano');
-  const [className, setClassName] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set(coreSubjectIds));
   const [customSubjects, setCustomSubjects] = useState<string[]>([]);
   const [customDraft, setCustomDraft] = useState('');
@@ -85,7 +84,6 @@ export function OnboardingFlow({ catalog, coreSubjectIds, defaultName, fallbackT
   const payload = JSON.stringify({
     fullName: fullName.trim(),
     gradeLevel,
-    className: className.trim() || null,
     catalogIds: [...selected],
     customSubjects,
     dailyGoalMinutes,
@@ -169,8 +167,6 @@ export function OnboardingFlow({ catalog, coreSubjectIds, defaultName, fallbackT
                 onFullName={setFullName}
                 gradeLevel={gradeLevel}
                 onGradeLevel={setGradeLevel}
-                className={className}
-                onClassName={setClassName}
               />
             )}
 
@@ -326,15 +322,11 @@ function StepIdentity({
   onFullName,
   gradeLevel,
   onGradeLevel,
-  className,
-  onClassName,
 }: {
   fullName: string;
   onFullName: (v: string) => void;
   gradeLevel: string;
   onGradeLevel: (v: string) => void;
-  className: string;
-  onClassName: (v: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -364,19 +356,6 @@ function StepIdentity({
             />
           ))}
         </div>
-      </div>
-
-      <div>
-        <Label htmlFor="className">
-          Turma <span className="text-subtle font-normal">(opcional)</span>
-        </Label>
-        <Input
-          id="className"
-          value={className}
-          onChange={(e) => onClassName(e.target.value)}
-          placeholder="9A"
-          maxLength={20}
-        />
       </div>
     </div>
   );

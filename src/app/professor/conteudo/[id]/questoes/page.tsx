@@ -2,25 +2,32 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { TeacherHeader } from '@/features/teacher/components/teacher-shell';
-import { TeacherQuestionEditor } from '@/features/teacher/components/teacher-question-editor';
+import { QuestionEditor } from '@/features/admin/components/question-editor';
+import {
+  getResource,
+  getResourceFormOptions,
+  getResourceQuestions,
+} from '@/features/admin/server/queries';
+import { requireContentManager } from '@/features/admin/server/guard';
 import { Button } from '@/components/ui/button';
-import { requireTeacher } from '@/features/teacher/server/guard';
-import { getTeacherResource, getTeacherResourceQuestions } from '@/features/teacher/server/queries';
 
 export default async function TeacherQuestionsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireTeacher();
+  const identity = await requireContentManager();
   const { id } = await params;
 
-  const [resource, questions] = await Promise.all([
-    getTeacherResource(id),
-    getTeacherResourceQuestions(id),
+  const [resource, questions, options] = await Promise.all([
+    getResource(id),
+    getResourceQuestions(id),
+    getResourceFormOptions(identity),
   ]);
 
   if (!resource) notFound();
+
+  const topics = options.topics.filter((t) => t.subjectId === resource.subject_catalog_id);
 
   return (
     <>
@@ -41,7 +48,11 @@ export default async function TeacherQuestionsPage({
         }
       />
       <div className="p-5">
-        <TeacherQuestionEditor resourceId={resource.id} questions={questions} />
+        <QuestionEditor
+          resourceId={resource.id}
+          questions={questions}
+          topics={topics.map((t) => ({ id: t.id, name: t.name }))}
+        />
       </div>
     </>
   );

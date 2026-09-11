@@ -23,7 +23,14 @@ const ICONS: Record<ResourceKind, typeof FileText> = {
  * Publicar e despublicar acontece aqui, sem abrir o item: tirar do ar algo
  * errado é urgente, e urgência não combina com três cliques.
  */
-export function ResourceTable({ resources }: { resources: AdminResource[] }) {
+export function ResourceTable({
+  resources,
+  basePath = '/admin/conteudo',
+}: {
+  resources: AdminResource[];
+  /** O professor reaproveita esta MESMA lista em `/professor/conteudo`. */
+  basePath?: '/admin/conteudo' | '/professor/conteudo';
+}) {
   if (resources.length === 0) {
     return (
       <div className="border-border bg-surface rounded-lg border p-8 text-center">
@@ -55,7 +62,7 @@ export function ResourceTable({ resources }: { resources: AdminResource[] }) {
                 <Icon className="size-4" />
               </span>
 
-              <Link href={`/admin/conteudo/${resource.id}`} className="min-w-0 flex-1">
+              <Link href={`${basePath}/${resource.id}`} className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{resource.title}</span>
                 <span className="text-muted block truncate text-xs">
                   {[
@@ -77,7 +84,7 @@ export function ResourceTable({ resources }: { resources: AdminResource[] }) {
 
               {needsQuestions && (
                 <Link
-                  href={`/admin/conteudo/${resource.id}/questoes`}
+                  href={`${basePath}/${resource.id}/questoes`}
                   className="bg-warning-soft text-warning hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold sm:block"
                 >
                   falta cadastrar questões

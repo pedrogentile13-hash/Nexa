@@ -39,10 +39,13 @@ export function ResourceForm({
   options,
   resource,
   canChooseSchool,
+  basePath = '/admin/conteudo',
 }: {
   options: ResourceFormOptions;
   resource?: ResourceRow | null;
   canChooseSchool: boolean;
+  /** O professor reaproveita este MESMO formulário em `/professor/conteudo`. */
+  basePath?: '/admin/conteudo' | '/professor/conteudo';
 }) {
   const [state, formAction] = useActionState(saveResource, INITIAL);
   const [kind, setKind] = useState<ResourceKind>(resource?.kind ?? 'resumo');
@@ -312,7 +315,7 @@ export function ResourceForm({
 
             {resource && (
               <Button asChild variant="secondary">
-                <Link href={`/admin/conteudo/${resource.id}/questoes`}>
+                <Link href={`${basePath}/${resource.id}/questoes`}>
                   <ListChecks aria-hidden />
                   Cadastrar questões
                 </Link>

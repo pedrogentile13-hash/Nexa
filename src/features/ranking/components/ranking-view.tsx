@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -26,6 +26,7 @@ import { RankingEvolutionChart } from './ranking-charts';
 import { FriendsCard } from './friends-card';
 import { StudentProfileModal } from './student-profile-modal';
 import type { RankingOrderBy, RankingPage, RankingPeriod, RankingScope } from '../server/queries';
+import type { ClassOption } from '@/features/classes/server/queries';
 
 /**
  * Ranking de XP.
@@ -177,13 +178,15 @@ export function RankingView({
   scope,
   period,
   orderBy,
-  className,
+  classId,
+  classes,
 }: {
   data: RankingPage;
   scope: RankingScope;
   period: RankingPeriod;
   orderBy: RankingOrderBy;
-  className: string | null;
+  classId: string | null;
+  classes: ClassOption[];
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -196,12 +199,6 @@ export function RankingView({
     const qs = next.toString();
     router.push(qs ? `/ranking?${qs}` : '/ranking');
   }
-
-  const classNames = useMemo(
-    () =>
-      [...new Set(data.rows.map((r) => r.className).filter((c): c is string => Boolean(c)))].sort(),
-    [data.rows],
-  );
 
   const level = levelForXp(data.lifetimeXp);
 
@@ -282,21 +279,21 @@ export function RankingView({
             </button>
           </div>
 
-          {scope === 'turma' && classNames.length > 0 && (
+          {scope === 'turma' && classes.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {classNames.map((c) => (
+              {classes.map((c) => (
                 <button
-                  key={c}
+                  key={c.id}
                   type="button"
-                  onClick={() => setParam('turma', c)}
+                  onClick={() => setParam('turma', c.id)}
                   className={cn(
                     'h-9 rounded-full border px-3 text-xs font-medium transition-colors',
-                    c === className
+                    c.id === classId
                       ? 'border-brand bg-brand-soft text-brand-text'
                       : 'border-border bg-surface text-muted hover:bg-surface-2',
                   )}
                 >
-                  {c}
+                  {c.name}
                 </button>
               ))}
             </div>

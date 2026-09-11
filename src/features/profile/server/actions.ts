@@ -18,7 +18,6 @@ import type { NotificationSettings } from '@/types/database.types';
 const profileSchema = z.object({
   fullName: z.string().trim().min(2, 'Diga seu nome.').max(80),
   gradeLevel: z.string().trim().max(40).nullable(),
-  className: z.string().trim().max(20).nullable(),
   dailyStudyGoalMinutes: z
     .number()
     .int()
@@ -37,7 +36,6 @@ export async function updateProfile(
   const parsed = profileSchema.safeParse({
     fullName: formData.get('fullName'),
     gradeLevel: formData.get('gradeLevel') || null,
-    className: formData.get('className') || null,
     dailyStudyGoalMinutes: Number(formData.get('dailyStudyGoalMinutes')),
     weeklyStudyGoalMinutes: Number(formData.get('weeklyStudyGoalMinutes')),
   });
@@ -58,7 +56,6 @@ export async function updateProfile(
     .update({
       full_name: data.fullName,
       grade_level: data.gradeLevel,
-      class_name: data.className,
       daily_study_goal_minutes: data.dailyStudyGoalMinutes,
       weekly_study_goal_minutes: data.weeklyStudyGoalMinutes,
     })
@@ -192,9 +189,12 @@ export async function joinSchool(schoolId: string): Promise<{ ok: boolean; messa
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: 'Sessão expirada.' };
 
+  // A turma é sempre de uma escola específica — trocar de escola sem
+  // limpar a turma deixaria o aluno "vinculado" a uma turma que já não é da
+  // escola que ele está.
   const { error } = await supabase
     .from('profiles')
-    .update({ school_id: parsed.data })
+    .update({ school_id: parsed.data, class_id: null })
     .eq('id', user.id);
 
   if (error) return { ok: false, message: 'Não consegui vincular essa escola.' };
@@ -232,10 +232,33 @@ export async function createAndJoinSchool(
 
   const { error: linkError } = await supabase
     .from('profiles')
-    .update({ school_id: school.id })
+    .update({ school_id: school.id, class_id: null })
     .eq('id', user.id);
 
   if (linkError) return { ok: false, message: 'Escola cadastrada, mas não consegui vincular.' };
+
+  revalidatePath('/', 'layout');
+  return { ok: true };
+}
+
+/**
+ * Turma — sempre uma das já cadastradas pelo admin da escola do aluno
+ * (nunca texto livre, diferente da escola). `classId: null` desvincula.
+ */
+export async function updateClass(classId: string | null): Promise<{ ok: boolean; message?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: 'Sessão expirada.' };
+
+  if (classId !== null) {
+    const parsed = z.string().uuid().safeParse(classId);
+    if (!parsed.success) return { ok: false, message: 'Turma inválida.' };
+  }
+
+  const { error } = await supabase.from('profiles').update({ class_id: classId }).eq('id', user.id);
+  if (error) return { ok: false, message: 'Não consegui salvar a turma.' };
 
   revalidatePath('/', 'layout');
   return { ok: true };

@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Trophy,
   User,
+  Users2,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -57,10 +58,21 @@ const MORE_ITEMS = [
 ] as const;
 
 const ADMIN_ITEM = { href: '/admin', label: 'Admin', Icon: Shield } as const;
+const TEACHER_ITEM = { href: '/professor', label: 'Professor', Icon: Users2 } as const;
 
-export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
+export function BottomNav({
+  isAdmin = false,
+  isTeacher = false,
+}: {
+  isAdmin?: boolean;
+  isTeacher?: boolean;
+}) {
   const pathname = usePathname();
-  const moreItems = isAdmin ? [...MORE_ITEMS, ADMIN_ITEM] : MORE_ITEMS;
+  const moreItems = [
+    ...MORE_ITEMS,
+    ...(isAdmin ? [ADMIN_ITEM] : []),
+    ...(isTeacher ? [TEACHER_ITEM] : []),
+  ];
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
