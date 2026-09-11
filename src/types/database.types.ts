@@ -683,6 +683,41 @@ export type Database = {
         }[];
       };
       student_profile_card: { Args: { p_user_id: string }; Returns: Json | null };
+      send_friend_request: { Args: { p_addressee_id: string }; Returns: string };
+      respond_friend_request: { Args: { p_requester_id: string; p_accept: boolean }; Returns: void };
+      remove_friend: { Args: { p_other_id: string }; Returns: void };
+      search_schoolmates: {
+        Args: { p_query: string };
+        Returns: {
+          user_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          class_name: string | null;
+          friendship_status: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
+        }[];
+      };
+      list_friends: {
+        Args: Record<string, never>;
+        Returns: {
+          user_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          class_name: string | null;
+          level: number;
+          xp: number;
+          current_streak: number;
+        }[];
+      };
+      list_friend_requests: {
+        Args: Record<string, never>;
+        Returns: {
+          requester_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          class_name: string | null;
+          created_at: string;
+        }[];
+      };
       is_admin: { Args: { p_user_id?: string }; Returns: boolean };
       current_school_id: { Args: { p_user_id?: string }; Returns: string | null };
       can_manage_school: { Args: { p_school_id: string | null; p_user_id?: string }; Returns: boolean };

@@ -1,13 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Award, Clock, Flame, HelpCircle, Loader2, Trophy } from 'lucide-react';
+import { useEffect, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { Award, Check, Clock, Flame, HelpCircle, Loader2, Trophy, UserPlus, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { StatTile } from '@/components/ui/stat-tile';
 import { levelForXp } from '@/features/performance/lib/level';
 import { getStudentProfileCard, type StudentProfileCard } from '../server/actions';
+import { removeFriend, respondFriendRequest, sendFriendRequest } from '../server/friend-actions';
 import { RARITY_BADGE_VARIANT, RARITY_LABEL } from '../lib/rarity';
+
+type FriendshipStatus = StudentProfileCard['friendshipStatus'];
 
 function lastActivityLabel(iso: string | null): string {
   if (!iso) return 'Sem atividade registrada';
@@ -24,8 +29,11 @@ export function StudentProfileModal({
   userId: string;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const [card, setCard] = useState<StudentProfileCard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>('none');
+  const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     let active = true;
@@ -34,6 +42,7 @@ export function StudentProfileModal({
     getStudentProfileCard(userId).then((result) => {
       if (active) {
         setCard(result);
+        setFriendshipStatus(result?.friendshipStatus ?? 'none');
         setLoading(false);
       }
     });
@@ -41,6 +50,30 @@ export function StudentProfileModal({
       active = false;
     };
   }, [userId]);
+
+  function handleAdd() {
+    startTransition(async () => {
+      const result = await sendFriendRequest(userId);
+      setFriendshipStatus(result === 'accepted' ? 'accepted' : 'pending_sent');
+      router.refresh();
+    });
+  }
+
+  function handleRespond(accept: boolean) {
+    startTransition(async () => {
+      await respondFriendRequest(userId, accept);
+      setFriendshipStatus(accept ? 'accepted' : 'none');
+      router.refresh();
+    });
+  }
+
+  function handleRemove() {
+    startTransition(async () => {
+      await removeFriend(userId);
+      setFriendshipStatus('none');
+      router.refresh();
+    });
+  }
 
   return (
     <Dialog open onClose={onClose} title="Perfil do aluno">
@@ -69,13 +102,43 @@ export function StudentProfileModal({
                 (card.fullName?.trim()[0]?.toUpperCase() ?? '?')
               )}
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-base font-semibold">{card.fullName ?? 'Sem nome'}</p>
               <p className="text-muted truncate text-sm">
                 {[card.className, card.schoolName].filter(Boolean).join(' · ')}
               </p>
             </div>
           </div>
+
+          {friendshipStatus === 'none' && (
+            <Button type="button" size="sm" variant="soft" disabled={pending} onClick={handleAdd}>
+              <UserPlus aria-hidden />
+              Adicionar amigo
+            </Button>
+          )}
+          {friendshipStatus === 'pending_sent' && (
+            <p className="text-subtle text-xs">Pedido de amizade enviado — esperando resposta.</p>
+          )}
+          {friendshipStatus === 'pending_received' && (
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" variant="soft" disabled={pending} onClick={() => handleRespond(true)}>
+                <Check aria-hidden />
+                Aceitar
+              </Button>
+              <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => handleRespond(false)}>
+                <X aria-hidden />
+                Recusar
+              </Button>
+            </div>
+          )}
+          {friendshipStatus === 'accepted' && (
+            <div className="flex items-center gap-2">
+              <Badge variant="success">Amigos</Badge>
+              <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={handleRemove}>
+                Remover amigo
+              </Button>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <StatTile icon={Trophy} value={`Nível ${levelForXp(card.xp)}`} label={`${card.xp.toLocaleString('pt-BR')} XP`} />

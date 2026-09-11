@@ -46,6 +46,24 @@ export interface RankingStats {
   accuracyPercent: number | null;
 }
 
+export interface FriendSummary {
+  userId: string;
+  fullName: string;
+  avatarUrl: string | null;
+  className: string | null;
+  level: number;
+  xp: number;
+  currentStreak: number;
+}
+
+export interface FriendRequestSummary {
+  requesterId: string;
+  fullName: string;
+  avatarUrl: string | null;
+  className: string | null;
+  createdAt: string;
+}
+
 export interface RankingPage {
   rows: RankingRow[];
   me: RankingRow | null;
@@ -56,6 +74,8 @@ export interface RankingPage {
   hasSchool: boolean;
   /** XP/nível de sempre (`user_stats`) — não filtrado por período, pro cartão de Nível. */
   lifetimeXp: number;
+  friends: FriendSummary[];
+  incomingRequests: FriendRequestSummary[];
 }
 
 const ORDER_KEY: Record<RankingOrderBy, keyof RankingRow> = {
@@ -76,32 +96,43 @@ export async function getRankingPage(filters: {
 
   const supabase = await createClient();
 
-  const [profileRes, rankingRes, evolutionRes, answersRes, sessionsRes, progressRes, attemptsRes] =
-    await Promise.all([
-      supabase.from('profiles').select('school_id').eq('id', user.id).maybeSingle(),
-      supabase.rpc('school_ranking', {
-        p_scope: filters.scope,
-        p_class_name: filters.scope === 'turma' ? filters.className : null,
-        p_period: filters.period,
-      }),
-      supabase.rpc('ranking_evolution', { p_user_id: user.id, p_days: 30 }),
-      // Sem `.eq('user_id', ...)`: `quiz_answers` não tem essa coluna direto
-      // (só via `attempt_id` → `quiz_attempts`) — a RLS de `quiz_answers`
-      // (`exists (... a.user_id = auth.uid())`) já restringe às próprias
-      // respostas, então a consulta nem precisa saber disso.
-      supabase.from('quiz_answers').select('is_correct'),
-      supabase.from('user_stats').select('xp, total_study_seconds').eq('user_id', user.id).maybeSingle(),
-      supabase
-        .from('resource_progress')
-        .select('resource_id, resources(kind)')
-        .eq('user_id', user.id)
-        .not('completed_at', 'is', null),
-      supabase
-        .from('quiz_attempts')
-        .select('id, resources(kind)')
-        .eq('user_id', user.id)
-        .not('finished_at', 'is', null),
-    ]);
+  const [
+    profileRes,
+    rankingRes,
+    evolutionRes,
+    answersRes,
+    sessionsRes,
+    progressRes,
+    attemptsRes,
+    friendsRes,
+    friendRequestsRes,
+  ] = await Promise.all([
+    supabase.from('profiles').select('school_id').eq('id', user.id).maybeSingle(),
+    supabase.rpc('school_ranking', {
+      p_scope: filters.scope,
+      p_class_name: filters.scope === 'turma' ? filters.className : null,
+      p_period: filters.period,
+    }),
+    supabase.rpc('ranking_evolution', { p_user_id: user.id, p_days: 30 }),
+    // Sem `.eq('user_id', ...)`: `quiz_answers` não tem essa coluna direto
+    // (só via `attempt_id` → `quiz_attempts`) — a RLS de `quiz_answers`
+    // (`exists (... a.user_id = auth.uid())`) já restringe às próprias
+    // respostas, então a consulta nem precisa saber disso.
+    supabase.from('quiz_answers').select('is_correct'),
+    supabase.from('user_stats').select('xp, total_study_seconds').eq('user_id', user.id).maybeSingle(),
+    supabase
+      .from('resource_progress')
+      .select('resource_id, resources(kind)')
+      .eq('user_id', user.id)
+      .not('completed_at', 'is', null),
+    supabase
+      .from('quiz_attempts')
+      .select('id, resources(kind)')
+      .eq('user_id', user.id)
+      .not('finished_at', 'is', null),
+    supabase.rpc('list_friends'),
+    supabase.rpc('list_friend_requests'),
+  ]);
 
   const rows: RankingRow[] = (rankingRes.data ?? []).map((r) => ({
     userId: r.user_id,
@@ -162,5 +193,21 @@ export async function getRankingPage(filters: {
     },
     hasSchool: profileRes.data?.school_id != null,
     lifetimeXp: sessionsRes.data?.xp ?? 0,
+    friends: (friendsRes.data ?? []).map((f) => ({
+      userId: f.user_id,
+      fullName: f.full_name ?? 'Sem nome',
+      avatarUrl: f.avatar_url,
+      className: f.class_name,
+      level: f.level,
+      xp: Number(f.xp),
+      currentStreak: f.current_streak,
+    })),
+    incomingRequests: (friendRequestsRes.data ?? []).map((r) => ({
+      requesterId: r.requester_id,
+      fullName: r.full_name ?? 'Sem nome',
+      avatarUrl: r.avatar_url,
+      className: r.class_name,
+      createdAt: r.created_at,
+    })),
   };
 }

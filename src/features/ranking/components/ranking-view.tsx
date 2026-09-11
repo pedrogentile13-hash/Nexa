@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { levelForXp, levelProgressPercent, xpToNextLevel } from '@/features/performance/lib/level';
 import { RankingEvolutionChart } from './ranking-charts';
+import { FriendsCard } from './friends-card';
 import { StudentProfileModal } from './student-profile-modal';
 import type { RankingOrderBy, RankingPage, RankingPeriod, RankingScope } from '../server/queries';
 
@@ -365,6 +366,12 @@ export function RankingView({
               </CardContent>
             </Card>
           )}
+
+          <FriendsCard
+            friends={data.friends}
+            incomingRequests={data.incomingRequests}
+            onOpenProfile={setOpenProfile}
+          />
 
           <Card>
             <CardHeader>

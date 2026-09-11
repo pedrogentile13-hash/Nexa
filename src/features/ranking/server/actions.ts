@@ -22,6 +22,7 @@ export interface StudentProfileCard {
     rarity: 'comum' | 'rara' | 'epica' | 'lendaria';
     unlockedAt: string;
   }[];
+  friendshipStatus: 'self' | 'none' | 'pending_sent' | 'pending_received' | 'accepted';
 }
 
 /**
@@ -58,6 +59,7 @@ export async function getStudentProfileCard(userId: string): Promise<StudentProf
       rarity: 'comum' | 'rara' | 'epica' | 'lendaria';
       unlockedAt: string;
     }[];
+    friendshipStatus: 'self' | 'none' | 'pending_sent' | 'pending_received' | 'accepted';
   };
 
   return card;
