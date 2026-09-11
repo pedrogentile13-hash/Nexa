@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { startStudySession, stopStudySession } from '../server/actions';
@@ -21,10 +22,26 @@ export function StudyTimer({
   /** No cartão "Estudo hoje" o número já está no anel; aqui sobra só a ação. */
   compact?: boolean;
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const elapsed = useElapsedSeconds(runningSessionId ? startedAt : null);
 
   const running = Boolean(runningSessionId);
+
+  function toggle() {
+    startTransition(async () => {
+      if (running && runningSessionId) {
+        await stopStudySession(runningSessionId);
+        return;
+      }
+      const result = await startStudySession(null);
+      // `runningSessionId` pode estar desatualizado (ex.: começou em outra
+      // aba/tela depois do último carregamento) — sem isto, um segundo clique
+      // aqui falhava calado no índice único do banco e o botão ficava preso
+      // mostrando "Estudar" pra uma sessão que já existe.
+      if (!result.ok) router.refresh();
+    });
+  }
 
   if (compact) {
     return (
@@ -35,12 +52,7 @@ export function StudyTimer({
         className="w-full"
         disabled={isPending}
         aria-label={running ? `Parar. Estudando há ${formatSpoken(elapsed)}` : 'Começar a estudar'}
-        onClick={() =>
-          startTransition(async () => {
-            if (running && runningSessionId) await stopStudySession(runningSessionId);
-            else await startStudySession(null);
-          })
-        }
+        onClick={toggle}
       >
         {isPending ? (
           <Loader2 className="animate-spin" aria-hidden />
@@ -69,12 +81,7 @@ export function StudyTimer({
         variant={running ? 'secondary' : 'primary'}
         size="sm"
         disabled={isPending}
-        onClick={() =>
-          startTransition(async () => {
-            if (running && runningSessionId) await stopStudySession(runningSessionId);
-            else await startStudySession(null);
-          })
-        }
+        onClick={toggle}
       >
         {isPending ? (
           <Loader2 className="animate-spin" aria-hidden />

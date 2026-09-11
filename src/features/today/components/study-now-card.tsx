@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, Play, Square, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -27,9 +28,11 @@ export function StudyNowCard({
   runningSessionId: string | null;
   startedAt: string | null;
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showPicker, setShowPicker] = useState(false);
   const [goalMinutes, setGoalMinutes] = useState<number | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const elapsed = useElapsedSeconds(runningSessionId ? startedAt : null);
   const running = Boolean(runningSessionId);
 
@@ -51,8 +54,21 @@ export function StudyNowCard({
     }
     setGoalMinutes(minutes);
     setShowPicker(false);
+    setMessage(null);
     startTransition(async () => {
-      await startStudySession(null);
+      const result = await startStudySession(null);
+      if (!result.ok) {
+        setMessage(
+          result.alreadyRunning
+            ? 'Você já tem um cronômetro rodando em outra aba ou aparelho.'
+            : 'Não consegui começar o cronômetro agora.',
+        );
+        // A tela pode estar com um `runningSessionId` desatualizado (ex.: o
+        // cronômetro começou em outra aba depois do último carregamento) —
+        // busca o estado real do servidor em vez de deixar o card preso
+        // mostrando "Começar" pra uma sessão que já existe.
+        router.refresh();
+      }
     });
   }
 
@@ -98,7 +114,10 @@ export function StudyNowCard({
   return (
     <div className="border-brand/30 bg-brand-soft space-y-3 rounded-[20px] border p-4">
       <div className="flex items-center gap-3">
-        <span aria-hidden className="bg-brand grid size-10 shrink-0 place-items-center rounded-full">
+        <span
+          aria-hidden
+          className="bg-brand grid size-10 shrink-0 place-items-center rounded-full"
+        >
           <Zap className="size-5 text-white" />
         </span>
         <div className="min-w-0 flex-1">
@@ -129,6 +148,8 @@ export function StudyNowCard({
           ))}
         </div>
       )}
+
+      {message && <p className="text-danger text-xs">{message}</p>}
     </div>
   );
 }

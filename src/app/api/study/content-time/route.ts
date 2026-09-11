@@ -72,7 +72,37 @@ export async function POST(request: Request) {
 
   const { data: todayValue } = await supabase.rpc('user_local_date', { p_user_id: user.id });
   const now = new Date();
-  const startedAt = new Date(now.getTime() - parsed.data.seconds * 1000);
+
+  // `seconds` vem do cliente e não tem como confiar nele sozinho — nada
+  // impede alguém de chamar este endpoint direto (fora do hook de leitura)
+  // repetidas vezes com `seconds: 1800`, e cada chamada cria uma
+  // `study_sessions` nova (`id` novo), então a deduplicação normal de
+  // `award_xp` (por `source_id`) nunca vê duas chamadas como a mesma. A
+  // defesa real é temporal: nunca aceitar mais segundos do que o relógio do
+  // SERVIDOR viu passar desde o último registro de leitura deste aluno —
+  // mesmo princípio de `stopStudySession`, que recalcula a duração a partir
+  // de `started_at` em vez de confiar no cliente.
+  const { data: lastSession } = await supabase
+    .from('study_sessions')
+    .select('ended_at')
+    .eq('user_id', user.id)
+    .eq('source', 'content')
+    .order('ended_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const maxAllowedSeconds = lastSession?.ended_at
+    ? Math.max(0, Math.floor((now.getTime() - Date.parse(lastSession.ended_at)) / 1000))
+    : parsed.data.seconds;
+  const seconds = Math.min(parsed.data.seconds, maxAllowedSeconds, 1800);
+
+  // Sem tempo real disponível pra creditar (chamada repetida rápido demais) —
+  // não vale nem gravar uma linha de 0s.
+  if (seconds < 1) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const startedAt = new Date(now.getTime() - seconds * 1000);
 
   const { data: inserted, error } = await supabase
     .from('study_sessions')
@@ -81,7 +111,7 @@ export async function POST(request: Request) {
       subject_id: subjectRow?.id ?? null,
       started_at: startedAt.toISOString(),
       ended_at: now.toISOString(),
-      duration_seconds: parsed.data.seconds,
+      duration_seconds: seconds,
       local_date: todayValue as string,
       source: 'content',
     })
@@ -90,11 +120,11 @@ export async function POST(request: Request) {
 
   if (error || !inserted) return NextResponse.json({ ok: false }, { status: 500 });
 
-  if (parsed.data.seconds >= 60) {
+  if (seconds >= 60) {
     await Promise.all([
       supabase.rpc('touch_streak', { p_user_id: user.id }),
       supabase.rpc('award_xp', {
-        p_amount: Math.min(50, Math.round(parsed.data.seconds / 60)),
+        p_amount: Math.min(50, Math.round(seconds / 60)),
         p_reason: 'Conteúdo estudado',
         p_source_type: 'study_session',
         p_source_id: inserted.id,

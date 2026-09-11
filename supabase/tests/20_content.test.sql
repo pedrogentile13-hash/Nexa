@@ -130,6 +130,9 @@ $$;
 select set_config('nexa.q1_wrong',
   (select id::text from public.question_options
    where question_id = 'dddddddd-0000-0000-0000-000000000001' and position = 1), false);
+select set_config('nexa.q1_right',
+  (select id::text from public.question_options
+   where question_id = 'dddddddd-0000-0000-0000-000000000001' and is_correct), false);
 select set_config('nexa.q2_right',
   (select id::text from public.question_options
    where question_id = 'dddddddd-0000-0000-0000-000000000002' and is_correct), false);
@@ -147,6 +150,11 @@ values ('ffffffff-0000-0000-0000-000000000001', 'eeeeeeee-0000-0000-0000-0000000
 insert into public.track_lessons (id, section_id, position, title, xp_reward, unlock_after_lesson_id)
 values ('ffffffff-0000-0000-0000-000000000002', 'eeeeeeee-0000-0000-0000-000000000010', 2, 'MUV', 20,
         'ffffffff-0000-0000-0000-000000000001');
+
+-- O simulado de cinemática vira o "quiz da lição" — é contra a última
+-- tentativa terminada dele que `complete_lesson` calcula "sem erro" agora.
+insert into public.track_lesson_resources (lesson_id, resource_id, position)
+values ('ffffffff-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000010', 1);
 
 reset role;
 
@@ -312,16 +320,45 @@ begin
 end;
 $$;
 
--- `mastered` exige três conclusões seguidas sem erro.
+-- `mastered` exige três conclusões seguidas com o quiz da lição 100% certo —
+-- calculado a partir da última tentativa de verdade, não de um `p_flawless`
+-- que o cliente manda (por isso os três loops abaixo respondem certo de
+-- propósito antes de cada `complete_lesson`, em vez de só passar `true`).
 do $$
 declare
   v_state text;
+  v_attempt uuid;
+  i integer;
 begin
-  select c.state into v_state from public.complete_lesson('ffffffff-0000-0000-0000-000000000001', true) c;
-  assert v_state = 'done', 'uma conclusão perfeita não pode virar dominado sozinha';
-  select c.state into v_state from public.complete_lesson('ffffffff-0000-0000-0000-000000000001', true) c;
-  select c.state into v_state from public.complete_lesson('ffffffff-0000-0000-0000-000000000001', true) c;
-  assert v_state = 'mastered', format('três acertos seguidos deram %s, esperado mastered', v_state);
+  for i in 1..3 loop
+    v_attempt := public.start_quiz_attempt('cccccccc-0000-0000-0000-000000000010');
+    perform public.answer_quiz_question(
+      v_attempt, 'dddddddd-0000-0000-0000-000000000001', current_setting('nexa.q1_right')::uuid);
+    perform public.answer_quiz_question(
+      v_attempt, 'dddddddd-0000-0000-0000-000000000002', current_setting('nexa.q2_right')::uuid);
+    perform public.finish_quiz_attempt(v_attempt);
+
+    select c.state into v_state from public.complete_lesson('ffffffff-0000-0000-0000-000000000001') c;
+  end loop;
+
+  assert v_state = 'mastered', format('três tentativas 100%% seguidas deram %s, esperado mastered', v_state);
+end;
+$$;
+
+-- Uma conclusão ruim depois não derruba o selo de 'mastered' já conquistado.
+do $$
+declare
+  v_state text;
+  v_attempt uuid;
+begin
+  v_attempt := public.start_quiz_attempt('cccccccc-0000-0000-0000-000000000010');
+  perform public.answer_quiz_question(
+    v_attempt, 'dddddddd-0000-0000-0000-000000000001', current_setting('nexa.q1_wrong')::uuid);
+  perform public.finish_quiz_attempt(v_attempt);
+
+  select c.state into v_state from public.complete_lesson('ffffffff-0000-0000-0000-000000000001') c;
+  assert v_state = 'mastered',
+    format('lição mastered regrediu pra %s depois de uma tentativa ruim', v_state);
 end;
 $$;
 

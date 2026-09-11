@@ -18,9 +18,7 @@ import { parseSimuladoCode } from '../lib/simulado-import';
  */
 
 export type AdminState =
-  | { status: 'idle' }
-  | { status: 'saved'; warning?: string }
-  | { status: 'error'; message: string };
+  { status: 'idle' } | { status: 'saved'; warning?: string } | { status: 'error'; message: string };
 
 const ok: AdminState = { status: 'saved' };
 const fail = (message: string): AdminState => ({ status: 'error', message });
@@ -249,12 +247,14 @@ async function notifyPublished(
   subjectCatalogId: string,
   title: string,
   resourceId: string,
+  schoolId: string | null,
 ): Promise<void> {
   await supabase.rpc('notify_subject_students', {
     p_subject_catalog_id: subjectCatalogId,
     p_title: 'Novo conteúdo publicado',
     p_body: title,
     p_link: `/estudar/${resourceId}`,
+    p_school_id: schoolId,
   });
 }
 
@@ -317,9 +317,8 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
   if (isPdfResumo && data.storagePath) {
     const pdfPath = data.storagePath;
     const previousPath = data.id
-      ? (
-          await supabase.from('resources').select('storage_path').eq('id', data.id).maybeSingle()
-        ).data?.storage_path
+      ? (await supabase.from('resources').select('storage_path').eq('id', data.id).maybeSingle())
+          .data?.storage_path
       : null;
 
     if (pdfPath !== previousPath) {
@@ -382,7 +381,11 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     bimestre: data.bimestre ?? null,
     created_by: identity.userId,
     ...(pdfMeta
-      ? { pdf_status: 'processado' as const, pdf_page_count: pdfMeta.pageCount, pdf_extracted_text: pdfMeta.text }
+      ? {
+          pdf_status: 'processado' as const,
+          pdf_page_count: pdfMeta.pageCount,
+          pdf_extracted_text: pdfMeta.text,
+        }
       : pdfExtractionFailed
         ? { pdf_status: 'erro' as const, pdf_page_count: null, pdf_extracted_text: null }
         : {}),
@@ -405,7 +408,7 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     if (error) return fail(error.message);
 
     if (data.isPublished && !previous?.is_published) {
-      await notifyPublished(supabase, data.subjectId, data.title, data.id);
+      await notifyPublished(supabase, data.subjectId, data.title, data.id, payload.school_id);
     }
 
     revalidatePath('/admin/conteudo');
@@ -422,7 +425,7 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
   if (error) return fail(error.message);
 
   if (data.isPublished) {
-    await notifyPublished(supabase, data.subjectId, data.title, created.id);
+    await notifyPublished(supabase, data.subjectId, data.title, created.id, payload.school_id);
   }
 
   revalidatePath('/admin/conteudo');
@@ -444,14 +447,20 @@ export async function toggleResourcePublished(formData: FormData): Promise<void>
   const supabase = await createClient();
   const { data: resource } = await supabase
     .from('resources')
-    .select('is_published, subject_catalog_id, title')
+    .select('is_published, subject_catalog_id, title, school_id')
     .eq('id', id)
     .maybeSingle();
 
   await supabase.from('resources').update({ is_published: next }).eq('id', id);
 
   if (next && resource && !resource.is_published) {
-    await notifyPublished(supabase, resource.subject_catalog_id, resource.title, id);
+    await notifyPublished(
+      supabase,
+      resource.subject_catalog_id,
+      resource.title,
+      id,
+      resource.school_id,
+    );
   }
 
   revalidatePath('/admin/conteudo');
@@ -690,7 +699,9 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
         position: question.index,
         statement: question.statement,
         difficulty: question.difficulty,
-        topic_id: question.topicName ? (topicByName.get(question.topicName.toLowerCase()) ?? null) : null,
+        topic_id: question.topicName
+          ? (topicByName.get(question.topicName.toLowerCase()) ?? null)
+          : null,
       })
       .select('id')
       .single();

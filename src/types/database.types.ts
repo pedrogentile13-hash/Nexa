@@ -805,6 +805,7 @@ export type Database = {
           p_title: string;
           p_body: string;
           p_link?: string | null;
+          p_school_id?: string | null;
         };
         Returns: undefined;
       };
