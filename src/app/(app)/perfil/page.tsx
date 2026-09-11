@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Clock, Flame, Trophy, Zap } from 'lucide-react';
+import { Award, Clock, Flame, Trophy, Zap } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AvatarUpload } from '@/features/profile/components/avatar-upload';
 import { ProfileTabs } from '@/features/profile/components/profile-tabs';
-import { AchievementsList, type AchievementListItem } from '@/features/profile/components/achievements-list';
+import type { AchievementListItem } from '@/features/profile/components/achievements-list';
+import { RARITY_LABEL } from '@/features/ranking/lib/rarity';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import type { NotificationSettings } from '@/types/database.types';
 
@@ -30,7 +31,7 @@ export default async function ProfilePage() {
       supabase
         .from('profiles')
         .select(
-          'full_name, avatar_url, grade_level, class_name, timezone, daily_study_goal_minutes, weekly_study_goal_minutes, notification_settings',
+          'full_name, avatar_url, grade_level, class_name, daily_study_goal_minutes, weekly_study_goal_minutes, notification_settings, schools(id, name, city, state)',
         )
         .eq('id', user.id)
         .maybeSingle(),
@@ -54,6 +55,16 @@ export default async function ProfilePage() {
       unlockedAt: progressById.get(a.id)?.unlocked_at ?? null,
     }));
   const unlockedCount = achievementItems.filter((a) => a.unlockedAt != null).length;
+  const recentUnlocked = achievementItems
+    .filter((a) => a.unlockedAt != null)
+    .sort((a, b) => new Date(b.unlockedAt!).getTime() - new Date(a.unlockedAt!).getTime())
+    .slice(0, 8);
+  const school = profile?.schools as unknown as {
+    id: string;
+    name: string;
+    city: string | null;
+    state: string | null;
+  } | null;
   const totalHours = Math.floor((stats?.total_study_seconds ?? 0) / 3600);
   const notificationSettings: NotificationSettings = profile?.notification_settings ?? {
     dailyReminder: true,
@@ -115,12 +126,15 @@ export default async function ProfilePage() {
           className={profile?.class_name ?? null}
           dailyGoal={profile?.daily_study_goal_minutes ?? 45}
           weeklyGoal={profile?.weekly_study_goal_minutes ?? 300}
-          timezone={profile?.timezone ?? 'America/Sao_Paulo'}
+          currentSchool={school}
           notificationSettings={notificationSettings}
         />
 
-        {/* Conquistas ------------------------------------------------------- */}
-        <Card>
+        {/* Conquistas — resumo só; a lista completa (com raridade e progresso
+            das bloqueadas) já tem página própria em /conquistas. Repetir a
+            lista inteira aqui era o mesmo conteúdo em dois lugares, e o card
+            acabava sobrando sozinho numa coluna (nada pra ocupar a outra). */}
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="text-brand size-4" aria-hidden />
@@ -131,16 +145,29 @@ export default async function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <AchievementsList achievements={achievementItems} variant="compacta" />
+            {recentUnlocked.length === 0 ? (
+              <p className="text-muted text-sm">
+                Nenhuma conquista desbloqueada ainda — comece estudando pra desbloquear a primeira.
+              </p>
+            ) : (
+              <ul className="flex flex-wrap gap-2.5">
+                {recentUnlocked.map((a) => (
+                  <li key={a.id} title={`${a.name} · ${RARITY_LABEL[a.rarity]}`}>
+                    <span className="from-warning to-warning/80 grid size-11 place-items-center rounded-[32%] bg-gradient-to-br shadow-sm">
+                      <Award className="size-5 text-white" aria-hidden />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <Link
               href="/conquistas"
-              className="text-brand mt-3 inline-block text-sm font-medium hover:underline"
+              className="text-brand mt-4 inline-block text-sm font-medium hover:underline"
             >
               Ver todas as conquistas →
             </Link>
           </CardContent>
         </Card>
-
       </PageMain>
     </>
   );

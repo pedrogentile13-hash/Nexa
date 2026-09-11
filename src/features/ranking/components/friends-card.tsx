@@ -72,7 +72,9 @@ export function FriendsCard({
   }
 
   function patchResult(userId: string, status: SchoolmateResult['friendshipStatus']) {
-    setResults((prev) => prev.map((r) => (r.userId === userId ? { ...r, friendshipStatus: status } : r)));
+    setResults((prev) =>
+      prev.map((r) => (r.userId === userId ? { ...r, friendshipStatus: status } : r)),
+    );
   }
 
   function handleAdd(userId: string) {
@@ -104,7 +106,11 @@ export function FriendsCard({
         <CardTitle className="flex items-center gap-2">
           <Users className="text-brand size-4" aria-hidden />
           Amigos
-          {friends.length > 0 && <Badge variant="neutral" className="ml-auto">{friends.length}</Badge>}
+          {friends.length > 0 && (
+            <Badge variant="neutral" className="ml-auto">
+              {friends.length}
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -156,7 +162,7 @@ export function FriendsCard({
               onChange={(e) => onQueryChange(e.target.value)}
               placeholder="Buscar colega pra adicionar"
               aria-label="Buscar colega pra adicionar"
-              className="border-border bg-surface-2 text-text placeholder:text-subtle focus-visible:ring-brand/30 h-10 w-full rounded-full border-none pl-9 pr-3 text-sm outline-none focus-visible:ring-2"
+              className="border-border bg-surface-2 text-text placeholder:text-subtle focus-visible:ring-brand/30 h-10 w-full rounded-full border-none pr-3 pl-9 text-sm outline-none focus-visible:ring-2"
             />
           </div>
 
@@ -175,7 +181,12 @@ export function FriendsCard({
                     <Avatar url={r.avatarUrl} name={r.fullName} />
                     <span className="min-w-0 flex-1 truncate text-sm">{r.fullName}</span>
                     {r.friendshipStatus === 'none' && (
-                      <Button type="button" size="sm" disabled={pending} onClick={() => handleAdd(r.userId)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => handleAdd(r.userId)}
+                      >
                         Adicionar
                       </Button>
                     )}

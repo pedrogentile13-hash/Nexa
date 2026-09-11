@@ -8,9 +8,11 @@ import type { NotificationSettings } from '@/types/database.types';
 /**
  * Edição do perfil.
  *
- * O fuso é editável de propósito: um aluno que muda de cidade (ou viaja) fica
- * com a sequência quebrando sozinha até corrigir isso, e ele não teria como
- * adivinhar a causa.
+ * O fuso não é mais editável aqui: era o único campo do formulário que dava
+ * pra digitar errado (uma string livre tipo "America/Sao_Paulo"), e um erro
+ * de digitação quebrava a sequência sozinha sem nenhum aviso claro do porquê.
+ * A coluna `profiles.timezone` continua existindo — sequência e "hoje" ainda
+ * dependem dela — só não é mais uma opção de personalização exposta ao aluno.
  */
 
 const profileSchema = z.object({
@@ -23,7 +25,6 @@ const profileSchema = z.object({
     .min(0, 'A meta não pode ser negativa.')
     .max(1440, 'Um dia tem 24 horas.'),
   weeklyStudyGoalMinutes: z.number().int().min(0).max(10080),
-  timezone: z.string().trim().min(1).max(60),
 });
 
 export type ProfileState =
@@ -39,7 +40,6 @@ export async function updateProfile(
     className: formData.get('className') || null,
     dailyStudyGoalMinutes: Number(formData.get('dailyStudyGoalMinutes')),
     weeklyStudyGoalMinutes: Number(formData.get('weeklyStudyGoalMinutes')),
-    timezone: formData.get('timezone'),
   });
 
   if (!parsed.success) {
@@ -61,18 +61,11 @@ export async function updateProfile(
       class_name: data.className,
       daily_study_goal_minutes: data.dailyStudyGoalMinutes,
       weekly_study_goal_minutes: data.weeklyStudyGoalMinutes,
-      timezone: data.timezone,
     })
     .eq('id', user.id);
 
   if (error) {
-    // 22023 vem do Postgres quando o fuso não existe — vale dizer isso em vez
-    // de "erro ao salvar", porque é o único campo aqui que dá para digitar errado.
-    const message =
-      error.code === '22023'
-        ? 'Esse fuso horário não é válido.'
-        : 'Não consegui salvar as alterações.';
-    return { status: 'error', message };
+    return { status: 'error', message: 'Não consegui salvar as alterações.' };
   }
 
   // O nome aparece no cabeçalho de todas as telas; a meta muda o cálculo do
@@ -147,5 +140,103 @@ export async function updateNotificationSettings(
   if (error) return { ok: false };
 
   revalidatePath('/perfil');
+  return { ok: true };
+}
+
+/**
+ * Vincular a própria conta a uma escola — self-service, sem depender de um
+ * admin (antes, `school_id` só era gravado pelo painel `/admin/usuarios`).
+ * `schools` é catálogo compartilhado: `schools_select_authenticated` já deixa
+ * qualquer autenticado ler todas, e `profiles_update_own` já deixa qualquer
+ * um escrever a própria `school_id` — não precisou de RPC nem policy nova,
+ * só desta camada de busca/escrita.
+ */
+export interface SchoolOption {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  isVerified: boolean;
+}
+
+export async function searchSchools(query: string): Promise<SchoolOption[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('schools')
+    .select('id, name, city, state, is_verified')
+    .ilike('name', `%${trimmed}%`)
+    .order('is_verified', { ascending: false })
+    .order('name')
+    .limit(8);
+
+  if (error || !data) return [];
+  return data.map((s) => ({
+    id: s.id,
+    name: s.name,
+    city: s.city,
+    state: s.state,
+    isVerified: s.is_verified,
+  }));
+}
+
+export async function joinSchool(schoolId: string): Promise<{ ok: boolean; message?: string }> {
+  const parsed = z.string().uuid().safeParse(schoolId);
+  if (!parsed.success) return { ok: false, message: 'Escola inválida.' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: 'Sessão expirada.' };
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ school_id: parsed.data })
+    .eq('id', user.id);
+
+  if (error) return { ok: false, message: 'Não consegui vincular essa escola.' };
+
+  revalidatePath('/', 'layout');
+  return { ok: true };
+}
+
+/**
+ * Cadastra uma escola nova (catálogo compartilhado, `is_verified = false` —
+ * mesma regra de `schools_insert_own`) e já vincula quem cadastrou. É o
+ * caminho pra quando a busca não acha a escola do aluno.
+ */
+export async function createAndJoinSchool(
+  name: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const parsed = z.string().trim().min(2, 'Nome muito curto.').max(160).safeParse(name);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? 'Nome inválido.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: 'Sessão expirada.' };
+
+  const { data: school, error } = await supabase
+    .from('schools')
+    .insert({ name: parsed.data, created_by: user.id, is_verified: false })
+    .select('id')
+    .single();
+
+  if (error || !school) return { ok: false, message: 'Não consegui cadastrar essa escola.' };
+
+  const { error: linkError } = await supabase
+    .from('profiles')
+    .update({ school_id: school.id })
+    .eq('id', user.id);
+
+  if (linkError) return { ok: false, message: 'Escola cadastrada, mas não consegui vincular.' };
+
+  revalidatePath('/', 'layout');
   return { ok: true };
 }

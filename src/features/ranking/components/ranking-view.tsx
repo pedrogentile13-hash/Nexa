@@ -51,12 +51,61 @@ const ORDER_LABEL: Record<RankingOrderBy, string> = {
   horas: 'Horas',
 };
 
+/**
+ * Número em evidência de cada linha da tabela — segue o "Ordenar" escolhido,
+ * não sempre XP. Antes disso, ordenar por sequência/questões/horas reordenava
+ * as linhas mas o número visível continuava sendo o de XP, o que não serve
+ * pra comparar desempenho no critério escolhido. `metricValue` isola só o
+ * número (reaproveitado nas contas de "falta X pra ultrapassar" do card
+ * lateral); `evidenceValue` empacota o número com a unidade certa.
+ */
+function metricValue(row: RankingPage['rows'][number], orderBy: RankingOrderBy): number {
+  switch (orderBy) {
+    case 'streak':
+      return row.currentStreak;
+    case 'questoes':
+      return row.questionsAnswered;
+    case 'horas':
+      return row.studyHours;
+    case 'xp':
+    default:
+      return row.xp;
+  }
+}
+
+function evidenceValue(row: RankingPage['rows'][number], orderBy: RankingOrderBy): string {
+  const value = metricValue(row, orderBy).toLocaleString('pt-BR');
+  switch (orderBy) {
+    case 'streak':
+      return `${value} ${metricValue(row, orderBy) === 1 ? 'dia' : 'dias'}`;
+    case 'questoes':
+      return `${value} quest.`;
+    case 'horas':
+      return `${value}h`;
+    case 'xp':
+    default:
+      return `${value} XP`;
+  }
+}
+
+const METRIC_LABEL: Record<RankingOrderBy, string> = {
+  xp: 'XP atual',
+  streak: 'Sequência atual',
+  questoes: 'Questões respondidas',
+  horas: 'Horas estudadas',
+};
+
+const METRIC_UNIT: Record<RankingOrderBy, string> = {
+  xp: 'XP',
+  streak: 'dias',
+  questoes: 'questões',
+  horas: 'h',
+};
+
 function segmentClass(active: boolean) {
   return cn(
     'h-10 shrink-0 rounded-lg px-3.5 text-sm font-medium transition-colors',
-    active
-      ? 'bg-surface text-brand-text shadow-sm'
-      : 'text-muted hover:text-text',
+    active ? 'bg-surface text-brand-text shadow-sm' : 'text-muted hover:text-text',
   );
 }
 
@@ -149,11 +198,22 @@ export function RankingView({
   }
 
   const classNames = useMemo(
-    () => [...new Set(data.rows.map((r) => r.className).filter((c): c is string => Boolean(c)))].sort(),
+    () =>
+      [...new Set(data.rows.map((r) => r.className).filter((c): c is string => Boolean(c)))].sort(),
     [data.rows],
   );
 
   const level = levelForXp(data.lifetimeXp);
+
+  // `row.rank`/`previousRank` vêm da RPC sempre calculados por XP — a lista
+  // (`data.rows`) já chega ordenada pelo critério escolhido, mas a posição
+  // numérica em si só bate com XP. Pra sequência/questões/horas, a posição
+  // exibida usa o índice na lista já ordenada (o que o aluno está vendo na
+  // tela), e a seta de variação (que só existe pra XP) some — mostrar uma
+  // seta calculada sobre outro critério seria uma informação errada.
+  const myDisplayPosition = data.me
+    ? data.rows.findIndex((r) => r.userId === data.me!.userId) + 1
+    : null;
 
   return (
     <div className="space-y-5 pt-4">
@@ -165,9 +225,9 @@ export function RankingView({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile
           icon={Trophy}
-          value={data.me ? `#${data.me.rank}` : '—'}
+          value={myDisplayPosition ? `#${myDisplayPosition}` : '—'}
           label={
-            data.me?.previousRank != null
+            orderBy === 'xp' && data.me?.previousRank != null
               ? data.me.previousRank > data.me.rank
                 ? `↑ +${data.me.previousRank - data.me.rank} essa ${PERIOD_LABEL[period].toLowerCase()}`
                 : data.me.previousRank < data.me.rank
@@ -267,55 +327,61 @@ export function RankingView({
               </p>
             ) : (
               <ul className="divide-border divide-y">
-                {data.rows.map((row) => (
-                  <li key={row.userId}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenProfile(row.userId)}
-                      className={cn(
-                        'group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors',
-                        row.userId === (data.me?.userId ?? '')
-                          ? 'bg-brand-soft border-brand border-l-4'
-                          : 'hover:bg-surface-2',
-                        row.rank <= 3 && ['ring-1 ring-inset', RING_TONE[row.rank]],
-                      )}
-                    >
-                      <RankBadge rank={row.rank} />
-                      <span
+                {data.rows.map((row, index) => {
+                  const displayRank = index + 1;
+                  return (
+                    <li key={row.userId}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenProfile(row.userId)}
                         className={cn(
-                          'grid size-9 shrink-0 place-items-center overflow-hidden rounded-full',
-                          row.avatarUrl ? '' : 'bg-brand-soft text-brand-text',
+                          'group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors',
+                          row.userId === (data.me?.userId ?? '')
+                            ? 'bg-brand-soft border-brand border-l-4'
+                            : 'hover:bg-surface-2',
+                          displayRank <= 3 && ['ring-1 ring-inset', RING_TONE[displayRank]],
                         )}
                       >
-                        {row.avatarUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={row.avatarUrl} alt="" className="size-full object-cover" />
-                        ) : (
-                          <span className="text-sm font-semibold">
-                            {row.fullName.trim()[0]?.toUpperCase() ?? '?'}
-                          </span>
-                        )}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{row.fullName}</span>
-                        <span className="text-muted flex items-center gap-1.5 truncate text-xs">
-                          {row.className && <span>{row.className}</span>}
-                          <span className="tabular">Nível {row.level}</span>
-                          <span className="inline-flex items-center gap-0.5">
-                            <Flame className="size-3" aria-hidden />
-                            {row.currentStreak}
+                        <RankBadge rank={displayRank} />
+                        <span
+                          className={cn(
+                            'grid size-9 shrink-0 place-items-center overflow-hidden rounded-full',
+                            row.avatarUrl ? '' : 'bg-brand-soft text-brand-text',
+                          )}
+                        >
+                          {row.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={row.avatarUrl} alt="" className="size-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-semibold">
+                              {row.fullName.trim()[0]?.toUpperCase() ?? '?'}
+                            </span>
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">{row.fullName}</span>
+                          <span className="text-muted flex items-center gap-1.5 truncate text-xs">
+                            {row.className && <span>{row.className}</span>}
+                            <span className="tabular">Nível {row.level}</span>
+                            <span className="inline-flex items-center gap-0.5">
+                              <Flame className="size-3" aria-hidden />
+                              {row.currentStreak}
+                            </span>
                           </span>
                         </span>
-                      </span>
-                      <span className="tabular shrink-0 text-right text-sm font-semibold">
-                        {row.xp.toLocaleString('pt-BR')} XP
-                      </span>
-                      <span className="w-8 shrink-0 text-right">
-                        <ChangeArrow rank={row.rank} previousRank={row.previousRank} />
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                        <span className="tabular shrink-0 text-right text-sm font-semibold">
+                          {evidenceValue(row, orderBy)}
+                        </span>
+                        <span className="w-8 shrink-0 text-right">
+                          <ChangeArrow
+                            rank={displayRank}
+                            previousRank={orderBy === 'xp' ? row.previousRank : null}
+                          />
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>
@@ -331,17 +397,22 @@ export function RankingView({
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted">Posição</span>
-                  <span className="tabular font-semibold">#{data.me.rank}</span>
+                  <span className="tabular font-semibold">#{myDisplayPosition}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted">XP atual</span>
-                  <span className="tabular font-semibold">{data.me.xp.toLocaleString('pt-BR')}</span>
+                  <span className="text-muted">{METRIC_LABEL[orderBy]}</span>
+                  <span className="tabular font-semibold">
+                    {metricValue(data.me, orderBy).toLocaleString('pt-BR')}
+                  </span>
                 </div>
                 {data.aboveMe && (
                   <p className="text-muted text-xs leading-relaxed">
                     Faltam{' '}
                     <strong className="text-text tabular">
-                      {(data.aboveMe.xp - data.me.xp).toLocaleString('pt-BR')} XP
+                      {(
+                        metricValue(data.aboveMe, orderBy) - metricValue(data.me, orderBy)
+                      ).toLocaleString('pt-BR')}{' '}
+                      {METRIC_UNIT[orderBy]}
                     </strong>{' '}
                     para ultrapassar {data.aboveMe.fullName.split(' ')[0]}.
                   </p>
@@ -350,7 +421,10 @@ export function RankingView({
                   <p className="text-muted text-xs leading-relaxed">
                     {data.belowMe.fullName.split(' ')[0]} está{' '}
                     <strong className="text-text tabular">
-                      {(data.me.xp - data.belowMe.xp).toLocaleString('pt-BR')} XP
+                      {(
+                        metricValue(data.me, orderBy) - metricValue(data.belowMe, orderBy)
+                      ).toLocaleString('pt-BR')}{' '}
+                      {METRIC_UNIT[orderBy]}
                     </strong>{' '}
                     atrás.
                   </p>
@@ -421,14 +495,36 @@ export function RankingView({
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-2">
-                <StatTile icon={HelpCircle} value={String(data.stats.questionsAnswered)} label="Questões" />
-                <StatTile icon={Clock} value={`${data.stats.studyHours}h`} label="Horas de estudo" />
-                <StatTile icon={BookOpen} value={String(data.stats.summariesRead)} label="Resumos lidos" />
-                <StatTile icon={Play} value={String(data.stats.videosWatched)} label="Vídeos assistidos" />
-                <StatTile icon={Target} value={String(data.stats.simuladosDone)} label="Simulados" />
+                <StatTile
+                  icon={HelpCircle}
+                  value={String(data.stats.questionsAnswered)}
+                  label="Questões"
+                />
+                <StatTile
+                  icon={Clock}
+                  value={`${data.stats.studyHours}h`}
+                  label="Horas de estudo"
+                />
+                <StatTile
+                  icon={BookOpen}
+                  value={String(data.stats.summariesRead)}
+                  label="Resumos lidos"
+                />
+                <StatTile
+                  icon={Play}
+                  value={String(data.stats.videosWatched)}
+                  label="Vídeos assistidos"
+                />
                 <StatTile
                   icon={Target}
-                  value={data.stats.accuracyPercent !== null ? `${data.stats.accuracyPercent}%` : '—'}
+                  value={String(data.stats.simuladosDone)}
+                  label="Simulados"
+                />
+                <StatTile
+                  icon={Target}
+                  value={
+                    data.stats.accuracyPercent !== null ? `${data.stats.accuracyPercent}%` : '—'
+                  }
                   label="Precisão"
                 />
               </div>

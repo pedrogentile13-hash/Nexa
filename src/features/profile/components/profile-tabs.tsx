@@ -13,6 +13,7 @@ import { signOut } from '@/features/auth/server/actions';
 import type { NotificationSettings } from '@/types/database.types';
 import { NotificationSettingsForm } from './notification-settings-form';
 import { ProfileForm } from './profile-form';
+import { SchoolPicker, type CurrentSchool } from './school-picker';
 
 type Tab = 'conta' | 'notificacoes' | 'aparencia' | 'privacidade';
 
@@ -30,7 +31,7 @@ export function ProfileTabs({
   className,
   dailyGoal,
   weeklyGoal,
-  timezone,
+  currentSchool,
   notificationSettings,
 }: {
   email?: string | null;
@@ -39,7 +40,7 @@ export function ProfileTabs({
   className: string | null;
   dailyGoal: number;
   weeklyGoal: number;
-  timezone: string;
+  currentSchool: CurrentSchool | null;
   notificationSettings: NotificationSettings;
 }) {
   const [tab, setTab] = useState<Tab>('conta');
@@ -59,18 +60,25 @@ export function ProfileTabs({
           <CardHeader>
             <CardTitle>Seus dados</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <dl className="divide-border divide-y text-sm">
               <Row label="E-mail" value={email} />
             </dl>
-            <ProfileForm
-              fullName={fullName}
-              gradeLevel={gradeLevel}
-              className={className}
-              dailyGoal={dailyGoal}
-              weeklyGoal={weeklyGoal}
-              timezone={timezone}
-            />
+
+            <div className="border-border space-y-3 border-t pt-4">
+              <h3 className="text-muted text-xs font-semibold tracking-wide uppercase">Escola</h3>
+              <SchoolPicker currentSchool={currentSchool} />
+            </div>
+
+            <div className="border-border border-t pt-4">
+              <ProfileForm
+                fullName={fullName}
+                gradeLevel={gradeLevel}
+                className={className}
+                dailyGoal={dailyGoal}
+                weeklyGoal={weeklyGoal}
+              />
+            </div>
           </CardContent>
         </Card>
       )}

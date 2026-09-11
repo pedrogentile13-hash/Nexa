@@ -22,13 +22,7 @@ function lastActivityLabel(iso: string | null): string {
   return `${days} dias atrás`;
 }
 
-export function StudentProfileModal({
-  userId,
-  onClose,
-}: {
-  userId: string;
-  onClose: () => void;
-}) {
+export function StudentProfileModal({ userId, onClose }: { userId: string; onClose: () => void }) {
   const router = useRouter();
   const [card, setCard] = useState<StudentProfileCard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,11 +115,23 @@ export function StudentProfileModal({
           )}
           {friendshipStatus === 'pending_received' && (
             <div className="flex items-center gap-2">
-              <Button type="button" size="sm" variant="soft" disabled={pending} onClick={() => handleRespond(true)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="soft"
+                disabled={pending}
+                onClick={() => handleRespond(true)}
+              >
                 <Check aria-hidden />
                 Aceitar
               </Button>
-              <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => handleRespond(false)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={pending}
+                onClick={() => handleRespond(false)}
+              >
                 <X aria-hidden />
                 Recusar
               </Button>
@@ -134,20 +140,36 @@ export function StudentProfileModal({
           {friendshipStatus === 'accepted' && (
             <div className="flex items-center gap-2">
               <Badge variant="success">Amigos</Badge>
-              <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={handleRemove}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={pending}
+                onClick={handleRemove}
+              >
                 Remover amigo
               </Button>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-2">
-            <StatTile icon={Trophy} value={`Nível ${levelForXp(card.xp)}`} label={`${card.xp.toLocaleString('pt-BR')} XP`} />
+            <StatTile
+              icon={Trophy}
+              value={`Nível ${levelForXp(card.xp)}`}
+              label={`${card.xp.toLocaleString('pt-BR')} XP`}
+            />
             <StatTile icon={Flame} value={String(card.currentStreak)} label="Sequência atual" />
             <StatTile icon={Clock} value={`${card.studyHours}h`} label="Horas de estudo" />
-            <StatTile icon={HelpCircle} value={String(card.questionsAnswered)} label="Questões respondidas" />
+            <StatTile
+              icon={HelpCircle}
+              value={String(card.questionsAnswered)}
+              label="Questões respondidas"
+            />
           </div>
 
-          <p className="text-subtle text-xs">Última atividade: {lastActivityLabel(card.lastActivity)}</p>
+          <p className="text-subtle text-xs">
+            Última atividade: {lastActivityLabel(card.lastActivity)}
+          </p>
 
           {card.topSubjects.length > 0 && (
             <div>

@@ -119,7 +119,11 @@ export async function getRankingPage(filters: {
     // (`exists (... a.user_id = auth.uid())`) já restringe às próprias
     // respostas, então a consulta nem precisa saber disso.
     supabase.from('quiz_answers').select('is_correct'),
-    supabase.from('user_stats').select('xp, total_study_seconds').eq('user_id', user.id).maybeSingle(),
+    supabase
+      .from('user_stats')
+      .select('xp, total_study_seconds')
+      .eq('user_id', user.id)
+      .maybeSingle(),
     supabase
       .from('resource_progress')
       .select('resource_id, resources(kind)')

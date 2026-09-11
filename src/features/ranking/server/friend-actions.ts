@@ -24,11 +24,14 @@ export async function searchSchoolmates(query: string): Promise<SchoolmateResult
   }));
 }
 
-export type SendFriendRequestResult = 'pending' | 'accepted' | 'already_pending' | 'already_friends';
+export type SendFriendRequestResult =
+  'pending' | 'accepted' | 'already_pending' | 'already_friends';
 
 export async function sendFriendRequest(addresseeId: string): Promise<SendFriendRequestResult> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc('send_friend_request', { p_addressee_id: addresseeId });
+  const { data, error } = await supabase.rpc('send_friend_request', {
+    p_addressee_id: addresseeId,
+  });
   revalidatePath('/ranking');
   if (error) throw new Error(error.message);
   return data as SendFriendRequestResult;
