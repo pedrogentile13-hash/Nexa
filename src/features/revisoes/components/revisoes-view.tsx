@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useOptimistic, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { useOptimistic, useState, useTransition } from 'react';
 import { Check, Flame, GraduationCap, RotateCcw } from 'lucide-react';
 import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
@@ -21,10 +22,16 @@ import type { ReviewItem } from '../server/queries';
  */
 
 const BUCKET_META: Record<ReviewItem['bucket'], { title: string; description: string }> = {
-  atrasada: { title: 'Atrasadas', description: 'Já passou do dia — o quanto antes revisar, melhor.' },
+  atrasada: {
+    title: 'Atrasadas',
+    description: 'Já passou do dia — o quanto antes revisar, melhor.',
+  },
   hoje: { title: 'Hoje', description: 'Para revisar ainda hoje.' },
   proxima: { title: 'Próximas', description: 'Chegando nos próximos dias.' },
-  concluida: { title: 'Concluídas hoje', description: 'Já revisado — a próxima vez está agendada.' },
+  concluida: {
+    title: 'Concluídas hoje',
+    description: 'Já revisado — a próxima vez está agendada.',
+  },
 };
 
 function itemKey(item: ReviewItem): string {
@@ -38,10 +45,12 @@ export function RevisoesView({
   items: ReviewItem[];
   currentStreak: number;
 }) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
   const [optimistic, remove] = useOptimistic(items, (state, key: string) =>
     state.filter((item) => itemKey(item) !== key),
   );
+  const [error, setError] = useState<string | null>(null);
 
   const reviewedToday = optimistic.filter((i) => i.bucket === 'concluida').length;
   const overdueCount = optimistic.filter((i) => i.bucket === 'atrasada').length;
@@ -75,6 +84,8 @@ export function RevisoesView({
         <MiniStat icon={RotateCcw} value={String(overdueCount)} label="Atrasadas" />
       </section>
 
+      {error && <p className="text-danger text-sm">{error}</p>}
+
       {buckets.map((bucket) => {
         const bucketItems = optimistic.filter((i) => i.bucket === bucket);
         if (bucketItems.length === 0) return null;
@@ -94,7 +105,13 @@ export function RevisoesView({
                     onDismiss={() =>
                       startTransition(async () => {
                         remove(itemKey(item));
-                        if (item.questionId) await dismissError(item.questionId);
+                        const result = item.questionId
+                          ? await dismissError(item.questionId)
+                          : { ok: true };
+                        if (!result.ok) {
+                          setError('Não consegui salvar — tente de novo.');
+                          router.refresh();
+                        }
                       })
                     }
                   />
@@ -105,7 +122,14 @@ export function RevisoesView({
                     onReview={() =>
                       startTransition(async () => {
                         remove(itemKey(item));
-                        await markContentReviewed(item.resourceId, item.nextIntervalStep);
+                        const result = await markContentReviewed(
+                          item.resourceId,
+                          item.nextIntervalStep,
+                        );
+                        if (!result.ok) {
+                          setError('Não consegui salvar — tente de novo.');
+                          router.refresh();
+                        }
                       })
                     }
                   />
@@ -119,7 +143,15 @@ export function RevisoesView({
   );
 }
 
-function MiniStat({ icon: Icon, value, label }: { icon: typeof Flame; value: string; label: string }) {
+function MiniStat({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: typeof Flame;
+  value: string;
+  label: string;
+}) {
   return (
     <div className="border-border bg-surface flex flex-col items-center gap-1 rounded-2xl border p-3 text-center">
       <Icon className="text-brand size-4" aria-hidden />
@@ -160,7 +192,7 @@ function ErrorCard({ item, onDismiss }: { item: ReviewItem; onDismiss: () => voi
         </div>
 
         {item.explanation && (
-          <p className="text-muted border-current/20 border-l-2 pl-3 text-sm leading-relaxed">
+          <p className="text-muted border-l-2 border-current/20 pl-3 text-sm leading-relaxed">
             {item.explanation}
           </p>
         )}

@@ -21,7 +21,7 @@ type Result = ContentSearchResult | AdminSearchResult;
 
 function resultHref(result: Result): Route {
   if (result.type === 'content') return `/estudar/${result.id}` as Route;
-  if (result.type === 'person') return '/admin/usuarios' as Route;
+  if (result.type === 'person') return `/admin/usuarios/${result.id}` as Route;
   return '/admin/escolas' as Route;
 }
 
@@ -39,7 +39,8 @@ function resultLabel(result: Result): string {
 
 function resultHint(result: Result): string {
   if (result.type === 'content') return `${kindLabel(result.kind)} · ${result.subjectName}`;
-  if (result.type === 'person') return result.schoolName ? `${result.role} · ${result.schoolName}` : result.role;
+  if (result.type === 'person')
+    return result.schoolName ? `${result.role} · ${result.schoolName}` : result.role;
   return 'Escola';
 }
 
@@ -58,11 +59,18 @@ export function SearchBar({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
+  // Só o pedido mais recente pode gravar resultado — sem isto, um pedido
+  // mais lento por uma busca ANTERIOR (ex.: digitou "mat", pausou, digitou
+  // "matematica", pausou de novo — os dois disparam) podia voltar depois do
+  // mais novo e sobrescrever a tela com resultado de uma busca que o aluno
+  // já não está mais vendo.
+  const requestIdRef = useRef(0);
 
   const [runSearch] = useDebouncedCallback((value: string) => {
+    const requestId = ++requestIdRef.current;
     startTransition(async () => {
       const found = await search(value);
-      setResults(found);
+      if (requestId === requestIdRef.current) setResults(found);
     });
   }, 300);
 
@@ -146,7 +154,9 @@ export function SearchBar({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{resultLabel(result)}</span>
-                      <span className="text-subtle block truncate text-xs">{resultHint(result)}</span>
+                      <span className="text-subtle block truncate text-xs">
+                        {resultHint(result)}
+                      </span>
                     </span>
                   </Link>
                 </li>

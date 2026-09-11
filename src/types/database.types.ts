@@ -638,6 +638,7 @@ export type Database = {
     };
     Functions: {
       user_local_date: { Args: { p_user_id?: string }; Returns: string };
+      user_month_start: { Args: { p_user_id?: string }; Returns: string };
       xp_to_level: { Args: { p_xp: number }; Returns: number };
       ensure_user_stats: { Args: { p_user_id?: string }; Returns: undefined };
       award_xp: {

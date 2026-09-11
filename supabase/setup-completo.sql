@@ -5998,6 +5998,328 @@ $$;
 grant execute on function public.notify_subject_students(uuid, text, text, text, uuid) to authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────
+-- 20260911000300_metas_local_month.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — 0911 (3) · Metas: início do mês pelo fuso do aluno, não do servidor
+--
+-- `getMetasOverview` calculava o início do mês com `Date.UTC(...)` sobre o
+-- relógio do SERVIDOR — todo outro corte de data do app (Hoje, Agenda,
+-- sequência) usa `user_local_date()`, que resolve pelo fuso salvo em
+-- `profiles.timezone`. Num fuso UTC-3, das 21h às 23h59 locais já é o dia
+-- seguinte em UTC — perto da virada do mês, isso classifica errado (às vezes
+-- o mês inteiro errado) as horas/atividades/matérias do card de Metas.
+--
+-- `user_month_start()` é o mesmo princípio de `user_local_date()`: primeiro
+-- dia do MÊS local do aluno, convertido pra timestamptz correto em UTC —
+-- pra comparar contra colunas timestamptz (`finished_at`, `completed_at`)
+-- sem o desvio de fuso. Pra `study_sessions.local_date` (já é `date`, sem
+-- fuso embutido), o próprio `user_local_date()` trunca pro mês sem precisar
+-- desta função.
+-- ============================================================================
+
+create or replace function public.user_month_start(p_user_id uuid default auth.uid())
+returns timestamptz
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select date_trunc('month', public.user_local_date(p_user_id)::timestamp) at time zone coalesce(
+    (select p.timezone from public.profiles p where p.id = p_user_id),
+    'America/Sao_Paulo'
+  );
+$$;
+
+grant execute on function public.user_month_start(uuid) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260911000400_simulado_time_limit.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — 0911 (4) · Tempo limite do simulado, hoje só decorativo
+--
+-- `quiz-runner.tsx` mostra o cronômetro regressivo (fica vermelho abaixo de
+-- 60s) mas nada — nem cliente, nem servidor — parava de aceitar resposta
+-- depois de zerar. Um simulado com limite de 20 minutos podia ser respondido
+-- por tempo indeterminado sem nenhuma consequência.
+--
+-- A resposta não é travar a NAVEGAÇÃO do aluno (o componente já tem uma regra
+-- deliberada de nunca bloquear o avanço numa falha de rede — ver comentário
+-- em `submitAnswer`, `quiz-runner.tsx`) — é fazer a resposta enviada depois
+-- do prazo simplesmente não contar pra nota, do mesmo jeito que já acontece
+-- hoje quando a chamada falha por qualquer outro motivo (rede, RLS...): o
+-- aluno consegue clicar, mas a resposta não é gravada. Uma folga de 15s
+-- absorve latência de rede normal sem abrir brecha de verdade.
+-- ============================================================================
+
+create or replace function public.answer_quiz_question(
+  p_attempt_id uuid,
+  p_question_id uuid,
+  p_option_id uuid
+)
+returns table (is_correct boolean, correct_option_id uuid, explanation text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_correct_option uuid;
+  v_is_correct boolean;
+begin
+  if not exists (
+    select 1 from public.quiz_attempts a
+    where a.id = p_attempt_id and a.user_id = auth.uid() and a.finished_at is null
+  ) then
+    raise exception 'tentativa inválida ou já encerrada' using errcode = '42501';
+  end if;
+
+  if exists (
+    select 1
+    from public.quiz_attempts a
+    join public.resources r on r.id = a.resource_id
+    where a.id = p_attempt_id
+      and coalesce(r.time_limit_seconds, 0) > 0
+      and now() > a.started_at + make_interval(secs => r.time_limit_seconds) + interval '15 seconds'
+  ) then
+    raise exception 'tempo esgotado' using errcode = '55000';
+  end if;
+
+  if not exists (
+    select 1 from public.questions q join public.quiz_attempts a on a.resource_id = q.resource_id
+    where q.id = p_question_id and a.id = p_attempt_id
+  ) then
+    raise exception 'esta questão não pertence a esta tentativa' using errcode = '23514';
+  end if;
+
+  select o.id into v_correct_option
+  from public.question_options o where o.question_id = p_question_id and o.is_correct;
+
+  v_is_correct := p_option_id is not null and p_option_id = v_correct_option;
+
+  -- Trocar de alternativa antes de encerrar é permitido; a última vale.
+  insert into public.quiz_answers (attempt_id, question_id, option_id, is_correct)
+  values (p_attempt_id, p_question_id, p_option_id, v_is_correct)
+  on conflict (attempt_id, question_id) do update
+    set option_id = excluded.option_id,
+        is_correct = excluded.is_correct,
+        answered_at = now();
+
+  return query
+    select v_is_correct, v_correct_option, q.explanation
+    from public.questions q where q.id = p_question_id;
+end;
+$$;
+
+grant execute on function public.answer_quiz_question(uuid, uuid, uuid) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260911000500_onboarding_atomic_claim.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — 0911 (5) · bootstrap_student: reivindicar o onboarding atomicamente
+--
+-- A trava de "já foi" era um SELECT separado do INSERT que vem depois —
+-- clássica corrida de leitura-antes-de-escrever. Duas chamadas simultâneas
+-- de `completeOnboarding` (duas abas, um retry de rede antes do botão
+-- desabilitar) passavam as duas pelo SELECT antes de qualquer uma comitar, e
+-- cada uma criava seu próprio ano letivo/matérias/rotinas e pagava 50 XP —
+-- o aluno ficava com tudo em dobro. O cliente já trata `23505` como sucesso
+-- (idempotência aparente), o que escondia o problema por completo.
+--
+-- A troca é um UPDATE com `where onboarded_at is null` ANTES de criar
+-- qualquer coisa: só uma chamada concorrente pode "ganhar" a corrida — a
+-- outra, ao tentar depois que a primeira comitou, encontra `onboarded_at`
+-- já preenchido e 0 linhas afetadas.
+--
+-- Corpo baseado na versão ATUAL de `bootstrap_student` (12 argumentos, sem
+-- categorias de nota — `20260907000300_remove_manual_grading.sql`), não na
+-- versão anterior de 13 argumentos: `create or replace` só substitui uma
+-- função com a MESMA assinatura, e recriar a assinatura errada deixaria as
+-- duas coexistindo (foi exatamente o que aconteceu num rascunho anterior
+-- desta migração, pego pelo teste `10_scoring.test.sql` — "function ... is
+-- not unique").
+-- ============================================================================
+
+create or replace function public.bootstrap_student(
+  p_full_name text,
+  p_grade_level text default null,
+  p_class_name text default null,
+  p_school_id uuid default null,
+  p_timezone text default 'America/Sao_Paulo',
+  p_year_label text default null,
+  p_year_starts_on date default null,
+  p_year_ends_on date default null,
+  p_term_count smallint default 4,
+  p_catalog_ids uuid[] default '{}',
+  p_custom_subjects text[] default '{}',
+  p_daily_goal_minutes integer default null
+)
+returns jsonb
+language plpgsql
+volatile
+security invoker
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_year_id uuid;
+  v_term_ids uuid[] := '{}';
+  v_subject_ids uuid[] := '{}';
+  v_starts date;
+  v_ends date;
+  v_label text;
+  v_segment integer;
+  v_term_word text;
+  v_seg_start date;
+  v_seg_end date;
+  v_subject_id uuid;
+  v_term_id uuid;
+  v_idx integer;
+  v_row record;
+begin
+  if v_user_id is null then
+    raise exception 'bootstrap_student requires an authenticated user'
+      using errcode = '28000';
+  end if;
+
+  -- Reivindica o onboarding de forma atômica, antes de criar qualquer coisa.
+  update public.profiles set onboarded_at = now()
+  where id = v_user_id and onboarded_at is null;
+
+  if not found then
+    if exists (select 1 from public.profiles where id = v_user_id) then
+      raise exception 'user % is already onboarded', v_user_id using errcode = '23505';
+    end if;
+    -- Perfil ainda não existe (não deveria — o trigger de signup já cria a
+    -- linha — mas cobre o caso): o insert abaixo cria a linha já onboarded.
+  end if;
+
+  if p_term_count not between 1 and 12 then
+    raise exception 'p_term_count must be between 1 and 12' using errcode = '22023';
+  end if;
+
+  if p_daily_goal_minutes is not null and p_daily_goal_minutes not between 0 and 1440 then
+    raise exception 'p_daily_goal_minutes must be between 0 and 1440' using errcode = '22023';
+  end if;
+
+  -- Sensible calendar defaults so onboarding can ask nothing about dates.
+  v_starts := coalesce(p_year_starts_on, make_date(extract(year from public.user_local_date(v_user_id))::int, 2, 1));
+  v_ends := coalesce(p_year_ends_on, make_date(extract(year from public.user_local_date(v_user_id))::int, 12, 15));
+  v_label := coalesce(p_year_label, extract(year from v_starts)::text);
+
+  if v_ends <= v_starts then
+    raise exception 'academic year must end after it starts' using errcode = '22023';
+  end if;
+
+  -- 1. Profile ------------------------------------------------------------
+  insert into public.profiles as p (
+    id, full_name, grade_level, class_name, school_id, timezone, daily_study_goal_minutes, onboarded_at
+  )
+  values (
+    v_user_id, nullif(btrim(p_full_name), ''), p_grade_level, p_class_name, p_school_id,
+    coalesce(nullif(btrim(p_timezone), ''), 'America/Sao_Paulo'),
+    coalesce(p_daily_goal_minutes, 45), now()
+  )
+  on conflict (id) do update
+    set full_name = coalesce(nullif(btrim(excluded.full_name), ''), p.full_name),
+        grade_level = coalesce(excluded.grade_level, p.grade_level),
+        class_name = coalesce(excluded.class_name, p.class_name),
+        school_id = coalesce(excluded.school_id, p.school_id),
+        timezone = excluded.timezone,
+        daily_study_goal_minutes = coalesce(p_daily_goal_minutes, p.daily_study_goal_minutes),
+        onboarded_at = coalesce(p.onboarded_at, now());
+
+  -- 2. Academic year --------------------------------------------------------
+  insert into public.academic_years (user_id, label, starts_on, ends_on, is_active)
+  values (v_user_id, v_label, v_starts, v_ends, true)
+  returning id into v_year_id;
+
+  -- 3. Terms, split evenly across the year — ainda usados pela grade de
+  -- aulas (timetable_slots.term_id), não mais por nota. Fixo, sem perguntar.
+  v_term_word := case p_term_count
+    when 2 then 'Semestre'
+    when 3 then 'Trimestre'
+    when 4 then 'Bimestre'
+    else 'Período'
+  end;
+  v_segment := greatest(1, ((v_ends - v_starts + 1) / p_term_count)::integer);
+
+  for v_idx in 1..p_term_count loop
+    v_seg_start := v_starts + (v_idx - 1) * v_segment;
+    v_seg_end := case
+      when v_idx = p_term_count then v_ends
+      else least(v_ends, v_starts + v_idx * v_segment - 1)
+    end;
+
+    insert into public.terms (user_id, academic_year_id, name, sequence, starts_on, ends_on)
+    values (v_user_id, v_year_id, v_idx || 'º ' || v_term_word, v_idx::smallint,
+            v_seg_start, greatest(v_seg_end, v_seg_start))
+    returning id into v_term_id;
+
+    v_term_ids := v_term_ids || v_term_id;
+  end loop;
+
+  -- 4. Subjects, from catalog picks and free-typed names ---------------------
+  for v_row in
+    select c.id as catalog_id, c.name, c.default_color, c.default_icon, c.sort_order
+    from public.subject_catalog c
+    where c.id = any (coalesce(p_catalog_ids, '{}'))
+    order by c.sort_order, c.name
+  loop
+    insert into public.subjects (user_id, catalog_id, name, color, icon, sort_order)
+    values (v_user_id, v_row.catalog_id, v_row.name, v_row.default_color, v_row.default_icon, v_row.sort_order)
+    on conflict do nothing
+    returning id into v_subject_id;
+
+    if v_subject_id is not null then
+      v_subject_ids := v_subject_ids || v_subject_id;
+      v_subject_id := null;
+    end if;
+  end loop;
+
+  for v_idx in 1..coalesce(array_length(p_custom_subjects, 1), 0) loop
+    if nullif(btrim(p_custom_subjects[v_idx]), '') is not null then
+      insert into public.subjects (user_id, name, sort_order)
+      values (v_user_id, btrim(p_custom_subjects[v_idx]), 500 + v_idx)
+      on conflict do nothing
+      returning id into v_subject_id;
+
+      if v_subject_id is not null then
+        v_subject_ids := v_subject_ids || v_subject_id;
+        v_subject_id := null;
+      end if;
+    end if;
+  end loop;
+
+  -- 5. Checklist inicial, pra "Hoje" nunca começar vazio ---------------------
+  insert into public.routines (user_id, title, icon, sort_order)
+  values
+    (v_user_id, 'Revisar o que vi hoje na aula', 'notebook-pen', 10),
+    (v_user_id, 'Fazer as lições do dia', 'list-checks', 20),
+    (v_user_id, 'Organizar a mochila para amanhã', 'backpack', 30);
+
+  -- 6. Stats row (via definer helper — user_stats is client-read-only) ------
+  perform public.ensure_user_stats(v_user_id);
+  perform public.award_xp(50, 'Configurou o Nexa', 'system', v_user_id);
+
+  return jsonb_build_object(
+    'user_id', v_user_id,
+    'academic_year_id', v_year_id,
+    'term_ids', to_jsonb(v_term_ids),
+    'subject_ids', to_jsonb(v_subject_ids)
+  );
+end;
+$$;
+
+grant execute on function public.bootstrap_student(
+  text, text, text, uuid, text, text, date, date, smallint, uuid[], text[], integer
+) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
 -- seed.sql
 -- ─────────────────────────────────────────────────────────────────────
 

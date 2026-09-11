@@ -34,11 +34,6 @@ export interface MetasOverview {
   bySubject: SubjectMinutes[];
 }
 
-function startOfMonth(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
-}
-
 function startOfWeek(iso: string): string {
   const date = new Date(`${iso}T12:00:00Z`);
   const day = date.getUTCDay();
@@ -57,40 +52,58 @@ function weekLabel(weekStart: string): string {
 
 export async function getMetasOverview(userId: string): Promise<MetasOverview> {
   const supabase = await createClient();
-  const monthStart = startOfMonth();
 
-  const [profileRes, statsRes, sessionsRes, monthSessionsRes, attemptsRes, progressRes, subjectsRes] =
-    await Promise.all([
-      supabase
-        .from('profiles')
-        .select('weekly_study_goal_minutes, monthly_activities_goal, monthly_subjects_goal')
-        .eq('id', userId)
-        .maybeSingle(),
-      supabase.from('user_stats').select('current_streak').eq('user_id', userId).maybeSingle(),
-      supabase
-        .from('study_sessions')
-        .select('local_date, duration_seconds')
-        .not('ended_at', 'is', null)
-        .order('local_date'),
-      supabase
-        .from('study_sessions')
-        .select('subject_id, duration_seconds')
-        .not('ended_at', 'is', null)
-        .gte('local_date', monthStart),
-      supabase
-        .from('quiz_attempts')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .not('finished_at', 'is', null)
-        .gte('finished_at', monthStart),
-      supabase
-        .from('resource_progress')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .not('completed_at', 'is', null)
-        .gte('completed_at', monthStart),
-      supabase.from('subjects').select('id, name, color').is('archived_at', null),
-    ]);
+  // Início do mês pelo FUSO DO ALUNO, não pelo relógio do servidor — igual a
+  // todo outro corte de data do app (Hoje, Agenda, sequência). `local_date`
+  // (coluna sem fuso) usa a data local direto; `finished_at`/`completed_at`
+  // (timestamptz) precisam do instante UTC correspondente à meia-noite local.
+  const [localDateRes, monthStartRes] = await Promise.all([
+    supabase.rpc('user_local_date', { p_user_id: userId }),
+    supabase.rpc('user_month_start', { p_user_id: userId }),
+  ]);
+  const localMonthStart =
+    (localDateRes.data as string | null)?.slice(0, 7).concat('-01') ?? '1970-01-01';
+  const monthStartInstant = (monthStartRes.data as string | null) ?? new Date(0).toISOString();
+
+  const [
+    profileRes,
+    statsRes,
+    sessionsRes,
+    monthSessionsRes,
+    attemptsRes,
+    progressRes,
+    subjectsRes,
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('weekly_study_goal_minutes, monthly_activities_goal, monthly_subjects_goal')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabase.from('user_stats').select('current_streak').eq('user_id', userId).maybeSingle(),
+    supabase
+      .from('study_sessions')
+      .select('local_date, duration_seconds')
+      .not('ended_at', 'is', null)
+      .order('local_date'),
+    supabase
+      .from('study_sessions')
+      .select('subject_id, duration_seconds')
+      .not('ended_at', 'is', null)
+      .gte('local_date', localMonthStart),
+    supabase
+      .from('quiz_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .not('finished_at', 'is', null)
+      .gte('finished_at', monthStartInstant),
+    supabase
+      .from('resource_progress')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .not('completed_at', 'is', null)
+      .gte('completed_at', monthStartInstant),
+    supabase.from('subjects').select('id, name, color').is('archived_at', null),
+  ]);
 
   const weeklyMinutes = groupByWeek(sessionsRes.data ?? []);
 
@@ -99,7 +112,8 @@ export async function getMetasOverview(userId: string): Promise<MetasOverview> {
     if (!row.subject_id) continue;
     monthMinutesBySubject.set(
       row.subject_id,
-      (monthMinutesBySubject.get(row.subject_id) ?? 0) + Math.round((row.duration_seconds ?? 0) / 60),
+      (monthMinutesBySubject.get(row.subject_id) ?? 0) +
+        Math.round((row.duration_seconds ?? 0) / 60),
     );
   }
 

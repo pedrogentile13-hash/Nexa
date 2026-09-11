@@ -33,13 +33,21 @@ export function NotificationBell() {
 
   useEffect(() => {
     let cancelled = false;
-    getNotificationsData().then((data) => {
-      if (!cancelled) {
-        setItems(data.items);
-        setUnreadCount(data.unreadCount);
-        setLoaded(true);
-      }
-    });
+    getNotificationsData()
+      .then((data) => {
+        if (!cancelled) {
+          setItems(data.items);
+          setUnreadCount(data.unreadCount);
+        }
+      })
+      .catch(() => {
+        // Sem isto, uma falha de rede/sessão deixava o dropdown preso em
+        // "Carregando…" pra sempre — melhor cair pra "sem notificações" do
+        // que travar.
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -68,7 +76,9 @@ export function NotificationBell() {
   }
 
   function onMarkAll() {
-    setItems((current) => current.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
+    setItems((current) =>
+      current.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })),
+    );
     setUnreadCount(0);
     startTransition(async () => {
       await markAllNotificationsRead();
@@ -122,7 +132,10 @@ export function NotificationBell() {
                 const body = (
                   <div className="flex items-start gap-2.5 px-4 py-3">
                     {!item.readAt && (
-                      <span className="bg-brand mt-1.5 size-1.5 shrink-0 rounded-full" aria-hidden />
+                      <span
+                        className="bg-brand mt-1.5 size-1.5 shrink-0 rounded-full"
+                        aria-hidden
+                      />
                     )}
                     <div className={cn('min-w-0 flex-1', item.readAt && 'pl-3.5')}>
                       <p className={cn('text-sm leading-snug', !item.readAt && 'font-semibold')}>

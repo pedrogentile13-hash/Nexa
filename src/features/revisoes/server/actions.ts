@@ -15,32 +15,37 @@ const schema = z.object({
   nextIntervalStep: z.number().int().min(0).max(3),
 });
 
-export async function markContentReviewed(resourceId: string, nextIntervalStep: number): Promise<void> {
+export async function markContentReviewed(
+  resourceId: string,
+  nextIntervalStep: number,
+): Promise<{ ok: boolean }> {
   const parsed = schema.safeParse({ resourceId, nextIntervalStep });
-  if (!parsed.success) return;
+  if (!parsed.success) return { ok: false };
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return { ok: false };
 
-  await supabase.from('content_reviews').insert({
+  const { error } = await supabase.from('content_reviews').insert({
     user_id: user.id,
     resource_id: parsed.data.resourceId,
     interval_step: parsed.data.nextIntervalStep,
   });
 
   revalidatePath('/revisoes');
+  return { ok: !error };
 }
 
 /** "Marcar como dominado" numa questão — igual à Central de Erros de antes. */
-export async function dismissError(questionId: string): Promise<void> {
+export async function dismissError(questionId: string): Promise<{ ok: boolean }> {
   const parsed = z.string().uuid().safeParse(questionId);
-  if (!parsed.success) return;
+  if (!parsed.success) return { ok: false };
 
   const supabase = await createClient();
-  await supabase.rpc('dismiss_question_error', { p_question_id: parsed.data });
+  const { error } = await supabase.rpc('dismiss_question_error', { p_question_id: parsed.data });
 
   revalidatePath('/revisoes');
+  return { ok: !error };
 }
