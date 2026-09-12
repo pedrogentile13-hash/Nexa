@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 // diferentes, e o import perderia para essa declaração de módulo.
 import loadChart from 'next/dynamic';
 import {
+  AlertOctagon,
   Brain,
   CheckCircle2,
   Flame,
@@ -328,6 +329,55 @@ export default async function PerformancePage() {
                   </ul>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Habilidade é mais granular que assunto — só aparece pra quem tem
+            questões com `skills` cadastrado (simulados v2), o que hoje é uma
+            fração do acervo. Sem isso, a seção simplesmente não existe. */}
+        {data.skillMastery.length > 0 && (
+          <Card className="min-w-0 lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Domínio por habilidade</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ul className="divide-border divide-y">
+                {data.skillMastery.map((skill) => (
+                  <li key={skill.skill} className="flex items-center gap-3 py-2">
+                    <span
+                      aria-hidden
+                      className={cn('size-2.5 shrink-0 rounded-full', STATUS_DOT[skill.status])}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {skill.skill}
+                    </span>
+                    <span className="text-muted shrink-0 text-xs tabular-nums">
+                      {skill.correctCount}/{skill.totalCount}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              {data.commonErrorTypes.length > 0 && (
+                <div className="border-border border-t pt-3">
+                  <p className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
+                    Erros mais comuns
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {data.commonErrorTypes.slice(0, 5).map((error) => (
+                      <span
+                        key={error.errorType}
+                        className="bg-danger-soft text-danger flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium"
+                      >
+                        <AlertOctagon className="size-3.5" aria-hidden />
+                        {error.errorType}
+                        <span className="tabular-nums opacity-70">{error.occurrences}×</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

@@ -912,6 +912,23 @@ export type Database = {
           status: 'dominado' | 'desenvolvimento' | 'revisar';
         }[];
       };
+      skill_mastery: {
+        Args: { p_user_id?: string };
+        Returns: {
+          skill: string;
+          correct_count: number;
+          total_count: number;
+          mastery_percent: number;
+          status: 'dominado' | 'desenvolvimento' | 'revisar';
+        }[];
+      };
+      common_error_types: {
+        Args: { p_user_id?: string };
+        Returns: {
+          error_type: string;
+          occurrences: number;
+        }[];
+      };
       recent_errors: {
         Args: { p_user_id?: string };
         Returns: {

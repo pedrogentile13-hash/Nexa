@@ -67,6 +67,19 @@ export interface TopicMastery {
   status: 'dominado' | 'desenvolvimento' | 'revisar';
 }
 
+export interface SkillMastery {
+  skill: string;
+  correctCount: number;
+  totalCount: number;
+  masteryPercent: number;
+  status: 'dominado' | 'desenvolvimento' | 'revisar';
+}
+
+export interface CommonErrorType {
+  errorType: string;
+  occurrences: number;
+}
+
 export interface PerformanceData {
   subjectScores: SubjectScore[];
   /** Média igual entre as matérias que TÊM nota — `null` sem nenhuma. */
@@ -81,6 +94,9 @@ export interface PerformanceData {
   currentStreak: number;
   longestStreak: number;
   topicMastery: TopicMastery[];
+  /** Vazio pra quem não tem nenhuma questão com `skills` cadastrado (a maioria do acervo legado) — a seção some, não aparece zerada. */
+  skillMastery: SkillMastery[];
+  commonErrorTypes: CommonErrorType[];
 }
 
 export function mapSubjectScore(row: {
@@ -179,23 +195,33 @@ export async function getSimuladoHistory(userId: string): Promise<SimuladoAttemp
 export async function getPerformance(userId: string): Promise<PerformanceData> {
   const supabase = await createClient();
 
-  const [scoresRes, evolutionRes, simuladosRes, sessionsRes, statsRes, masteryRes] =
-    await Promise.all([
-      supabase.rpc('subject_scores', { p_user_id: userId }),
-      supabase.rpc('performance_evolution', { p_user_id: userId }),
-      supabase.rpc('simulado_history', { p_user_id: userId }),
-      supabase
-        .from('study_sessions')
-        .select('local_date, duration_seconds')
-        .not('ended_at', 'is', null)
-        .order('local_date'),
-      supabase
-        .from('user_stats')
-        .select('xp, level, total_study_seconds, current_streak, longest_streak')
-        .eq('user_id', userId)
-        .maybeSingle(),
-      supabase.rpc('topic_mastery', { p_user_id: userId }),
-    ]);
+  const [
+    scoresRes,
+    evolutionRes,
+    simuladosRes,
+    sessionsRes,
+    statsRes,
+    masteryRes,
+    skillMasteryRes,
+    errorTypesRes,
+  ] = await Promise.all([
+    supabase.rpc('subject_scores', { p_user_id: userId }),
+    supabase.rpc('performance_evolution', { p_user_id: userId }),
+    supabase.rpc('simulado_history', { p_user_id: userId }),
+    supabase
+      .from('study_sessions')
+      .select('local_date, duration_seconds')
+      .not('ended_at', 'is', null)
+      .order('local_date'),
+    supabase
+      .from('user_stats')
+      .select('xp, level, total_study_seconds, current_streak, longest_streak')
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabase.rpc('topic_mastery', { p_user_id: userId }),
+    supabase.rpc('skill_mastery', { p_user_id: userId }),
+    supabase.rpc('common_error_types', { p_user_id: userId }),
+  ]);
 
   const subjectScores = (scoresRes.data ?? []).map(mapSubjectScore).sort((a, b) => {
     if (a.blendedScore === null) return b.blendedScore === null ? 0 : 1;
@@ -232,6 +258,21 @@ export async function getPerformance(userId: string): Promise<PerformanceData> {
 
   const studyWeeks = groupByWeek(sessionsRes.data ?? []);
 
+  const skillMastery: SkillMastery[] = (skillMasteryRes.data ?? [])
+    .map((row) => ({
+      skill: row.skill,
+      correctCount: row.correct_count,
+      totalCount: row.total_count,
+      masteryPercent: row.mastery_percent,
+      status: row.status,
+    }))
+    .sort((a, b) => a.masteryPercent - b.masteryPercent);
+
+  const commonErrorTypes: CommonErrorType[] = (errorTypesRes.data ?? []).map((row) => ({
+    errorType: row.error_type,
+    occurrences: row.occurrences,
+  }));
+
   return {
     subjectScores,
     overallScore,
@@ -245,6 +286,8 @@ export async function getPerformance(userId: string): Promise<PerformanceData> {
     currentStreak: statsRes.data?.current_streak ?? 0,
     longestStreak: statsRes.data?.longest_streak ?? 0,
     topicMastery,
+    skillMastery,
+    commonErrorTypes,
   };
 }
 
