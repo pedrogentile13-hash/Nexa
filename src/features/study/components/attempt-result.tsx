@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Check, ChevronRight, NotebookPen, RotateCcw, X } from 'lucide-react';
+import { Check, ChevronRight, NotebookPen, PenLine, RotateCcw, X } from 'lucide-react';
 import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { StudyTopBar } from './study-top-bar';
 import { humanDuration } from '../lib/format';
-import type { ResourceDetail } from '../server/queries';
+import type { EssayResult, ResourceDetail, StudyWritingTask } from '../server/queries';
 
 /**
  * Resultado e gabarito.
@@ -30,6 +30,11 @@ interface ReviewRow {
   chosen_option_id: string | null;
   correct_option_id: string | null;
   is_correct: boolean;
+  // ---- simulados v2 (metadados pedagógicos, para análise posterior) ----
+  subject_name?: string;
+  subtopic?: string | null;
+  skills?: string[];
+  time_spent_seconds?: number;
 }
 
 interface TopicRow {
@@ -42,6 +47,8 @@ interface TopicRow {
 export function AttemptResult({
   resource,
   result,
+  writingTasks = [],
+  essays = [],
 }: {
   resource: ResourceDetail;
   result: {
@@ -49,6 +56,8 @@ export function AttemptResult({
     review: ReviewRow[];
     topics: TopicRow[];
   };
+  writingTasks?: StudyWritingTask[];
+  essays?: EssayResult[];
 }) {
   const [filter, setFilter] = useState<'todas' | 'acertos' | 'erros'>('todas');
 
@@ -209,7 +218,18 @@ export function AttemptResult({
                       </span>
                       {row.statement}
                     </p>
-                    {row.topic_name && <p className="text-subtle mt-1 text-xs">{row.topic_name}</p>}
+                    {(row.topic_name || row.subject_name || (row.skills && row.skills.length > 0)) && (
+                      <p className="text-subtle mt-1 flex flex-wrap items-center gap-x-1.5 text-xs">
+                        {row.subject_name && row.subject_name !== resource.subjectName && (
+                          <span className="bg-surface-2 rounded-full px-1.5 py-0.5">{row.subject_name}</span>
+                        )}
+                        {row.topic_name}
+                        {row.subtopic && ` · ${row.subtopic}`}
+                        {typeof row.time_spent_seconds === 'number' && row.time_spent_seconds > 0 && (
+                          <span> · {humanDuration(row.time_spent_seconds)}</span>
+                        )}
+                      </p>
+                    )}
                     {row.explanation && (
                       <p className="text-muted mt-2 border-l-2 border-current/20 pl-3 text-sm leading-relaxed">
                         {row.explanation}
@@ -221,6 +241,63 @@ export function AttemptResult({
             ))}
           </ol>
         </section>
+
+        {writingTasks.length > 0 && (
+          <section>
+            <h2 className="text-muted mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase">
+              <PenLine className="size-3.5" aria-hidden />
+              Redação
+            </h2>
+            <div className="space-y-3">
+              {writingTasks.map((task) => {
+                const essay = essays.find((e) => e.writingTaskId === task.id);
+                const graded = essay?.totalScore !== null && essay?.totalScore !== undefined;
+                return (
+                  <div key={task.id} className="border-border bg-surface rounded-lg border p-4">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-sm font-semibold">{task.title}</p>
+                      {essay && (
+                        <span className="text-subtle text-xs">
+                          {essay.wordCount} palavra{essay.wordCount === 1 ? '' : 's'}
+                        </span>
+                      )}
+                    </div>
+
+                    {!essay || !essay.isSubmitted ? (
+                      <p className="text-muted mt-2 text-sm">Não entregue.</p>
+                    ) : graded ? (
+                      <>
+                        <p className="text-success mt-2 text-2xl font-semibold tabular-nums">
+                          {essay.totalScore}
+                        </p>
+                        {task.evaluationCriteria.length > 0 && essay.scores && (
+                          <ul className="mt-2 space-y-1">
+                            {task.evaluationCriteria.map((c) => (
+                              <li key={c.id} className="text-muted flex items-center justify-between text-xs">
+                                <span>{c.name}</span>
+                                <span className="tabular-nums">
+                                  {essay.scores?.[c.id] ?? 0}/{c.maxScore}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-warning mt-2 text-sm">Aguardando correção do professor.</p>
+                    )}
+
+                    {essay?.content && (
+                      <p className="text-muted mt-3 line-clamp-3 text-sm leading-relaxed whitespace-pre-wrap">
+                        {essay.content}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

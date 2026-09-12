@@ -14,6 +14,8 @@
  * pointing anywhere near this file.
  */
 
+import type { EvaluationCriterion, ExamAsset, ExamMode, ExamSection, ExamSettings } from './simulado';
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type RoundingMode = 'half_up' | 'half_even' | 'floor' | 'ceil';
@@ -48,7 +50,7 @@ export type XpSourceType =
   | 'resource';
 export type UserRole = 'student' | 'school_admin' | 'admin' | 'teacher_admin';
 export type ResourceKind = 'resumo' | 'podcast' | 'video' | 'imagem' | 'musica' | 'quiz' | 'simulado';
-export type Difficulty = 'facil' | 'medio' | 'dificil';
+export type Difficulty = 'facil' | 'medio' | 'anglo' | 'dificil';
 export type TrackCategory = 'enem' | 'fundamental' | 'reforco' | 'carreiras' | 'habilidades';
 export type LessonState = 'available' | 'in_progress' | 'done' | 'mastered';
 export type AchievementCategory =
@@ -348,6 +350,14 @@ export type ResourceRow = {
   pdf_status: 'processado' | 'erro' | null;
   /** 1 a 4, ou `null` quando o recurso não é amarrado a um bimestre específico. */
   bimestre: number | null;
+  /** '1.0' = formato legado; '2.0' = simulado v2 (assets/sections/writingTasks). */
+  schema_version: string;
+  settings: ExamSettings;
+  assets: ExamAsset[];
+  sections: ExamSection[];
+  /** `null` = deriva de `kind` (quiz->practice, simulado->exam). */
+  exam_mode: ExamMode | null;
+  exam_style: string | null;
 };
 
 export type ResourceChapterRow = {
@@ -368,6 +378,49 @@ export type QuestionRow = {
   explanation: string | null;
   difficulty: Difficulty;
   points: number;
+  created_at: string;
+  updated_at: string;
+  group_id: string | null;
+  resource_refs: string[];
+  /** `null` = usa a matéria do `resources` pai (prova mista, seção diferente). */
+  subject_catalog_id: string | null;
+  subtopic: string | null;
+  book: number | null;
+  module: number | null;
+  skills: string[];
+  error_types: string[];
+  estimated_time_seconds: number | null;
+};
+
+export type WritingTaskRow = {
+  id: string;
+  resource_id: string;
+  position: number;
+  title: string;
+  genre: string | null;
+  theme: string | null;
+  prompt: string;
+  instructions: string[];
+  resource_refs: string[];
+  min_words: number | null;
+  max_words: number | null;
+  evaluation_criteria: EvaluationCriterion[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type EssaySubmissionRow = {
+  id: string;
+  attempt_id: string;
+  writing_task_id: string;
+  content: string;
+  word_count: number;
+  is_submitted: boolean;
+  submitted_at: string | null;
+  scores: Record<string, number> | null;
+  total_score: number | null;
+  corrected_by: string | null;
+  corrected_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -459,6 +512,8 @@ export type QuizAnswerRow = {
   option_id: string | null;
   is_correct: boolean;
   answered_at: string;
+  flagged: boolean;
+  time_spent_seconds: number;
 };
 
 export type LessonProgressRow = {
@@ -651,6 +706,8 @@ export type Database = {
       push_subscriptions: Table<PushSubscriptionRow>;
       teacher_assignments: Table<TeacherAssignmentRow>;
       classes: Table<ClassRow>;
+      writing_tasks: Table<WritingTaskRow>;
+      essay_submissions: Table<EssaySubmissionRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -752,13 +809,31 @@ export type Database = {
           difficulty: Difficulty;
           points: number;
           topic_name: string | null;
+          subject_name: string;
+          group_id: string | null;
+          resource_refs: string[];
+          subtopic: string | null;
+          skills: string[];
           options: { id: string; position: number; body: string }[];
         }[];
       };
       start_quiz_attempt: { Args: { p_resource_id: string }; Returns: string };
+      quiz_attempt_state: {
+        Args: { p_attempt_id: string };
+        Returns: { question_id: string; option_id: string | null; flagged: boolean }[];
+      };
       answer_quiz_question: {
-        Args: { p_attempt_id: string; p_question_id: string; p_option_id: string | null };
+        Args: {
+          p_attempt_id: string;
+          p_question_id: string;
+          p_option_id: string | null;
+          p_time_spent_seconds?: number;
+        };
         Returns: { is_correct: boolean; correct_option_id: string | null; explanation: string | null }[];
+      };
+      toggle_question_flag: {
+        Args: { p_attempt_id: string; p_question_id: string };
+        Returns: boolean;
       };
       finish_quiz_attempt: {
         Args: { p_attempt_id: string };
@@ -777,9 +852,46 @@ export type Database = {
           statement: string;
           explanation: string | null;
           topic_name: string | null;
+          subject_name: string;
+          subtopic: string | null;
+          book: number | null;
+          module: number | null;
+          skills: string[];
+          error_types: string[];
+          difficulty: Difficulty;
+          resource_refs: string[];
+          time_spent_seconds: number;
           chosen_option_id: string | null;
           correct_option_id: string | null;
           is_correct: boolean;
+        }[];
+      };
+      save_essay_draft: {
+        Args: { p_attempt_id: string; p_writing_task_id: string; p_content: string };
+        Returns: number;
+      };
+      submit_essay: {
+        Args: { p_attempt_id: string; p_writing_task_id: string };
+        Returns: undefined;
+      };
+      grade_essay: {
+        Args: { p_essay_id: string; p_scores: Record<string, number>; p_total_score: number };
+        Returns: undefined;
+      };
+      list_essays_for_grading: {
+        Args: { p_resource_id: string };
+        Returns: {
+          essay_id: string;
+          attempt_id: string;
+          writing_task_id: string;
+          writing_task_title: string;
+          student_name: string | null;
+          content: string;
+          word_count: number;
+          submitted_at: string | null;
+          total_score: number | null;
+          scores: Record<string, number> | null;
+          evaluation_criteria: EvaluationCriterion[];
         }[];
       };
       quiz_attempt_topics: {

@@ -48,6 +48,7 @@ export default async function QuestionsPage({ params }: { params: Promise<{ id: 
           resourceId={resource.id}
           questions={questions}
           topics={topics.map((t) => ({ id: t.id, name: t.name }))}
+          assets={resource.assets}
         />
       </div>
     </>

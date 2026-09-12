@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Field, FormFeedback, Select, SubmitButton, Textarea } from './form-parts';
 import { DIFFICULTIES } from '../lib/labels';
 import { deleteQuestion, saveQuestion, type AdminState } from '../server/actions';
+import type { ExamAsset } from '@/types/simulado';
 
 /**
  * Cadastro de questões.
@@ -28,6 +29,8 @@ export interface EditableQuestion {
   explanation: string | null;
   difficulty: string;
   topic_id: string | null;
+  group_id: string | null;
+  resource_refs: string[];
   options: { id: string; position: number; body: string; is_correct: boolean }[];
 }
 
@@ -38,14 +41,18 @@ export function QuestionEditor({
   resourceId,
   questions,
   topics,
+  assets = [],
 }: {
   resourceId: string;
   questions: EditableQuestion[];
   topics: { id: string; name: string }[];
+  /** Recursos já cadastrados no `ResourceForm` ("Recursos da prova") — vinculáveis a questões. */
+  assets?: ExamAsset[];
 }) {
   const [state, formAction] = useActionState(saveQuestion, INITIAL);
   const [editing, setEditing] = useState<EditableQuestion | null>(null);
   const [optionCount, setOptionCount] = useState(4);
+  const [selectedRefs, setSelectedRefs] = useState<string[]>([]);
 
   const current = editing;
   const initialOptions = current ? current.options.map((o) => o.body) : EMPTY_OPTIONS;
@@ -76,6 +83,23 @@ export function QuestionEditor({
                   </span>
 
                   <div className="min-w-0 flex-1">
+                    {(question.group_id || question.resource_refs.length > 0) && (
+                      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                        {question.group_id && (
+                          <span className="bg-surface-2 text-subtle rounded-full px-2 py-0.5 text-[11px] font-medium">
+                            Grupo {question.group_id}
+                          </span>
+                        )}
+                        {question.resource_refs.map((ref) => (
+                          <span
+                            key={ref}
+                            className="border-border text-subtle rounded-full border px-2 py-0.5 text-[11px]"
+                          >
+                            {ref}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <p className="text-sm font-medium">{question.statement}</p>
 
                     <ul className="mt-2 space-y-1">
@@ -116,6 +140,7 @@ export function QuestionEditor({
                       onClick={() => {
                         setEditing(question);
                         setOptionCount(question.options.length);
+                        setSelectedRefs(question.resource_refs);
                       }}
                       aria-label={`Editar questão ${question.position}`}
                       className="text-muted hover:bg-surface-2 hover:text-text grid size-11 place-items-center rounded-md"
@@ -157,6 +182,7 @@ export function QuestionEditor({
                 onClick={() => {
                   setEditing(null);
                   setOptionCount(4);
+                  setSelectedRefs([]);
                 }}
                 aria-label="Cancelar edição"
                 className="text-muted hover:text-text grid size-11 place-items-center rounded-md"
@@ -246,6 +272,39 @@ export function QuestionEditor({
               </Select>
             </Field>
           </div>
+
+          <Field label="Grupo" hint="opcional — agrupa questões do mesmo texto-base">
+            <Input name="groupId" defaultValue={current?.group_id ?? ''} placeholder="G1" />
+          </Field>
+
+          {assets.length > 0 && (
+            <fieldset>
+              <legend className="text-text mb-1.5 block text-sm font-medium">
+                Vincular recursos <span className="text-subtle font-normal">· texto, imagem, gráfico...</span>
+              </legend>
+              <div className="space-y-1.5">
+                {assets.map((asset) => (
+                  <label key={asset.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="resourceRefs"
+                      value={asset.id}
+                      checked={selectedRefs.includes(asset.id)}
+                      onChange={(e) =>
+                        setSelectedRefs((refs) =>
+                          e.target.checked ? [...refs, asset.id] : refs.filter((r) => r !== asset.id),
+                        )
+                      }
+                      className="accent-brand size-4 shrink-0"
+                    />
+                    <span className="text-muted">
+                      {asset.title ?? asset.id} <span className="text-subtle">({asset.id})</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
 
           <FormFeedback state={state} />
           <SubmitButton>{current ? 'Salvar questão' : 'Adicionar questão'}</SubmitButton>

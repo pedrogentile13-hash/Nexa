@@ -76,6 +76,7 @@ export const QUESTION_KINDS: ResourceKind[] = ['quiz', 'simulado'];
 export const DIFFICULTIES: { value: Difficulty; label: string }[] = [
   { value: 'facil', label: 'Fácil' },
   { value: 'medio', label: 'Médio' },
+  { value: 'anglo', label: 'Anglo' },
   { value: 'dificil', label: 'Difícil' },
 ];
 

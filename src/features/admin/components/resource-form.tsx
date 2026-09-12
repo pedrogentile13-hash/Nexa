@@ -1,8 +1,8 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ListChecks, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, ListChecks, PenLine, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,7 @@ import { Field, FormFeedback, Select, SubmitButton, Textarea, Toggle } from './f
 import { MEDIA_KINDS, QUESTION_KINDS, RESOURCE_KINDS, DIFFICULTIES } from '../lib/labels';
 import { BIMESTRES } from '@/lib/design/bimestre';
 import { MediaUpload } from './media-upload';
+import { parseAssets } from '../lib/simulado-import';
 import { deleteResource, saveResource, type AdminState } from '../server/actions';
 import type { ResourceFormOptions } from '../server/queries';
 import type { ResourceKind, ResourceRow } from '@/types/database.types';
@@ -61,6 +62,23 @@ export function ResourceForm({
   const isMedia = MEDIA_KINDS.includes(kind);
   const isQuestions = QUESTION_KINDS.includes(kind);
   const topics = options.topics.filter((t) => t.subjectId === subjectId);
+
+  const [assetsJson, setAssetsJson] = useState(() =>
+    JSON.stringify(resource?.assets ?? [], null, 2),
+  );
+  const assetsValidation = useMemo(() => {
+    if (!isQuestions) return null;
+    const trimmed = assetsJson.trim();
+    if (!trimmed || trimmed === '[]') return { count: 0, errors: [] as string[] };
+    try {
+      const parsed = JSON.parse(trimmed);
+      const errors: string[] = [];
+      const assets = parseAssets(parsed, errors);
+      return { count: assets.length, errors };
+    } catch {
+      return { count: 0, errors: ['isso não é um JSON válido — confira vírgulas e colchetes.'] };
+    }
+  }, [assetsJson, isQuestions]);
 
   return (
     <div className="space-y-4">
@@ -314,12 +332,22 @@ export function ResourceForm({
             </p>
 
             {resource && (
-              <Button asChild variant="secondary">
-                <Link href={`${basePath}/${resource.id}/questoes`}>
-                  <ListChecks aria-hidden />
-                  Cadastrar questões
-                </Link>
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="secondary">
+                  <Link href={`${basePath}/${resource.id}/questoes`}>
+                    <ListChecks aria-hidden />
+                    Cadastrar questões
+                  </Link>
+                </Button>
+                {kind === 'simulado' && (
+                  <Button asChild variant="secondary">
+                    <Link href={`${basePath}/${resource.id}/redacoes`}>
+                      <PenLine aria-hidden />
+                      Corrigir redações
+                    </Link>
+                  </Button>
+                )}
+              </div>
             )}
 
             {kind === 'simulado' && (
@@ -332,6 +360,41 @@ export function ResourceForm({
                 />
               </Field>
             )}
+
+            <Field
+              label="Recursos da prova"
+              hint="JSON — textos-base, imagens, gráficos, tabelas (mesmo formato do importador v2)"
+            >
+              <Textarea
+                name="assetsJson"
+                rows={8}
+                value={assetsJson}
+                onChange={(e) => setAssetsJson(e.target.value)}
+                className="font-mono text-xs leading-relaxed"
+                placeholder='[{ "id": "TXT01", "type": "text", "content": "..." }]'
+              />
+              {assetsValidation && (
+                <p
+                  className={cn(
+                    'mt-1.5 flex items-start gap-1.5 text-xs',
+                    assetsValidation.errors.length > 0 ? 'text-danger' : 'text-muted',
+                  )}
+                >
+                  {assetsValidation.errors.length > 0 ? (
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  ) : (
+                    <Check className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  )}
+                  <span>
+                    {assetsValidation.errors.length > 0
+                      ? assetsValidation.errors[0]
+                      : assetsValidation.count === 0
+                        ? 'sem recursos — as questões podem referenciá-los depois'
+                        : `${assetsValidation.count} recurso${assetsValidation.count === 1 ? '' : 's'} reconhecido${assetsValidation.count === 1 ? '' : 's'}`}
+                  </span>
+                </p>
+              )}
+            </Field>
           </section>
         )}
 

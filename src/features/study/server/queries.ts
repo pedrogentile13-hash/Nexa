@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Difficulty, ResourceKind } from '@/types/database.types';
+import type { EvaluationCriterion, ExamAsset, ExamMode, ExamSection, ExamSettings } from '@/types/simulado';
 
 /**
  * Leituras da aba Estudar.
@@ -185,6 +186,34 @@ export interface ResourceDetail {
   pdfPageCount: number | null;
   chapters: { id: string; label: string; startsAtSeconds: number }[];
   highlights: { id: string; quote: string }[];
+  // ---- simulados v2 ----
+  assets: ExamAsset[];
+  sections: ExamSection[];
+  settings: ExamSettings;
+  /** `null` = deriva de `kind` (quiz->practice, simulado->exam). */
+  examMode: ExamMode | null;
+}
+
+export interface StudyWritingTask {
+  id: string;
+  title: string;
+  genre: string | null;
+  theme: string | null;
+  prompt: string;
+  instructions: string[];
+  resourceRefs: string[];
+  minWords: number | null;
+  maxWords: number | null;
+  evaluationCriteria: EvaluationCriterion[];
+}
+
+export interface EssayResult {
+  writingTaskId: string;
+  content: string;
+  wordCount: number;
+  isSubmitted: boolean;
+  totalScore: number | null;
+  scores: Record<string, number> | null;
 }
 
 /**
@@ -208,7 +237,7 @@ export async function getResourceDetail(id: string): Promise<ResourceDetail | nu
     supabase
       .from('resources')
       .select(
-        'id, kind, title, subtitle, description, body, storage_path, external_url, thumbnail_url, duration_seconds, time_limit_seconds, xp_reward, tags, content_format, pdf_page_count, subject_catalog(name, default_color), content_topics(name)',
+        'id, kind, title, subtitle, description, body, storage_path, external_url, thumbnail_url, duration_seconds, time_limit_seconds, xp_reward, tags, content_format, pdf_page_count, assets, sections, settings, exam_mode, subject_catalog(name, default_color), content_topics(name)',
       )
       .eq('id', id)
       .maybeSingle(),
@@ -261,7 +290,54 @@ export async function getResourceDetail(id: string): Promise<ResourceDetail | nu
       startsAtSeconds: c.starts_at_seconds,
     })),
     highlights: highlightsRes.data ?? [],
+    assets: r.assets ?? [],
+    sections: r.sections ?? [],
+    settings: r.settings ?? {},
+    examMode: r.exam_mode,
   };
+}
+
+/** Redações de um simulado (sem gabarito — redação não tem um). */
+export async function getWritingTasks(resourceId: string): Promise<StudyWritingTask[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('writing_tasks')
+    .select(
+      'id, title, genre, theme, prompt, instructions, resource_refs, min_words, max_words, evaluation_criteria',
+    )
+    .eq('resource_id', resourceId)
+    .order('position');
+
+  return (data ?? []).map((w) => ({
+    id: w.id,
+    title: w.title,
+    genre: w.genre,
+    theme: w.theme,
+    prompt: w.prompt,
+    instructions: w.instructions,
+    resourceRefs: w.resource_refs,
+    minWords: w.min_words,
+    maxWords: w.max_words,
+    evaluationCriteria: w.evaluation_criteria,
+  }));
+}
+
+/** Redações entregues de uma tentativa — com nota quando já corrigida. */
+export async function getEssayResults(attemptId: string): Promise<EssayResult[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('essay_submissions')
+    .select('writing_task_id, content, word_count, is_submitted, total_score, scores')
+    .eq('attempt_id', attemptId);
+
+  return (data ?? []).map((e) => ({
+    writingTaskId: e.writing_task_id,
+    content: e.content,
+    wordCount: e.word_count,
+    isSubmitted: e.is_submitted,
+    totalScore: e.total_score,
+    scores: e.scores,
+  }));
 }
 
 export async function getLessonResources(lessonId: string) {

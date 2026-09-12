@@ -4,7 +4,7 @@ import { InteractiveReader } from './interactive-reader';
 import { QuizRunner } from './quiz-runner';
 import { MediaPlayer } from './media-player';
 import { ImageCard } from './image-card';
-import type { ResourceDetail } from '../server/queries';
+import type { ResourceDetail, StudyWritingTask } from '../server/queries';
 
 /**
  * Uma rota, sete telas.
@@ -20,15 +20,22 @@ export interface QuizQuestion {
   difficulty: string;
   points: number;
   topic_name: string | null;
+  subject_name: string;
+  group_id: string | null;
+  resource_refs: string[];
+  subtopic: string | null;
+  skills: string[];
   options: { id: string; position: number; body: string }[];
 }
 
 export function ResourceViewer({
   resource,
   questions,
+  writingTasks = [],
 }: {
   resource: ResourceDetail;
   questions: QuizQuestion[];
+  writingTasks?: StudyWritingTask[];
 }) {
   switch (resource.kind) {
     case 'resumo':
@@ -37,7 +44,7 @@ export function ResourceViewer({
       return <ReaderView resource={resource} />;
     case 'quiz':
     case 'simulado':
-      return <QuizRunner resource={resource} questions={questions} />;
+      return <QuizRunner resource={resource} questions={questions} writingTasks={writingTasks} />;
     case 'podcast':
     case 'musica':
     case 'video':

@@ -84,12 +84,14 @@ export async function answerQuestion(
   attemptId: string,
   questionId: string,
   optionId: string | null,
+  timeSpentSeconds = 0,
 ): Promise<AnswerResult | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('answer_quiz_question', {
     p_attempt_id: attemptId,
     p_question_id: questionId,
     p_option_id: optionId,
+    p_time_spent_seconds: Math.max(0, Math.round(timeSpentSeconds)),
   });
 
   if (error || !data?.[0]) return null;
@@ -101,6 +103,82 @@ export async function answerQuestion(
   };
 }
 
+export interface AttemptAnswerState {
+  questionId: string;
+  optionId: string | null;
+  flagged: boolean;
+}
+
+/** Restaura respostas e marcações já salvas — recarregar a página não perde nada. */
+export async function getAttemptState(attemptId: string): Promise<AttemptAnswerState[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('quiz_attempt_state', { p_attempt_id: attemptId });
+  return (data ?? []).map((row) => ({
+    questionId: row.question_id,
+    optionId: row.option_id,
+    flagged: row.flagged,
+  }));
+}
+
+/** "Marcar para revisar". Devolve o novo estado (true = marcada). */
+export async function toggleQuestionFlag(attemptId: string, questionId: string): Promise<boolean | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('toggle_question_flag', {
+    p_attempt_id: attemptId,
+    p_question_id: questionId,
+  });
+  if (error) return null;
+  return data;
+}
+
+/** Autosave da redação — devolve a contagem de palavras pro contador ao vivo. */
+export async function saveEssayDraft(
+  attemptId: string,
+  writingTaskId: string,
+  content: string,
+): Promise<number | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('save_essay_draft', {
+    p_attempt_id: attemptId,
+    p_writing_task_id: writingTaskId,
+    p_content: content,
+  });
+  if (error) return null;
+  return data;
+}
+
+export async function submitEssay(attemptId: string, writingTaskId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('submit_essay', {
+    p_attempt_id: attemptId,
+    p_writing_task_id: writingTaskId,
+  });
+  return !error;
+}
+
+export interface EssayDraft {
+  writingTaskId: string;
+  content: string;
+  wordCount: number;
+  isSubmitted: boolean;
+}
+
+/** Hidrata o editor de redação ao entrar/retomar uma tentativa. */
+export async function getEssayDrafts(attemptId: string): Promise<EssayDraft[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('essay_submissions')
+    .select('writing_task_id, content, word_count, is_submitted')
+    .eq('attempt_id', attemptId);
+
+  return (data ?? []).map((d) => ({
+    writingTaskId: d.writing_task_id,
+    content: d.content,
+    wordCount: d.word_count,
+    isSubmitted: d.is_submitted,
+  }));
+}
+
 export interface FinishResult {
   correctCount: number;
   totalCount: number;
@@ -110,6 +188,20 @@ export interface FinishResult {
 
 export async function finishAttempt(attemptId: string): Promise<FinishResult | null> {
   const supabase = await createClient();
+
+  // Qualquer rascunho de redação com conteúdo e ainda não entregue é
+  // auto-entregue ao finalizar — a prova não pode fechar com um texto
+  // escrito e nunca submetido, mesmo se o aluno saiu sem clicar "Entregar".
+  const { data: drafts } = await supabase
+    .from('essay_submissions')
+    .select('writing_task_id, content, is_submitted')
+    .eq('attempt_id', attemptId);
+  for (const draft of drafts ?? []) {
+    if (!draft.is_submitted && draft.content.trim()) {
+      await supabase.rpc('submit_essay', { p_attempt_id: attemptId, p_writing_task_id: draft.writing_task_id });
+    }
+  }
+
   const { data, error } = await supabase.rpc('finish_quiz_attempt', { p_attempt_id: attemptId });
 
   if (error || !data?.[0]) return null;

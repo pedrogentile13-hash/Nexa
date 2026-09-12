@@ -1,19 +1,42 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, ChevronRight, CircleHelp, Clock, Loader2, Sparkles, X } from 'lucide-react';
+import {
+  Check,
+  ChevronRight,
+  CircleHelp,
+  Clock,
+  Flag,
+  Grid3x3,
+  Loader2,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { StudyTopBar } from './study-top-bar';
+import { QuestionAssets } from './question-assets';
+import { WritingTaskRunner } from './writing-task-runner';
 import { clockTime, humanDuration } from '../lib/format';
-import { answerQuestion, finishAttempt, startAttempt } from '../server/actions';
-import type { ResourceDetail } from '../server/queries';
+import {
+  answerQuestion,
+  finishAttempt,
+  getAttemptState,
+  getEssayDrafts,
+  startAttempt,
+  toggleQuestionFlag,
+  type EssayDraft,
+} from '../server/actions';
+import type { ResourceDetail, StudyWritingTask } from '../server/queries';
 import type { QuizQuestion } from './resource-viewer';
 
 /**
- * Execução de quiz e simulado.
+ * Execução de quiz e simulado — agora também seções por matéria, textos-base
+ * e recursos por questão, navegador com marcação, retomada de tentativa e
+ * redação.
  *
  * São produtos diferentes na mesma máquina:
  *   • QUIZ — feedback na hora, com a explicação. Serve para aprender.
@@ -21,34 +44,48 @@ import type { QuizQuestion } from './resource-viewer';
  *
  * Misturar os dois destruiria os dois: um simulado que corrige na hora vira
  * quiz longo, e um quiz que só corrige no fim perde a razão de existir.
+ * `resource.examMode` pode sobrescrever isso explicitamente (JSON v2); sem
+ * ele, deriva de `kind` — comportamento idêntico ao de sempre.
  *
  * Nenhuma resposta é conferida aqui. `answerQuestion` chama a função do banco,
- * que corrige e devolve o veredito — o gabarito nunca chega a este componente,
- * então não há o que inspecionar no DevTools.
+ * que corrige e devolve o veredito — o gabarito nunca chega a este componente.
  */
 
-type Phase = 'intro' | 'running' | 'done';
+type Phase = 'intro' | 'running' | 'writing' | 'done';
 
 export function QuizRunner({
   resource,
   questions,
+  writingTasks,
 }: {
   resource: ResourceDetail;
   questions: QuizQuestion[];
+  writingTasks: StudyWritingTask[];
 }) {
   const router = useRouter();
-  const isQuiz = resource.kind === 'quiz';
+  const examMode = resource.examMode ?? (resource.kind === 'quiz' ? 'practice' : 'exam');
+  const isQuiz = examMode === 'practice';
+
+  // Seções por matéria (v2) reordenam a lista; sem seção, a ordem é a mesma
+  // de cadastro de sempre. Questões que nenhuma seção referencia (ou quando
+  // não há seções) ficam no fim, na ordem original — nada some.
+  const orderedQuestions = orderBySections(questions, resource.sections);
 
   const [phase, setPhase] = useState<Phase>('intro');
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
+  const [writingIndex, setWritingIndex] = useState(0);
   const [chosen, setChosen] = useState<string | null>(null);
   const [verdict, setVerdict] = useState<{
     isCorrect: boolean;
     correctOptionId: string | null;
     explanation: string | null;
   } | null>(null);
-  const [answered, setAnswered] = useState<Record<string, boolean>>({});
+  const [answeredMap, setAnsweredMap] = useState<Record<string, string | null>>({});
+  const [flaggedMap, setFlaggedMap] = useState<Record<string, boolean>>({});
+  const [essayDrafts, setEssayDrafts] = useState<EssayDraft[]>([]);
+  const [showNavigator, setShowNavigator] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
   const [summary, setSummary] = useState<{
     correctCount: number;
     totalCount: number;
@@ -59,13 +96,26 @@ export function QuizRunner({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const question = questions[index];
-  const total = questions.length;
+  const question = orderedQuestions[index];
+  const total = orderedQuestions.length;
+
+  // Tempo por questão: acumula em segundo plano, some junto da resposta.
+  const timeAccumRef = useRef<Record<string, number>>({});
+  const enteredAtRef = useRef<number>(Date.now());
+  useEffect(() => {
+    enteredAtRef.current = Date.now();
+  }, [index]);
+  function flushTime(questionId: string | undefined) {
+    if (!questionId) return;
+    const spent = (Date.now() - enteredAtRef.current) / 1000;
+    timeAccumRef.current[questionId] = (timeAccumRef.current[questionId] ?? 0) + spent;
+    enteredAtRef.current = Date.now();
+  }
 
   // Cronômetro só do simulado. No quiz ele viraria pressão sem propósito —
   // e pressão é exatamente o que atrapalha quem está tentando entender.
   useEffect(() => {
-    if (phase !== 'running' || isQuiz) return;
+    if ((phase !== 'running' && phase !== 'writing') || isQuiz) return;
     const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(timer);
   }, [phase, isQuiz]);
@@ -81,44 +131,98 @@ export function QuizRunner({
         setError(result.message);
         return;
       }
+      const [state, drafts] = await Promise.all([
+        getAttemptState(result.attemptId),
+        writingTasks.length > 0 ? getEssayDrafts(result.attemptId) : Promise.resolve([]),
+      ]);
+
+      const answered: Record<string, string | null> = {};
+      const flagged: Record<string, boolean> = {};
+      for (const row of state) {
+        answered[row.questionId] = row.optionId;
+        flagged[row.questionId] = row.flagged;
+      }
+
       setAttemptId(result.attemptId);
-      setPhase('running');
+      setAnsweredMap(answered);
+      setFlaggedMap(flagged);
+      setEssayDrafts(drafts);
+
+      // Retoma na primeira questão sem resposta — quem já respondeu tudo cai
+      // na última, pronto para revisar/finalizar.
+      const firstUnanswered = orderedQuestions.findIndex((q) => !(q.question_id in answered));
+      setIndex(total === 0 ? 0 : firstUnanswered === -1 ? total - 1 : firstUnanswered);
+      setPhase(total > 0 ? 'running' : 'writing');
     });
   }
 
   function submitAnswer(optionId: string) {
     if (!attemptId || !question) return;
     if (chosen === optionId) return;
-    // No quiz a resposta trava assim que chega o veredito — é o que faz o
-    // "certo/errado" logo abaixo valer alguma coisa. No simulado não existe
-    // veredito nenhum até o fim, então travar na primeira resposta só criava
-    // um jeito de errar por acidente sem chance de corrigir: um toque errado
-    // ficava definitivo. `answer_quiz_question` já aceita trocar de
-    // alternativa antes de encerrar ("a última vale") — faltava só deixar o
-    // botão clicável de novo.
     if (isQuiz && chosen) return;
     setChosen(optionId);
 
-    // `answerQuestion` devolve `null` em qualquer falha (rede, RLS, o que
-    // for) — sem lançar. Se o "Continuar" ficasse preso a `verdict`, uma
-    // resposta que não voltou travava o aluno na questão pra sempre, sem
-    // nenhum aviso. O avanço agora depende só de `chosen` (escolha local,
-    // sempre confiável); o veredito é um bônus quando a chamada dá certo,
-    // nunca um bloqueio.
+    const spent = timeAccumRef.current[question.question_id] ?? 0;
+    timeAccumRef.current[question.question_id] = 0;
+    const enteredNow = (Date.now() - enteredAtRef.current) / 1000;
+
     startTransition(async () => {
-      const result = await answerQuestion(attemptId, question.question_id, optionId);
+      const result = await answerQuestion(attemptId, question.question_id, optionId, spent + enteredNow);
+      enteredAtRef.current = Date.now();
+      setAnsweredMap((current) => ({ ...current, [question.question_id]: optionId }));
       if (result) {
-        setAnswered((current) => ({ ...current, [question.question_id]: result.isCorrect }));
         if (isQuiz) setVerdict(result);
       }
     });
   }
 
-  function advance() {
+  function toggleFlag() {
+    if (!attemptId || !question) return;
+    const questionId = question.question_id;
+    setFlaggedMap((current) => ({ ...current, [questionId]: !current[questionId] }));
+    startTransition(async () => {
+      const next = await toggleQuestionFlag(attemptId, questionId);
+      if (next !== null) setFlaggedMap((current) => ({ ...current, [questionId]: next }));
+    });
+  }
+
+  function goTo(nextIndex: number) {
+    flushTime(question?.question_id);
     setVerdict(null);
     setChosen(null);
+    setIndex(nextIndex);
+    setShowNavigator(false);
+  }
+
+  function advance() {
     if (index + 1 < total) {
-      setIndex((i) => i + 1);
+      goTo(index + 1);
+      return;
+    }
+    tryFinishOrWrite();
+  }
+
+  function goBack() {
+    if (index > 0) goTo(index - 1);
+  }
+
+  const unansweredCount = orderedQuestions.filter((q) => !(q.question_id in answeredMap)).length;
+  const flaggedCount = orderedQuestions.filter((q) => flaggedMap[q.question_id]).length;
+
+  function tryFinishOrWrite() {
+    if (unansweredCount > 0 || flaggedCount > 0) {
+      setConfirmFinish(true);
+      return;
+    }
+    proceedPastQuestions();
+  }
+
+  function proceedPastQuestions() {
+    setConfirmFinish(false);
+    flushTime(question?.question_id);
+    if (writingTasks.length > 0) {
+      setPhase('writing');
+      setWritingIndex(0);
       return;
     }
     finish();
@@ -131,6 +235,14 @@ export function QuizRunner({
       if (result) setSummary(result);
       setPhase('done');
     });
+  }
+
+  function onWritingDone() {
+    if (writingIndex + 1 < writingTasks.length) {
+      setWritingIndex((i) => i + 1);
+      return;
+    }
+    finish();
   }
 
   // ------------------------------------------------------------- intro --
@@ -157,13 +269,23 @@ export function QuizRunner({
             )}
 
             <dl className="text-muted mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm">
-              <div>
-                <dt className="sr-only">Questões</dt>
-                <dd className="tabular-nums">
-                  <strong className="text-text font-semibold">{total}</strong>{' '}
-                  {total === 1 ? 'questão' : 'questões'}
-                </dd>
-              </div>
+              {total > 0 && (
+                <div>
+                  <dt className="sr-only">Questões</dt>
+                  <dd className="tabular-nums">
+                    <strong className="text-text font-semibold">{total}</strong>{' '}
+                    {total === 1 ? 'questão' : 'questões'}
+                  </dd>
+                </div>
+              )}
+              {writingTasks.length > 0 && (
+                <div>
+                  <dt className="sr-only">Redação</dt>
+                  <dd className="tabular-nums">
+                    +{writingTasks.length} {writingTasks.length === 1 ? 'redação' : 'redações'}
+                  </dd>
+                </div>
+              )}
               {limit > 0 && (
                 <div>
                   <dt className="sr-only">Tempo</dt>
@@ -190,10 +312,10 @@ export function QuizRunner({
               size="lg"
               className="mt-6 w-full"
               onClick={begin}
-              disabled={pending || total === 0}
+              disabled={pending || (total === 0 && writingTasks.length === 0)}
             >
               {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              {total === 0
+              {total === 0 && writingTasks.length === 0
                 ? 'Ainda sem questões'
                 : isQuiz
                   ? 'Começar o quiz'
@@ -215,14 +337,20 @@ export function QuizRunner({
 
         <div className="mx-auto max-w-2xl space-y-4 px-5 pb-8">
           <div className="border-border bg-surface rounded-2xl border p-6 text-center">
-            <p className="text-5xl leading-none font-semibold tabular-nums">
-              {summary.correctCount}
-              <span className="text-muted text-2xl">/{summary.totalCount}</span>
-            </p>
-            <p className="text-muted mt-2 text-sm">
-              {Math.round(percent)}% de acerto
-              {summary.durationSeconds > 0 && ` · ${humanDuration(summary.durationSeconds)}`}
-            </p>
+            {summary.totalCount > 0 ? (
+              <>
+                <p className="text-5xl leading-none font-semibold tabular-nums">
+                  {summary.correctCount}
+                  <span className="text-muted text-2xl">/{summary.totalCount}</span>
+                </p>
+                <p className="text-muted mt-2 text-sm">
+                  {Math.round(percent)}% de acerto
+                  {summary.durationSeconds > 0 && ` · ${humanDuration(summary.durationSeconds)}`}
+                </p>
+              </>
+            ) : (
+              <p className="text-muted text-sm">Redação entregue.</p>
+            )}
 
             {summary.xpAwarded > 0 && (
               <p className="bg-brand-soft text-brand-text mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold">
@@ -230,15 +358,20 @@ export function QuizRunner({
               </p>
             )}
 
-            {/* A frase que interpreta o número. Sem ela, 13/20 é só um número —
-                e um número sozinho não diz o que fazer amanhã. */}
-            <p className="text-muted mx-auto mt-4 max-w-sm text-sm leading-relaxed">
-              {percent >= 80
-                ? 'Domínio bom deste assunto. Vale partir para o próximo.'
-                : percent >= 50
-                  ? 'A base está de pé. Revisar o que errou fecha a diferença rápido.'
-                  : 'Este assunto ainda não está firme — e agora você sabe exatamente onde.'}
-            </p>
+            {summary.totalCount > 0 && (
+              <p className="text-muted mx-auto mt-4 max-w-sm text-sm leading-relaxed">
+                {percent >= 80
+                  ? 'Domínio bom deste assunto. Vale partir para o próximo.'
+                  : percent >= 50
+                    ? 'A base está de pé. Revisar o que errou fecha a diferença rápido.'
+                    : 'Este assunto ainda não está firme — e agora você sabe exatamente onde.'}
+              </p>
+            )}
+            {writingTasks.length > 0 && (
+              <p className="text-subtle mt-3 text-xs">
+                A redação é corrigida pelo professor — a nota aparece aqui depois.
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3">
@@ -260,6 +393,46 @@ export function QuizRunner({
     );
   }
 
+  // ---------------------------------------------------------- redação --
+  if (phase === 'writing') {
+    const task = writingTasks[writingIndex];
+    if (!task || !attemptId) {
+      return (
+        <div className="grid min-h-dvh place-items-center px-6">
+          <Loader2 className="text-muted size-5 animate-spin" aria-hidden />
+        </div>
+      );
+    }
+    return (
+      <div style={subjectColorVars(resource.subjectColor)}>
+        <StudyTopBar
+          title={`Redação ${writingIndex + 1} de ${writingTasks.length}`}
+          subtitle={resource.subjectName}
+          right={
+            remaining !== null ? (
+              <span
+                className={cn(
+                  'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold tabular-nums',
+                  remaining < 60 ? 'bg-danger-soft text-danger' : 'bg-surface-2 text-muted',
+                )}
+              >
+                <Clock className="size-4" aria-hidden />
+                {clockTime(remaining)}
+              </span>
+            ) : null
+          }
+        />
+        <WritingTaskRunner
+          attemptId={attemptId}
+          task={task}
+          draft={essayDrafts.find((d) => d.writingTaskId === task.id)}
+          assets={resource.assets}
+          onDone={onWritingDone}
+        />
+      </div>
+    );
+  }
+
   if (!question) {
     return (
       <div className="grid min-h-dvh place-items-center px-6">
@@ -268,16 +441,18 @@ export function QuizRunner({
     );
   }
 
-  // Assuntos da sessão: quantas questões de cada tópico, na ordem em que
-  // aparecem — dado que já vem carregado, sem consulta nova.
-  const topicCounts = new Map<string, number>();
-  for (const q of questions) {
-    const label = q.topic_name ?? resource.subjectName;
-    topicCounts.set(label, (topicCounts.get(label) ?? 0) + 1);
-  }
+  const currentSection = resource.sections.find((s) => s.questionIds?.includes(question.question_id));
+  const previousQuestion = orderedQuestions[index - 1];
+  const previousSection = previousQuestion
+    ? resource.sections.find((s) => s.questionIds?.includes(previousQuestion.question_id))
+    : undefined;
+  const showSectionDivider = currentSection && currentSection.id !== previousSection?.id;
 
-  const correctSoFar = Object.values(answered).filter(Boolean).length;
-  const incorrectSoFar = Object.values(answered).filter((v) => !v).length;
+  const isFlagged = Boolean(flaggedMap[question.question_id]);
+  const correctSoFar = orderedQuestions.filter((q) => {
+    const opt = answeredMap[q.question_id];
+    return opt && q.options.some((o) => o.id === opt) && q.question_id in answeredMap && isQuiz;
+  }).length;
 
   // ------------------------------------------------------------ rodando --
   return (
@@ -286,17 +461,27 @@ export function QuizRunner({
         title={`Questão ${index + 1} de ${total}`}
         subtitle={question.topic_name ?? resource.subjectName}
         right={
-          remaining !== null ? (
-            <span
-              className={cn(
-                'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold tabular-nums',
-                remaining < 60 ? 'bg-danger-soft text-danger' : 'bg-surface-2 text-muted',
-              )}
+          <div className="flex items-center gap-2">
+            {remaining !== null && (
+              <span
+                className={cn(
+                  'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold tabular-nums',
+                  remaining < 60 ? 'bg-danger-soft text-danger' : 'bg-surface-2 text-muted',
+                )}
+              >
+                <Clock className="size-4" aria-hidden />
+                {clockTime(remaining)}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowNavigator(true)}
+              aria-label="Ver todas as questões"
+              className="text-muted hover:bg-surface-2 grid size-9 shrink-0 place-items-center rounded-full"
             >
-              <Clock className="size-4" aria-hidden />
-              {clockTime(remaining)}
-            </span>
-          ) : null
+              <Grid3x3 className="size-4" aria-hidden />
+            </button>
+          </div>
         }
       />
 
@@ -312,11 +497,38 @@ export function QuizRunner({
 
       <div className="mx-auto max-w-[1100px] px-5 pt-5 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-6">
       <div className="min-w-0">
-        <h1 className="text-lg leading-snug font-semibold">{question.statement}</h1>
+        {showSectionDivider && currentSection && (
+          <div className="border-border bg-surface-2/60 mb-4 rounded-lg border px-3 py-2">
+            <p className="text-subtle text-xs font-semibold tracking-wide uppercase">
+              {currentSection.title}
+            </p>
+            {currentSection.subject && currentSection.subject !== resource.subjectName && (
+              <p className="text-muted text-xs">{currentSection.subject}</p>
+            )}
+          </div>
+        )}
+
+        <QuestionAssets refs={question.resource_refs} assets={resource.assets} />
+
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-lg leading-snug font-semibold">{question.statement}</h1>
+          <button
+            type="button"
+            onClick={toggleFlag}
+            aria-pressed={isFlagged}
+            aria-label={isFlagged ? 'Desmarcar revisão' : 'Marcar para revisar'}
+            className={cn(
+              'grid size-9 shrink-0 place-items-center rounded-full',
+              isFlagged ? 'bg-warning-soft text-warning' : 'text-subtle hover:bg-surface-2',
+            )}
+          >
+            <Flag className={cn('size-4', isFlagged && 'fill-current')} aria-hidden />
+          </button>
+        </div>
 
         <ul className="mt-5 space-y-2.5">
           {question.options.map((option, optionIndex) => {
-            const isChosen = chosen === option.id;
+            const isChosen = chosen === option.id || (!chosen && answeredMap[question.question_id] === option.id);
             const isRight = verdict?.correctOptionId === option.id;
             const showRight = Boolean(verdict) && isRight;
             const showWrong = Boolean(verdict) && isChosen && !verdict?.isCorrect;
@@ -385,27 +597,6 @@ export function QuizRunner({
             )}
           </div>
         )}
-
-        {/* Trilha de posição: mostra onde está sem virar um menu de navegação
-            que convida a pular questão. */}
-        <ol className="mt-6 flex flex-wrap gap-1.5" aria-label="Progresso nas questões">
-          {questions.map((q, i) => (
-            <li
-              key={q.question_id}
-              aria-current={i === index ? 'step' : undefined}
-              className={cn(
-                'grid size-7 place-items-center rounded-md text-xs font-semibold tabular-nums',
-                i === index
-                  ? 'bg-brand text-brand-fg'
-                  : q.question_id in answered
-                    ? 'bg-surface-2 text-muted'
-                    : 'border-border text-subtle border',
-              )}
-            >
-              {i + 1}
-            </li>
-          ))}
-        </ol>
       </div>
 
       {/* Sidebar: só desktop. No simulado não mostra corretas/incorretas —
@@ -425,78 +616,182 @@ export function QuizRunner({
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-muted flex items-center gap-1.5">
-                  <span aria-hidden className="bg-danger size-2 rounded-full" />
-                  Incorretas
-                </dt>
-                <dd className="tabular font-semibold">{incorrectSoFar}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted flex items-center gap-1.5">
                   <span aria-hidden className="border-border-strong size-2 rounded-full border" />
                   Restantes
                 </dt>
-                <dd className="tabular font-semibold">
-                  {total - correctSoFar - incorrectSoFar}
-                </dd>
+                <dd className="tabular font-semibold">{unansweredCount}</dd>
               </div>
             </dl>
           ) : (
             <p className="text-muted mt-2 text-sm">
-              <span className="text-text tabular font-semibold">{Object.keys(answered).length}</span>{' '}
-              de {total} questões respondidas
+              <span className="text-text tabular font-semibold">{total - unansweredCount}</span> de{' '}
+              {total} questões respondidas
+              {flaggedCount > 0 && (
+                <span className="text-warning block">
+                  {flaggedCount} marcada{flaggedCount === 1 ? '' : 's'} para revisão
+                </span>
+              )}
             </p>
           )}
         </div>
 
-        <div className="border-border bg-surface rounded-2xl border p-4">
-          <h2 className="text-sm font-semibold">Assuntos desta sessão</h2>
-          <ul className="mt-3 space-y-2">
-            {[...topicCounts.entries()].map(([topic, count]) => (
-              <li key={topic} className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-muted min-w-0 truncate">{topic}</span>
-                <span className="text-subtle tabular shrink-0 text-xs">
-                  {count} {count === 1 ? 'questão' : 'questões'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <QuestionNavigatorGrid
+          questions={orderedQuestions}
+          currentId={question.question_id}
+          answered={answeredMap}
+          flagged={flaggedMap}
+          onSelect={(i) => goTo(i)}
+        />
       </aside>
       </div>
 
       {/* O avanço nunca fica preso a uma resposta de servidor: depende só de
-          `chosen` (estado local, sempre confiável), nunca de `verdict`
-          (que pode não chegar) nem de `pending` (a gravação continua em
-          segundo plano, sem travar a navegação).
-
-          `bottom-[...]` no celular, não `bottom-0`: a barra de navegação
-          inferior (`BottomNav`) também é `fixed bottom-0`, e por ser
-          renderizada depois no HTML ela pintava por cima deste rodapé,
-          escondendo o botão inteiro atrás dela. O deslocamento é a mesma
-          altura reservada em `.pb-nav` (globals.css) — no desktop a barra
-          de navegação some (`md:hidden`) e este rodapé volta a encostar no
-          fim da tela. */}
+          `chosen`/`answeredMap` (estado local, sempre confiável). */}
       <div className="pb-safe border-border bg-bg/90 fixed inset-x-0 bottom-[calc(4.25rem_+_env(safe-area-inset-bottom))] z-40 border-t px-5 py-3 backdrop-blur-lg md:bottom-0">
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto flex max-w-2xl items-center gap-3">
+          {index > 0 && (
+            <Button size="lg" variant="secondary" onClick={goBack} className="shrink-0">
+              Anterior
+            </Button>
+          )}
           {isQuiz ? (
-            <Button size="lg" className="w-full" onClick={advance} disabled={!chosen}>
+            <Button size="lg" className="flex-1" onClick={advance} disabled={!chosen && !answeredMap[question.question_id]}>
               {index + 1 === total ? 'Ver resultado' : 'Continuar'}
             </Button>
           ) : (
             <Button
               size="lg"
-              variant={chosen ? 'primary' : 'secondary'}
-              className="w-full"
+              variant={answeredMap[question.question_id] ? 'primary' : 'secondary'}
+              className="flex-1"
               onClick={advance}
             >
               {index + 1 === total
-                ? 'Entregar simulado'
-                : chosen
+                ? 'Finalizar'
+                : answeredMap[question.question_id]
                   ? 'Avançar'
                   : 'Pular esta questão'}
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Navegador de questões — mobile abre em painel; desktop já tem a
+          grade fixa na sidebar, mas o botão continua funcionando igual. */}
+      <Dialog open={showNavigator} onClose={() => setShowNavigator(false)} title="Questões">
+        <QuestionNavigatorGrid
+          questions={orderedQuestions}
+          currentId={question.question_id}
+          answered={answeredMap}
+          flagged={flaggedMap}
+          onSelect={(i) => goTo(i)}
+        />
+      </Dialog>
+
+      <Dialog open={confirmFinish} onClose={() => setConfirmFinish(false)} title="Finalizar?">
+        <div className="space-y-3 text-sm">
+          {unansweredCount > 0 && (
+            <p className="text-muted">
+              Você ainda tem <strong className="text-text">{unansweredCount}</strong>{' '}
+              {unansweredCount === 1 ? 'questão sem resposta' : 'questões sem resposta'}.
+            </p>
+          )}
+          {flaggedCount > 0 && (
+            <p className="text-muted">
+              Você possui <strong className="text-text">{flaggedCount}</strong>{' '}
+              {flaggedCount === 1 ? 'questão marcada' : 'questões marcadas'} para revisão.
+            </p>
+          )}
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setConfirmFinish(false)}>
+              Voltar
+            </Button>
+            <Button className="flex-1" onClick={proceedPastQuestions}>
+              {writingTasks.length > 0 ? 'Ir para a redação' : 'Finalizar mesmo assim'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </div>
+  );
+}
+
+/** Reordena pela ordem das seções; questões fora de qualquer seção vão pro fim, na ordem original. */
+function orderBySections(questions: QuizQuestion[], sections: ResourceDetail['sections']): QuizQuestion[] {
+  if (sections.length === 0) return questions;
+
+  const byId = new Map(questions.map((q) => [q.question_id, q]));
+  const used = new Set<string>();
+  const ordered: QuizQuestion[] = [];
+
+  for (const section of sections) {
+    for (const id of section.questionIds ?? []) {
+      const q = byId.get(id);
+      if (q && !used.has(id)) {
+        ordered.push(q);
+        used.add(id);
+      }
+    }
+  }
+  for (const q of questions) {
+    if (!used.has(q.question_id)) ordered.push(q);
+  }
+  return ordered;
+}
+
+function QuestionNavigatorGrid({
+  questions,
+  currentId,
+  answered,
+  flagged,
+  onSelect,
+}: {
+  questions: QuizQuestion[];
+  currentId: string;
+  answered: Record<string, string | null>;
+  flagged: Record<string, boolean>;
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <div>
+      <ol className="grid grid-cols-6 gap-1.5 sm:grid-cols-8 lg:grid-cols-5" aria-label="Navegador de questões">
+        {questions.map((q, i) => {
+          const isCurrent = q.question_id === currentId;
+          const isAnswered = q.question_id in answered;
+          const isFlagged = flagged[q.question_id];
+          return (
+            <li key={q.question_id}>
+              <button
+                type="button"
+                onClick={() => onSelect(i)}
+                aria-current={isCurrent ? 'step' : undefined}
+                className={cn(
+                  'relative grid size-9 place-items-center rounded-md text-xs font-semibold tabular-nums',
+                  isCurrent
+                    ? 'bg-brand text-brand-fg'
+                    : isAnswered
+                      ? 'bg-surface-2 text-muted'
+                      : 'border-border text-subtle border',
+                )}
+              >
+                {i + 1}
+                {isFlagged && (
+                  <Flag className="text-warning absolute -top-1 -right-1 size-3 fill-current" aria-hidden />
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="text-subtle mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        <span className="flex items-center gap-1.5">
+          <span className="bg-surface-2 inline-block size-2.5 rounded-sm" /> Respondida
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="border-border inline-block size-2.5 rounded-sm border" /> Não respondida
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Flag className="text-warning size-3 fill-current" aria-hidden /> Marcada
+        </span>
       </div>
     </div>
   );

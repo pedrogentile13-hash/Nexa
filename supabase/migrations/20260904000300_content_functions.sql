@@ -37,6 +37,15 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 
 -- ------------------------------------------------------ quiz: leitura ------
+-- `drop` antes do `create or replace`: a migration 20260912000200 muda o
+-- tipo de retorno desta função (mais colunas). Numa reaplicação do
+-- histórico inteiro sobre um banco que já rodou 20260912000200, ESTA linha
+-- reexecutaria com o retorno ANTIGO contra uma função que já tem o retorno
+-- NOVO — Postgres recusa mudar tipo de retorno num `create or replace`. O
+-- `drop` faz esta recriar do zero (fica temporariamente com o retorno
+-- antigo, até 20260912000200 rodar de novo mais adiante e corrigir).
+drop function if exists public.quiz_questions(uuid);
+
 create or replace function public.quiz_questions(p_resource_id uuid)
 returns table (
   question_id uuid,
@@ -210,6 +219,10 @@ end;
 $$;
 
 -- Gabarito completo, liberado só depois de encerrar. Antes disso não existe.
+-- Mesmo motivo do `drop` acima em `quiz_questions`: 20260912000200 muda o
+-- tipo de retorno desta função também.
+drop function if exists public.quiz_attempt_review(uuid);
+
 create or replace function public.quiz_attempt_review(p_attempt_id uuid)
 returns table (
   question_id uuid,

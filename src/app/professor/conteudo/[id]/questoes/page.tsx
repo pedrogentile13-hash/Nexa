@@ -52,6 +52,7 @@ export default async function TeacherQuestionsPage({
           resourceId={resource.id}
           questions={questions}
           topics={topics.map((t) => ({ id: t.id, name: t.name }))}
+          assets={resource.assets}
         />
       </div>
     </>

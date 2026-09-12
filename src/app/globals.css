@@ -65,6 +65,20 @@
   --chart-alert: #c2261f;
   --chart-grid: #e3e7ec;
 
+  /* Paleta categórica (skill dataviz, references/palette.md) — usada nos
+     gráficos de RECURSO de simulado (bar/line/pie de dados do enunciado, ex.
+     "população por região"), onde cada categoria precisa de identidade
+     própria e o par acima (linha "você"/alerta) não serve. Ordem FIXA —
+     nunca ciclada — validada contra daltonismo nas duas cores adjacentes. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
   /* Degradê de cabeçalho, identidade Nexa Study. Fica em token porque aparece
      em várias telas — cópias do mesmo `linear-gradient` divergem no primeiro
      ajuste de matiz.
@@ -110,6 +124,15 @@
   --chart-line: #a78bfa;
   --chart-alert: #ef5350;
   --chart-grid: #242a35;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
 
   /* No escuro o degradê perde saturação e vira mistura escura da mesma matiz,
      roxo→ciano — a versão vibrante do tema claro sobre #0a0c11 viraria um

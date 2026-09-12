@@ -272,6 +272,40 @@ export async function listResources(filters: ResourceFilters = {}): Promise<Admi
   });
 }
 
+export interface EssayForGrading {
+  essayId: string;
+  attemptId: string;
+  writingTaskId: string;
+  writingTaskTitle: string;
+  studentName: string | null;
+  content: string;
+  wordCount: number;
+  submittedAt: string | null;
+  totalScore: number | null;
+  scores: Record<string, number> | null;
+  evaluationCriteria: { id: string; name: string; maxScore: number }[];
+}
+
+/** Redações entregues de um recurso — usado na tela de correção. */
+export async function listEssaysForGrading(resourceId: string): Promise<EssayForGrading[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('list_essays_for_grading', { p_resource_id: resourceId });
+
+  return (data ?? []).map((e) => ({
+    essayId: e.essay_id,
+    attemptId: e.attempt_id,
+    writingTaskId: e.writing_task_id,
+    writingTaskTitle: e.writing_task_title,
+    studentName: e.student_name,
+    content: e.content,
+    wordCount: e.word_count,
+    submittedAt: e.submitted_at,
+    totalScore: e.total_score,
+    scores: e.scores,
+    evaluationCriteria: e.evaluation_criteria,
+  }));
+}
+
 /** Tudo que o formulário de conteúdo precisa para montar os seletores. */
 export interface ResourceFormOptions {
   subjects: { id: string; name: string; slug: string }[];
@@ -334,7 +368,7 @@ export async function getResourceQuestions(resourceId: string) {
   // `questions`/`question_options` só libera para ele.
   const { data } = await supabase
     .from('questions')
-    .select('id, position, statement, explanation, difficulty, points, topic_id')
+    .select('id, position, statement, explanation, difficulty, points, topic_id, group_id, resource_refs')
     .eq('resource_id', resourceId)
     .order('position');
 

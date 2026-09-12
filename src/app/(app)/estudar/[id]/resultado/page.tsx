@@ -1,6 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
 import { AttemptResult } from '@/features/study/components/attempt-result';
-import { getAttemptResult, getResourceDetail } from '@/features/study/server/queries';
+import {
+  getAttemptResult,
+  getEssayResults,
+  getResourceDetail,
+  getWritingTasks,
+} from '@/features/study/server/queries';
 
 export default async function AttemptResultPage({
   params,
@@ -15,12 +20,14 @@ export default async function AttemptResultPage({
   // vez de abrir uma tela de revisão vazia que parece defeito.
   if (!tentativa) redirect(`/estudar/${id}`);
 
-  const [resource, result] = await Promise.all([
+  const [resource, result, writingTasks, essays] = await Promise.all([
     getResourceDetail(id),
     getAttemptResult(tentativa),
+    getWritingTasks(id),
+    getEssayResults(tentativa),
   ]);
 
   if (!resource || !result.attempt) notFound();
 
-  return <AttemptResult resource={resource} result={result} />;
+  return <AttemptResult resource={resource} result={result} writingTasks={writingTasks} essays={essays} />;
 }

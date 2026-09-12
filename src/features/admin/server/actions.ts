@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { assertSubjectAllowed, requireAdmin, requireContentManager, resolveSchoolId } from './guard';
-import { parseSimuladoCode } from '../lib/simulado-import';
+import { parseAssets, parseSimuladoCode } from '../lib/simulado-import';
 
 /**
  * Escritas do painel.
@@ -225,12 +225,15 @@ const resourceSchema = z.object({
     .optional()
     .or(z.literal('')),
   durationSeconds: z.coerce.number().int().min(0).max(86400).optional(),
-  difficulty: z.enum(['facil', 'medio', 'dificil']),
+  difficulty: z.enum(['facil', 'medio', 'anglo', 'dificil']),
   timeLimitSeconds: z.coerce.number().int().min(0).max(86400).optional(),
   xpReward: z.coerce.number().int().min(0).max(1000),
   isPublished: z.boolean(),
   tags: z.string().max(300).optional().or(z.literal('')),
   bimestre: z.coerce.number().int().min(1).max(4).optional(),
+  /** Só usado em kind='quiz'/'simulado' — array de assets (textos-base,
+   *  imagens, gráficos, tabelas), mesmo formato/validação do importador v2. */
+  assetsJson: z.string().max(50_000).optional().or(z.literal('')),
 });
 
 /**
@@ -282,6 +285,7 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     isPublished: formData.get('isPublished') === 'on' || formData.get('isPublished') === 'true',
     tags: formData.get('tags') || '',
     bimestre: formData.get('bimestre') || undefined,
+    assetsJson: formData.get('assetsJson') || '',
   });
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
@@ -289,6 +293,22 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
 
   const scopeError = assertSubjectAllowed(identity, data.subjectId);
   if (scopeError) return fail(scopeError);
+
+  // Recursos da prova (quiz/simulado): mesma validação do importador v2,
+  // aplicada aqui a um array avulso (sem o resto do envelope "simulation").
+  let assets: ReturnType<typeof parseAssets> = [];
+  if (data.kind === 'quiz' || data.kind === 'simulado') {
+    const raw = data.assetsJson?.trim() || '[]';
+    let rawArray: unknown;
+    try {
+      rawArray = JSON.parse(raw);
+    } catch {
+      return fail('Recursos da prova: isso não é um JSON válido — confira vírgulas e colchetes.');
+    }
+    const assetErrors: string[] = [];
+    assets = parseAssets(rawArray, assetErrors);
+    if (assetErrors.length > 0) return fail(`Recursos da prova: ${assetErrors[0]}`);
+  }
 
   // O check `resources_has_payload` no banco recusaria isso, mas com uma
   // mensagem de constraint. Aqui a recusa é em português e diz o que fazer.
@@ -383,6 +403,7 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
       : [],
     bimestre: data.bimestre ?? null,
     created_by: identity.userId,
+    ...(data.kind === 'quiz' || data.kind === 'simulado' ? { assets } : {}),
     ...(pdfMeta
       ? {
           pdf_status: 'processado' as const,
@@ -488,13 +509,15 @@ const questionSchema = z.object({
   resourceId: z.string().uuid(),
   statement: z.string().trim().min(3, 'Escreva o enunciado.').max(4000),
   explanation: z.string().trim().max(4000).optional().or(z.literal('')),
-  difficulty: z.enum(['facil', 'medio', 'dificil']),
+  difficulty: z.enum(['facil', 'medio', 'anglo', 'dificil']),
   topicId: z.string().uuid().optional().or(z.literal('')),
   options: z
     .array(z.string().trim().min(1, 'Nenhuma alternativa pode ficar vazia.').max(1000))
     .min(2, 'Uma questão precisa de pelo menos 2 alternativas.')
     .max(6, 'No máximo 6 alternativas.'),
   correctIndex: z.coerce.number().int().min(0),
+  groupId: z.string().trim().max(60).optional().or(z.literal('')),
+  resourceRefs: z.array(z.string().trim().max(60)).optional().default([]),
 });
 
 export async function saveQuestion(_prev: AdminState, formData: FormData): Promise<AdminState> {
@@ -514,10 +537,13 @@ export async function saveQuestion(_prev: AdminState, formData: FormData): Promi
     topicId: formData.get('topicId') || '',
     options,
     correctIndex: formData.get('correctIndex') ?? 0,
+    groupId: formData.get('groupId') || '',
+    resourceRefs: formData.getAll('resourceRefs').map((r) => String(r)),
   });
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
-  const { resourceId, statement, explanation, difficulty, topicId, correctIndex } = parsed.data;
+  const { resourceId, statement, explanation, difficulty, topicId, correctIndex, groupId, resourceRefs } =
+    parsed.data;
   if (correctIndex >= parsed.data.options.length) {
     return fail('Marque qual alternativa é a correta.');
   }
@@ -533,6 +559,8 @@ export async function saveQuestion(_prev: AdminState, formData: FormData): Promi
         explanation: explanation || null,
         difficulty,
         topic_id: topicId || null,
+        group_id: groupId || null,
+        resource_refs: resourceRefs,
       })
       .eq('id', questionId);
     if (error) return fail(error.message);
@@ -559,6 +587,8 @@ export async function saveQuestion(_prev: AdminState, formData: FormData): Promi
         explanation: explanation || null,
         difficulty,
         topic_id: topicId || null,
+        group_id: groupId || null,
+        resource_refs: resourceRefs,
       })
       .select('id')
       .single();
@@ -602,7 +632,7 @@ const importSimuladoSchema = z.object({
   schoolId: z.string().optional(),
   title: z.string().trim().min(2, 'Dê um título.').max(200),
   description: z.string().trim().max(2000).optional().or(z.literal('')),
-  difficulty: z.enum(['facil', 'medio', 'dificil']),
+  difficulty: z.enum(['facil', 'medio', 'anglo', 'dificil']),
   timeLimitSeconds: z.coerce.number().int().min(0).max(86400).optional(),
   tags: z.string().max(300).optional().or(z.literal('')),
   code: z.string().min(1, 'Cole o código.'),
@@ -645,21 +675,53 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
   if (!result.ok) {
     const firstError =
       result.parseError ??
+      result.simulationErrors[0] ??
       result.questions.find((q) => q.errors.length > 0)?.errors[0] ??
+      result.writingTasks.find((w) => w.errors.length > 0)?.errors[0] ??
       'Revise o código antes de publicar.';
     return fail(`Não publiquei: ${firstError}`);
   }
 
   const supabase = await createClient();
 
+  // Matéria por questão (v2, prova mista — seção 14): resolve por NOME
+  // contra o catálogo INTEIRO, não só o recorte do formulário — precisa
+  // enxergar matérias fora do escopo do professor pra poder RECUSAR
+  // explicitamente a prova inteira, não só deixar de achar e seguir em frente.
+  const distinctSubjectNames = [
+    ...new Set(result.questions.map((q) => q.subjectName).filter((n): n is string => Boolean(n))),
+  ];
+  const subjectByName = new Map<string, string>();
+  if (distinctSubjectNames.length > 0) {
+    const { data: allSubjects } = await supabase.from('subject_catalog').select('id, name');
+    for (const s of allSubjects ?? []) subjectByName.set(s.name.trim().toLowerCase(), s.id);
+  }
+
+  const effectiveSubjectByIndex = new Map<number, string>();
+  for (const question of result.questions) {
+    let effective = data.subjectId;
+    if (question.subjectName) {
+      const match = subjectByName.get(question.subjectName.trim().toLowerCase());
+      if (match) effective = match;
+    }
+    const questionScopeError = assertSubjectAllowed(identity, effective);
+    if (questionScopeError) {
+      return fail(`Questão ${question.sourceId}: matéria "${question.subjectName}" fora do seu escopo — ${questionScopeError}`);
+    }
+    effectiveSubjectByIndex.set(question.index, effective);
+  }
+
   // Tópico por questão: só CASA com um assunto que já existe no catálogo da
-  // matéria escolhida — nunca cria um novo silenciosamente. Um assunto sem
-  // match fica sem tópico, não vira um assunto inventado no meio do cadastro.
-  const { data: topics } = await supabase
+  // matéria EFETIVA daquela questão (pode divergir da matéria escolhida no
+  // formulário, numa prova mista) — nunca cria um novo silenciosamente.
+  const distinctEffectiveSubjectIds = [...new Set(effectiveSubjectByIndex.values())];
+  const { data: topicsRows } = await supabase
     .from('content_topics')
-    .select('id, name')
-    .eq('subject_catalog_id', data.subjectId);
-  const topicByName = new Map((topics ?? []).map((t) => [t.name.trim().toLowerCase(), t.id]));
+    .select('id, name, subject_catalog_id')
+    .in('subject_catalog_id', distinctEffectiveSubjectIds);
+  const topicByNameAndSubject = new Map(
+    (topicsRows ?? []).map((t) => [`${t.subject_catalog_id}:${t.name.trim().toLowerCase()}`, t.id]),
+  );
 
   const tags = [
     ...(result.simulationCode ? [result.simulationCode] : []),
@@ -671,6 +733,16 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
       : []),
   ];
 
+  // `settings.timeLimitMinutes` (v2) manda mais que o campo do formulário
+  // quando presente — é a fonte de verdade autorada na prova; sem ele, cai
+  // no mesmo comportamento de sempre (campo do formulário, só pra simulado).
+  const timeLimitSeconds =
+    data.kind === 'simulado'
+      ? result.settings.timeLimitMinutes
+        ? result.settings.timeLimitMinutes * 60
+        : data.timeLimitSeconds || null
+      : null;
+
   const { data: resource, error: resourceError } = await supabase
     .from('resources')
     .insert({
@@ -681,15 +753,20 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
       title: data.title,
       description: data.description || null,
       difficulty: data.difficulty,
-      // Cronômetro só existe pra simulado — o quiz nunca teve essa noção em
-      // nenhuma outra tela do app, então importado por código não é diferente.
-      time_limit_seconds: data.kind === 'simulado' ? data.timeLimitSeconds || null : null,
+      time_limit_seconds: timeLimitSeconds,
       xp_reward: 100,
       // Nasce sempre como rascunho — publicar é uma decisão de quem revisou a
       // prévia, nunca um efeito colateral do envio.
       is_published: false,
       tags,
       created_by: identity.userId,
+      schema_version: result.schemaVersion,
+      settings: result.settings,
+      assets: result.assets,
+      sections: result.sections,
+      exam_mode: result.mode,
+      exam_style: result.examStyle,
+      grade_levels: result.grade !== null ? [String(result.grade)] : [],
     })
     .select('id')
     .single();
@@ -699,16 +776,30 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
   }
 
   for (const question of result.questions) {
+    const effectiveSubjectId = effectiveSubjectByIndex.get(question.index) as string;
+    const topicId = question.topicName
+      ? (topicByNameAndSubject.get(`${effectiveSubjectId}:${question.topicName.toLowerCase()}`) ?? null)
+      : null;
+
     const { data: createdQuestion, error: questionError } = await supabase
       .from('questions')
       .insert({
         resource_id: resource.id,
         position: question.index,
         statement: question.statement,
+        explanation: question.explanation,
         difficulty: question.difficulty,
-        topic_id: question.topicName
-          ? (topicByName.get(question.topicName.toLowerCase()) ?? null)
-          : null,
+        topic_id: topicId,
+        // null = usa a matéria do recurso — só grava quando de fato diverge.
+        subject_catalog_id: effectiveSubjectId === data.subjectId ? null : effectiveSubjectId,
+        group_id: question.groupId,
+        resource_refs: question.resourceRefs,
+        subtopic: question.subtopicName,
+        book: question.book,
+        module: question.module,
+        skills: question.skills,
+        error_types: question.errorTypes,
+        estimated_time_seconds: question.estimatedTimeSeconds,
       })
       .select('id')
       .single();
@@ -734,6 +825,28 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
     if (optionsError) {
       return fail(
         `${data.kind === 'quiz' ? 'Quiz' : 'Simulado'} criado, mas parei nas alternativas da questão ${question.index}: ${optionsError.message}. Complete o resto pela tela de questões.`,
+      );
+    }
+  }
+
+  for (const task of result.writingTasks) {
+    const { error: taskError } = await supabase.from('writing_tasks').insert({
+      resource_id: resource.id,
+      position: task.index,
+      title: task.title,
+      genre: task.genre,
+      theme: task.theme,
+      prompt: task.prompt,
+      instructions: task.instructions,
+      resource_refs: task.resourceRefs,
+      min_words: task.minWords,
+      max_words: task.maxWords,
+      evaluation_criteria: task.evaluationCriteria,
+    });
+
+    if (taskError) {
+      return fail(
+        `${data.kind === 'quiz' ? 'Quiz' : 'Simulado'} criado, mas parei na redação "${task.title}": ${taskError.message}. Complete o resto pela tela de questões.`,
       );
     }
   }
@@ -1067,4 +1180,46 @@ export async function deleteTeacherAssignment(formData: FormData): Promise<void>
   const supabase = await createClient();
   await supabase.from('teacher_assignments').delete().eq('id', id);
   revalidatePath('/admin/professores');
+}
+
+// -------------------------------------------------------------- redações --
+
+const gradeEssaySchema = z.object({
+  essayId: z.string().uuid(),
+  resourceId: z.string().uuid(),
+  scores: z.record(z.string(), z.coerce.number().min(0)),
+  totalScore: z.coerce.number().min(0),
+});
+
+/**
+ * Corrige uma redação. A autorização de verdade é a `grade_essay` no banco
+ * (só quem gerencia a matéria do recurso pode gravar nota) — aqui só
+ * traduzimos o erro do RPC em português.
+ */
+export async function gradeEssay(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireContentManager();
+
+  const scoresRaw: Record<string, number> = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith('score.')) scoresRaw[key.slice('score.'.length)] = Number(value);
+  }
+
+  const parsed = gradeEssaySchema.safeParse({
+    essayId: formData.get('essayId'),
+    resourceId: formData.get('resourceId'),
+    scores: scoresRaw,
+    totalScore: formData.get('totalScore'),
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('grade_essay', {
+    p_essay_id: parsed.data.essayId,
+    p_scores: parsed.data.scores,
+    p_total_score: parsed.data.totalScore,
+  });
+  if (error) return fail(error.message);
+
+  revalidatePath(`${identity.basePath}/${parsed.data.resourceId}/redacoes`);
+  return ok;
 }
