@@ -1208,3 +1208,23 @@ que ainda não foi desenhado quebraria o mesmo padrão de honestidade. Os
 arquivos de logo (SVG/PNG em alta resolução) continuam pendentes do
 usuário — não é possível vetorizar com fidelidade a partir do PNG colado no
 chat.
+
+## ADR-045 · Nexa IA troca de Google Gemini para Groq
+
+**Contexto.** O ADR-039 havia decidido Google Gemini como provedor de IA do
+projeto, mas a chave nunca chegou a ser configurada — a Nexa IA (ADR-044)
+ficou toda a sessão anterior devolvendo o texto fixo de "ainda não conectada".
+O usuário conseguiu uma chave gratuita da Groq e pediu para configurá-la.
+
+**Decisão — troca completa, não um segundo provedor em paralelo.** Como
+nenhuma outra parte do produto chegou a depender de fato do Gemini
+("transformar PDF em estudo" e as recomendações do Loop Nexa citadas no
+ADR-039 nunca foram construídas — só documentadas como possibilidade), não
+havia nada para manter compatível. Manter os dois provedores só duplicaria
+código morto. `replyTo()` (`features/nexa-ia/server/actions.ts`) passa a
+chamar `https://api.groq.com/openai/v1/chat/completions` (formato "chat
+completions" da OpenAI, que a Groq implementa) com o modelo
+`llama-3.3-70b-versatile`, em vez do endpoint do Google AI Studio.
+`GEMINI_API_KEY` vira `GROQ_API_KEY` em `.env.example`; nenhuma outra função,
+tela ou tabela precisou mudar — o ponto de troca continua isolado numa única
+função, exatamente como o ADR-044 já previa.

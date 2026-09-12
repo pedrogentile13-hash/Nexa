@@ -9,15 +9,16 @@ import { getChatMessages } from './queries';
 /**
  * Resposta da Nexa IA.
  *
- * Google Gemini é o provedor decidido na ADR-039, mas a chave é opcional em
- * tempo de execução (nunca em `src/lib/env.ts`, que falha o build inteiro se
- * faltar algo) — sem `GEMINI_API_KEY`, cai no texto fixo de sempre em vez de
- * derrubar a Nexa IA inteira. O mesmo vale para qualquer erro da chamada
- * (rede, filtro de segurança, resposta vazia): a conversa do aluno já está
- * salva de qualquer forma, então uma falha aqui vira uma mensagem educada,
- * nunca uma tela quebrada.
+ * Groq é o provedor (troca do Gemini da ADR-039 — chave gratuita, inferência
+ * rápida, API compatível com o formato "chat completions" da OpenAI). A
+ * chave é opcional em tempo de execução (nunca em `src/lib/env.ts`, que falha
+ * o build inteiro se faltar algo) — sem `GROQ_API_KEY`, cai no texto fixo de
+ * sempre em vez de derrubar a Nexa IA inteira. O mesmo vale para qualquer erro
+ * da chamada (rede, filtro de conteúdo, resposta vazia): a conversa do aluno
+ * já está salva de qualquer forma, então uma falha aqui vira uma mensagem
+ * educada, nunca uma tela quebrada.
  */
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 const SYSTEM_INSTRUCTION = `Você é a Nexa IA, a assistente de estudos do Nexa Study — um app usado por estudantes brasileiros do ensino fundamental e médio.
 Responda sempre em português do Brasil, de forma clara, objetiva e didática, como um professor particular paciente.
@@ -26,7 +27,7 @@ Se a pergunta não tiver relação com estudos, responda com educação e traga 
 Mantenha as respostas concisas — o aluno está lendo num app, não um livro.`;
 
 async function replyTo(sessionId: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return 'Nexa IA ainda não está conectada a um provedor de inteligência artificial — assim que estiver, esta resposta vai ser gerada de verdade. Sua pergunta já ficou salva aqui.';
   }
@@ -37,43 +38,47 @@ async function replyTo(sessionId: string): Promise<string> {
   // chegar aqui (ver `sendMessage`), então já está incluída neste histórico —
   // não é acrescentada de novo.
   const history = await getChatMessages(sessionId);
-  const contents = history.map((m) => ({
-    role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
-    parts: [{ text: m.content }],
-  }));
+  const messages = [
+    { role: 'system' as const, content: SYSTEM_INSTRUCTION },
+    ...history.map((m) => ({
+      role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+      content: m.content,
+    })),
+  ];
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25_000);
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-          generationConfig: { maxOutputTokens: 1024, temperature: 0.6 },
-        }),
-        signal: controller.signal,
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
       },
-    );
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages,
+        max_tokens: 1024,
+        temperature: 0.6,
+      }),
+      signal: controller.signal,
+    });
 
     if (!response.ok) {
       return 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
     }
 
     const data = (await response.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+      choices?: { message?: { content?: string }; finish_reason?: string }[];
     };
-    const candidate = data.candidates?.[0];
-    const text = candidate?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+    const choice = data.choices?.[0];
+    const text = choice?.message?.content ?? '';
 
     if (!text.trim()) {
-      // `finishReason: 'SAFETY'` é o caso mais comum de vir vazio — a
-      // pergunta esbarrou no filtro de segurança do próprio Gemini.
-      return candidate?.finishReason === 'SAFETY'
+      // `finish_reason: 'content_filter'` é o caso mais comum de vir vazio —
+      // a pergunta esbarrou no filtro de conteúdo do próprio provedor.
+      return choice?.finish_reason === 'content_filter'
         ? 'Não posso responder isso. Bora voltar para as matérias?'
         : 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
     }
