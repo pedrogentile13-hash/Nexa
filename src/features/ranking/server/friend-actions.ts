@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { sendPushToUsers } from '@/lib/push/send';
 
 export interface SchoolmateResult {
   userId: string;
@@ -45,6 +46,17 @@ export async function respondFriendRequest(requesterId: string, accept: boolean)
   });
   revalidatePath('/ranking');
   if (error) throw new Error(error.message);
+
+  // Quem pediu já sabe o destinatário (é o próprio argumento) — diferente de
+  // `notify_subject_students`/`notify_class`, não precisa que o banco devolva
+  // uma lista de ids pra saber pra quem mandar push.
+  if (accept) {
+    await sendPushToUsers([requesterId], {
+      title: 'Pedido de amizade aceito',
+      body: 'Você tem um novo amigo no ranking.',
+      link: '/ranking',
+    });
+  }
 }
 
 export async function removeFriend(otherId: string): Promise<void> {

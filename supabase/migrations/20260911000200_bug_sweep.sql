@@ -171,6 +171,12 @@ $$;
 -- 3 · notify_subject_students: escopado pela escola do conteúdo publicado
 -- ----------------------------------------------------------------------------
 drop function if exists public.notify_subject_students(uuid, text, text, text);
+-- Reaplicação por cima de um banco que já rodou 0912 (4) (a versão que devolve
+-- `setof uuid` para o envio de push) — sem este guard, o `create or replace`
+-- abaixo falha com "cannot change return type of existing function". Só
+-- importa para o replay local de idempotência: numa migração de verdade, esta
+-- versão roda ANTES da de 0912 (4), então o dropfunction nunca encontra nada.
+drop function if exists public.notify_subject_students(uuid, text, text, text, uuid);
 
 create or replace function public.notify_subject_students(
   p_subject_catalog_id uuid,

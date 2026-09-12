@@ -957,7 +957,8 @@ export type Database = {
           p_link?: string | null;
           p_school_id?: string | null;
         };
-        Returns: undefined;
+        /** `user_id` de cada aluno notificado — usado para mandar push a eles também. */
+        Returns: string[];
       };
       review_queue: {
         Args: { p_user_id?: string };
@@ -1108,7 +1109,8 @@ export type Database = {
           p_body: string | null;
           p_link?: string | null;
         };
-        Returns: undefined;
+        /** `user_id` de cada aluno notificado — usado para mandar push a eles também. */
+        Returns: string[];
       };
       mark_resource_progress: {
         Args: {

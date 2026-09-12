@@ -5,8 +5,9 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Bell, BellOff, Check } from 'lucide-react';
+import { Bell, BellOff, BellRing, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePushSubscription } from '../lib/use-push-subscription';
 import {
   getNotificationsData,
   markAllNotificationsRead,
@@ -30,6 +31,7 @@ export function NotificationBell() {
   const [loaded, setLoaded] = useState(false);
   const [, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
+  const push = usePushSubscription();
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +120,35 @@ export function NotificationBell() {
               </button>
             )}
           </div>
+
+          {push.state !== 'unsupported' && (
+            <div className="border-border bg-surface-2/40 flex items-center justify-between gap-2 border-b px-4 py-2.5">
+              <p className="text-muted flex items-center gap-1.5 text-xs">
+                <BellRing className="size-3.5 shrink-0" aria-hidden />
+                {push.state === 'subscribed'
+                  ? 'Avisos ativados neste aparelho'
+                  : push.state === 'denied'
+                    ? 'Você bloqueou os avisos deste site'
+                    : 'Receba avisos mesmo com o app fechado'}
+              </p>
+              {push.state !== 'denied' && (
+                <button
+                  type="button"
+                  onClick={() => void (push.state === 'subscribed' ? push.unsubscribe() : push.subscribe())}
+                  disabled={push.pending}
+                  className="text-brand-text shrink-0 text-xs font-medium hover:underline disabled:opacity-50"
+                >
+                  {push.pending ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : push.state === 'subscribed' ? (
+                    'Desativar'
+                  ) : (
+                    'Ativar'
+                  )}
+                </button>
+              )}
+            </div>
+          )}
 
           {!loaded ? (
             <div className="text-muted p-6 text-center text-sm">Carregando…</div>

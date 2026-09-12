@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { sendPushToUsers } from '@/lib/push/send';
 import { requireTeacher } from './guard';
 import type { AdminState } from '@/features/admin/server/actions';
 
@@ -46,7 +47,7 @@ export async function notifyMyClass(_prev: AdminState, formData: FormData): Prom
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc('notify_class', {
+  const { data: notifiedUserIds, error } = await supabase.rpc('notify_class', {
     p_class_id: parsed.data.classId,
     p_subject_catalog_id: parsed.data.subjectCatalogId,
     p_school_id: identity.schoolId,
@@ -55,6 +56,14 @@ export async function notifyMyClass(_prev: AdminState, formData: FormData): Prom
     p_link: parsed.data.link || null,
   });
   if (error) return fail(error.message);
+
+  if (notifiedUserIds && notifiedUserIds.length > 0) {
+    await sendPushToUsers(notifiedUserIds, {
+      title: parsed.data.title,
+      body: parsed.data.body || undefined,
+      link: parsed.data.link || undefined,
+    });
+  }
 
   revalidatePath('/professor/avisos');
   return ok;

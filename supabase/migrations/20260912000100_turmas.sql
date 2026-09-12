@@ -276,6 +276,11 @@ $$;
 -- `notify_class`: turma agora é `p_class_id` (mesmo motivo acima — tipo do
 -- 1º argumento muda de text pra uuid, derruba a assinatura antiga primeiro).
 drop function if exists public.notify_class(text, uuid, uuid, text, text, text);
+-- Idem ao guard equivalente em notify_subject_students (0911 (2)): sem isto,
+-- reaplicar por cima de um banco já em 0912 (4) (retorno `setof uuid`) falha
+-- com "cannot change return type of existing function". Só importa pro
+-- replay local — na ordem real das migrações, 0912 (4) roda depois desta.
+drop function if exists public.notify_class(uuid, uuid, uuid, text, text, text);
 
 create or replace function public.notify_class(
   p_class_id uuid,

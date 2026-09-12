@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { sendPushToUsers } from '@/lib/push/send';
 import { assertSubjectAllowed, requireAdmin, requireContentManager, resolveSchoolId } from './guard';
 import { parseAssets, parseSimuladoCode } from '../lib/simulado-import';
 
@@ -252,13 +253,21 @@ async function notifyPublished(
   resourceId: string,
   schoolId: string | null,
 ): Promise<void> {
-  await supabase.rpc('notify_subject_students', {
+  const { data: notifiedUserIds } = await supabase.rpc('notify_subject_students', {
     p_subject_catalog_id: subjectCatalogId,
     p_title: 'Novo conteúdo publicado',
     p_body: title,
     p_link: `/estudar/${resourceId}`,
     p_school_id: schoolId,
   });
+
+  if (notifiedUserIds && notifiedUserIds.length > 0) {
+    await sendPushToUsers(notifiedUserIds, {
+      title: 'Novo conteúdo publicado',
+      body: title,
+      link: `/estudar/${resourceId}`,
+    });
+  }
 }
 
 export async function saveResource(_prev: AdminState, formData: FormData): Promise<AdminState> {

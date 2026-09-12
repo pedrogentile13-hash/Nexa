@@ -12,6 +12,7 @@ import { InstallCard } from '@/features/install/components/install-card';
 import { signOut } from '@/features/auth/server/actions';
 import type { NotificationSettings } from '@/types/database.types';
 import { NotificationSettingsForm } from './notification-settings-form';
+import { PushSelfTest } from '@/features/notifications/components/push-self-test';
 import { ProfileForm } from './profile-form';
 import { SchoolPicker, type CurrentSchool } from './school-picker';
 import { ClassPicker } from './class-picker';
@@ -105,6 +106,7 @@ export function ProfileTabs({
           </CardHeader>
           <CardContent>
             <NotificationSettingsForm initial={notificationSettings} />
+            <PushSelfTest />
           </CardContent>
         </Card>
       )}
