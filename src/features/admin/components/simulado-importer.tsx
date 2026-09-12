@@ -18,6 +18,7 @@ import { Field, FormFeedback, Select, SubmitButton, Textarea } from './form-part
 import { DIFFICULTIES } from '../lib/labels';
 import { parseSimuladoCode, type ImportResult } from '../lib/simulado-import';
 import { importSimulado, type AdminState } from '../server/actions';
+import { AiExamGenerator } from './ai-exam-generator';
 import type { ResourceFormOptions } from '../server/queries';
 import type { ExamAsset } from '@/types/simulado';
 
@@ -271,15 +272,18 @@ export function SimuladoImporter({
         </section>
 
         <section className="border-border bg-surface space-y-3 rounded-lg border p-4">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-text text-sm font-medium">Código</span>
-            <button
-              type="button"
-              onClick={() => setCode(V2_PLACEHOLDER)}
-              className="text-brand hover:underline text-xs font-medium whitespace-nowrap"
-            >
-              Ver exemplo Anglo (v2)
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCode(V2_PLACEHOLDER)}
+                className="text-brand hover:underline text-xs font-medium whitespace-nowrap"
+              >
+                Ver exemplo Anglo (v2)
+              </button>
+              <AiExamGenerator onGenerated={setCode} />
+            </div>
           </div>
           <Textarea
             name="code"
