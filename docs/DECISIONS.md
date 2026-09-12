@@ -1223,8 +1223,16 @@ ADR-039 nunca foram construídas — só documentadas como possibilidade), não
 havia nada para manter compatível. Manter os dois provedores só duplicaria
 código morto. `replyTo()` (`features/nexa-ia/server/actions.ts`) passa a
 chamar `https://api.groq.com/openai/v1/chat/completions` (formato "chat
-completions" da OpenAI, que a Groq implementa) com o modelo
-`llama-3.3-70b-versatile`, em vez do endpoint do Google AI Studio.
-`GEMINI_API_KEY` vira `GROQ_API_KEY` em `.env.example`; nenhuma outra função,
-tela ou tabela precisou mudar — o ponto de troca continua isolado numa única
-função, exatamente como o ADR-044 já previa.
+completions" da OpenAI, que a Groq implementa), em vez do endpoint do Google
+AI Studio. `GEMINI_API_KEY` vira `GROQ_API_KEY` em `.env.example`; nenhuma
+outra função, tela ou tabela precisou mudar — o ponto de troca continua
+isolado numa única função, exatamente como o ADR-044 já previa.
+
+**Modelo: `openai/gpt-oss-120b`, não `llama-3.3-70b-versatile`.** A primeira
+tentativa usou `llama-3.3-70b-versatile` — não existe mais no catálogo da
+conta Groq do usuário (`model_not_found` no painel deles, não um erro de
+rede ou de chave). `gpt-oss-120b` é o maior modelo de chat de propósito
+geral disponível na conta no momento; a lista de modelos ativos muda por
+conta/tempo, então se voltar a dar `model_not_found` é isso de novo, não a
+integração quebrando — conferir `console.groq.com` → Dashboard → Limits
+pelos IDs vigentes antes de reabrir investigação.

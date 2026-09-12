@@ -17,8 +17,12 @@ import { getChatMessages } from './queries';
  * da chamada (rede, filtro de conteúdo, resposta vazia): a conversa do aluno
  * já está salva de qualquer forma, então uma falha aqui vira uma mensagem
  * educada, nunca uma tela quebrada.
+ *
+ * `llama-3.3-70b-versatile` saiu do catálogo da Groq (passou a devolver
+ * `model_not_found`, visto no painel da própria Groq) — `gpt-oss-120b` é o
+ * maior modelo de chat de propósito geral disponível na conta atual.
  */
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 const SYSTEM_INSTRUCTION = `Você é a Nexa IA, a assistente de estudos do Nexa Study — um app usado por estudantes brasileiros do ensino fundamental e médio.
 Responda sempre em português do Brasil, de forma clara, objetiva e didática, como um professor particular paciente.
@@ -66,6 +70,10 @@ async function replyTo(sessionId: string): Promise<string> {
     });
 
     if (!response.ok) {
+      // Logado (não exposto ao aluno) para dar pra achar a causa real nos
+      // logs da função — "não consegui pensar" sozinho não diz se foi chave
+      // inválida, modelo descontinuado ou limite de uso.
+      console.error('[nexa-ia] Groq respondeu erro', response.status, await response.text());
       return 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
     }
 
@@ -84,9 +92,10 @@ async function replyTo(sessionId: string): Promise<string> {
     }
 
     return text.trim();
-  } catch {
+  } catch (err) {
     // Rede caída, timeout (AbortError) ou JSON inesperado — nunca deixa a
     // Server Action estourar por causa de um provedor externo fora do ar.
+    console.error('[nexa-ia] falha ao chamar a Groq', err);
     return 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
   } finally {
     clearTimeout(timeout);
