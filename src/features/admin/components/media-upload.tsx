@@ -30,12 +30,17 @@ export function MediaUpload({
   defaultPath,
   label,
   hint,
+  onUploaded,
 }: {
   name: string;
   accept: string;
   defaultPath?: string | null;
   label: string;
   hint?: string;
+  /** Chamado com o `path` assim que o upload termina — usado por quem precisa
+   *  do caminho fora do form (ex.: o editor visual de recursos, que monta o
+   *  asset a partir disso em vez de só depender do campo escondido). */
+  onUploaded?: (path: string) => void;
 }) {
   const [path, setPath] = useState(defaultPath ?? '');
   const [status, setStatus] = useState<'idle' | 'uploading' | 'error'>('idle');
@@ -69,6 +74,7 @@ export function MediaUpload({
     setPath(objectPath);
     setStatus('idle');
     setMessage(`${file.name} enviado.`);
+    onUploaded?.(objectPath);
   }
 
   return (
