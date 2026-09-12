@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  Calculator,
   Check,
   ChevronRight,
   CircleHelp,
@@ -20,6 +21,7 @@ import { subjectColorVars } from '@/lib/design/subject-colors';
 import { StudyTopBar } from './study-top-bar';
 import { QuestionAssets } from './question-assets';
 import { WritingTaskRunner } from './writing-task-runner';
+import { CalculatorDialog } from './calculator-dialog';
 import { clockTime, humanDuration } from '../lib/format';
 import {
   answerQuestion,
@@ -65,14 +67,27 @@ export function QuizRunner({
   const router = useRouter();
   const examMode = resource.examMode ?? (resource.kind === 'quiz' ? 'practice' : 'exam');
   const isQuiz = examMode === 'practice';
+  const settings = resource.settings;
+  const showTimer = settings.showTimer !== false;
+  const showProgress = settings.showProgress !== false;
+  const showQuestionNumber = settings.showQuestionNumber !== false;
+  const allowReview = settings.allowReview !== false;
 
   // Seções por matéria (v2) reordenam a lista; sem seção, a ordem é a mesma
   // de cadastro de sempre. Questões que nenhuma seção referencia (ou quando
   // não há seções) ficam no fim, na ordem original — nada some.
-  const orderedQuestions = orderBySections(questions, resource.sections);
+  const baseOrder = orderBySections(questions, resource.sections);
+  // Embaralhamento (settings.shuffleQuestions) só é aplicado depois que a
+  // tentativa existe, com seed = attemptId — assim sobrevive a re-render e
+  // retomada (mesma ordem sempre que a página recarrega na mesma tentativa).
+  // A correção nunca depende de posição (sempre por option.id/question_id),
+  // então embaralhar aqui é seguro.
+  const [runtimeOrder, setRuntimeOrder] = useState<QuizQuestion[] | null>(null);
+  const orderedQuestions = runtimeOrder ?? baseOrder;
 
   const [phase, setPhase] = useState<Phase>('intro');
   const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [calcOpen, setCalcOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const [writingIndex, setWritingIndex] = useState(0);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -143,16 +158,24 @@ export function QuizRunner({
         flagged[row.questionId] = row.flagged;
       }
 
+      // Seed pelo attemptId de verdade (não pelo closure de `orderedQuestions`
+      // do render atual, que ainda reflete a ordem sem embaralhar) — evita a
+      // ordem exibida divergir do índice calculado abaixo.
+      const order = settings.shuffleQuestions
+        ? shuffleWithinSections(baseOrder, resource.sections, result.attemptId)
+        : baseOrder;
+
       setAttemptId(result.attemptId);
+      setRuntimeOrder(order);
       setAnsweredMap(answered);
       setFlaggedMap(flagged);
       setEssayDrafts(drafts);
 
       // Retoma na primeira questão sem resposta — quem já respondeu tudo cai
       // na última, pronto para revisar/finalizar.
-      const firstUnanswered = orderedQuestions.findIndex((q) => !(q.question_id in answered));
-      setIndex(total === 0 ? 0 : firstUnanswered === -1 ? total - 1 : firstUnanswered);
-      setPhase(total > 0 ? 'running' : 'writing');
+      const firstUnanswered = order.findIndex((q) => !(q.question_id in answered));
+      setIndex(order.length === 0 ? 0 : firstUnanswered === -1 ? order.length - 1 : firstUnanswered);
+      setPhase(order.length > 0 ? 'running' : 'writing');
     });
   }
 
@@ -409,7 +432,7 @@ export function QuizRunner({
           title={`Redação ${writingIndex + 1} de ${writingTasks.length}`}
           subtitle={resource.subjectName}
           right={
-            remaining !== null ? (
+            remaining !== null && showTimer ? (
               <span
                 className={cn(
                   'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold tabular-nums',
@@ -429,6 +452,18 @@ export function QuizRunner({
           assets={resource.assets}
           onDone={onWritingDone}
         />
+
+        {settings.calculatorAllowed && (
+          <button
+            type="button"
+            onClick={() => setCalcOpen(true)}
+            aria-label="Abrir calculadora"
+            className="border-border bg-surface text-muted hover:bg-surface-2 pb-safe fixed right-4 bottom-[calc(5.25rem_+_env(safe-area-inset-bottom))] z-40 grid size-12 place-items-center rounded-full border shadow-lg md:bottom-6"
+          >
+            <Calculator className="size-5" aria-hidden />
+          </button>
+        )}
+        <CalculatorDialog open={calcOpen} onClose={() => setCalcOpen(false)} />
       </div>
     );
   }
@@ -448,6 +483,15 @@ export function QuizRunner({
     : undefined;
   const showSectionDivider = currentSection && currentSection.id !== previousSection?.id;
 
+  // Embaralhado só na exibição — a correção é sempre por `option.id`, nunca
+  // por posição (ver `submitAnswer`/`verdict.correctOptionId`), então isto
+  // nunca muda o resultado. Seed = tentativa + questão, estável entre
+  // re-renders e retomada.
+  const displayOptions =
+    settings.shuffleAlternatives && attemptId
+      ? seededShuffle(question.options, `${attemptId}:${question.question_id}`)
+      : question.options;
+
   const isFlagged = Boolean(flaggedMap[question.question_id]);
   const correctSoFar = orderedQuestions.filter((q) => {
     const opt = answeredMap[q.question_id];
@@ -458,11 +502,11 @@ export function QuizRunner({
   return (
     <div style={subjectColorVars(resource.subjectColor)} className="pb-28">
       <StudyTopBar
-        title={`Questão ${index + 1} de ${total}`}
+        title={showQuestionNumber ? `Questão ${index + 1} de ${total}` : resource.subjectName}
         subtitle={question.topic_name ?? resource.subjectName}
         right={
           <div className="flex items-center gap-2">
-            {remaining !== null && (
+            {remaining !== null && showTimer && (
               <span
                 className={cn(
                   'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold tabular-nums',
@@ -473,27 +517,31 @@ export function QuizRunner({
                 {clockTime(remaining)}
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => setShowNavigator(true)}
-              aria-label="Ver todas as questões"
-              className="text-muted hover:bg-surface-2 grid size-9 shrink-0 place-items-center rounded-full"
-            >
-              <Grid3x3 className="size-4" aria-hidden />
-            </button>
+            {allowReview && (
+              <button
+                type="button"
+                onClick={() => setShowNavigator(true)}
+                aria-label="Ver todas as questões"
+                className="text-muted hover:bg-surface-2 grid size-9 shrink-0 place-items-center rounded-full"
+              >
+                <Grid3x3 className="size-4" aria-hidden />
+              </button>
+            )}
           </div>
         }
       />
 
-      <div className="bg-surface-2 h-1">
-        <div
-          className="h-full transition-[width]"
-          style={{
-            width: `${((index + 1) / total) * 100}%`,
-            backgroundColor: 'var(--subject-base)',
-          }}
-        />
-      </div>
+      {showProgress && (
+        <div className="bg-surface-2 h-1">
+          <div
+            className="h-full transition-[width]"
+            style={{
+              width: `${((index + 1) / total) * 100}%`,
+              backgroundColor: 'var(--subject-base)',
+            }}
+          />
+        </div>
+      )}
 
       <div className="mx-auto max-w-[1100px] px-5 pt-5 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-6">
       <div className="min-w-0">
@@ -527,7 +575,7 @@ export function QuizRunner({
         </div>
 
         <ul className="mt-5 space-y-2.5">
-          {question.options.map((option, optionIndex) => {
+          {displayOptions.map((option, optionIndex) => {
             const isChosen = chosen === option.id || (!chosen && answeredMap[question.question_id] === option.id);
             const isRight = verdict?.correctOptionId === option.id;
             const showRight = Boolean(verdict) && isRight;
@@ -603,53 +651,66 @@ export function QuizRunner({
           revelar isso durante a prova quebraria a proposta de "sem feedback
           até o fim" que o simulado tem por definição. */}
       <aside className="mt-6 hidden min-w-0 space-y-4 lg:mt-0 lg:block">
-        <div className="border-border bg-surface rounded-2xl border p-4">
-          <h2 className="text-sm font-semibold">Seu progresso</h2>
-          {isQuiz ? (
-            <dl className="mt-3 space-y-1.5 text-sm">
-              <div className="flex items-center justify-between">
-                <dt className="text-muted flex items-center gap-1.5">
-                  <span aria-hidden className="bg-success size-2 rounded-full" />
-                  Corretas
-                </dt>
-                <dd className="tabular font-semibold">{correctSoFar}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted flex items-center gap-1.5">
-                  <span aria-hidden className="border-border-strong size-2 rounded-full border" />
-                  Restantes
-                </dt>
-                <dd className="tabular font-semibold">{unansweredCount}</dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="text-muted mt-2 text-sm">
-              <span className="text-text tabular font-semibold">{total - unansweredCount}</span> de{' '}
-              {total} questões respondidas
-              {flaggedCount > 0 && (
-                <span className="text-warning block">
-                  {flaggedCount} marcada{flaggedCount === 1 ? '' : 's'} para revisão
-                </span>
-              )}
-            </p>
-          )}
-        </div>
+        {showProgress && (
+          <div className="border-border bg-surface rounded-2xl border p-4">
+            <h2 className="text-sm font-semibold">Seu progresso</h2>
+            {isQuiz ? (
+              <dl className="mt-3 space-y-1.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted flex items-center gap-1.5">
+                    <span aria-hidden className="bg-success size-2 rounded-full" />
+                    Corretas
+                  </dt>
+                  <dd className="tabular font-semibold">{correctSoFar}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted flex items-center gap-1.5">
+                    <span aria-hidden className="border-border-strong size-2 rounded-full border" />
+                    Restantes
+                  </dt>
+                  <dd className="tabular font-semibold">{unansweredCount}</dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-muted mt-2 text-sm">
+                <span className="text-text tabular font-semibold">{total - unansweredCount}</span> de{' '}
+                {total} questões respondidas
+                {flaggedCount > 0 && (
+                  <span className="text-warning block">
+                    {flaggedCount} marcada{flaggedCount === 1 ? '' : 's'} para revisão
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+        )}
 
         <QuestionNavigatorGrid
           questions={orderedQuestions}
           currentId={question.question_id}
           answered={answeredMap}
           flagged={flaggedMap}
-          onSelect={(i) => goTo(i)}
+          onSelect={allowReview ? (i) => goTo(i) : undefined}
         />
       </aside>
       </div>
+
+      {settings.calculatorAllowed && (
+        <button
+          type="button"
+          onClick={() => setCalcOpen(true)}
+          aria-label="Abrir calculadora"
+          className="border-border bg-surface text-muted hover:bg-surface-2 pb-safe fixed right-4 bottom-[calc(5.25rem_+_env(safe-area-inset-bottom))] z-40 grid size-12 place-items-center rounded-full border shadow-lg md:bottom-20"
+        >
+          <Calculator className="size-5" aria-hidden />
+        </button>
+      )}
 
       {/* O avanço nunca fica preso a uma resposta de servidor: depende só de
           `chosen`/`answeredMap` (estado local, sempre confiável). */}
       <div className="pb-safe border-border bg-bg/90 fixed inset-x-0 bottom-[calc(4.25rem_+_env(safe-area-inset-bottom))] z-40 border-t px-5 py-3 backdrop-blur-lg md:bottom-0">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          {index > 0 && (
+          {index > 0 && allowReview && (
             <Button size="lg" variant="secondary" onClick={goBack} className="shrink-0">
               Anterior
             </Button>
@@ -686,6 +747,8 @@ export function QuizRunner({
           onSelect={(i) => goTo(i)}
         />
       </Dialog>
+
+      <CalculatorDialog open={calcOpen} onClose={() => setCalcOpen(false)} />
 
       <Dialog open={confirmFinish} onClose={() => setConfirmFinish(false)} title="Finalizar?">
         <div className="space-y-3 text-sm">
@@ -738,6 +801,69 @@ function orderBySections(questions: QuizQuestion[], sections: ResourceDetail['se
   return ordered;
 }
 
+/** PRNG determinístico (mulberry32) — mesma seed sempre gera a mesma sequência. */
+function mulberry32(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashSeed(text: string): number {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (Math.imul(31, hash) + text.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
+
+/** Fisher-Yates com PRNG seedado — mesma seed sempre devolve a mesma ordem. */
+function seededShuffle<T>(items: T[], seed: string): T[] {
+  const rng = mulberry32(hashSeed(seed));
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const temp = result[i]!;
+    result[i] = result[j]!;
+    result[j] = temp;
+  }
+  return result;
+}
+
+/**
+ * Embaralha as questões preservando os blocos de seção — cada seção (e o
+ * grupo de questões sem seção) é embaralhado dentro de si mesmo, sem mudar a
+ * ordem das seções entre si. Isso evita que a marcação de divisor de seção
+ * ("showSectionDivider") fique com blocos entrecortados na tela.
+ */
+function shuffleWithinSections(
+  ordered: QuizQuestion[],
+  sections: ResourceDetail['sections'],
+  seed: string,
+): QuizQuestion[] {
+  if (ordered.length === 0) return ordered;
+
+  const sectionKey = (q: QuizQuestion) =>
+    sections.find((s) => s.questionIds?.includes(q.question_id))?.id ?? '__none__';
+
+  const result: QuizQuestion[] = [];
+  let runStart = 0;
+  let runKey = sectionKey(ordered[0]!);
+  for (let i = 1; i <= ordered.length; i++) {
+    const key = i < ordered.length ? sectionKey(ordered[i]!) : null;
+    if (key !== runKey) {
+      result.push(...seededShuffle(ordered.slice(runStart, i), `${seed}:${runKey}`));
+      runStart = i;
+      if (key !== null) runKey = key;
+    }
+  }
+  return result;
+}
+
 function QuestionNavigatorGrid({
   questions,
   currentId,
@@ -749,7 +875,8 @@ function QuestionNavigatorGrid({
   currentId: string;
   answered: Record<string, string | null>;
   flagged: Record<string, boolean>;
-  onSelect: (index: number) => void;
+  /** Ausente (settings.allowReview === false) = grade vira só indicador de progresso, sem navegação. */
+  onSelect?: (index: number) => void;
 }) {
   return (
     <div>
@@ -762,10 +889,12 @@ function QuestionNavigatorGrid({
             <li key={q.question_id}>
               <button
                 type="button"
-                onClick={() => onSelect(i)}
+                onClick={() => onSelect?.(i)}
+                disabled={!onSelect}
                 aria-current={isCurrent ? 'step' : undefined}
                 className={cn(
                   'relative grid size-9 place-items-center rounded-md text-xs font-semibold tabular-nums',
+                  !onSelect && 'cursor-default',
                   isCurrent
                     ? 'bg-brand text-brand-fg'
                     : isAnswered
