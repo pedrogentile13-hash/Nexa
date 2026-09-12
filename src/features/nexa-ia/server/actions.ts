@@ -30,11 +30,64 @@ Foque em ajudar a entender conceitos, resolver dúvidas de matérias escolares e
 Se a pergunta não tiver relação com estudos, responda com educação e traga a conversa de volta para como você pode ajudar nos estudos.
 Mantenha as respostas concisas — o aluno está lendo num app, não um livro.`;
 
-async function replyTo(sessionId: string): Promise<string> {
+/**
+ * Contexto do próprio aluno — notas por matéria (`subject_scores`) e os
+ * assuntos mais fracos (`topic_mastery`, filtrado a `status = 'revisar'`,
+ * top 3 — mais que isso vira ruído, e o pior sempre entra primeiro porque a
+ * função já devolve ordenado por `mastery_percent`) — pra Nexa IA parar de
+ * ser 100% genérica sem precisar de migration nova: as duas RPCs já existem
+ * e já têm `grant execute to authenticated` desde o Loop Nexa/notas
+ * automáticas.
+ *
+ * Falha (rede, RPC fora do ar) vira contexto vazio, nunca erro — a conversa
+ * segue genérica em vez de quebrar.
+ */
+async function buildStudentContext(userId: string): Promise<string> {
+  try {
+    const supabase = await createClient();
+    const [scoresRes, masteryRes] = await Promise.all([
+      supabase.rpc('subject_scores', { p_user_id: userId }),
+      supabase.rpc('topic_mastery', { p_user_id: userId }),
+    ]);
+
+    const scores = (scoresRes.data ?? []).filter((s) => s.blended_score !== null);
+    const weakTopics = (masteryRes.data ?? [])
+      .filter((t) => t.status === 'revisar')
+      .slice(0, 3);
+
+    if (scores.length === 0 && weakTopics.length === 0) return '';
+
+    const lines: string[] = [];
+    if (scores.length > 0) {
+      lines.push(
+        `Notas atuais do aluno (0 a 10): ${scores
+          .map((s) => `${s.subject_name} ${s.blended_score?.toFixed(1)}`)
+          .join(', ')}.`,
+      );
+    }
+    if (weakTopics.length > 0) {
+      lines.push(
+        `Assuntos em que o aluno está com mais dificuldade agora: ${weakTopics
+          .map((t) => `${t.topic_name} (${t.subject_name}, ${t.mastery_percent}% de acerto recente)`)
+          .join(', ')}.`,
+      );
+    }
+    return lines.join(' ');
+  } catch {
+    return '';
+  }
+}
+
+async function replyTo(sessionId: string, userId: string): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return 'Nexa IA ainda não está conectada a um provedor de inteligência artificial — assim que estiver, esta resposta vai ser gerada de verdade. Sua pergunta já ficou salva aqui.';
   }
+
+  const studentContext = await buildStudentContext(userId);
+  const systemContent = studentContext
+    ? `${SYSTEM_INSTRUCTION}\n\nContexto sobre este aluno — use com naturalidade para personalizar a ajuda (por exemplo, relacionando a dúvida a um assunto fraco dele), nunca liste os números como se estivesse lendo um relatório: ${studentContext}`
+    : SYSTEM_INSTRUCTION;
 
   // Histórico da MESMA sessão vira contexto — sem isso, cada mensagem seria
   // uma conversa nova pra IA, e "e sobre o segundo item?" não faria sentido.
@@ -43,7 +96,7 @@ async function replyTo(sessionId: string): Promise<string> {
   // não é acrescentada de novo.
   const history = await getChatMessages(sessionId);
   const messages = [
-    { role: 'system' as const, content: SYSTEM_INSTRUCTION },
+    { role: 'system' as const, content: systemContent },
     ...history.map((m) => ({
       role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
       content: m.content,
@@ -176,7 +229,7 @@ export async function sendMessage(
 
   await supabase
     .from('ai_chat_messages')
-    .insert({ session_id: sessionId, role: 'assistant', content: await replyTo(sessionId) });
+    .insert({ session_id: sessionId, role: 'assistant', content: await replyTo(sessionId, user.id) });
 
   if (!isNewSession) {
     await supabase
