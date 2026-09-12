@@ -11,7 +11,7 @@ import { buildExamPrompt, generateExamDraftSchema, stripCodeFence } from '../lib
  * colado à mão. Se o Groq devolver algo inválido, vira um erro de validação
  * normal — o admin edita ou pede de novo. Nasce sempre como rascunho.
  *
- * Mesmo modelo/endpoint da Nexa IA (`nexa-ia/server/actions.ts`) — mantido
+ * Mesmo modelo/endpoint da NexaAI (`nexa-ia/server/actions.ts`) — mantido
  * separado de propósito: são dois usos bem diferentes (chat curto vs. gerar
  * um JSON grande e estrito), com prompts, `max_tokens` e tratamento de erro
  * próprios de cada um.

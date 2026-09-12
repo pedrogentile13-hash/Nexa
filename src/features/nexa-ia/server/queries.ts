@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 
 /**
- * Leituras da Nexa IA.
+ * Leituras da NexaAI.
  *
  * Estrutura pronta, sem provedor de IA ligado ainda (falta a chave — decisão
  * do usuário, fora do código). Sessões e mensagens são reais e persistem

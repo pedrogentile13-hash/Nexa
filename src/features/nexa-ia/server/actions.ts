@@ -7,13 +7,13 @@ import { createClient } from '@/lib/supabase/server';
 import { getChatMessages } from './queries';
 
 /**
- * Resposta da Nexa IA.
+ * Resposta da NexaAI.
  *
  * Groq é o provedor (troca do Gemini da ADR-039 — chave gratuita, inferência
  * rápida, API compatível com o formato "chat completions" da OpenAI). A
  * chave é opcional em tempo de execução (nunca em `src/lib/env.ts`, que falha
  * o build inteiro se faltar algo) — sem `GROQ_API_KEY`, cai no texto fixo de
- * sempre em vez de derrubar a Nexa IA inteira. O mesmo vale para qualquer erro
+ * sempre em vez de derrubar a NexaAI inteira. O mesmo vale para qualquer erro
  * da chamada (rede, filtro de conteúdo, resposta vazia): a conversa do aluno
  * já está salva de qualquer forma, então uma falha aqui vira uma mensagem
  * educada, nunca uma tela quebrada.
@@ -24,7 +24,7 @@ import { getChatMessages } from './queries';
  */
 const GROQ_MODEL = 'openai/gpt-oss-120b';
 
-const SYSTEM_INSTRUCTION = `Você é a Nexa IA, a assistente de estudos do Nexa Study — um app usado por estudantes brasileiros do ensino fundamental e médio.
+const SYSTEM_INSTRUCTION = `Você é a NexaAI, a assistente de estudos do Nexa Study — um app usado por estudantes brasileiros do ensino fundamental e médio.
 Responda sempre em português do Brasil, de forma clara, objetiva e didática, como um professor particular paciente.
 Foque em ajudar a entender conceitos, resolver dúvidas de matérias escolares e sugerir como estudar — nunca apenas dê a resposta pronta de uma tarefa sem explicar o raciocínio.
 Se a pergunta não tiver relação com estudos, responda com educação e traga a conversa de volta para como você pode ajudar nos estudos.
@@ -34,7 +34,7 @@ Mantenha as respostas concisas — o aluno está lendo num app, não um livro.`;
  * Contexto do próprio aluno — notas por matéria (`subject_scores`) e os
  * assuntos mais fracos (`topic_mastery`, filtrado a `status = 'revisar'`,
  * top 3 — mais que isso vira ruído, e o pior sempre entra primeiro porque a
- * função já devolve ordenado por `mastery_percent`) — pra Nexa IA parar de
+ * função já devolve ordenado por `mastery_percent`) — pra NexaAI parar de
  * ser 100% genérica sem precisar de migration nova: as duas RPCs já existem
  * e já têm `grant execute to authenticated` desde o Loop Nexa/notas
  * automáticas.
@@ -81,7 +81,7 @@ async function buildStudentContext(userId: string): Promise<string> {
 async function replyTo(sessionId: string, userId: string): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return 'Nexa IA ainda não está conectada a um provedor de inteligência artificial — assim que estiver, esta resposta vai ser gerada de verdade. Sua pergunta já ficou salva aqui.';
+    return 'NexaAI ainda não está conectada a um provedor de inteligência artificial — assim que estiver, esta resposta vai ser gerada de verdade. Sua pergunta já ficou salva aqui.';
   }
 
   const studentContext = await buildStudentContext(userId);
@@ -176,6 +176,27 @@ export async function createChatSession(): Promise<void> {
   if (error) return;
 
   redirect(`/nexa-ia?sessao=${data.id}`);
+}
+
+/**
+ * Renomear/excluir sessão — RLS de `ai_chat_sessions` (`for all ... using
+ * (user_id = auth.uid())`) já restringe as duas à própria sessão, sem
+ * precisar repetir o filtro aqui. Excluir cascade-apaga as mensagens
+ * (`ai_chat_messages.session_id ... on delete cascade`).
+ */
+export async function renameChatSession(sessionId: string, title: string): Promise<void> {
+  const trimmed = title.trim().slice(0, 120);
+  if (!trimmed) return;
+
+  const supabase = await createClient();
+  await supabase.from('ai_chat_sessions').update({ title: trimmed }).eq('id', sessionId);
+  revalidatePath('/nexa-ia');
+}
+
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  const supabase = await createClient();
+  await supabase.from('ai_chat_sessions').delete().eq('id', sessionId);
+  revalidatePath('/nexa-ia');
 }
 
 const sendMessageSchema = z.object({

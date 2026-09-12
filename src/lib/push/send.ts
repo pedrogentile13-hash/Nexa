@@ -12,7 +12,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * push configurado, sem permissão concedida, ou sem nenhuma assinatura ativa.
  *
  * VAPID/`SUPABASE_SERVICE_ROLE_KEY` ausentes = no-op silencioso, mesmo
- * espírito do `GROQ_API_KEY` ausente na Nexa IA — a feature nunca derruba o
+ * espírito do `GROQ_API_KEY` ausente na NexaAI — a feature nunca derruba o
  * que já funciona.
  */
 

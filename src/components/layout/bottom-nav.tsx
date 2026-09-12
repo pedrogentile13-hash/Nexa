@@ -52,7 +52,7 @@ const MORE_ITEMS = [
   { href: '/simulados', label: 'Simulados', Icon: ClipboardCheck },
   { href: '/trilhas', label: 'Trilhas', Icon: RouteIcon },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
-  { href: '/nexa-ia', label: 'Nexa IA', Icon: Sparkles },
+  { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
   { href: '/metas', label: 'Metas', Icon: Target },
   { href: '/perfil', label: 'Perfil', Icon: User },
 ] as const;

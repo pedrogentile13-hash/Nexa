@@ -52,7 +52,7 @@ const PRIMARY_ITEMS: NavItem[] = [
   { href: '/trilhas', label: 'Trilhas', Icon: RouteIcon },
   { href: '/agenda', label: 'Agenda', Icon: CalendarDays },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
-  { href: '/nexa-ia', label: 'Nexa IA', Icon: Sparkles },
+  { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
 ];
 
 const SECONDARY_ITEMS: NavItem[] = [

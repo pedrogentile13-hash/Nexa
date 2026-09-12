@@ -49,7 +49,13 @@ export function Dialog({
         aria-label={title}
         className={cn(
           'border-border bg-surface pb-safe absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[24px] border-t p-5 shadow-lg',
-          'md:static md:inset-auto md:max-h-[85vh] md:w-full md:max-w-md md:rounded-2xl md:border',
+          // `md:relative`, não `md:static`: um elemento `static` pinta ATRÁS de
+          // um `absolute` (o botão de fundo, logo acima no DOM) não importa a
+          // ordem no DOM — no desktop isso deixava o fundo escurecido por
+          // cima do próprio painel, capturando todo clique antes de chegar
+          // nos campos. `relative` mantém o painel "positioned", pintando por
+          // cima do fundo pela ordem do DOM, como já acontecia no celular.
+          'md:relative md:inset-auto md:max-h-[85vh] md:w-full md:max-w-md md:rounded-2xl md:border',
           className,
         )}
       >

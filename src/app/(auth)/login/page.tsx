@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 /**
  * O que o app faz, em três blocos — só aparece onde há espaço para eles
  * (desktop). Cada um é algo que já existe de verdade no produto, não uma
- * promessa de mockup: biblioteca de conteúdo, nota automática e Nexa IA.
+ * promessa de mockup: biblioteca de conteúdo, nota automática e NexaAI.
  */
 const FEATURES = [
   {
@@ -27,7 +27,7 @@ const FEATURES = [
   },
   {
     Icon: Sparkles,
-    title: 'Nexa IA',
+    title: 'NexaAI',
     description: 'Tire dúvidas, gere resumos e receba orientações personalizadas.',
   },
 ];

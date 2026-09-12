@@ -7,7 +7,7 @@ import { getChatMessages, getChatSessions } from '@/features/nexa-ia/server/quer
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
-  title: 'Nexa IA',
+  title: 'NexaAI',
   description: 'Seu assistente de estudos.',
 };
 
@@ -29,7 +29,7 @@ export default async function NexaIaPage({
 
   return (
     <>
-      <AppHeader title="Nexa IA" subtitle="Seu assistente de estudos" />
+      <AppHeader title="NexaAI" subtitle="Seu assistente de estudos" />
       <PageMain className="pt-4 md:pt-6">
         <NexaIaView sessions={sessions} activeSessionId={activeSessionId} messages={messages} />
       </PageMain>
