@@ -14,6 +14,8 @@
  * pointing anywhere near this file.
  */
 
+import type { EvaluationCriterion, ExamAsset, ExamMode, ExamSection, ExamSettings } from './simulado';
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type RoundingMode = 'half_up' | 'half_even' | 'floor' | 'ceil';
@@ -32,8 +34,9 @@ export type TaskKind =
   | 'review'
   | 'exercise'
   | 'project'
-  | 'custom';
-export type StudySource = 'timer' | 'manual';
+  | 'custom'
+  | 'prova';
+export type StudySource = 'timer' | 'manual' | 'content';
 export type AttachmentKind = 'summary' | 'exercise' | 'file' | 'link';
 export type XpSourceType =
   | 'task'
@@ -41,7 +44,15 @@ export type XpSourceType =
   | 'study_session'
   | 'activity'
   | 'achievement'
-  | 'system';
+  | 'system'
+  | 'quiz'
+  | 'lesson'
+  | 'resource';
+export type UserRole = 'student' | 'school_admin' | 'admin' | 'teacher_admin';
+export type ResourceKind = 'resumo' | 'podcast' | 'video' | 'imagem' | 'musica' | 'quiz' | 'simulado';
+export type Difficulty = 'facil' | 'medio' | 'anglo' | 'dificil';
+export type TrackCategory = 'enem' | 'fundamental' | 'reforco' | 'carreiras' | 'habilidades';
+export type LessonState = 'available' | 'in_progress' | 'done' | 'mastered';
 export type AchievementCategory =
   | 'geral'
   | 'estudo'
@@ -79,18 +90,29 @@ export type SchoolRow = {
   updated_at: string;
 }
 
+export type NotificationSettings = {
+  dailyReminder: boolean;
+  revisionReminder: boolean;
+  achievementsAndGoals: boolean;
+  newsUpdates: boolean;
+};
+
 export type ProfileRow = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
   school_id: string | null;
   grade_level: string | null;
-  class_name: string | null;
+  class_id: string | null;
   timezone: string;
   locale: string;
   theme_preference: ThemePreference;
+  role: UserRole;
   weekly_study_goal_minutes: number;
   daily_study_goal_minutes: number;
+  monthly_activities_goal: number;
+  monthly_subjects_goal: number;
+  notification_settings: NotificationSettings;
   onboarded_at: string | null;
   created_at: string;
   updated_at: string;
@@ -147,67 +169,6 @@ export type SubjectRow = {
   updated_at: string;
 }
 
-export type GradingSchemeRow = {
-  id: string;
-  user_id: string;
-  name: string;
-  grade_min: number;
-  grade_max: number;
-  passing_grade: number;
-  decimals: number;
-  rounding_mode: RoundingMode;
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export type GradingSchemeCategoryRow = {
-  id: string;
-  user_id: string;
-  scheme_id: string;
-  name: string;
-  short_code: string | null;
-  weight_percent: number;
-  sequence: number;
-  drop_lowest: number;
-  allows_replacement: boolean;
-  color: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export type SubjectTermRow = {
-  id: string;
-  user_id: string;
-  subject_id: string;
-  term_id: string;
-  scheme_id: string | null;
-  target_grade: number | null;
-  final_grade_override: number | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export type ActivityRow = {
-  id: string;
-  user_id: string;
-  subject_term_id: string;
-  category_id: string;
-  title: string;
-  score: number | null;
-  max_score: number | null;
-  weight: number;
-  due_date: string | null;
-  graded_at: string | null;
-  teacher_name: string | null;
-  notes: string | null;
-  is_dropped: boolean;
-  replaces_activity_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export type RoutineRow = {
   id: string;
   user_id: string;
@@ -235,7 +196,6 @@ export type TaskRow = {
   id: string;
   user_id: string;
   subject_id: string | null;
-  activity_id: string | null;
   title: string;
   description: string | null;
   kind: TaskKind;
@@ -253,7 +213,6 @@ export type StudySessionRow = {
   id: string;
   user_id: string;
   subject_id: string | null;
-  activity_id: string | null;
   started_at: string;
   ended_at: string | null;
   duration_seconds: number;
@@ -282,7 +241,6 @@ export type AttachmentRow = {
   id: string;
   user_id: string;
   subject_id: string | null;
-  activity_id: string | null;
   kind: AttachmentKind;
   title: string;
   content: string | null;
@@ -319,6 +277,8 @@ export type XpEventRow = {
   created_at: string;
 }
 
+export type AchievementRarity = 'comum' | 'rara' | 'epica' | 'lendaria';
+
 export type AchievementRow = {
   id: string;
   name: string;
@@ -328,6 +288,7 @@ export type AchievementRow = {
   metric: string;
   threshold: number;
   xp_reward: number;
+  rarity: AchievementRarity;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -341,127 +302,367 @@ export type UserAchievementRow = {
   updated_at: string;
 }
 
-// ─────────────────────────────────────────────────────────── views ──────────
-// Read-only projections. These, not the client, are the authority on averages.
+/* ------------------------------------------------------------ conteúdo -- */
 
-export type VSubjectTermResolvedRow = {
-  subject_term_id: string;
+export type ContentTopicRow = {
+  id: string;
+  school_id: string | null;
+  subject_catalog_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  grade_levels: string[];
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ResourceRow = {
+  id: string;
+  school_id: string | null;
+  subject_catalog_id: string;
+  topic_id: string | null;
+  kind: ResourceKind;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  body: string | null;
+  storage_path: string | null;
+  external_url: string | null;
+  thumbnail_url: string | null;
+  duration_seconds: number | null;
+  difficulty: Difficulty;
+  grade_levels: string[];
+  tags: string[];
+  time_limit_seconds: number | null;
+  xp_reward: number;
+  is_published: boolean;
+  published_at: string | null;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Para kind='resumo': texto digitado, arquivo enviado ou HTML incorporado (sandboxed). */
+  content_format: 'markdown' | 'pdf' | 'html';
+  pdf_page_count: number | null;
+  pdf_extracted_text: string | null;
+  pdf_status: 'processado' | 'erro' | null;
+  /** 1 a 4, ou `null` quando o recurso não é amarrado a um bimestre específico. */
+  bimestre: number | null;
+  /** '1.0' = formato legado; '2.0' = simulado v2 (assets/sections/writingTasks). */
+  schema_version: string;
+  settings: ExamSettings;
+  assets: ExamAsset[];
+  sections: ExamSection[];
+  /** `null` = deriva de `kind` (quiz->practice, simulado->exam). */
+  exam_mode: ExamMode | null;
+  exam_style: string | null;
+};
+
+export type ResourceChapterRow = {
+  id: string;
+  resource_id: string;
+  position: number;
+  label: string;
+  starts_at_seconds: number;
+  created_at: string;
+};
+
+export type QuestionRow = {
+  id: string;
+  resource_id: string;
+  topic_id: string | null;
+  position: number;
+  statement: string;
+  explanation: string | null;
+  difficulty: Difficulty;
+  points: number;
+  created_at: string;
+  updated_at: string;
+  group_id: string | null;
+  resource_refs: string[];
+  /** `null` = usa a matéria do `resources` pai (prova mista, seção diferente). */
+  subject_catalog_id: string | null;
+  subtopic: string | null;
+  book: number | null;
+  module: number | null;
+  skills: string[];
+  error_types: string[];
+  estimated_time_seconds: number | null;
+};
+
+export type WritingTaskRow = {
+  id: string;
+  resource_id: string;
+  position: number;
+  title: string;
+  genre: string | null;
+  theme: string | null;
+  prompt: string;
+  instructions: string[];
+  resource_refs: string[];
+  min_words: number | null;
+  max_words: number | null;
+  evaluation_criteria: EvaluationCriterion[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type EssaySubmissionRow = {
+  id: string;
+  attempt_id: string;
+  writing_task_id: string;
+  content: string;
+  word_count: number;
+  is_submitted: boolean;
+  submitted_at: string | null;
+  scores: Record<string, number> | null;
+  total_score: number | null;
+  corrected_by: string | null;
+  corrected_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuestionOptionRow = {
+  id: string;
+  question_id: string;
+  position: number;
+  body: string;
+  is_correct: boolean;
+  created_at: string;
+};
+
+export type TrackRow = {
+  id: string;
+  school_id: string | null;
+  subject_catalog_id: string;
+  title: string;
+  description: string | null;
+  grade_levels: string[];
+  category: TrackCategory;
+  is_published: boolean;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TrackSectionRow = {
+  id: string;
+  track_id: string;
+  position: number;
+  title: string;
+  created_at: string;
+};
+
+export type TrackLessonRow = {
+  id: string;
+  section_id: string;
+  position: number;
+  title: string;
+  description: string | null;
+  estimated_minutes: number | null;
+  xp_reward: number;
+  unlock_after_lesson_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TrackLessonResourceRow = {
+  id: string;
+  lesson_id: string;
+  resource_id: string;
+  position: number;
+  is_required: boolean;
+};
+
+/* ------------------------------------------------ progresso do aluno ---- */
+
+export type ResourceProgressRow = {
+  id: string;
   user_id: string;
-  subject_id: string;
-  term_id: string;
-  subject_term_target: number | null;
-  final_grade_override: number | null;
-  notes: string | null;
+  resource_id: string;
+  progress_percent: number;
+  position_seconds: number;
+  completed_at: string | null;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+  is_favorited: boolean;
+};
+
+export type QuizAttemptRow = {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  started_at: string;
+  finished_at: string | null;
+  correct_count: number;
+  total_count: number;
+  duration_seconds: number;
+  created_at: string;
+};
+
+export type QuizAnswerRow = {
+  id: string;
+  attempt_id: string;
+  question_id: string;
+  option_id: string | null;
+  is_correct: boolean;
+  answered_at: string;
+  flagged: boolean;
+  time_spent_seconds: number;
+};
+
+export type LessonProgressRow = {
+  id: string;
+  user_id: string;
+  lesson_id: string;
+  state: LessonState;
+  correct_streak: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HighlightRow = {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  quote: string;
+  note: string | null;
+  created_at: string;
+};
+
+export type FlashcardReviewRow = {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  knows: boolean;
+  reviewed_at: string;
+};
+
+export type ContentReviewRow = {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  interval_step: number;
+  reviewed_at: string;
+};
+
+export type LongTermGoalRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  icon: string;
+  progress_percent: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AiChatRole = 'user' | 'assistant';
+
+export type AiChatSessionRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AiChatMessageRow = {
+  id: string;
+  session_id: string;
+  role: AiChatRole;
+  content: string;
+  created_at: string;
+};
+
+export type NotificationRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
+export type PushSubscriptionRow = {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth_key: string;
+  created_at: string;
+};
+
+export type TeacherAssignmentRow = {
+  id: string;
+  teacher_id: string;
+  school_id: string;
+  subject_catalog_id: string;
+  class_id: string;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type ClassRow = {
+  id: string;
+  school_id: string;
+  name: string;
+  created_by: string | null;
+  created_at: string;
+};
+
+/* ------------------------------------------------------------- views --- */
+
+export type VResourceLibraryRow = {
+  id: string;
+  kind: ResourceKind;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  thumbnail_url: string | null;
+  duration_seconds: number | null;
+  difficulty: Difficulty;
+  xp_reward: number;
+  school_id: string | null;
+  subject_catalog_id: string;
   subject_name: string;
+  subject_slug: string;
   subject_color: string;
-  subject_icon: string;
-  subject_target: number | null;
-  subject_archived_at: string | null;
-  term_name: string;
-  term_sequence: number;
-  term_starts_on: string;
-  term_ends_on: string;
-  academic_year_id: string;
-  scheme_id: string;
-  scheme_name: string;
-  grade_min: number;
-  grade_max: number;
-  passing_grade: number;
-  decimals: number;
-  rounding_mode: RoundingMode;
-}
+  topic_id: string | null;
+  topic_name: string | null;
+  sort_order: number;
+  published_at: string | null;
+  question_count: number;
+  bimestre: number | null;
+};
 
-export type VActivityEffectiveRow = ActivityRow & {
-  subject_id: string;
-  term_id: string;
-  subject_name: string;
-  subject_color: string;
-  grade_max: number;
-  passing_grade: number;
-  scheme_id: string;
-  category_name: string;
-  category_code: string | null;
-  category_sequence: number;
-  weight_percent: number;
-  drop_lowest: number;
-  is_superseded: boolean;
-  normalized_score: number | null;
-  lowest_rank: number | null;
-  is_counted: boolean;
-}
-
-export type VCategoryAverageRow = {
-  user_id: string;
-  subject_term_id: string;
-  subject_id: string;
-  term_id: string;
-  scheme_id: string;
-  grade_max: number;
-  passing_grade: number;
-  category_id: string;
-  category_name: string;
-  category_code: string | null;
-  category_sequence: number;
-  weight_percent: number;
-  drop_lowest: number;
-  activity_count: number;
-  counted_count: number;
-  pending_count: number;
-  counted_weight: number;
-  average: number | null;
-}
-
-export type VSubjectTermAverageRow = {
-  user_id: string;
-  subject_term_id: string;
-  subject_id: string;
-  term_id: string;
-  scheme_id: string;
-  grade_max: number;
-  passing_grade: number;
-  category_count: number;
-  graded_category_count: number;
-  weight_total: number;
-  graded_weight: number;
-  activity_count: number;
-  pending_count: number;
-  average_current: number | null;
-  subject_name: string;
-  subject_color: string;
-  subject_icon: string;
-  term_name: string;
-  term_sequence: number;
-  term_starts_on: string;
-  term_ends_on: string;
-  academic_year_id: string;
-  decimals: number;
-  rounding_mode: RoundingMode;
-  target_grade: number | null;
-  final_grade: number | null;
-  is_overridden: boolean;
-  coverage_percent: number;
-  is_below_passing: boolean;
-  is_below_target: boolean;
-}
-
-export type VTermSummaryRow = {
-  user_id: string;
-  term_id: string;
-  term_name: string;
-  term_sequence: number;
-  term_starts_on: string;
-  term_ends_on: string;
-  academic_year_id: string;
-  subjects_total: number;
-  subjects_graded: number;
-  average_overall: number | null;
-  lowest_grade: number | null;
-  highest_grade: number | null;
-  subjects_below_passing: number;
-  subjects_below_target: number;
-  pending_activities: number;
-  avg_coverage_percent: number | null;
-}
+export type VTrackLessonResolvedRow = {
+  lesson_id: string;
+  section_id: string;
+  track_id: string;
+  subject_catalog_id: string;
+  school_id: string | null;
+  section_title: string;
+  section_position: number;
+  lesson_position: number;
+  title: string;
+  description: string | null;
+  estimated_minutes: number | null;
+  xp_reward: number;
+  unlock_after_lesson_id: string | null;
+  raw_state: LessonState;
+  correct_streak: number | null;
+  completed_at: string | null;
+  is_locked: boolean;
+  resource_count: number;
+};
 
 export type Database = {
   public: {
@@ -472,10 +673,6 @@ export type Database = {
       terms: Table<TermRow>;
       subject_catalog: Table<SubjectCatalogRow>;
       subjects: Table<SubjectRow>;
-      grading_schemes: Table<GradingSchemeRow>;
-      grading_scheme_categories: Table<GradingSchemeCategoryRow>;
-      subject_terms: Table<SubjectTermRow>;
-      activities: Table<ActivityRow>;
       routines: Table<RoutineRow>;
       routine_completions: Table<RoutineCompletionRow>;
       tasks: Table<TaskRow>;
@@ -486,17 +683,39 @@ export type Database = {
       xp_events: Table<XpEventRow>;
       achievements: Table<AchievementRow>;
       user_achievements: Table<UserAchievementRow>;
+      content_topics: Table<ContentTopicRow>;
+      resources: Table<ResourceRow>;
+      resource_chapters: Table<ResourceChapterRow>;
+      questions: Table<QuestionRow>;
+      question_options: Table<QuestionOptionRow>;
+      tracks: Table<TrackRow>;
+      track_sections: Table<TrackSectionRow>;
+      track_lessons: Table<TrackLessonRow>;
+      track_lesson_resources: Table<TrackLessonResourceRow>;
+      resource_progress: Table<ResourceProgressRow>;
+      quiz_attempts: Table<QuizAttemptRow>;
+      quiz_answers: Table<QuizAnswerRow>;
+      lesson_progress: Table<LessonProgressRow>;
+      highlights: Table<HighlightRow>;
+      flashcard_reviews: Table<FlashcardReviewRow>;
+      content_reviews: Table<ContentReviewRow>;
+      long_term_goals: Table<LongTermGoalRow>;
+      ai_chat_sessions: Table<AiChatSessionRow>;
+      ai_chat_messages: Table<AiChatMessageRow>;
+      notifications: Table<NotificationRow>;
+      push_subscriptions: Table<PushSubscriptionRow>;
+      teacher_assignments: Table<TeacherAssignmentRow>;
+      classes: Table<ClassRow>;
+      writing_tasks: Table<WritingTaskRow>;
+      essay_submissions: Table<EssaySubmissionRow>;
     };
     Views: {
-      v_subject_terms_resolved: View<VSubjectTermResolvedRow>;
-      v_activities_effective: View<VActivityEffectiveRow>;
-      v_category_averages: View<VCategoryAverageRow>;
-      v_subject_term_averages: View<VSubjectTermAverageRow>;
-      v_term_summary: View<VTermSummaryRow>;
+      v_resource_library: View<VResourceLibraryRow>;
+      v_track_lessons_resolved: View<VTrackLessonResolvedRow>;
     };
     Functions: {
       user_local_date: { Args: { p_user_id?: string }; Returns: string };
-      current_term_id: { Args: { p_user_id?: string }; Returns: string | null };
+      user_month_start: { Args: { p_user_id?: string }; Returns: string };
       xp_to_level: { Args: { p_xp: number }; Returns: number };
       ensure_user_stats: { Args: { p_user_id?: string }; Returns: undefined };
       award_xp: {
@@ -510,11 +729,431 @@ export type Database = {
         Returns: number;
       };
       touch_streak: { Args: { p_user_id?: string }; Returns: number };
+      check_achievements: { Args: { p_user_id?: string }; Returns: void };
+      school_ranking: {
+        Args: {
+          p_scope?: 'escola' | 'turma';
+          p_class_id?: string | null;
+          p_period?: 'hoje' | 'semana' | 'mes' | 'geral';
+          p_school_id?: string | null;
+        };
+        Returns: {
+          user_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          class_name: string | null;
+          xp: number;
+          level: number;
+          current_streak: number;
+          questions_answered: number;
+          study_hours: number;
+          rank: number;
+          previous_rank: number | null;
+        }[];
+      };
+      ranking_evolution: {
+        Args: { p_user_id?: string; p_days?: number };
+        Returns: {
+          day: string;
+          me_xp: number;
+          school_avg_xp: number;
+          top1_xp: number;
+        }[];
+      };
+      student_profile_card: { Args: { p_user_id: string }; Returns: Json | null };
+      send_friend_request: { Args: { p_addressee_id: string }; Returns: string };
+      respond_friend_request: { Args: { p_requester_id: string; p_accept: boolean }; Returns: void };
+      remove_friend: { Args: { p_other_id: string }; Returns: void };
+      search_schoolmates: {
+        Args: { p_query: string };
+        Returns: {
+          user_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          class_name: string | null;
+          friendship_status: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
+        }[];
+      };
+      list_friends: {
+        Args: Record<string, never>;
+        Returns: {
+          user_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          class_name: string | null;
+          level: number;
+          xp: number;
+          current_streak: number;
+        }[];
+      };
+      list_friend_requests: {
+        Args: Record<string, never>;
+        Returns: {
+          requester_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          class_name: string | null;
+          created_at: string;
+        }[];
+      };
+      is_admin: { Args: { p_user_id?: string }; Returns: boolean };
+      current_school_id: { Args: { p_user_id?: string }; Returns: string | null };
+      can_manage_school: { Args: { p_school_id: string | null; p_user_id?: string }; Returns: boolean };
+      can_view_resource: { Args: { p_resource_id: string; p_user_id?: string }; Returns: boolean };
+      quiz_questions: {
+        Args: { p_resource_id: string };
+        Returns: {
+          question_id: string;
+          question_position: number;
+          statement: string;
+          difficulty: Difficulty;
+          points: number;
+          topic_name: string | null;
+          subject_name: string;
+          group_id: string | null;
+          resource_refs: string[];
+          subtopic: string | null;
+          skills: string[];
+          options: { id: string; position: number; body: string }[];
+        }[];
+      };
+      start_quiz_attempt: { Args: { p_resource_id: string }; Returns: string };
+      quiz_attempt_state: {
+        Args: { p_attempt_id: string };
+        Returns: { question_id: string; option_id: string | null; flagged: boolean }[];
+      };
+      answer_quiz_question: {
+        Args: {
+          p_attempt_id: string;
+          p_question_id: string;
+          p_option_id: string | null;
+          p_time_spent_seconds?: number;
+        };
+        Returns: { is_correct: boolean; correct_option_id: string | null; explanation: string | null }[];
+      };
+      toggle_question_flag: {
+        Args: { p_attempt_id: string; p_question_id: string };
+        Returns: boolean;
+      };
+      finish_quiz_attempt: {
+        Args: { p_attempt_id: string };
+        Returns: {
+          correct_count: number;
+          total_count: number;
+          duration_seconds: number;
+          xp_awarded: number;
+        }[];
+      };
+      quiz_attempt_review: {
+        Args: { p_attempt_id: string };
+        Returns: {
+          question_id: string;
+          question_position: number;
+          statement: string;
+          explanation: string | null;
+          topic_name: string | null;
+          subject_name: string;
+          subtopic: string | null;
+          book: number | null;
+          module: number | null;
+          skills: string[];
+          error_types: string[];
+          difficulty: Difficulty;
+          resource_refs: string[];
+          time_spent_seconds: number;
+          chosen_option_id: string | null;
+          correct_option_id: string | null;
+          is_correct: boolean;
+        }[];
+      };
+      save_essay_draft: {
+        Args: { p_attempt_id: string; p_writing_task_id: string; p_content: string };
+        Returns: number;
+      };
+      submit_essay: {
+        Args: { p_attempt_id: string; p_writing_task_id: string };
+        Returns: undefined;
+      };
+      grade_essay: {
+        Args: { p_essay_id: string; p_scores: Record<string, number>; p_total_score: number };
+        Returns: undefined;
+      };
+      list_essays_for_grading: {
+        Args: { p_resource_id: string };
+        Returns: {
+          essay_id: string;
+          attempt_id: string;
+          writing_task_id: string;
+          writing_task_title: string;
+          student_name: string | null;
+          content: string;
+          word_count: number;
+          submitted_at: string | null;
+          total_score: number | null;
+          scores: Record<string, number> | null;
+          evaluation_criteria: EvaluationCriterion[];
+        }[];
+      };
+      quiz_attempt_topics: {
+        Args: { p_attempt_id: string };
+        Returns: { topic_id: string | null; topic_name: string; correct_count: number; total_count: number }[];
+      };
+      topic_mastery: {
+        Args: { p_user_id?: string };
+        Returns: {
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          topic_id: string | null;
+          topic_name: string;
+          correct_count: number;
+          total_count: number;
+          mastery_percent: number;
+          status: 'dominado' | 'desenvolvimento' | 'revisar';
+        }[];
+      };
+      admin_topic_mastery: {
+        Args: { p_target_user_id: string };
+        Returns: {
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          topic_id: string | null;
+          topic_name: string;
+          correct_count: number;
+          total_count: number;
+          mastery_percent: number;
+          status: 'dominado' | 'desenvolvimento' | 'revisar';
+        }[];
+      };
+      class_subject_mastery: {
+        Args: { p_school_id: string; p_subject_catalog_id: string; p_class_id?: string | null };
+        Returns: {
+          topic_name: string;
+          correct_count: number;
+          total_count: number;
+          mastery_percent: number;
+          student_count: number;
+        }[];
+      };
+      skill_mastery: {
+        Args: { p_user_id?: string };
+        Returns: {
+          skill: string;
+          correct_count: number;
+          total_count: number;
+          mastery_percent: number;
+          status: 'dominado' | 'desenvolvimento' | 'revisar';
+        }[];
+      };
+      common_error_types: {
+        Args: { p_user_id?: string };
+        Returns: {
+          error_type: string;
+          occurrences: number;
+        }[];
+      };
+      recent_errors: {
+        Args: { p_user_id?: string };
+        Returns: {
+          question_id: string;
+          statement: string;
+          explanation: string | null;
+          difficulty: Difficulty;
+          resource_id: string;
+          resource_title: string;
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          topic_id: string | null;
+          topic_name: string | null;
+          chosen_body: string | null;
+          correct_body: string | null;
+          answered_at: string;
+        }[];
+      };
+      dismiss_question_error: { Args: { p_question_id: string }; Returns: undefined };
+      notify_subject_students: {
+        Args: {
+          p_subject_catalog_id: string;
+          p_title: string;
+          p_body: string;
+          p_link?: string | null;
+          p_school_id?: string | null;
+        };
+        /** `user_id` de cada aluno notificado — usado para mandar push a eles também. */
+        Returns: string[];
+      };
+      review_queue: {
+        Args: { p_user_id?: string };
+        Returns: {
+          kind: 'erro' | 'conteudo';
+          bucket: 'atrasada' | 'hoje' | 'proxima' | 'concluida';
+          question_id: string | null;
+          resource_id: string;
+          resource_title: string;
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          topic_name: string | null;
+          statement: string | null;
+          explanation: string | null;
+          chosen_body: string | null;
+          correct_body: string | null;
+          answered_at: string | null;
+          due_date: string;
+          next_interval_step: number;
+          resource_kind: ResourceKind | null;
+        }[];
+      };
+      subject_scores: {
+        Args: { p_user_id?: string };
+        Returns: {
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          has_content: boolean;
+          assessment_score: number | null;
+          empenho_index: number;
+          blended_score: number | null;
+          quizzes_done: number;
+          simulados_done: number;
+          content_completed: number;
+          target_grade: number | null;
+          passing_grade: number;
+        }[];
+      };
+      performance_evolution: {
+        Args: { p_user_id?: string; p_weeks?: number };
+        Returns: {
+          week_start: string;
+          assessment_score: number | null;
+          empenho_index: number;
+          blended_score: number | null;
+        }[];
+      };
+      simulado_history: {
+        Args: { p_user_id?: string };
+        Returns: {
+          attempt_id: string;
+          resource_id: string;
+          resource_title: string;
+          subject_id: string | null;
+          subject_name: string | null;
+          subject_color: string | null;
+          correct_count: number;
+          total_count: number;
+          percent: number;
+          duration_seconds: number;
+          finished_at: string;
+        }[];
+      };
+      admin_subject_scores: {
+        Args: { p_target_user_id: string };
+        Returns: {
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          has_content: boolean;
+          assessment_score: number | null;
+          empenho_index: number;
+          blended_score: number | null;
+          quizzes_done: number;
+          simulados_done: number;
+          content_completed: number;
+          target_grade: number | null;
+          passing_grade: number;
+        }[];
+      };
+      admin_performance_evolution: {
+        Args: { p_target_user_id: string; p_weeks?: number };
+        Returns: {
+          week_start: string;
+          assessment_score: number | null;
+          empenho_index: number;
+          blended_score: number | null;
+        }[];
+      };
+      admin_simulado_history: {
+        Args: { p_target_user_id: string };
+        Returns: {
+          attempt_id: string;
+          resource_id: string;
+          resource_title: string;
+          subject_id: string | null;
+          subject_name: string | null;
+          subject_color: string | null;
+          correct_count: number;
+          total_count: number;
+          percent: number;
+          duration_seconds: number;
+          finished_at: string;
+        }[];
+      };
+      admin_study_sessions: {
+        Args: { p_target_user_id: string };
+        Returns: { local_date: string; duration_seconds: number }[];
+      };
+      admin_user_stats: {
+        Args: { p_target_user_id: string };
+        Returns: {
+          xp: number;
+          level: number;
+          current_streak: number;
+          longest_streak: number;
+          total_study_seconds: number;
+          last_active_local_date: string | null;
+        }[];
+      };
+      admin_school_summary: {
+        Args: { p_school_id?: string | null };
+        Returns: {
+          student_count: number;
+          active_last_7d_count: number;
+          total_study_seconds: number;
+          avg_current_streak: number;
+          quizzes_done_30d: number;
+          simulados_done_30d: number;
+        }[];
+      };
+      is_teacher_of: {
+        Args: { p_school_id: string; p_subject_catalog_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
+      is_teacher_of_student: {
+        Args: { p_target_user_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
+      notify_class: {
+        Args: {
+          p_class_id: string;
+          p_subject_catalog_id: string;
+          p_school_id: string;
+          p_title: string;
+          p_body: string | null;
+          p_link?: string | null;
+        };
+        /** `user_id` de cada aluno notificado — usado para mandar push a eles também. */
+        Returns: string[];
+      };
+      mark_resource_progress: {
+        Args: {
+          p_resource_id: string;
+          p_percent?: number | null;
+          p_position_seconds?: number | null;
+          p_completed?: boolean;
+        };
+        Returns: undefined;
+      };
+      start_lesson: { Args: { p_lesson_id: string }; Returns: undefined };
+      complete_lesson: {
+        Args: { p_lesson_id: string; p_flawless?: boolean };
+        Returns: { state: LessonState; xp_awarded: number }[];
+      };
       bootstrap_student: {
         Args: {
           p_full_name: string;
           p_grade_level?: string | null;
-          p_class_name?: string | null;
           p_school_id?: string | null;
           p_timezone?: string;
           p_year_label?: string | null;
@@ -523,7 +1162,7 @@ export type Database = {
           p_term_count?: number;
           p_catalog_ids?: string[];
           p_custom_subjects?: string[];
-          p_categories?: Json;
+          p_daily_goal_minutes?: number | null;
         };
         Returns: Json;
       };
