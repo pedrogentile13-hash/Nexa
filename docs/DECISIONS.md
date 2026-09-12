@@ -1236,3 +1236,73 @@ geral disponível na conta no momento; a lista de modelos ativos muda por
 conta/tempo, então se voltar a dar `model_not_found` é isso de novo, não a
 integração quebrando — conferir `console.groq.com` → Dashboard → Limits
 pelos IDs vigentes antes de reabrir investigação.
+
+## ADR-046 · Settings do simulado, editor visual, habilidades, push real e IA com contexto/geração
+
+**Contexto.** Com a Groq funcionando (ADR-045), o usuário pediu para seguir
+quatro pendências já mapeadas — `resources.settings` gravado mas nunca
+aplicado, sem editor visual de recurso, `skills`/`error_types` gravados mas
+nunca lidos, push nunca ligado de verdade — e, junto, novas fases focadas em
+IA agora que existe provedor de verdade. Seis entregas, cada uma com decisão
+própria vale registrar:
+
+1. **Settings do simulado: shuffle determinístico, não aleatório de verdade.**
+   `shuffleQuestions`/`shuffleAlternatives` (`quiz-runner.tsx`) usam um PRNG
+   seedado (mulberry32) por `attemptId` — mesma tentativa, mesma ordem,
+   mesmo depois de recarregar a página. Sem isso, a posição mudaria a cada
+   render e a retomada de tentativa (já existente desde a v2) ficaria
+   incoerente com o que o aluno via antes. A correção nunca dependeu de
+   posição (sempre `option.id`/`question_id`), então embaralhar é seguro por
+   construção, não por sorte.
+
+2. **Editor visual de recursos não substitui o JSON — convive com ele.**
+   `AssetEditor` (novo) é a interface principal de `resource-form.tsx`, mas
+   o textarea de JSON continua atrás de um toggle, escrevendo no mesmo
+   estado. Quem já tinha o hábito de colar JSON direto não perde nada; quem
+   não tinha JSON pra colar ganha formulário por tipo (texto, imagem —
+   com upload direto via `MediaUpload`, que ganhou um `onUploaded` aditivo —,
+   gráfico e tabela, os dois com uma grade editável nova,
+   `ChartDataEditor`, o primeiro componente de grid editável do projeto).
+
+3. **`skill_mastery()`/`common_error_types()` espelham `topic_mastery()` de
+   propósito.** Mesma forma (resposta mais recente de cada questão,
+   `security definer`, filtro por `auth.uid()` no corpo), só trocando o
+   agrupamento de assunto pra habilidade/tipo de erro. Manter o mesmo
+   desenho de função pros três evita que quem for mexer num precise
+   reaprender o padrão dos outros dois.
+
+4. **Push: `notify_subject_students`/`notify_class` passam a devolver quem
+   foi avisado.** As duas só inseriam em `notifications` e devolviam
+   `void` — sem os `user_id` de volta, o TypeScript não tinha como saber pra
+   quem mandar push (`send_friend_request`/`respond_friend_request` não
+   precisaram mudar: quem chama já sabe o destinatário, é um argumento).
+   Trocar `void` por `setof uuid` é mudança de tipo de retorno, então as
+   duas ganharam `drop function` antes do `create or replace` — inclusive
+   retroativo nas migrações antigas que já as criavam com `void`, só para o
+   replay local de idempotência não quebrar (não precisa rodar de novo em
+   produção). O envio em si (`src/lib/push/send.ts`) usa a
+   `SUPABASE_SERVICE_ROLE_KEY` (secret novo) porque precisa ler a assinatura
+   de OUTRO usuário — a RLS de `push_subscriptions` nunca deixaria isso pela
+   chave anônima, e criar uma policy mais aberta pra isso vazaria endpoint/
+   chaves de push de qualquer aluno pra qualquer admin.
+
+5. **Nexa IA ganha contexto sem migration nova.** `subject_scores()` e
+   `topic_mastery()` já existiam e já tinham `grant execute to
+   authenticated` — bastou chamar as duas em `replyTo()` e acrescentar um
+   resumo curto ao prompt de sistema. Falha ao buscar os dados vira contexto
+   vazio, não erro: a conversa cai pra genérica em vez de quebrar.
+
+6. **Geração de simulado por IA nunca escreve no banco.** `generateExamDraft`
+   devolve texto bruto pro campo "Código" de `SimuladoImporter` — o mesmo
+   `parseSimuladoCode`/prévia que valida um JSON colado à mão valida o que a
+   IA gerou, com o mesmo rigor. Um JSON malformado vira erro de validação
+   normal, nunca uma tentativa de "consertar" o que veio errado. O painel
+   roda num `<form>` próprio, portado pro `document.body`: `SimuladoImporter`
+   inteiro já é um `<form>`, e HTML não permite `<form>` dentro de `<form>`.
+
+Cortes assumidos (documentados no plano, aceitos pelo usuário antes de
+começar): `formulaSheetAllowed` fica pendente até existir um jeito de
+autorar o conteúdo de uma folha de fórmulas; autoria visual de asset não
+inclui reordenar; lembrete diário por push continua sem disparo automático
+(falta um cron/scheduler, que é infra nova); geração de simulado por IA a
+partir de um PDF específico fica pra depois.
