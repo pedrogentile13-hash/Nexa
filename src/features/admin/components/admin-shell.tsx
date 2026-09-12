@@ -15,6 +15,7 @@ import {
   Route as RouteIcon,
   School,
   Settings,
+  Sparkles,
   Users,
   Users2,
 } from 'lucide-react';
@@ -42,6 +43,7 @@ const ITEMS = [
   { href: '/admin/usuarios', label: 'Usuários', Icon: Users },
   { href: '/admin/professores', label: 'Professores', Icon: Users2 },
   { href: '/admin/relatorios', label: 'Relatórios', Icon: BarChart3 },
+  { href: '/admin/nexaai', label: 'NexaAI', Icon: Sparkles },
   { href: '/admin/notificacoes', label: 'Notificações', Icon: Bell },
   { href: '/admin/configuracoes', label: 'Configurações', Icon: Settings },
 ] as const;

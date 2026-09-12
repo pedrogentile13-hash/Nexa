@@ -912,6 +912,30 @@ export type Database = {
           status: 'dominado' | 'desenvolvimento' | 'revisar';
         }[];
       };
+      admin_topic_mastery: {
+        Args: { p_target_user_id: string };
+        Returns: {
+          subject_id: string;
+          subject_name: string;
+          subject_color: string;
+          topic_id: string | null;
+          topic_name: string;
+          correct_count: number;
+          total_count: number;
+          mastery_percent: number;
+          status: 'dominado' | 'desenvolvimento' | 'revisar';
+        }[];
+      };
+      class_subject_mastery: {
+        Args: { p_school_id: string; p_subject_catalog_id: string; p_class_id?: string | null };
+        Returns: {
+          topic_name: string;
+          correct_count: number;
+          total_count: number;
+          mastery_percent: number;
+          student_count: number;
+        }[];
+      };
       skill_mastery: {
         Args: { p_user_id?: string };
         Returns: {

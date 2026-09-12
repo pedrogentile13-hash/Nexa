@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { ArrowLeft, Bell, GraduationCap, Layers, LayoutDashboard, Library } from 'lucide-react';
+import { ArrowLeft, Bell, GraduationCap, Layers, LayoutDashboard, Library, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 
@@ -21,6 +21,7 @@ const ITEMS = [
   { href: '/professor/turmas', label: 'Turmas', Icon: Layers },
   { href: '/professor/conteudo', label: 'Conteúdo', Icon: Library },
   { href: '/professor/avisos', label: 'Avisos', Icon: Bell },
+  { href: '/professor/nexaai', label: 'NexaAI', Icon: Sparkles },
 ] as const;
 
 function useActive(href: string, exact?: boolean) {
