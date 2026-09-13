@@ -5,6 +5,7 @@ import { BarChart3, Bell, Check, Copy, GraduationCap, Lightbulb } from 'lucide-r
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Field, Select, SubmitButton, Textarea } from './form-parts';
+import { Markdown } from '@/features/study/components/markdown';
 import { DIFFICULTIES } from '../lib/labels';
 import {
   draftClassNotice,
@@ -103,7 +104,9 @@ function ResultBox({ text }: { text: string }) {
 
   return (
     <div className="border-border bg-surface-2/60 mt-3 rounded-lg border p-3">
-      <p className="text-text text-sm leading-relaxed whitespace-pre-wrap">{text}</p>
+      <div className="text-text text-sm leading-relaxed">
+        <Markdown source={text} />
+      </div>
       <button
         type="button"
         onClick={() => {

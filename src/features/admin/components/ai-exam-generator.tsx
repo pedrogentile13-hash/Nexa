@@ -8,6 +8,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Field, Select, SubmitButton, Toggle } from './form-parts';
 import { DIFFICULTIES } from '../lib/labels';
+import { GRADE_LEVELS } from '@/features/onboarding/schemas';
 import { generateExamDraft, type GenerateExamDraftState } from '../server/ai-exam';
 
 const INITIAL: GenerateExamDraftState = { status: 'idle' };
@@ -18,29 +19,70 @@ const INITIAL: GenerateExamDraftState = { status: 'idle' };
  * existe roda em cima do resultado exatamente como rodaria pra um JSON
  * colado à mão: se vier algo errado, aparece como erro de validação normal,
  * nunca é publicado sozinho.
+ *
+ * Matéria e série vêm de listas fechadas (catálogo real de matérias,
+ * `GRADE_LEVELS` já usado no onboarding) em vez de texto livre — o Groq
+ * recebe sempre um nome reconhecível, nunca uma variação de digitação. A
+ * matéria escolhida aqui também volta pro seletor "Matéria" de publicação
+ * de `SimuladoImporter` (segundo argumento de `onGenerated`): antes disso,
+ * gerar por IA nunca tocava naquele campo, e quem gerava só por essa via
+ * podia publicar sem perceber que a matéria de destino não tinha relação
+ * nenhuma com o que acabou de pedir à IA.
  */
-export function AiExamGenerator({ onGenerated }: { onGenerated: (code: string) => void }) {
+export function AiExamGenerator({
+  subjects,
+  onGenerated,
+}: {
+  subjects: { id: string; name: string }[];
+  onGenerated: (code: string, subjectId?: string) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? '');
   const [state, formAction] = useActionState(generateExamDraft, INITIAL);
 
   useEffect(() => {
     if (state.status === 'ok') {
-      onGenerated(state.code);
+      onGenerated(state.code, subjectId || undefined);
       setOpen(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só reage à mudança de `state`; `subjectId` é lido no instante do sucesso, não deve reabrir o efeito
   }, [state, onGenerated]);
 
   const dialog = (
     <Dialog open={open} onClose={() => setOpen(false)} title="Gerar simulado com IA">
       <form action={formAction} className="space-y-3">
         <Field label="Matéria">
-          <Input name="subjectName" required placeholder="Matemática" />
+          <Select
+            name="subjectName"
+            required
+            value={subjects.find((s) => s.id === subjectId)?.name ?? ''}
+            onChange={(e) => {
+              const match = subjects.find((s) => s.name === e.target.value);
+              setSubjectId(match?.id ?? '');
+            }}
+          >
+            <option value="" disabled>
+              Escolha a matéria
+            </option>
+            {subjects.map((s) => (
+              <option key={s.id} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
         </Field>
         <Field label="Tema" hint="opcional">
           <Input name="topic" placeholder="Equações do 2º grau" />
         </Field>
         <Field label="Série/ano" hint="opcional">
-          <Input name="gradeLevel" placeholder="9º ano" />
+          <Select name="gradeLevel" defaultValue="">
+            <option value="">Sem série definida</option>
+            {GRADE_LEVELS.map((grade) => (
+              <option key={grade} value={grade}>
+                {grade}
+              </option>
+            ))}
+          </Select>
         </Field>
 
         <div className="grid grid-cols-2 gap-3">

@@ -282,7 +282,13 @@ export function SimuladoImporter({
               >
                 Ver exemplo Anglo (v2)
               </button>
-              <AiExamGenerator onGenerated={setCode} />
+              <AiExamGenerator
+                subjects={options.subjects}
+                onGenerated={(generatedCode, generatedSubjectId) => {
+                  setCode(generatedCode);
+                  if (generatedSubjectId) setSubjectId(generatedSubjectId);
+                }}
+              />
             </div>
           </div>
           <Textarea

@@ -20,7 +20,11 @@ const GROQ_MODEL = 'openai/gpt-oss-120b';
 const SYSTEM_INSTRUCTION =
   'Você é a NexaAI, assistente de um painel de gestão escolar brasileiro (Nexa Study). ' +
   'Responda em português do Brasil, de forma objetiva e prática, para um professor ou administrador — nunca para o aluno diretamente. ' +
-  'Seja conciso: quem está lendo tem pouco tempo entre uma tarefa e outra.';
+  'Seja conciso: quem está lendo tem pouco tempo entre uma tarefa e outra. ' +
+  'Formate a resposta em Markdown simples (##/### para título, **negrito** para destacar o que importa, ' +
+  'listas com "-" quando fizer sentido) para dar hierarquia visual ao texto, e use emojis com moderação (1-3, nos títulos ou pontos-chave) — ' +
+  'nunca em toda frase. Nunca devolva a resposta como um bloco de código nem entre aspas, e nunca rotule ' +
+  'a resposta com um formato rígido de "Campo: valor" — escreva como um texto corrido bem organizado.';
 
 export type AiAssistantState =
   | { status: 'idle' }
@@ -189,8 +193,9 @@ export async function draftClassNotice(
     tone === 'formal' ? 'tom formal' : tone === 'informal' ? 'tom leve e informal' : 'tom neutro e direto';
 
   const result = await callGroq(
-    `Escreva um aviso curto para uma turma de alunos, em ${toneText}, a partir desta ideia: "${idea}".\n\n` +
-      'Devolva no formato:\nTítulo: <até 10 palavras>\nMensagem: <até 3 frases>\n' +
+    `Escreva um aviso curto para uma turma de alunos, em ${toneText}, a partir desta ideia: ${idea}\n\n` +
+      'Comece com um título curto (até 10 palavras) como cabeçalho "##", seguido da mensagem do aviso (até 3 frases) — ' +
+      'pronto para o professor colar direto no formulário de aviso, sem rótulos como "Título:" ou "Mensagem:" antes de cada parte. ' +
       'Não invente informação (data, hora, local) que não esteja na ideia original — se faltar, deixe genérico.',
     400,
   );

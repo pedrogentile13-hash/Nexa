@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
 import {
   createChatSession,
@@ -329,16 +330,16 @@ function ChatPanel({
               key={message.id}
               className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}
             >
-              <p
+              <div
                 className={cn(
-                  'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap',
+                  'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
                   message.role === 'user'
-                    ? 'bg-brand text-brand-fg rounded-br-sm'
+                    ? 'bg-brand text-brand-fg rounded-br-sm whitespace-pre-wrap'
                     : 'bg-surface-2 text-text rounded-bl-sm',
                 )}
               >
-                {message.content}
-              </p>
+                {message.role === 'assistant' ? <Markdown source={message.content} /> : message.content}
+              </div>
             </div>
           ))
         )}
