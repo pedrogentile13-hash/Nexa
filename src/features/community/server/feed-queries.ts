@@ -65,6 +65,17 @@ export async function listSavedPosts(before?: string | null): Promise<FeedPost[]
   return data.map(mapPost);
 }
 
+export async function listCommunityFeed(communityId: string, before?: string | null): Promise<FeedPost[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('list_community_feed', {
+    p_community_id: communityId,
+    p_limit: 20,
+    p_before: before ?? null,
+  });
+  if (error || !data) return [];
+  return data.map(mapPost);
+}
+
 export async function listPostComments(postId: string): Promise<PostComment[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('list_post_comments', { p_post_id: postId });

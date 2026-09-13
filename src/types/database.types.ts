@@ -650,8 +650,54 @@ export type PostRow = {
   content: string;
   media: Json;
   visibility: SocialVisibility;
+  community_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type CommunityVisibility = 'public' | 'school' | 'private';
+export type CommunityMemberRole = 'owner' | 'moderator' | 'member';
+
+export type CommunityRow = {
+  id: string;
+  owner_id: string;
+  school_id: string | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  rules: string | null;
+  visibility: CommunityVisibility;
+  created_at: string;
+};
+
+export type CommunityMemberRow = {
+  community_id: string;
+  user_id: string;
+  role: CommunityMemberRole;
+  joined_at: string;
+};
+
+export type CommunityListRpcRow = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  visibility: CommunityVisibility;
+  member_count: number;
+  is_member: boolean;
+  my_role: CommunityMemberRole | null;
+};
+
+export type CommunityDetailRpcRow = CommunityListRpcRow & {
+  rules: string | null;
+};
+
+export type CommunityMemberRpcRow = {
+  user_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: CommunityMemberRole;
+  joined_at: string;
 };
 
 export type CommentRow = {
@@ -797,6 +843,8 @@ export type Database = {
       comments: Table<CommentRow>;
       post_likes: Table<PostLikeRow>;
       post_saves: Table<PostSaveRow>;
+      communities: Table<CommunityRow>;
+      community_members: Table<CommunityMemberRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -857,7 +905,10 @@ export type Database = {
       unfollow_user: { Args: { p_target_id: string }; Returns: void };
       are_friends: { Args: { p_a: string; p_b: string }; Returns: boolean };
       can_view_post: { Args: { p_post_id: string; p_user_id?: string }; Returns: boolean };
-      create_post: { Args: { p_content: string; p_visibility?: SocialVisibility }; Returns: string };
+      create_post: {
+        Args: { p_content: string; p_visibility?: SocialVisibility; p_community_id?: string | null };
+        Returns: string;
+      };
       update_post: {
         Args: { p_post_id: string; p_content: string; p_visibility: SocialVisibility };
         Returns: void;
@@ -875,6 +926,28 @@ export type Database = {
         Returns: FeedPostRpcRow[];
       };
       list_post_comments: { Args: { p_post_id: string }; Returns: PostCommentRpcRow[] };
+      is_community_member: { Args: { p_community_id: string; p_user_id?: string }; Returns: boolean };
+      can_view_community: { Args: { p_community_id: string; p_user_id?: string }; Returns: boolean };
+      create_community: {
+        Args: { p_name: string; p_description?: string | null; p_visibility?: CommunityVisibility };
+        Returns: string;
+      };
+      join_community: { Args: { p_community_id: string }; Returns: void };
+      leave_community: { Args: { p_community_id: string }; Returns: void };
+      delete_community: { Args: { p_community_id: string }; Returns: void };
+      set_member_role: {
+        Args: { p_community_id: string; p_user_id: string; p_role: 'member' | 'moderator' };
+        Returns: void;
+      };
+      remove_member: { Args: { p_community_id: string; p_user_id: string }; Returns: void };
+      add_member: { Args: { p_community_id: string; p_user_id: string }; Returns: void };
+      list_communities: { Args: { p_query?: string | null }; Returns: CommunityListRpcRow[] };
+      get_community: { Args: { p_community_id: string }; Returns: CommunityDetailRpcRow[] };
+      list_community_members: { Args: { p_community_id: string }; Returns: CommunityMemberRpcRow[] };
+      list_community_feed: {
+        Args: { p_community_id: string; p_limit?: number; p_before?: string | null };
+        Returns: FeedPostRpcRow[];
+      };
       search_schoolmates: {
         Args: { p_query: string };
         Returns: {
