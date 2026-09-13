@@ -987,6 +987,15 @@ export type Database = {
           friendship_status: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
         }[];
       };
+      suggested_people: {
+        Args: { p_limit?: number };
+        Returns: {
+          user_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          class_name: string | null;
+        }[];
+      };
       list_friends: {
         Args: Record<string, never>;
         Returns: {

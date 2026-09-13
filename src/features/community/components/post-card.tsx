@@ -35,7 +35,7 @@ function Avatar({ url, name }: { url: string | null; name: string }) {
   }
   return (
     <span className="bg-brand-soft text-brand-text grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold">
-      {name.trim()[0]?.toUpperCase() ?? '?'}
+      {(name ?? '').trim()[0]?.toUpperCase() ?? '?'}
     </span>
   );
 }

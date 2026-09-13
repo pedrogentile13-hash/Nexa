@@ -14,7 +14,14 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(payload.title || 'Nexa Study', {
       body: payload.body || '',
       icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      // `badge` é o ícone monocromático da barra de status do Android — o SO
+      // sempre desenha só o canal alfa numa cor sólida própria, ignorando
+      // cor do arquivo. Passar o ícone colorido (sem transparência ao redor
+      // da marca) fazia o Android preencher o quadrado inteiro, virando um
+      // bloco azul sem forma nenhuma em vez do "N". Esta é uma silhueta
+      // branca com fundo transparente, gerada a partir de
+      // assets/brand/logo-mark-src.png — só a forma importa aqui.
+      badge: '/badge-monochrome.png',
       data: { link: payload.link || '/' },
     }),
   );

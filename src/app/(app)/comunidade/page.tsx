@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { FeedView } from '@/features/community/components/feed-view';
 import { listFeed } from '@/features/community/server/feed-queries';
+import { getCommunitySidebarData } from '@/features/community/server/community-queries';
 import { isFeatureEnabled } from '@/lib/feature-flags';
 import { getCurrentUser } from '@/lib/supabase/server';
 
@@ -21,12 +22,12 @@ export default async function ComunidadePage() {
   // a URL enquanto a fase está desligada ainda conseguiria abrir a tela.
   if (!(await isFeatureEnabled('community_enabled'))) redirect('/hoje');
 
-  const initialFeed = await listFeed();
+  const [initialFeed, sidebar] = await Promise.all([listFeed(), getCommunitySidebarData()]);
 
   return (
     <>
       <AppHeader title="Comunidade" subtitle="O que está rolando na sua escola" />
-      <FeedView initialFeed={initialFeed} />
+      <FeedView initialFeed={initialFeed} sidebar={sidebar} />
     </>
   );
 }

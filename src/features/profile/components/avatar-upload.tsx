@@ -63,7 +63,7 @@ export function AvatarUpload({
     });
   }
 
-  const initial = fullName.trim()[0]?.toUpperCase() ?? '?';
+  const initial = (fullName ?? '').trim()[0]?.toUpperCase() ?? '?';
 
   return (
     <div className="relative shrink-0">

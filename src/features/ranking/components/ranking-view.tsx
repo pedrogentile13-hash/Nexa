@@ -351,7 +351,7 @@ export function RankingView({
                             <img src={row.avatarUrl} alt="" className="size-full object-cover" />
                           ) : (
                             <span className="text-sm font-semibold">
-                              {row.fullName.trim()[0]?.toUpperCase() ?? '?'}
+                              {(row.fullName ?? '').trim()[0]?.toUpperCase() ?? '?'}
                             </span>
                           )}
                         </span>

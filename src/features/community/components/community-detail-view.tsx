@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Globe, Loader2, Lock, LogOut, School, Trash2, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PageMain } from '@/components/layout/page-main';
 import { Card, CardContent } from '@/components/ui/card';
 import { UnderlineTabs } from '@/components/ui/underline-tabs';
 import type { CommunityVisibility } from '@/types/database.types';
@@ -99,7 +100,7 @@ export function CommunityDetailView({
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-4 p-4">
+    <PageMain variant="reading" className="space-y-4 py-4">
       <Card>
         <CardContent className="space-y-3 p-4">
           <div className="flex items-start justify-between gap-2">
@@ -147,7 +148,7 @@ export function CommunityDetailView({
               {members.map((member) => (
                 <li key={member.userId} className="flex items-center gap-2 py-2">
                   <span className="bg-brand-soft text-brand-text grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold">
-                    {member.fullName.trim()[0]?.toUpperCase() ?? '?'}
+                    {(member.fullName ?? '').trim()[0]?.toUpperCase() ?? '?'}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm">{member.fullName}</span>
                   {member.role !== 'member' && (
@@ -215,6 +216,6 @@ export function CommunityDetailView({
           <Loader2 className="text-muted size-5 animate-spin" aria-hidden />
         </div>
       )}
-    </div>
+    </PageMain>
   );
 }
