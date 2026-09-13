@@ -10,6 +10,7 @@ import {
   GraduationCap,
   Home,
   Menu,
+  Newspaper,
   Route as RouteIcon,
   RotateCcw,
   Shield,
@@ -59,16 +60,20 @@ const MORE_ITEMS = [
 
 const ADMIN_ITEM = { href: '/admin', label: 'Admin', Icon: Shield } as const;
 const TEACHER_ITEM = { href: '/professor', label: 'Professor', Icon: Users2 } as const;
+const COMMUNITY_ITEM = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper } as const;
 
 export function BottomNav({
   isAdmin = false,
   isTeacher = false,
+  communityEnabled = false,
 }: {
   isAdmin?: boolean;
   isTeacher?: boolean;
+  communityEnabled?: boolean;
 }) {
   const pathname = usePathname();
   const moreItems = [
+    ...(communityEnabled ? [COMMUNITY_ITEM] : []),
     ...MORE_ITEMS,
     ...(isAdmin ? [ADMIN_ITEM] : []),
     ...(isTeacher ? [TEACHER_ITEM] : []),

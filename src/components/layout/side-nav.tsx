@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   GraduationCap,
   Home,
+  Newspaper,
   Route as RouteIcon,
   RotateCcw,
   Shield,
@@ -66,6 +67,8 @@ const SECONDARY_ITEMS: NavItem[] = [
 const ADMIN_ITEM: NavItem = { href: '/admin', label: 'Admin', Icon: Shield };
 /** Só aparece para quem tem `role` teacher_admin — ver `(app)/layout.tsx`. */
 const TEACHER_ITEM: NavItem = { href: '/professor', label: 'Professor', Icon: Users2 };
+/** Só aparece com a feature flag `community_enabled` ligada — ver `(app)/layout.tsx`. */
+const COMMUNITY_ITEM: NavItem = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper };
 
 function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
   return (
@@ -91,17 +94,20 @@ export function SideNav({
   avatarUrl,
   isAdmin,
   isTeacher,
+  communityEnabled,
 }: {
   name?: string | null;
   avatarUrl?: string | null;
   isAdmin?: boolean;
   isTeacher?: boolean;
+  communityEnabled?: boolean;
 } = {}) {
   const pathname = usePathname();
   const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
   const firstName = name?.trim()?.split(/\s+/)[0] ?? null;
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const primaryItems = [...PRIMARY_ITEMS, ...(communityEnabled ? [COMMUNITY_ITEM] : [])];
   const secondaryItems = [
     ...SECONDARY_ITEMS,
     ...(isAdmin ? [ADMIN_ITEM] : []),
@@ -126,7 +132,7 @@ export function SideNav({
         </Link>
 
         <div className="space-y-0.5">
-          {PRIMARY_ITEMS.map((item) => (
+          {primaryItems.map((item) => (
             <NavLink key={item.href} {...item} active={isActive(item.href)} />
           ))}
         </div>

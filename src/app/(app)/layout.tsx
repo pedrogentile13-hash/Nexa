@@ -2,6 +2,7 @@ import { BottomNav } from '@/components/layout/bottom-nav';
 import { SideNav } from '@/components/layout/side-nav';
 import { InstallPrompt } from '@/features/install/components/install-prompt';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { isFeatureEnabled } from '@/lib/feature-flags';
 
 /**
  * Shell do app autenticado.
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
   const isTeacher = profile?.role === 'teacher_admin';
+  const communityEnabled = user ? await isFeatureEnabled('community_enabled') : false;
 
   return (
     <div className="flex min-h-dvh">
@@ -43,12 +45,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         avatarUrl={profile?.avatar_url ?? null}
         isAdmin={isAdmin}
         isTeacher={isTeacher}
+        communityEnabled={communityEnabled}
       />
       <div className="min-w-0 flex-1">
         {/* pb-nav reserva a altura da barra + o indicador de home do iPhone. */}
         <div className="pb-nav md:pb-8">{children}</div>
       </div>
-      <BottomNav isAdmin={isAdmin} isTeacher={isTeacher} />
+      <BottomNav isAdmin={isAdmin} isTeacher={isTeacher} communityEnabled={communityEnabled} />
       {/* Fica no shell, não em uma tela: o convite deve alcançar quem já está
           usando o app, e não depender de o aluno passar por uma página
           específica. Ele mesmo decide se aparece. */}

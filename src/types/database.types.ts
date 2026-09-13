@@ -643,6 +643,63 @@ export type FollowRow = {
   created_at: string;
 };
 
+export type PostRow = {
+  id: string;
+  author_id: string;
+  school_id: string | null;
+  content: string;
+  media: Json;
+  visibility: SocialVisibility;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CommentRow = {
+  id: string;
+  post_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+};
+
+export type PostLikeRow = {
+  post_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+export type PostSaveRow = {
+  post_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+export type FeedPostRpcRow = {
+  id: string;
+  author_id: string;
+  author_name: string | null;
+  author_avatar_url: string | null;
+  content: string;
+  media: Json;
+  visibility: SocialVisibility;
+  created_at: string;
+  like_count: number;
+  comment_count: number;
+  viewer_has_liked: boolean;
+  viewer_has_saved: boolean;
+  is_own: boolean;
+};
+
+export type PostCommentRpcRow = {
+  id: string;
+  author_id: string;
+  author_name: string | null;
+  author_avatar_url: string | null;
+  content: string;
+  created_at: string;
+  is_own: boolean;
+};
+
 /* ------------------------------------------------------------- views --- */
 
 export type VResourceLibraryRow = {
@@ -736,6 +793,10 @@ export type Database = {
       feature_flags: Table<FeatureFlagRow>;
       social_profiles: Table<SocialProfileRow>;
       follows: Table<FollowRow>;
+      posts: Table<PostRow>;
+      comments: Table<CommentRow>;
+      post_likes: Table<PostLikeRow>;
+      post_saves: Table<PostSaveRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -795,6 +856,25 @@ export type Database = {
       follow_user: { Args: { p_target_id: string }; Returns: void };
       unfollow_user: { Args: { p_target_id: string }; Returns: void };
       are_friends: { Args: { p_a: string; p_b: string }; Returns: boolean };
+      can_view_post: { Args: { p_post_id: string; p_user_id?: string }; Returns: boolean };
+      create_post: { Args: { p_content: string; p_visibility?: SocialVisibility }; Returns: string };
+      update_post: {
+        Args: { p_post_id: string; p_content: string; p_visibility: SocialVisibility };
+        Returns: void;
+      };
+      delete_post: { Args: { p_post_id: string }; Returns: void };
+      like_post: { Args: { p_post_id: string }; Returns: void };
+      unlike_post: { Args: { p_post_id: string }; Returns: void };
+      save_post: { Args: { p_post_id: string }; Returns: void };
+      unsave_post: { Args: { p_post_id: string }; Returns: void };
+      create_comment: { Args: { p_post_id: string; p_content: string }; Returns: string };
+      delete_comment: { Args: { p_comment_id: string }; Returns: void };
+      list_feed: { Args: { p_limit?: number; p_before?: string | null }; Returns: FeedPostRpcRow[] };
+      list_saved_posts: {
+        Args: { p_limit?: number; p_before?: string | null };
+        Returns: FeedPostRpcRow[];
+      };
+      list_post_comments: { Args: { p_post_id: string }; Returns: PostCommentRpcRow[] };
       search_schoolmates: {
         Args: { p_query: string };
         Returns: {
