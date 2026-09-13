@@ -17,6 +17,8 @@ import { ProfileForm } from './profile-form';
 import { SchoolPicker, type CurrentSchool } from './school-picker';
 import { ClassPicker } from './class-picker';
 import type { ClassOption } from '@/features/classes/server/queries';
+import { SocialProfileForm } from '@/features/community/components/social-profile-form';
+import type { SocialVisibility } from '@/types/database.types';
 
 type Tab = 'conta' | 'notificacoes' | 'aparencia' | 'privacidade';
 
@@ -38,6 +40,7 @@ export function ProfileTabs({
   currentClassName,
   schoolClasses,
   notificationSettings,
+  socialProfile,
 }: {
   email?: string | null;
   fullName: string;
@@ -49,6 +52,7 @@ export function ProfileTabs({
   currentClassName: string | null;
   schoolClasses: ClassOption[];
   notificationSettings: NotificationSettings;
+  socialProfile: { username: string | null; bio: string | null; visibility: SocialVisibility };
 }) {
   const [tab, setTab] = useState<Tab>('conta');
 
@@ -93,6 +97,14 @@ export function ProfileTabs({
                 gradeLevel={gradeLevel}
                 dailyGoal={dailyGoal}
                 weeklyGoal={weeklyGoal}
+              />
+            </div>
+
+            <div className="border-border border-t pt-4">
+              <SocialProfileForm
+                username={socialProfile.username}
+                bio={socialProfile.bio}
+                visibility={socialProfile.visibility}
               />
             </div>
           </CardContent>

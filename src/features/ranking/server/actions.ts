@@ -23,6 +23,7 @@ export interface StudentProfileCard {
     unlockedAt: string;
   }[];
   friendshipStatus: 'self' | 'none' | 'pending_sent' | 'pending_received' | 'accepted';
+  isFollowing: boolean;
 }
 
 /**
@@ -62,5 +63,21 @@ export async function getStudentProfileCard(userId: string): Promise<StudentProf
     friendshipStatus: 'self' | 'none' | 'pending_sent' | 'pending_received' | 'accepted';
   };
 
-  return card;
+  let isFollowing = false;
+  if (card.friendshipStatus !== 'self') {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: followRow } = await supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', user.id)
+        .eq('following_id', userId)
+        .maybeSingle();
+      isFollowing = Boolean(followRow);
+    }
+  }
+
+  return { ...card, isFollowing };
 }

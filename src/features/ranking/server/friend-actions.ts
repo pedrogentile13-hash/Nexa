@@ -10,18 +10,38 @@ export interface SchoolmateResult {
   avatarUrl: string | null;
   className: string | null;
   friendshipStatus: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
+  isFollowing: boolean;
 }
 
 export async function searchSchoolmates(query: string): Promise<SchoolmateResult[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('search_schoolmates', { p_query: query });
   if (error || !data) return [];
+
+  // `follows` (Nexa Community, Fase 0) não tem RPC própria de leitura — a
+  // policy já libera `select` pra qualquer autenticado (ver comentário na
+  // migração), então uma consulta direta basta.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const followingIds = new Set<string>();
+  if (user) {
+    const ids = data.map((r) => r.user_id);
+    const { data: followRows } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', user.id)
+      .in('following_id', ids);
+    for (const row of followRows ?? []) followingIds.add(row.following_id);
+  }
+
   return data.map((r) => ({
     userId: r.user_id,
     fullName: r.full_name ?? 'Sem nome',
     avatarUrl: r.avatar_url,
     className: r.class_name,
     friendshipStatus: r.friendship_status,
+    isFollowing: followingIds.has(r.user_id),
   }));
 }
 

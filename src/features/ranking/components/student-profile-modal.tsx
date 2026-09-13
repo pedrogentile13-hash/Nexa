@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatTile } from '@/components/ui/stat-tile';
 import { levelForXp } from '@/features/performance/lib/level';
+import { followUser, unfollowUser } from '@/features/community/server/actions';
 import { getStudentProfileCard, type StudentProfileCard } from '../server/actions';
 import { removeFriend, respondFriendRequest, sendFriendRequest } from '../server/friend-actions';
 import { RARITY_BADGE_VARIANT, RARITY_LABEL } from '../lib/rarity';
@@ -27,6 +28,7 @@ export function StudentProfileModal({ userId, onClose }: { userId: string; onClo
   const [card, setCard] = useState<StudentProfileCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>('none');
+  const [isFollowing, setIsFollowing] = useState(false);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -37,6 +39,7 @@ export function StudentProfileModal({ userId, onClose }: { userId: string; onClo
       if (active) {
         setCard(result);
         setFriendshipStatus(result?.friendshipStatus ?? 'none');
+        setIsFollowing(result?.isFollowing ?? false);
         setLoading(false);
       }
     });
@@ -44,6 +47,14 @@ export function StudentProfileModal({ userId, onClose }: { userId: string; onClo
       active = false;
     };
   }, [userId]);
+
+  function handleToggleFollow() {
+    startTransition(async () => {
+      await (isFollowing ? unfollowUser(userId) : followUser(userId));
+      setIsFollowing((prev) => !prev);
+      router.refresh();
+    });
+  }
 
   function handleAdd() {
     startTransition(async () => {
@@ -104,53 +115,66 @@ export function StudentProfileModal({ userId, onClose }: { userId: string; onClo
             </div>
           </div>
 
-          {friendshipStatus === 'none' && (
-            <Button type="button" size="sm" variant="soft" disabled={pending} onClick={handleAdd}>
-              <UserPlus aria-hidden />
-              Adicionar amigo
-            </Button>
-          )}
-          {friendshipStatus === 'pending_sent' && (
-            <p className="text-subtle text-xs">Pedido de amizade enviado — esperando resposta.</p>
-          )}
-          {friendshipStatus === 'pending_received' && (
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {friendshipStatus === 'none' && (
+              <Button type="button" size="sm" variant="soft" disabled={pending} onClick={handleAdd}>
+                <UserPlus aria-hidden />
+                Adicionar amigo
+              </Button>
+            )}
+            {friendshipStatus === 'pending_sent' && (
+              <p className="text-subtle text-xs">Pedido de amizade enviado — esperando resposta.</p>
+            )}
+            {friendshipStatus === 'pending_received' && (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="soft"
+                  disabled={pending}
+                  onClick={() => handleRespond(true)}
+                >
+                  <Check aria-hidden />
+                  Aceitar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={pending}
+                  onClick={() => handleRespond(false)}
+                >
+                  <X aria-hidden />
+                  Recusar
+                </Button>
+              </>
+            )}
+            {friendshipStatus === 'accepted' && (
+              <>
+                <Badge variant="success">Amigos</Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={pending}
+                  onClick={handleRemove}
+                >
+                  Remover amigo
+                </Button>
+              </>
+            )}
+            {friendshipStatus !== 'self' && (
               <Button
                 type="button"
                 size="sm"
-                variant="soft"
+                variant={isFollowing ? 'ghost' : 'outline'}
                 disabled={pending}
-                onClick={() => handleRespond(true)}
+                onClick={handleToggleFollow}
               >
-                <Check aria-hidden />
-                Aceitar
+                {isFollowing ? 'Seguindo' : 'Seguir'}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={pending}
-                onClick={() => handleRespond(false)}
-              >
-                <X aria-hidden />
-                Recusar
-              </Button>
-            </div>
-          )}
-          {friendshipStatus === 'accepted' && (
-            <div className="flex items-center gap-2">
-              <Badge variant="success">Amigos</Badge>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={pending}
-                onClick={handleRemove}
-              >
-                Remover amigo
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-2">
             <StatTile

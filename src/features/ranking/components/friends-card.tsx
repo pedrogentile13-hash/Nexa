@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
+import { followUser, unfollowUser } from '@/features/community/server/actions';
 import {
   respondFriendRequest,
   removeFriend,
@@ -75,6 +76,14 @@ export function FriendsCard({
     setResults((prev) =>
       prev.map((r) => (r.userId === userId ? { ...r, friendshipStatus: status } : r)),
     );
+  }
+
+  function handleToggleFollow(userId: string, isFollowing: boolean) {
+    startTransition(async () => {
+      await (isFollowing ? unfollowUser(userId) : followUser(userId));
+      setResults((prev) => prev.map((r) => (r.userId === userId ? { ...r, isFollowing: !isFollowing } : r)));
+      router.refresh();
+    });
   }
 
   function handleAdd(userId: string) {
@@ -207,6 +216,15 @@ export function FriendsCard({
                     {r.friendshipStatus === 'accepted' && (
                       <span className="text-success shrink-0 text-xs font-medium">Amigos</span>
                     )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={r.isFollowing ? 'ghost' : 'outline'}
+                      disabled={pending}
+                      onClick={() => handleToggleFollow(r.userId, r.isFollowing)}
+                    >
+                      {r.isFollowing ? 'Seguindo' : 'Seguir'}
+                    </Button>
                   </li>
                 ))
               )}

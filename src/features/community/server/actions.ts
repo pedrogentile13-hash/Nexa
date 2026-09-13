@@ -63,10 +63,12 @@ export async function followUser(targetUserId: string): Promise<void> {
   const supabase = await createClient();
   await supabase.rpc('follow_user', { p_target_id: targetUserId });
   revalidatePath('/perfil');
+  revalidatePath('/ranking');
 }
 
 export async function unfollowUser(targetUserId: string): Promise<void> {
   const supabase = await createClient();
   await supabase.rpc('unfollow_user', { p_target_id: targetUserId });
   revalidatePath('/perfil');
+  revalidatePath('/ranking');
 }

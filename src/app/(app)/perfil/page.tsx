@@ -11,6 +11,7 @@ import { ProfileTabs } from '@/features/profile/components/profile-tabs';
 import type { AchievementListItem } from '@/features/profile/components/achievements-list';
 import { RARITY_LABEL } from '@/features/ranking/lib/rarity';
 import { listSchoolClasses } from '@/features/classes/server/queries';
+import { getMySocialProfile } from '@/features/community/server/queries';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import type { NotificationSettings } from '@/types/database.types';
 
@@ -27,7 +28,7 @@ export default async function ProfilePage() {
 
   const supabase = await createClient();
 
-  const [{ data: profile }, { data: stats }, { data: userAchievements }, { data: achievements }] =
+  const [{ data: profile }, { data: stats }, { data: userAchievements }, { data: achievements }, socialProfile] =
     await Promise.all([
       supabase
         .from('profiles')
@@ -39,6 +40,7 @@ export default async function ProfilePage() {
       supabase.from('user_stats').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('user_achievements').select('achievement_id, progress, unlocked_at'),
       supabase.from('achievements').select('*').order('sort_order'),
+      getMySocialProfile(),
     ]);
 
   const progressById = new Map((userAchievements ?? []).map((row) => [row.achievement_id, row]));
@@ -132,6 +134,7 @@ export default async function ProfilePage() {
           currentClassName={classInfo?.name ?? null}
           schoolClasses={schoolClasses}
           notificationSettings={notificationSettings}
+          socialProfile={socialProfile}
         />
 
         {/* Conquistas — resumo só; a lista completa (com raridade e progresso
