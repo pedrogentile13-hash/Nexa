@@ -4,25 +4,23 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { completeWithAI } from '@/lib/ai/provider';
 import { getChatMessages } from './queries';
 
 /**
  * Resposta da NexaAI.
  *
  * Groq é o provedor (troca do Gemini da ADR-039 — chave gratuita, inferência
- * rápida, API compatível com o formato "chat completions" da OpenAI). A
- * chave é opcional em tempo de execução (nunca em `src/lib/env.ts`, que falha
- * o build inteiro se faltar algo) — sem `GROQ_API_KEY`, cai no texto fixo de
- * sempre em vez de derrubar a NexaAI inteira. O mesmo vale para qualquer erro
- * da chamada (rede, filtro de conteúdo, resposta vazia): a conversa do aluno
- * já está salva de qualquer forma, então uma falha aqui vira uma mensagem
+ * rápida, API compatível com o formato "chat completions" da OpenAI), por
+ * trás de `completeWithAI` (`src/lib/ai/provider.ts` — mesma chamada usada
+ * pelo "Gerar simulado com IA" e pela NexaAI de admin/professor). A chave é
+ * opcional em tempo de execução (nunca em `src/lib/env.ts`, que falha o build
+ * inteiro se faltar algo) — sem `GROQ_API_KEY`, cai no texto fixo de sempre em
+ * vez de derrubar a NexaAI inteira. O mesmo vale para qualquer erro da
+ * chamada (rede, filtro de conteúdo, resposta vazia): a conversa do aluno já
+ * está salva de qualquer forma, então uma falha aqui vira uma mensagem
  * educada, nunca uma tela quebrada.
- *
- * `llama-3.3-70b-versatile` saiu do catálogo da Groq (passou a devolver
- * `model_not_found`, visto no painel da própria Groq) — `gpt-oss-120b` é o
- * maior modelo de chat de propósito geral disponível na conta atual.
  */
-const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 const SYSTEM_INSTRUCTION = `Você é a NexaAI, a assistente de estudos do Nexa Study — um app usado por estudantes brasileiros do ensino fundamental e médio.
 Responda sempre em português do Brasil, de forma clara, objetiva e didática, como um professor particular paciente.
@@ -80,11 +78,6 @@ async function buildStudentContext(userId: string): Promise<string> {
 }
 
 async function replyTo(sessionId: string, userId: string): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    return 'NexaAI ainda não está conectada a um provedor de inteligência artificial — assim que estiver, esta resposta vai ser gerada de verdade. Sua pergunta já ficou salva aqui.';
-  }
-
   const studentContext = await buildStudentContext(userId);
   const systemContent = studentContext
     ? `${SYSTEM_INSTRUCTION}\n\nContexto sobre este aluno — use com naturalidade para personalizar a ajuda (por exemplo, relacionando a dúvida a um assunto fraco dele), nunca liste os números como se estivesse lendo um relatório: ${studentContext}`
@@ -104,55 +97,19 @@ async function replyTo(sessionId: string, userId: string): Promise<string> {
     })),
   ];
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
+  const result = await completeWithAI(messages, { maxTokens: 1024, temperature: 0.6, timeoutMs: 25_000 });
+  if (result.ok) return result.text;
 
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages,
-        max_tokens: 1024,
-        temperature: 0.6,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      // Logado (não exposto ao aluno) para dar pra achar a causa real nos
-      // logs da função — "não consegui pensar" sozinho não diz se foi chave
-      // inválida, modelo descontinuado ou limite de uso.
-      console.error('[nexa-ia] Groq respondeu erro', response.status, await response.text());
+  switch (result.reason) {
+    case 'missing_api_key':
+      return 'NexaAI ainda não está conectada a um provedor de inteligência artificial — assim que estiver, esta resposta vai ser gerada de verdade. Sua pergunta já ficou salva aqui.';
+    case 'content_filter':
+      // Caso mais comum de vir vazio — a pergunta esbarrou no filtro de conteúdo do próprio provedor.
+      return 'Não posso responder isso. Bora voltar para as matérias?';
+    default:
+      // http_error/empty/network já foram logados dentro de `completeWithAI` —
+      // "não consegui pensar" sozinho não precisa dizer a causa pro aluno.
       return 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
-    }
-
-    const data = (await response.json()) as {
-      choices?: { message?: { content?: string }; finish_reason?: string }[];
-    };
-    const choice = data.choices?.[0];
-    const text = choice?.message?.content ?? '';
-
-    if (!text.trim()) {
-      // `finish_reason: 'content_filter'` é o caso mais comum de vir vazio —
-      // a pergunta esbarrou no filtro de conteúdo do próprio provedor.
-      return choice?.finish_reason === 'content_filter'
-        ? 'Não posso responder isso. Bora voltar para as matérias?'
-        : 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
-    }
-
-    return text.trim();
-  } catch (err) {
-    // Rede caída, timeout (AbortError) ou JSON inesperado — nunca deixa a
-    // Server Action estourar por causa de um provedor externo fora do ar.
-    console.error('[nexa-ia] falha ao chamar a Groq', err);
-    return 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
-  } finally {
-    clearTimeout(timeout);
   }
 }
 

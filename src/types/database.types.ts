@@ -618,6 +618,31 @@ export type ClassRow = {
   created_at: string;
 };
 
+export type FeatureFlagRow = {
+  key: string;
+  enabled: boolean;
+  description: string | null;
+  updated_at: string;
+};
+
+export type SocialVisibility = 'private' | 'friends' | 'school' | 'public';
+
+export type SocialProfileRow = {
+  id: string;
+  username: string | null;
+  bio: string | null;
+  banner_url: string | null;
+  visibility: SocialVisibility;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FollowRow = {
+  follower_id: string;
+  following_id: string;
+  created_at: string;
+};
+
 /* ------------------------------------------------------------- views --- */
 
 export type VResourceLibraryRow = {
@@ -708,6 +733,9 @@ export type Database = {
       classes: Table<ClassRow>;
       writing_tasks: Table<WritingTaskRow>;
       essay_submissions: Table<EssaySubmissionRow>;
+      feature_flags: Table<FeatureFlagRow>;
+      social_profiles: Table<SocialProfileRow>;
+      follows: Table<FollowRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -764,6 +792,9 @@ export type Database = {
       send_friend_request: { Args: { p_addressee_id: string }; Returns: string };
       respond_friend_request: { Args: { p_requester_id: string; p_accept: boolean }; Returns: void };
       remove_friend: { Args: { p_other_id: string }; Returns: void };
+      follow_user: { Args: { p_target_id: string }; Returns: void };
+      unfollow_user: { Args: { p_target_id: string }; Returns: void };
+      are_friends: { Args: { p_a: string; p_b: string }; Returns: boolean };
       search_schoolmates: {
         Args: { p_query: string };
         Returns: {

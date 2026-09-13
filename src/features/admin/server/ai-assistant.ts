@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { completeWithAI } from '@/lib/ai/provider';
 import { requireContentManager } from './guard';
 import { getAdminStudentReport } from './queries';
 import { searchStudentsForAi, type NexaAiStudentOption } from './nexaai-queries';
@@ -10,12 +11,12 @@ import { searchStudentsForAi, type NexaAiStudentOption } from './nexaai-queries'
  *
  * Nenhuma escreve no banco — cada uma lê algo que já existe (RPC de
  * desempenho, dado do próprio pedido) e devolve TEXTO pra copiar/colar em
- * outro lugar do painel (aviso, ideia de questão). Mesmo modelo/endpoint da
- * NexaAI de chat e do "Gerar simulado com IA", mantido em arquivo próprio
- * de propósito: são usos diferentes (texto solto pra um humano ler, nunca
- * JSON estruturado pra importar), com prompt e formatação de erro próprios.
+ * outro lugar do painel (aviso, ideia de questão). Mesmo provedor da NexaAI
+ * de chat e do "Gerar simulado com IA" (`completeWithAI`,
+ * `src/lib/ai/provider.ts`), mantido em arquivo próprio de propósito: são
+ * usos diferentes (texto solto pra um humano ler, nunca JSON estruturado
+ * pra importar), com prompt e formatação de erro próprios.
  */
-const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 const SYSTEM_INSTRUCTION =
   'Você é a NexaAI, assistente de um painel de gestão escolar brasileiro (Nexa Study). ' +
@@ -32,54 +33,25 @@ export type AiAssistantState =
   | { status: 'ok'; text: string };
 
 async function callGroq(userPrompt: string, maxTokens = 700): Promise<{ text: string } | { error: string }> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    return { error: 'A NexaAI precisa da GROQ_API_KEY configurada no servidor para gerar respostas.' };
-  }
+  const result = await completeWithAI(
+    [
+      { role: 'system', content: SYSTEM_INSTRUCTION },
+      { role: 'user', content: userPrompt },
+    ],
+    { maxTokens, temperature: 0.7, timeoutMs: 30_000 },
+  );
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  if (result.ok) return { text: result.text };
 
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM_INSTRUCTION },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: maxTokens,
-        temperature: 0.7,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      console.error('[ai-assistant] Groq respondeu erro', response.status, await response.text());
+  switch (result.reason) {
+    case 'missing_api_key':
+      return { error: 'A NexaAI precisa da GROQ_API_KEY configurada no servidor para gerar respostas.' };
+    case 'content_filter':
+      return { error: 'O pedido esbarrou no filtro de conteúdo do provedor — tenta reformular.' };
+    case 'empty':
+      return { error: 'A IA não devolveu nada — tenta de novo.' };
+    default:
       return { error: 'Não consegui gerar agora — tenta de novo em instantes.' };
-    }
-
-    const data = (await response.json()) as {
-      choices?: { message?: { content?: string }; finish_reason?: string }[];
-    };
-    const choice = data.choices?.[0];
-    const text = choice?.message?.content?.trim() ?? '';
-    if (!text) {
-      return choice?.finish_reason === 'content_filter'
-        ? { error: 'O pedido esbarrou no filtro de conteúdo do provedor — tenta reformular.' }
-        : { error: 'A IA não devolveu nada — tenta de novo.' };
-    }
-    return { text };
-  } catch (err) {
-    console.error('[ai-assistant] falha ao chamar a Groq', err);
-    return { error: 'Não consegui gerar agora — tenta de novo em instantes.' };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
