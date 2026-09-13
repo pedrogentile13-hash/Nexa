@@ -6,6 +6,7 @@ import { Globe, Loader2, Lock, LogOut, School, Trash2, Users } from 'lucide-reac
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { UnderlineTabs } from '@/components/ui/underline-tabs';
 import type { CommunityVisibility } from '@/types/database.types';
 import {
   deleteCommunity,
@@ -18,6 +19,14 @@ import type { CommunityDetail, CommunityMember } from '../server/community-queri
 import type { FeedPost } from '../server/feed-queries';
 import { PostComposer } from './post-composer';
 import { PostCard } from './post-card';
+import { ChatView } from './chat-view';
+
+type Tab = 'feed' | 'chat';
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'feed', label: 'Feed' },
+  { value: 'chat', label: 'Chat' },
+];
 
 const VISIBILITY_ICON: Record<CommunityVisibility, typeof Globe> = {
   public: Globe,
@@ -44,6 +53,7 @@ export function CommunityDetailView({
   const [feed, setFeed] = useState(initialFeed);
   const [members, setMembers] = useState(initialMembers);
   const [showMembers, setShowMembers] = useState(false);
+  const [tab, setTab] = useState<Tab>('feed');
   const [pending, startTransition] = useTransition();
 
   const Icon = VISIBILITY_ICON[community.visibility];
@@ -172,18 +182,32 @@ export function CommunityDetailView({
         </CardContent>
       </Card>
 
-      {community.isMember && <PostComposer communityId={community.id} onPosted={handlePosted} />}
+      {community.isMember && (
+        <UnderlineTabs label="Seções do grupo" value={tab} onChange={setTab} options={TABS} />
+      )}
 
-      {feed.length === 0 ? (
-        <p className="text-muted py-10 text-center text-sm">Nenhum post nesta comunidade ainda.</p>
+      {tab === 'chat' && community.isMember ? (
+        <Card>
+          <CardContent className="p-3">
+            <ChatView communityId={community.id} canModerate={canModerate} />
+          </CardContent>
+        </Card>
       ) : (
-        <ul className="space-y-3">
-          {feed.map((post) => (
-            <li key={post.id}>
-              <PostCard post={post} onRemoved={handleRemoved} />
-            </li>
-          ))}
-        </ul>
+        <>
+          {community.isMember && <PostComposer communityId={community.id} onPosted={handlePosted} />}
+
+          {feed.length === 0 ? (
+            <p className="text-muted py-10 text-center text-sm">Nenhum post nesta comunidade ainda.</p>
+          ) : (
+            <ul className="space-y-3">
+              {feed.map((post) => (
+                <li key={post.id}>
+                  <PostCard post={post} onRemoved={handleRemoved} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
       {pending && (

@@ -700,6 +700,27 @@ export type CommunityMemberRpcRow = {
   joined_at: string;
 };
 
+export type MessageRow = {
+  id: string;
+  community_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+  edited_at: string | null;
+};
+
+export type MessageRpcRow = {
+  id: string;
+  community_id: string;
+  author_id: string;
+  author_name: string | null;
+  author_avatar_url: string | null;
+  content: string;
+  created_at: string;
+  edited_at: string | null;
+  is_own: boolean;
+};
+
 export type CommentRow = {
   id: string;
   post_id: string;
@@ -845,6 +866,7 @@ export type Database = {
       post_saves: Table<PostSaveRow>;
       communities: Table<CommunityRow>;
       community_members: Table<CommunityMemberRow>;
+      messages: Table<MessageRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -947,6 +969,13 @@ export type Database = {
       list_community_feed: {
         Args: { p_community_id: string; p_limit?: number; p_before?: string | null };
         Returns: FeedPostRpcRow[];
+      };
+      send_message: { Args: { p_community_id: string; p_content: string }; Returns: string };
+      edit_message: { Args: { p_message_id: string; p_content: string }; Returns: void };
+      delete_message: { Args: { p_message_id: string }; Returns: void };
+      list_messages: {
+        Args: { p_community_id: string; p_limit?: number; p_before?: string | null };
+        Returns: MessageRpcRow[];
       };
       search_schoolmates: {
         Args: { p_query: string };
