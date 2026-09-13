@@ -98,7 +98,7 @@ export function AdminShell({
   avatarUrl: string | null;
   roleLabel: string;
 }) {
-  const initial = fullName?.trim()[0]?.toUpperCase() ?? '?';
+  const initial = fullName?.trim()?.[0]?.toUpperCase() ?? '?';
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">

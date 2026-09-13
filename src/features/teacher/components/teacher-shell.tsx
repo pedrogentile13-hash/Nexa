@@ -70,7 +70,7 @@ export function TeacherShell({
   fullName: string | null;
   avatarUrl: string | null;
 }) {
-  const initial = fullName?.trim()[0]?.toUpperCase() ?? '?';
+  const initial = fullName?.trim()?.[0]?.toUpperCase() ?? '?';
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">

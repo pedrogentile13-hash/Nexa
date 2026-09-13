@@ -104,7 +104,7 @@ export function StudentProfileModal({ userId, onClose }: { userId: string; onClo
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={card.avatarUrl} alt="" className="size-full object-cover" />
               ) : (
-                (card.fullName?.trim()[0]?.toUpperCase() ?? '?')
+                (card.fullName?.trim()?.[0]?.toUpperCase() ?? '?')
               )}
             </span>
             <div className="min-w-0 flex-1">

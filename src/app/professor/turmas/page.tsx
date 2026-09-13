@@ -34,7 +34,7 @@ export default async function TeacherClassesPage() {
         ) : (
           <ul className="border-border bg-surface divide-border divide-y overflow-hidden rounded-lg border">
             {roster.map((s) => {
-              const initial = s.fullName?.trim()[0]?.toUpperCase() ?? '?';
+              const initial = s.fullName?.trim()?.[0]?.toUpperCase() ?? '?';
               return (
                 <li key={s.id}>
                   <Link
