@@ -6,19 +6,23 @@ import { PageMain } from '@/components/layout/page-main';
 import { UnderlineTabs } from '@/components/ui/underline-tabs';
 import { getSavedPosts } from '../server/feed-actions';
 import { getCommunitiesList } from '../server/community-actions';
+import { getEventsList } from '../server/event-actions';
 import type { FeedPost } from '../server/feed-queries';
 import type { CommunitySidebarData, CommunitySummary } from '../server/community-queries';
+import type { EventSummary } from '../server/event-queries';
 import { PostComposer } from './post-composer';
 import { PostCard } from './post-card';
 import { CommunityList } from './community-list';
 import { CommunitySidebar } from './community-sidebar';
+import { EventsList } from './events-list';
 
-type Tab = 'feed' | 'salvos' | 'comunidades';
+type Tab = 'feed' | 'salvos' | 'comunidades' | 'eventos';
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'feed', label: 'Feed' },
   { value: 'salvos', label: 'Salvos' },
   { value: 'comunidades', label: 'Comunidades' },
+  { value: 'eventos', label: 'Eventos' },
 ];
 
 export function FeedView({
@@ -34,6 +38,8 @@ export function FeedView({
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [communities, setCommunities] = useState<CommunitySummary[] | null>(null);
   const [loadingCommunities, setLoadingCommunities] = useState(false);
+  const [events, setEvents] = useState<EventSummary[] | null>(null);
+  const [loadingEvents, setLoadingEvents] = useState(false);
 
   function handleChangeTab(next: Tab) {
     setTab(next);
@@ -49,6 +55,13 @@ export function FeedView({
       getCommunitiesList().then((result) => {
         setCommunities(result);
         setLoadingCommunities(false);
+      });
+    }
+    if (next === 'eventos' && events === null) {
+      setLoadingEvents(true);
+      getEventsList().then((result) => {
+        setEvents(result);
+        setLoadingEvents(false);
       });
     }
   }
@@ -83,6 +96,14 @@ export function FeedView({
               </div>
             ) : (
               <CommunityList initial={communities} />
+            )
+          ) : tab === 'eventos' ? (
+            loadingEvents || events === null ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="text-muted size-6 animate-spin" aria-hidden />
+              </div>
+            ) : (
+              <EventsList initial={events} />
             )
           ) : (
             <>

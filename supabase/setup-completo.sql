@@ -10,7 +10,7 @@
 -- já rodou uma versão anterior, adiciona só o que falta e deixa o resto como
 -- está. Nenhum dado seu é apagado — nem notas, nem rotina, nem conteúdo.
 --
--- Cria as 53 tabelas, as políticas de RLS, as 1 views, as funções e o
+-- Cria as 59 tabelas, as políticas de RLS, as 1 views, as funções e o
 -- conteúdo inicial (matérias, conquistas e a biblioteca de estudo).
 --
 -- DEPOIS DE RODAR, para virar administrador do painel /admin, rode também:
@@ -9042,6 +9042,13 @@ grant execute on function public.delete_comment(uuid) to authenticated;
 -- `posts`/`profiles` diretamente (não teria como: nenhuma das duas libera
 -- select direto pra "outra pessoa").
 -- ----------------------------------------------------------------------------
+-- `drop` antes do `create or replace`: fases futuras (Fase 6, biblioteca
+-- comunitária) mudam as colunas de retorno desta função — sem o drop aqui,
+-- reaplicar esta migração do zero sobre um banco que já passou pela versão
+-- nova quebraria com "cannot change return type of existing function".
+drop function if exists public.list_feed(integer, timestamptz);
+drop function if exists public.list_saved_posts(integer, timestamptz);
+
 create or replace function public.list_feed(p_limit integer default 20, p_before timestamptz default null)
 returns table (
   id uuid,
@@ -9673,6 +9680,10 @@ $$;
 
 grant execute on function public.list_community_members(uuid) to authenticated;
 
+-- Mesmo motivo do drop em `list_feed`/`list_saved_posts` (Fase 2): a Fase 6
+-- muda as colunas de retorno desta função.
+drop function if exists public.list_community_feed(uuid, integer, timestamptz);
+
 create or replace function public.list_community_feed(
   p_community_id uuid,
   p_limit integer default 20,
@@ -10248,6 +10259,1374 @@ alter table public.social_profiles drop constraint if exists social_profiles_use
 alter table public.social_profiles drop constraint if exists social_profiles_username_key;
 create unique index if not exists social_profiles_username_uq
   on public.social_profiles (lower(username)) where username is not null;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260914000100_biblioteca_comunitaria.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa Community — Fase 6 · Biblioteca comunitária
+--
+-- Escopo real (adaptado do plano): a Fase 5 (IA Creator — aluno virando dono
+-- de `resources`) foi propositalmente adiada por ser a de maior risco de
+-- regressão (RLS de gabarito). Sem ela, ainda não existe "conteúdo gerado
+-- por aluno" pra compartilhar — então "biblioteca comunitária" aqui vira:
+--   1. Avaliar (nota de 1 a 5) qualquer conteúdo já publicado na Biblioteca
+--      oficial (`content_ratings`, tabela nova).
+--   2. Compartilhar um item da Biblioteca oficial dentro de um post do feed
+--      (`posts.shared_resource_id`, nullable) — é exatamente o que o mockup
+--      mostrava ("Resumo — Funções (Módulo 4)... Visualizar").
+--
+-- Quando a Fase 5 for feita, `content_ratings`/`shared_resource_id` continuam
+-- funcionando sem alteração — passam a valer também pra conteúdo de aluno,
+-- não só de admin/professor.
+-- ============================================================================
+
+create table if not exists public.content_ratings (
+  resource_id uuid not null references public.resources (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  rating smallint not null check (rating between 1 and 5),
+  comment text check (comment is null or length(comment) <= 500),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (resource_id, user_id)
+);
+
+drop trigger if exists content_ratings_set_updated_at on public.content_ratings;
+create trigger content_ratings_set_updated_at before update on public.content_ratings
+  for each row execute function public.set_updated_at();
+
+alter table public.content_ratings enable row level security;
+-- Mesmo padrão de RLS-sem-policy do resto da Community: `resources` não
+-- libera SELECT pra quem só está de passagem (RLS depende de `is_published`
+-- E escola), então uma policy direta em `content_ratings` duplicaria essa
+-- regra. Toda leitura/escrita passa pelas RPCs abaixo.
+
+create or replace function public.can_view_resource(p_resource_id uuid, p_user_id uuid default auth.uid())
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.resources r
+    where r.id = p_resource_id
+      and (
+        (r.is_published and (r.school_id is null or r.school_id = public.current_school_id(p_user_id)))
+        or public.can_manage_school(r.school_id, p_user_id)
+        or public.is_admin(p_user_id)
+      )
+  );
+$$;
+
+grant execute on function public.can_view_resource(uuid, uuid) to authenticated;
+
+create or replace function public.rate_resource(p_resource_id uuid, p_rating integer, p_comment text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.can_view_resource(p_resource_id) then
+    raise exception 'conteúdo não encontrado' using errcode = 'P0002';
+  end if;
+  if p_rating not between 1 and 5 then
+    raise exception 'nota precisa ser de 1 a 5' using errcode = '22023';
+  end if;
+
+  insert into public.content_ratings (resource_id, user_id, rating, comment)
+  values (p_resource_id, auth.uid(), p_rating, nullif(btrim(coalesce(p_comment, '')), ''))
+  on conflict (resource_id, user_id) do update
+    set rating = excluded.rating, comment = excluded.comment, updated_at = now();
+end;
+$$;
+
+grant execute on function public.rate_resource(uuid, integer, text) to authenticated;
+
+create or replace function public.remove_resource_rating(p_resource_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.content_ratings where resource_id = p_resource_id and user_id = auth.uid();
+end;
+$$;
+
+grant execute on function public.remove_resource_rating(uuid) to authenticated;
+
+-- Resumo agregado + a nota do próprio chamador — um SELECT só cobre o card
+-- inteiro (média, contagem, "eu dei tal nota"), sem o cliente juntar duas
+-- respostas.
+create or replace function public.get_resource_rating(p_resource_id uuid)
+returns table (average numeric, rating_count bigint, my_rating smallint)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.can_view_resource(p_resource_id) then
+    raise exception 'conteúdo não encontrado' using errcode = 'P0002';
+  end if;
+
+  return query
+  select
+    round(avg(cr.rating), 1),
+    count(*),
+    (select cr2.rating from public.content_ratings cr2
+      where cr2.resource_id = p_resource_id and cr2.user_id = auth.uid())
+  from public.content_ratings cr
+  where cr.resource_id = p_resource_id;
+end;
+$$;
+
+grant execute on function public.get_resource_rating(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Compartilhar um item da Biblioteca num post.
+-- ----------------------------------------------------------------------------
+alter table public.posts add column if not exists shared_resource_id uuid references public.resources (id) on delete set null;
+
+drop function if exists public.create_post(text, text, uuid);
+
+create or replace function public.create_post(
+  p_content text,
+  p_visibility text default 'school',
+  p_community_id uuid default null,
+  p_shared_resource_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_id uuid;
+begin
+  if v_me is null then
+    raise exception 'sign in required' using errcode = '28000';
+  end if;
+  if p_visibility not in ('private', 'friends', 'school', 'public') then
+    raise exception 'visibilidade inválida' using errcode = '22023';
+  end if;
+  if p_community_id is not null and not public.is_community_member(p_community_id, v_me) then
+    raise exception 'só membros publicam na comunidade' using errcode = '42501';
+  end if;
+  if p_shared_resource_id is not null and not public.can_view_resource(p_shared_resource_id, v_me) then
+    raise exception 'conteúdo não encontrado' using errcode = 'P0002';
+  end if;
+
+  insert into public.posts (author_id, school_id, content, visibility, community_id, shared_resource_id)
+  values (v_me, public.current_school_id(v_me), btrim(p_content), p_visibility, p_community_id, p_shared_resource_id)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+grant execute on function public.create_post(text, text, uuid, uuid) to authenticated;
+
+-- `list_feed`/`list_saved_posts`/`list_community_feed` (Fases 2-3) passam a
+-- devolver o recurso compartilhado (quando houver) já resolvido — mesmo
+-- princípio de `list_feed` já resolver autor via join, pra ninguém no
+-- cliente precisar de uma segunda chamada só pra saber o título/tipo do
+-- recurso citado no post.
+-- `create or replace` não troca o tipo de retorno de uma função existente
+-- (as 3 colunas novas do recurso compartilhado mudam a assinatura de saída)
+-- — precisa apagar as 3 versões antigas antes de recriar.
+drop function if exists public.list_feed(integer, timestamptz);
+drop function if exists public.list_saved_posts(integer, timestamptz);
+drop function if exists public.list_community_feed(uuid, integer, timestamptz);
+
+create or replace function public.list_feed(p_limit integer default 20, p_before timestamptz default null)
+returns table (
+  id uuid, author_id uuid, author_name text, author_avatar_url text, content text, media jsonb,
+  visibility text, created_at timestamptz, like_count bigint, comment_count bigint,
+  viewer_has_liked boolean, viewer_has_saved boolean, is_own boolean,
+  shared_resource_id uuid, shared_resource_title text, shared_resource_kind text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'sign in required' using errcode = '28000';
+  end if;
+
+  return query
+  select
+    p.id, p.author_id, pr.full_name, pr.avatar_url, p.content, p.media, p.visibility, p.created_at,
+    (select count(*) from public.post_likes pl where pl.post_id = p.id),
+    (select count(*) from public.comments c where c.post_id = p.id),
+    exists (select 1 from public.post_likes pl2 where pl2.post_id = p.id and pl2.user_id = v_me),
+    exists (select 1 from public.post_saves ps where ps.post_id = p.id and ps.user_id = v_me),
+    p.author_id = v_me,
+    sr.id, sr.title, sr.kind::text
+  from public.posts p
+  join public.profiles pr on pr.id = p.author_id
+  left join public.resources sr on sr.id = p.shared_resource_id
+  where p.community_id is null
+    and (p_before is null or p.created_at < p_before)
+    and (
+      p.author_id = v_me
+      or public.is_admin(v_me)
+      or p.visibility = 'public'
+      or (p.visibility = 'school' and public.current_school_id(p.author_id) is not null
+          and public.current_school_id(p.author_id) = public.current_school_id(v_me))
+      or (p.visibility = 'friends' and public.are_friends(v_me, p.author_id))
+    )
+  order by p.created_at desc
+  limit greatest(1, least(p_limit, 50));
+end;
+$$;
+
+create or replace function public.list_saved_posts(p_limit integer default 20, p_before timestamptz default null)
+returns table (
+  id uuid, author_id uuid, author_name text, author_avatar_url text, content text, media jsonb,
+  visibility text, created_at timestamptz, like_count bigint, comment_count bigint,
+  viewer_has_liked boolean, viewer_has_saved boolean, is_own boolean,
+  shared_resource_id uuid, shared_resource_title text, shared_resource_kind text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'sign in required' using errcode = '28000';
+  end if;
+
+  return query
+  select
+    p.id, p.author_id, pr.full_name, pr.avatar_url, p.content, p.media, p.visibility, p.created_at,
+    (select count(*) from public.post_likes pl where pl.post_id = p.id),
+    (select count(*) from public.comments c where c.post_id = p.id),
+    exists (select 1 from public.post_likes pl2 where pl2.post_id = p.id and pl2.user_id = v_me),
+    true,
+    p.author_id = v_me,
+    sr.id, sr.title, sr.kind::text
+  from public.post_saves ps
+  join public.posts p on p.id = ps.post_id
+  join public.profiles pr on pr.id = p.author_id
+  left join public.resources sr on sr.id = p.shared_resource_id
+  where ps.user_id = v_me
+    and p.community_id is null
+    and (p_before is null or ps.created_at < p_before)
+    and (
+      p.author_id = v_me
+      or public.is_admin(v_me)
+      or p.visibility = 'public'
+      or (p.visibility = 'school' and public.current_school_id(p.author_id) is not null
+          and public.current_school_id(p.author_id) = public.current_school_id(v_me))
+      or (p.visibility = 'friends' and public.are_friends(v_me, p.author_id))
+    )
+  order by ps.created_at desc
+  limit greatest(1, least(p_limit, 50));
+end;
+$$;
+
+create or replace function public.list_community_feed(
+  p_community_id uuid, p_limit integer default 20, p_before timestamptz default null
+)
+returns table (
+  id uuid, author_id uuid, author_name text, author_avatar_url text, content text, media jsonb,
+  visibility text, created_at timestamptz, like_count bigint, comment_count bigint,
+  viewer_has_liked boolean, viewer_has_saved boolean, is_own boolean,
+  shared_resource_id uuid, shared_resource_title text, shared_resource_kind text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if not public.can_view_community(p_community_id, v_me) then
+    raise exception 'comunidade não encontrada' using errcode = 'P0002';
+  end if;
+
+  return query
+  select
+    p.id, p.author_id, pr.full_name, pr.avatar_url, p.content, p.media, p.visibility, p.created_at,
+    (select count(*) from public.post_likes pl where pl.post_id = p.id),
+    (select count(*) from public.comments c where c.post_id = p.id),
+    exists (select 1 from public.post_likes pl2 where pl2.post_id = p.id and pl2.user_id = v_me),
+    exists (select 1 from public.post_saves ps where ps.post_id = p.id and ps.user_id = v_me),
+    p.author_id = v_me,
+    sr.id, sr.title, sr.kind::text
+  from public.posts p
+  join public.profiles pr on pr.id = p.author_id
+  left join public.resources sr on sr.id = p.shared_resource_id
+  where p.community_id = p_community_id
+    and (p_before is null or p.created_at < p_before)
+  order by p.created_at desc
+  limit greatest(1, least(p_limit, 50));
+end;
+$$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260914000200_social_xp.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa Community — Fase 13 · XP social
+--
+-- `social_xp_enabled` (Fase 0) nasceu desligado — esta migração liga a
+-- primeira leva de eventos que pagam XP, todos por AÇÃO PRÓPRIA de quem
+-- ganha (publicar, comentar, entrar numa comunidade), nunca por reação de
+-- terceiro (curtida recebida) — reduz de propósito o risco de dois amigos
+-- combinarem de ficar curtindo um ao outro pra farmar XP. Sem tabela nova:
+-- reaproveita 100% o motor já existente (`award_xp`/`xp_events`), que já
+-- alimenta ranking e conquistas — uma ação social vira XP no MESMO lugar que
+-- terminar um simulado, sem um "ranking social" separado pra manter em
+-- sincronia.
+--
+-- Dedup: `xp_events_source_uq (user_id, source_type, source_id, reason)` já
+-- existe (migração 20260730000600) — usar o id do post/comentário/comunidade
+-- como `source_id` garante que RE-ENTRAR na mesma comunidade ou o cliente
+-- reenviar a mesma ação nunca paga duas vezes.
+-- ============================================================================
+
+alter table public.xp_events drop constraint if exists xp_events_source_type_check;
+alter table public.xp_events add constraint xp_events_source_type_check
+  check (source_type in (
+    'task', 'routine', 'study_session', 'activity', 'achievement', 'system', 'quiz', 'lesson', 'resource', 'social'
+  ));
+
+-- Espelha `src/lib/feature-flags.ts` em SQL — evita cada função nova repetir
+-- o mesmo `exists (select ... from feature_flags ...)`.
+create or replace function public.is_feature_enabled(p_key text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select enabled from public.feature_flags where key = p_key), false);
+$$;
+
+grant execute on function public.is_feature_enabled(text) to authenticated;
+
+create or replace function public.create_post(
+  p_content text,
+  p_visibility text default 'school',
+  p_community_id uuid default null,
+  p_shared_resource_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_id uuid;
+begin
+  if v_me is null then
+    raise exception 'sign in required' using errcode = '28000';
+  end if;
+  if p_visibility not in ('private', 'friends', 'school', 'public') then
+    raise exception 'visibilidade inválida' using errcode = '22023';
+  end if;
+  if p_community_id is not null and not public.is_community_member(p_community_id, v_me) then
+    raise exception 'só membros publicam na comunidade' using errcode = '42501';
+  end if;
+  if p_shared_resource_id is not null and not public.can_view_resource(p_shared_resource_id, v_me) then
+    raise exception 'conteúdo não encontrado' using errcode = 'P0002';
+  end if;
+
+  insert into public.posts (author_id, school_id, content, visibility, community_id, shared_resource_id)
+  values (v_me, public.current_school_id(v_me), btrim(p_content), p_visibility, p_community_id, p_shared_resource_id)
+  returning id into v_id;
+
+  if public.is_feature_enabled('social_xp_enabled') then
+    perform public.award_xp(10, 'Publicou na Comunidade', 'social', v_id, v_me);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+create or replace function public.create_comment(p_post_id uuid, p_content text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_id uuid;
+begin
+  if not public.can_view_post(p_post_id, v_me) then
+    raise exception 'post não encontrado' using errcode = '42501';
+  end if;
+
+  insert into public.comments (post_id, author_id, content)
+  values (p_post_id, v_me, btrim(p_content))
+  returning id into v_id;
+
+  if public.is_feature_enabled('social_xp_enabled') then
+    perform public.award_xp(5, 'Comentou na Comunidade', 'social', v_id, v_me);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+create or replace function public.create_community(
+  p_name text,
+  p_description text default null,
+  p_visibility text default 'school'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_id uuid;
+  v_slug text;
+  v_suffix int := 0;
+begin
+  if v_me is null then
+    raise exception 'sign in required' using errcode = '28000';
+  end if;
+  if p_visibility not in ('public', 'school', 'private') then
+    raise exception 'visibilidade inválida' using errcode = '22023';
+  end if;
+
+  v_slug := lower(regexp_replace(btrim(p_name), '[^a-zA-Z0-9]+', '-', 'g'));
+  v_slug := trim(both '-' from v_slug);
+  if length(v_slug) < 3 then
+    v_slug := v_slug || '-comunidade';
+  end if;
+  while exists (select 1 from public.communities where slug = v_slug || case when v_suffix = 0 then '' else '-' || v_suffix end) loop
+    v_suffix := v_suffix + 1;
+  end loop;
+  if v_suffix > 0 then
+    v_slug := v_slug || '-' || v_suffix;
+  end if;
+
+  insert into public.communities (owner_id, school_id, name, slug, description, visibility)
+  values (v_me, public.current_school_id(v_me), btrim(p_name), v_slug, nullif(btrim(coalesce(p_description, '')), ''), p_visibility)
+  returning id into v_id;
+
+  insert into public.community_members (community_id, user_id, role) values (v_id, v_me, 'owner');
+
+  -- Mesmo prêmio de `join_community` — criar já inclui "entrar" (o dono
+  -- não passa por `join_community` separadamente), e o dedup por
+  -- `source_id` = id da comunidade impede pagar de novo se algum dia a
+  -- pessoa também chamar `join_community` pra ela mesma (o `on conflict do
+  -- nothing` do insert de membro já tornaria isso um no-op de qualquer forma).
+  if public.is_feature_enabled('social_xp_enabled') then
+    perform public.award_xp(15, 'Entrou numa comunidade', 'social', v_id, v_me);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+create or replace function public.join_community(p_community_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_community public.communities;
+begin
+  select * into v_community from public.communities where id = p_community_id;
+  if not found then
+    raise exception 'comunidade não encontrada' using errcode = 'P0002';
+  end if;
+
+  if v_community.visibility = 'private' then
+    raise exception 'esta comunidade é só por convite — peça pra um moderador te adicionar' using errcode = '42501';
+  end if;
+  if not public.can_view_community(p_community_id, v_me) then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+
+  insert into public.community_members (community_id, user_id, role)
+  values (p_community_id, v_me, 'member')
+  on conflict (community_id, user_id) do nothing;
+
+  if public.is_feature_enabled('social_xp_enabled') then
+    perform public.award_xp(15, 'Entrou numa comunidade', 'social', p_community_id, v_me);
+  end if;
+end;
+$$;
+
+update public.feature_flags set enabled = true where key = 'social_xp_enabled';
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260914000300_moderacao.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa Community — Fase 11 · Admin da comunidade (denúncias/moderação)
+--
+-- `reports` é polimórfica de propósito (`target_type` + `target_id`, sem FK)
+-- — um post, comentário, mensagem, comunidade ou usuário são tabelas
+-- diferentes, e uma FK por tipo (5 colunas nullable) seria pior de manter
+-- que resolver o tipo em SQL na hora de exibir. Mesmo padrão RLS-sem-policy
+-- do resto da Community.
+--
+-- `report_target_school`: quem pode RESOLVER uma denúncia é quem já
+-- modera aquele conteúdo hoje (`can_manage_school`, o mesmo helper usado em
+-- `delete_post`/`delete_comment`/`delete_message`/`delete_community`) — não
+-- um papel novo de "moderador global". Resolve a escola do alvo polimórfico
+-- uma vez só, reaproveitado tanto na listagem quanto na resolução.
+-- ============================================================================
+
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references auth.users (id) on delete cascade,
+  target_type text not null check (target_type in ('post', 'comment', 'message', 'community', 'user')),
+  target_id uuid not null,
+  reason text not null check (reason in ('spam', 'assedio', 'conteudo_impropio', 'informacao_falsa', 'outro')),
+  details text check (details is null or length(details) <= 1000),
+  status text not null default 'pending' check (status in ('pending', 'reviewed', 'dismissed')),
+  reviewed_by uuid references auth.users (id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists reports_status_idx on public.reports (status, created_at desc);
+
+alter table public.reports enable row level security;
+-- (Sem policies — leitura/escrita só pelas RPCs abaixo, mesmo padrão de `posts`/`communities`.)
+
+create or replace function public.report_target_school(p_target_type text, p_target_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case p_target_type
+    when 'post' then (select p.school_id from public.posts p where p.id = p_target_id)
+    when 'comment' then (
+      select p.school_id from public.comments c join public.posts p on p.id = c.post_id where c.id = p_target_id
+    )
+    when 'message' then (
+      select cm.school_id from public.messages m join public.communities cm on cm.id = m.community_id where m.id = p_target_id
+    )
+    when 'community' then (select cm.school_id from public.communities cm where cm.id = p_target_id)
+    when 'user' then (select pr.school_id from public.profiles pr where pr.id = p_target_id)
+    else null
+  end;
+$$;
+
+grant execute on function public.report_target_school(text, uuid) to authenticated;
+
+create or replace function public.create_report(
+  p_target_type text,
+  p_target_id uuid,
+  p_reason text,
+  p_details text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_id uuid;
+begin
+  if v_me is null then
+    raise exception 'sign in required' using errcode = '28000';
+  end if;
+  if p_target_type not in ('post', 'comment', 'message', 'community', 'user') then
+    raise exception 'tipo de denúncia inválido' using errcode = '22023';
+  end if;
+  if p_reason not in ('spam', 'assedio', 'conteudo_impropio', 'informacao_falsa', 'outro') then
+    raise exception 'motivo inválido' using errcode = '22023';
+  end if;
+
+  insert into public.reports (reporter_id, target_type, target_id, reason, details)
+  values (v_me, p_target_type, p_target_id, p_reason, nullif(btrim(coalesce(p_details, '')), ''))
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+grant execute on function public.create_report(text, uuid, text, text) to authenticated;
+
+-- `p_status` nulo lista todas; quem chama sem `can_manage_school`/`is_admin`
+-- pra NENHUM alvo simplesmente recebe 0 linhas (o filtro é por linha, dentro
+-- do próprio WHERE — não existe um "é moderador de algo" genérico pra
+-- checar antes).
+create or replace function public.list_reports(p_status text default 'pending')
+returns table (
+  id uuid,
+  target_type text,
+  target_id uuid,
+  reason text,
+  details text,
+  status text,
+  reporter_name text,
+  target_preview text,
+  created_at timestamptz,
+  reviewed_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  return query
+  select
+    r.id, r.target_type, r.target_id, r.reason, r.details, r.status,
+    coalesce(pr.full_name, 'Sem nome'),
+    case r.target_type
+      when 'post' then (select left(p.content, 140) from public.posts p where p.id = r.target_id)
+      when 'comment' then (select left(c.content, 140) from public.comments c where c.id = r.target_id)
+      when 'message' then (select left(m.content, 140) from public.messages m where m.id = r.target_id)
+      when 'community' then (select cm.name from public.communities cm where cm.id = r.target_id)
+      when 'user' then (select pr2.full_name from public.profiles pr2 where pr2.id = r.target_id)
+    end,
+    r.created_at,
+    r.reviewed_at
+  from public.reports r
+  join public.profiles pr on pr.id = r.reporter_id
+  where (p_status is null or r.status = p_status)
+    and (public.is_admin() or public.can_manage_school(public.report_target_school(r.target_type, r.target_id)))
+  order by r.created_at desc;
+end;
+$$;
+
+grant execute on function public.list_reports(text) to authenticated;
+
+create or replace function public.resolve_report(p_report_id uuid, p_status text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_report public.reports;
+begin
+  if p_status not in ('reviewed', 'dismissed') then
+    raise exception 'status inválido' using errcode = '22023';
+  end if;
+
+  select * into v_report from public.reports where id = p_report_id;
+  if not found then
+    return;
+  end if;
+
+  if not (
+    public.is_admin()
+    or public.can_manage_school(public.report_target_school(v_report.target_type, v_report.target_id))
+  ) then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+
+  update public.reports
+  set status = p_status, reviewed_by = auth.uid(), reviewed_at = now()
+  where id = p_report_id;
+end;
+$$;
+
+grant execute on function public.resolve_report(uuid, text) to authenticated;
+
+-- Contagem pendente, pra um badge no nav do admin sem carregar a lista inteira.
+create or replace function public.count_pending_reports()
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*) from public.reports r
+  where r.status = 'pending'
+    and (public.is_admin() or public.can_manage_school(public.report_target_school(r.target_type, r.target_id)));
+$$;
+
+grant execute on function public.count_pending_reports() to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20260914000400_eventos.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa Community — Fases 7-10 · Eventos escolares
+--
+-- As quatro fases do plano original (criar evento, inscrição/lista de
+-- espera, check-in por QR, certificado) viram uma migração só — são a
+-- mesma tabela de ponta a ponta (`events` → `event_registrations` →
+-- `attendance` → `certificates`), sem peça independente o bastante pra
+-- valer a pena separar em 4 migrações e 4 fases de feature flag.
+--
+-- Quem CRIA evento: dono/moderador da comunidade (quando o evento nasce
+-- dentro de uma) ou quem já gerencia a escola/admin (fora de uma comunidade)
+-- — igual à criação de comunidade, evento não é aberto a qualquer aluno.
+-- Depois de criado, inscrição é livre pra quem enxerga o evento.
+--
+-- Check-in por QR "assinado no servidor": o código (`check_in_code`) nunca é
+-- validado no cliente — o QR só carrega o código, um organizador com o
+-- celular (câmera nativa, sem scanner dentro do app) abre o link, e
+-- `check_in_by_code` confere no banco se quem está logado pode gerenciar
+-- AQUELE evento antes de gravar presença. Sem lib de QR-scan nova; só
+-- geração (`qrcode`, adicionada ao projeto).
+--
+-- Certificado não é um arquivo gerado e guardado — é uma PÁGINA que só abre
+-- pra quem tem presença confirmada, impressa/exportada como PDF pelo
+-- diálogo nativo do navegador (mesmo padrão já usado pros relatórios do
+-- admin, ADR-044). `certificates` só registra QUE foi emitido, não o
+-- conteúdo.
+-- ============================================================================
+
+create table if not exists public.events (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references public.schools (id) on delete cascade,
+  community_id uuid references public.communities (id) on delete cascade,
+  created_by uuid not null references auth.users (id) on delete cascade,
+  title text not null check (length(btrim(title)) between 2 and 120),
+  description text check (description is null or length(description) <= 2000),
+  location text check (location is null or length(location) <= 200),
+  starts_at timestamptz not null,
+  ends_at timestamptz check (ends_at is null or ends_at > starts_at),
+  capacity integer check (capacity is null or capacity > 0),
+  -- Só vale quando `community_id` é nulo — evento de comunidade herda a
+  -- visibilidade da própria comunidade, mesmo desenho de `posts.community_id`.
+  visibility text not null default 'school' check (visibility in ('school', 'public')),
+  cancelled_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists events_school_starts_idx on public.events (school_id, starts_at);
+create index if not exists events_community_idx on public.events (community_id) where community_id is not null;
+
+alter table public.events enable row level security;
+
+create table if not exists public.event_registrations (
+  event_id uuid not null references public.events (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  status text not null default 'registered' check (status in ('registered', 'waitlisted', 'cancelled')),
+  check_in_code text not null,
+  registered_at timestamptz not null default now(),
+  cancelled_at timestamptz,
+  primary key (event_id, user_id)
+);
+
+create unique index if not exists event_registrations_code_uq on public.event_registrations (check_in_code);
+create index if not exists event_registrations_status_idx on public.event_registrations (event_id, status, registered_at);
+
+alter table public.event_registrations enable row level security;
+
+create table if not exists public.attendance (
+  event_id uuid not null references public.events (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  checked_in_at timestamptz not null default now(),
+  checked_in_by uuid references auth.users (id) on delete set null,
+  primary key (event_id, user_id)
+);
+
+alter table public.attendance enable row level security;
+
+create table if not exists public.certificates (
+  event_id uuid not null references public.events (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  issued_at timestamptz not null default now(),
+  primary key (event_id, user_id)
+);
+
+alter table public.certificates enable row level security;
+-- (As 4 tabelas acima: RLS ativa, sem policy — mesmo padrão RPC-only do resto da Community.)
+
+-- `tasks` ganha o valor 'evento' (só pra Agenda já existente reconhecer a
+-- linha) e uma referência de volta pro evento, pra `cancel_registration`/
+-- `cancel_event` saberem qual task apagar sem adivinhar por título.
+alter table public.tasks drop constraint if exists tasks_kind_check;
+alter table public.tasks add constraint tasks_kind_check
+  check (kind in ('task', 'homework', 'reading', 'review', 'exercise', 'project', 'custom', 'prova', 'evento'));
+alter table public.tasks add column if not exists related_event_id uuid references public.events (id) on delete cascade;
+create unique index if not exists tasks_related_event_uq
+  on public.tasks (user_id, related_event_id) where related_event_id is not null;
+
+-- ----------------------------------------------------------------------------
+-- Visibilidade e gerência
+-- ----------------------------------------------------------------------------
+create or replace function public.can_view_event(p_event_id uuid, p_user_id uuid default auth.uid())
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.events e
+    where e.id = p_event_id
+      and (
+        public.is_admin(p_user_id)
+        or public.can_manage_school(e.school_id, p_user_id)
+        or (e.community_id is not null and public.can_view_community(e.community_id, p_user_id))
+        or (e.community_id is null and (
+          e.visibility = 'public'
+          or (e.visibility = 'school' and e.school_id = public.current_school_id(p_user_id))
+        ))
+      )
+  );
+$$;
+
+grant execute on function public.can_view_event(uuid, uuid) to authenticated;
+
+create or replace function public.can_manage_event(p_event_id uuid, p_user_id uuid default auth.uid())
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.events e
+    where e.id = p_event_id
+      and (
+        e.created_by = p_user_id
+        or public.is_admin(p_user_id)
+        or public.can_manage_school(e.school_id, p_user_id)
+        or (e.community_id is not null and exists (
+          select 1 from public.community_members m
+          where m.community_id = e.community_id and m.user_id = p_user_id and m.role in ('owner', 'moderator')
+        ))
+      )
+  );
+$$;
+
+grant execute on function public.can_manage_event(uuid, uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Criar / editar / cancelar
+-- ----------------------------------------------------------------------------
+create or replace function public.create_event(
+  p_title text,
+  p_starts_at timestamptz,
+  p_description text default null,
+  p_location text default null,
+  p_ends_at timestamptz default null,
+  p_capacity integer default null,
+  p_visibility text default 'school',
+  p_community_id uuid default null,
+  -- Só usado quando quem cria é admin GERAL fora de uma comunidade — admin
+  -- geral não tem `current_school_id()` (não é aluno de escola nenhuma),
+  -- então precisa escolher explicitamente, mesmo padrão de `resolveSchoolId`
+  -- já usado no resto do admin (`admin/server/queries.ts`). school_admin e
+  -- aluno-dono-de-comunidade continuam presos à própria escola, ignoram este
+  -- argumento.
+  p_school_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_school uuid;
+  v_id uuid;
+begin
+  if v_me is null then
+    raise exception 'sign in required' using errcode = '28000';
+  end if;
+  if p_visibility not in ('school', 'public') then
+    raise exception 'visibilidade inválida' using errcode = '22023';
+  end if;
+  if p_ends_at is not null and p_ends_at <= p_starts_at then
+    raise exception 'o fim precisa ser depois do início' using errcode = '22023';
+  end if;
+  if p_capacity is not null and p_capacity <= 0 then
+    raise exception 'capacidade precisa ser maior que zero' using errcode = '22023';
+  end if;
+
+  if p_community_id is not null then
+    if not (
+      public.is_admin(v_me)
+      or exists (
+        select 1 from public.community_members
+        where community_id = p_community_id and user_id = v_me and role in ('owner', 'moderator')
+      )
+    ) then
+      raise exception 'só dono/moderador da comunidade cria evento nela' using errcode = '42501';
+    end if;
+    select school_id into v_school from public.communities where id = p_community_id;
+  elsif public.is_admin(v_me) then
+    v_school := coalesce(p_school_id, public.current_school_id(v_me));
+  else
+    v_school := public.current_school_id(v_me);
+    if not public.can_manage_school(v_school, v_me) then
+      raise exception 'só quem gerencia a escola cria evento fora de uma comunidade' using errcode = '42501';
+    end if;
+  end if;
+
+  if v_school is null then
+    raise exception 'informe a escola do evento' using errcode = '22023';
+  end if;
+
+  insert into public.events (school_id, community_id, created_by, title, description, location, starts_at, ends_at, capacity, visibility)
+  values (
+    v_school, p_community_id, v_me, btrim(p_title),
+    nullif(btrim(coalesce(p_description, '')), ''), nullif(btrim(coalesce(p_location, '')), ''),
+    p_starts_at, p_ends_at, p_capacity, p_visibility
+  )
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+grant execute on function public.create_event(text, timestamptz, text, text, timestamptz, integer, text, uuid, uuid) to authenticated;
+
+create or replace function public.update_event(
+  p_event_id uuid,
+  p_title text,
+  p_starts_at timestamptz,
+  p_description text default null,
+  p_location text default null,
+  p_ends_at timestamptz default null,
+  p_capacity integer default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.can_manage_event(p_event_id) then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+  if p_ends_at is not null and p_ends_at <= p_starts_at then
+    raise exception 'o fim precisa ser depois do início' using errcode = '22023';
+  end if;
+
+  update public.events
+  set title = btrim(p_title),
+      description = nullif(btrim(coalesce(p_description, '')), ''),
+      location = nullif(btrim(coalesce(p_location, '')), ''),
+      starts_at = p_starts_at,
+      ends_at = p_ends_at,
+      capacity = p_capacity
+  where id = p_event_id;
+end;
+$$;
+
+grant execute on function public.update_event(uuid, text, timestamptz, text, text, timestamptz, integer) to authenticated;
+
+-- Cancelar avisa todo mundo que estava de dentro (registrado ou na fila) e
+-- limpa a tarefa correspondente da Agenda de cada um.
+create or replace function public.cancel_event(p_event_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_title text;
+  v_reg record;
+begin
+  if not public.can_manage_event(p_event_id) then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+
+  select title into v_title from public.events where id = p_event_id;
+
+  update public.events set cancelled_at = now() where id = p_event_id and cancelled_at is null;
+
+  for v_reg in
+    select user_id from public.event_registrations where event_id = p_event_id and status in ('registered', 'waitlisted')
+  loop
+    delete from public.tasks where user_id = v_reg.user_id and related_event_id = p_event_id;
+    perform public.notify_user(v_reg.user_id, 'Evento cancelado', v_title || ' foi cancelado.', null);
+  end loop;
+end;
+$$;
+
+grant execute on function public.cancel_event(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Inscrição / lista de espera
+-- ----------------------------------------------------------------------------
+create or replace function public.register_for_event(p_event_id uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_event public.events;
+  v_existing public.event_registrations;
+  v_registered_count integer;
+  v_status text;
+  v_code text;
+begin
+  select * into v_event from public.events where id = p_event_id;
+  if not found or v_event.cancelled_at is not null then
+    raise exception 'evento não encontrado ou cancelado' using errcode = 'P0002';
+  end if;
+  if not public.can_view_event(p_event_id, v_me) then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+  if v_event.starts_at < now() then
+    raise exception 'este evento já aconteceu' using errcode = '22023';
+  end if;
+
+  select * into v_existing from public.event_registrations where event_id = p_event_id and user_id = v_me;
+  if found and v_existing.status in ('registered', 'waitlisted') then
+    return v_existing.status; -- já inscrito, idempotente
+  end if;
+
+  select count(*) into v_registered_count
+  from public.event_registrations where event_id = p_event_id and status = 'registered';
+
+  v_status := case when v_event.capacity is null or v_registered_count < v_event.capacity
+    then 'registered' else 'waitlisted' end;
+  v_code := encode(gen_random_bytes(6), 'hex');
+
+  insert into public.event_registrations (event_id, user_id, status, check_in_code, registered_at, cancelled_at)
+  values (p_event_id, v_me, v_status, v_code, now(), null)
+  on conflict (event_id, user_id) do update
+    set status = excluded.status, check_in_code = excluded.check_in_code,
+        registered_at = now(), cancelled_at = null;
+
+  if v_status = 'registered' then
+    insert into public.tasks (user_id, title, kind, due_date, related_event_id)
+    values (v_me, v_event.title, 'evento', v_event.starts_at::date, p_event_id)
+    on conflict (user_id, related_event_id) where related_event_id is not null do nothing;
+  end if;
+
+  return v_status;
+end;
+$$;
+
+grant execute on function public.register_for_event(uuid) to authenticated;
+
+-- Cancelar a própria inscrição libera vaga pra quem está na frente da fila
+-- de espera — promovido ganha a task na Agenda e uma notificação.
+create or replace function public.cancel_registration(p_event_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_existing public.event_registrations;
+  v_promoted_user uuid;
+  v_title text;
+begin
+  select * into v_existing from public.event_registrations where event_id = p_event_id and user_id = v_me;
+  if not found or v_existing.status = 'cancelled' then
+    return;
+  end if;
+
+  update public.event_registrations
+  set status = 'cancelled', cancelled_at = now()
+  where event_id = p_event_id and user_id = v_me;
+
+  delete from public.tasks where user_id = v_me and related_event_id = p_event_id;
+
+  if v_existing.status = 'registered' then
+    select user_id into v_promoted_user
+    from public.event_registrations
+    where event_id = p_event_id and status = 'waitlisted'
+    order by registered_at asc
+    limit 1;
+
+    if v_promoted_user is not null then
+      update public.event_registrations set status = 'registered'
+      where event_id = p_event_id and user_id = v_promoted_user;
+
+      select title into v_title from public.events where id = p_event_id;
+
+      insert into public.tasks (user_id, title, kind, due_date, related_event_id)
+      select v_promoted_user, e.title, 'evento', e.starts_at::date, p_event_id
+      from public.events e where e.id = p_event_id
+      on conflict (user_id, related_event_id) where related_event_id is not null do nothing;
+
+      perform public.notify_user(
+        v_promoted_user, 'Vaga liberada!',
+        'Abriu uma vaga em "' || v_title || '" e você saiu da lista de espera.',
+        '/comunidade/eventos/' || p_event_id::text
+      );
+    end if;
+  end if;
+end;
+$$;
+
+grant execute on function public.cancel_registration(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Listagem
+-- ----------------------------------------------------------------------------
+create or replace function public.list_events(p_upcoming_only boolean default true)
+returns table (
+  id uuid,
+  title text,
+  description text,
+  location text,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  capacity integer,
+  community_id uuid,
+  community_name text,
+  cancelled_at timestamptz,
+  registered_count bigint,
+  my_status text,
+  can_manage boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  return query
+  select
+    e.id, e.title, e.description, e.location, e.starts_at, e.ends_at, e.capacity,
+    e.community_id, cm.name, e.cancelled_at,
+    (select count(*) from public.event_registrations r where r.event_id = e.id and r.status = 'registered'),
+    (select r2.status from public.event_registrations r2 where r2.event_id = e.id and r2.user_id = v_me),
+    public.can_manage_event(e.id, v_me)
+  from public.events e
+  left join public.communities cm on cm.id = e.community_id
+  where (
+      public.is_admin(v_me)
+      or public.can_manage_school(e.school_id, v_me)
+      or (e.community_id is not null and public.can_view_community(e.community_id, v_me))
+      or (e.community_id is null and (
+        e.visibility = 'public'
+        or (e.visibility = 'school' and e.school_id = public.current_school_id(v_me))
+      ))
+    )
+    and (not p_upcoming_only or e.starts_at >= now() - interval '1 day')
+  order by e.starts_at asc;
+end;
+$$;
+
+grant execute on function public.list_events(boolean) to authenticated;
+
+create or replace function public.get_event(p_event_id uuid)
+returns table (
+  id uuid,
+  title text,
+  description text,
+  location text,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  capacity integer,
+  community_id uuid,
+  community_name text,
+  cancelled_at timestamptz,
+  registered_count bigint,
+  waitlisted_count bigint,
+  my_status text,
+  can_manage boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if not public.can_view_event(p_event_id, v_me) then
+    raise exception 'evento não encontrado' using errcode = 'P0002';
+  end if;
+
+  return query
+  select
+    e.id, e.title, e.description, e.location, e.starts_at, e.ends_at, e.capacity,
+    e.community_id, cm.name, e.cancelled_at,
+    (select count(*) from public.event_registrations r where r.event_id = e.id and r.status = 'registered'),
+    (select count(*) from public.event_registrations r where r.event_id = e.id and r.status = 'waitlisted'),
+    (select r2.status from public.event_registrations r2 where r2.event_id = e.id and r2.user_id = v_me),
+    public.can_manage_event(e.id, v_me)
+  from public.events e
+  left join public.communities cm on cm.id = e.community_id
+  where e.id = p_event_id;
+end;
+$$;
+
+grant execute on function public.get_event(uuid) to authenticated;
+
+create or replace function public.list_event_registrants(p_event_id uuid)
+returns table (
+  user_id uuid,
+  full_name text,
+  avatar_url text,
+  status text,
+  registered_at timestamptz,
+  checked_in_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.can_manage_event(p_event_id) then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+
+  return query
+  select r.user_id, pr.full_name, pr.avatar_url, r.status, r.registered_at, a.checked_in_at
+  from public.event_registrations r
+  join public.profiles pr on pr.id = r.user_id
+  left join public.attendance a on a.event_id = r.event_id and a.user_id = r.user_id
+  where r.event_id = p_event_id and r.status in ('registered', 'waitlisted')
+  order by (r.status = 'waitlisted'), r.registered_at asc;
+end;
+$$;
+
+grant execute on function public.list_event_registrants(uuid) to authenticated;
+
+-- O próprio ingresso (pra desenhar o QR) — só o código de quem chama, nunca
+-- de outra pessoa, e só quando confirmado (nunca revela código de quem está
+-- só na lista de espera, que ainda nem tem vaga garantida).
+create or replace function public.get_my_event_ticket(p_event_id uuid)
+returns table (status text, check_in_code text, checked_in_at timestamptz)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  return query
+  select r.status, case when r.status = 'registered' then r.check_in_code else null end, a.checked_in_at
+  from public.event_registrations r
+  left join public.attendance a on a.event_id = r.event_id and a.user_id = r.user_id
+  where r.event_id = p_event_id and r.user_id = auth.uid();
+end;
+$$;
+
+grant execute on function public.get_my_event_ticket(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Check-in
+-- ----------------------------------------------------------------------------
+-- `check_in_code` é único em toda a tabela (não só por evento) — o QR só
+-- precisa carregar o código, sem precisar saber de quem é nem de qual
+-- evento antes de escanear.
+create or replace function public.check_in_by_code(p_code text)
+returns table (user_id uuid, full_name text, event_id uuid, event_title text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  v_reg public.event_registrations;
+begin
+  select * into v_reg from public.event_registrations where check_in_code = p_code and status = 'registered';
+  if not found then
+    raise exception 'código inválido ou inscrição não confirmada' using errcode = 'P0002';
+  end if;
+  if not public.can_manage_event(v_reg.event_id) then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+
+  insert into public.attendance (event_id, user_id, checked_in_at, checked_in_by)
+  values (v_reg.event_id, v_reg.user_id, now(), auth.uid())
+  on conflict (event_id, user_id) do nothing;
+
+  return query
+  select pr.id, pr.full_name, e.id, e.title
+  from public.profiles pr, public.events e
+  where pr.id = v_reg.user_id and e.id = v_reg.event_id;
+end;
+$$;
+
+grant execute on function public.check_in_by_code(text) to authenticated;
+
+-- Fallback sem QR (celular sem câmera à mão, ou o organizador prefere
+-- marcar direto na lista de presença).
+create or replace function public.check_in_manually(p_event_id uuid, p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.can_manage_event(p_event_id) then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+  if not exists (
+    select 1 from public.event_registrations
+    where event_id = p_event_id and user_id = p_user_id and status = 'registered'
+  ) then
+    raise exception 'esta pessoa não está inscrita' using errcode = '22023';
+  end if;
+
+  insert into public.attendance (event_id, user_id, checked_in_at, checked_in_by)
+  values (p_event_id, p_user_id, now(), auth.uid())
+  on conflict (event_id, user_id) do nothing;
+end;
+$$;
+
+grant execute on function public.check_in_manually(uuid, uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Certificado — emitido (uma vez) na primeira vez que quem fez check-in
+-- abre a própria página de certificado, depois do evento ter terminado.
+-- ----------------------------------------------------------------------------
+create or replace function public.get_my_certificate(p_event_id uuid)
+returns table (issued_at timestamptz, event_title text, full_name text, event_date date)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_event public.events;
+begin
+  select * into v_event from public.events where id = p_event_id;
+  if not found then
+    raise exception 'evento não encontrado' using errcode = 'P0002';
+  end if;
+  if coalesce(v_event.ends_at, v_event.starts_at) > now() then
+    raise exception 'o evento ainda não terminou' using errcode = '22023';
+  end if;
+  if not exists (select 1 from public.attendance a where a.event_id = p_event_id and a.user_id = v_me) then
+    raise exception 'certificado só pra quem fez check-in no evento' using errcode = '42501';
+  end if;
+
+  insert into public.certificates (event_id, user_id) values (p_event_id, v_me)
+  on conflict (event_id, user_id) do nothing;
+
+  return query
+  select c.issued_at, v_event.title, pr.full_name, v_event.starts_at::date
+  from public.certificates c
+  join public.profiles pr on pr.id = c.user_id
+  where c.event_id = p_event_id and c.user_id = v_me;
+end;
+$$;
+
+grant execute on function public.get_my_certificate(uuid) to authenticated;
+
+update public.feature_flags set enabled = true where key in ('events_enabled', 'certificates_enabled');
 
 -- ─────────────────────────────────────────────────────────────────────
 -- seed.sql

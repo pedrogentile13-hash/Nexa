@@ -35,7 +35,8 @@ export type TaskKind =
   | 'exercise'
   | 'project'
   | 'custom'
-  | 'prova';
+  | 'prova'
+  | 'evento';
 export type StudySource = 'timer' | 'manual' | 'content';
 export type AttachmentKind = 'summary' | 'exercise' | 'file' | 'link';
 export type XpSourceType =
@@ -47,7 +48,8 @@ export type XpSourceType =
   | 'system'
   | 'quiz'
   | 'lesson'
-  | 'resource';
+  | 'resource'
+  | 'social';
 export type UserRole = 'student' | 'school_admin' | 'admin' | 'teacher_admin';
 export type ResourceKind = 'resumo' | 'podcast' | 'video' | 'imagem' | 'musica' | 'quiz' | 'simulado';
 export type Difficulty = 'facil' | 'medio' | 'anglo' | 'dificil';
@@ -205,6 +207,7 @@ export type TaskRow = {
   estimated_minutes: number | null;
   completed_at: string | null;
   sort_order: number;
+  related_event_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -651,8 +654,118 @@ export type PostRow = {
   media: Json;
   visibility: SocialVisibility;
   community_id: string | null;
+  shared_resource_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type ContentRatingRow = {
+  resource_id: string;
+  user_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReportTargetType = 'post' | 'comment' | 'message' | 'community' | 'user';
+export type ReportReason = 'spam' | 'assedio' | 'conteudo_impropio' | 'informacao_falsa' | 'outro';
+export type ReportStatus = 'pending' | 'reviewed' | 'dismissed';
+
+export type ReportRow = {
+  id: string;
+  reporter_id: string;
+  target_type: ReportTargetType;
+  target_id: string;
+  reason: ReportReason;
+  details: string | null;
+  status: ReportStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+};
+
+export type ReportRpcRow = {
+  id: string;
+  target_type: ReportTargetType;
+  target_id: string;
+  reason: ReportReason;
+  details: string | null;
+  status: ReportStatus;
+  reporter_name: string;
+  target_preview: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+};
+
+export type EventVisibility = 'school' | 'public';
+export type EventRegistrationStatus = 'registered' | 'waitlisted' | 'cancelled';
+
+export type EventRow = {
+  id: string;
+  school_id: string;
+  community_id: string | null;
+  created_by: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  capacity: number | null;
+  visibility: EventVisibility;
+  cancelled_at: string | null;
+  created_at: string;
+};
+
+export type EventRegistrationRow = {
+  event_id: string;
+  user_id: string;
+  status: EventRegistrationStatus;
+  check_in_code: string;
+  registered_at: string;
+  cancelled_at: string | null;
+};
+
+export type AttendanceRow = {
+  event_id: string;
+  user_id: string;
+  checked_in_at: string;
+  checked_in_by: string | null;
+};
+
+export type CertificateRow = {
+  event_id: string;
+  user_id: string;
+  issued_at: string;
+};
+
+export type EventListRpcRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  capacity: number | null;
+  community_id: string | null;
+  community_name: string | null;
+  cancelled_at: string | null;
+  registered_count: number;
+  my_status: EventRegistrationStatus | null;
+  can_manage: boolean;
+};
+
+export type EventDetailRpcRow = EventListRpcRow & {
+  waitlisted_count: number;
+};
+
+export type EventRegistrantRpcRow = {
+  user_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  status: EventRegistrationStatus;
+  registered_at: string;
+  checked_in_at: string | null;
 };
 
 export type CommunityVisibility = 'public' | 'school' | 'private';
@@ -755,6 +868,9 @@ export type FeedPostRpcRow = {
   viewer_has_liked: boolean;
   viewer_has_saved: boolean;
   is_own: boolean;
+  shared_resource_id: string | null;
+  shared_resource_title: string | null;
+  shared_resource_kind: ResourceKind | null;
 };
 
 export type PostCommentRpcRow = {
@@ -867,6 +983,12 @@ export type Database = {
       communities: Table<CommunityRow>;
       community_members: Table<CommunityMemberRow>;
       messages: Table<MessageRow>;
+      content_ratings: Table<ContentRatingRow>;
+      reports: Table<ReportRow>;
+      events: Table<EventRow>;
+      event_registrations: Table<EventRegistrationRow>;
+      attendance: Table<AttendanceRow>;
+      certificates: Table<CertificateRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -928,7 +1050,12 @@ export type Database = {
       are_friends: { Args: { p_a: string; p_b: string }; Returns: boolean };
       can_view_post: { Args: { p_post_id: string; p_user_id?: string }; Returns: boolean };
       create_post: {
-        Args: { p_content: string; p_visibility?: SocialVisibility; p_community_id?: string | null };
+        Args: {
+          p_content: string;
+          p_visibility?: SocialVisibility;
+          p_community_id?: string | null;
+          p_shared_resource_id?: string | null;
+        };
         Returns: string;
       };
       update_post: {
@@ -976,6 +1103,76 @@ export type Database = {
       list_messages: {
         Args: { p_community_id: string; p_limit?: number; p_before?: string | null };
         Returns: MessageRpcRow[];
+      };
+      rate_resource: {
+        Args: { p_resource_id: string; p_rating: number; p_comment?: string | null };
+        Returns: void;
+      };
+      remove_resource_rating: { Args: { p_resource_id: string }; Returns: void };
+      get_resource_rating: {
+        Args: { p_resource_id: string };
+        Returns: { average: number | null; rating_count: number; my_rating: number | null }[];
+      };
+      is_feature_enabled: { Args: { p_key: string }; Returns: boolean };
+      report_target_school: { Args: { p_target_type: ReportTargetType; p_target_id: string }; Returns: string | null };
+      create_report: {
+        Args: {
+          p_target_type: ReportTargetType;
+          p_target_id: string;
+          p_reason: ReportReason;
+          p_details?: string | null;
+        };
+        Returns: string;
+      };
+      list_reports: { Args: { p_status?: ReportStatus | null }; Returns: ReportRpcRow[] };
+      resolve_report: { Args: { p_report_id: string; p_status: 'reviewed' | 'dismissed' }; Returns: void };
+      count_pending_reports: { Args: Record<string, never>; Returns: number };
+      can_view_event: { Args: { p_event_id: string; p_user_id?: string }; Returns: boolean };
+      can_manage_event: { Args: { p_event_id: string; p_user_id?: string }; Returns: boolean };
+      create_event: {
+        Args: {
+          p_title: string;
+          p_starts_at: string;
+          p_description?: string | null;
+          p_location?: string | null;
+          p_ends_at?: string | null;
+          p_capacity?: number | null;
+          p_visibility?: EventVisibility;
+          p_community_id?: string | null;
+          p_school_id?: string | null;
+        };
+        Returns: string;
+      };
+      update_event: {
+        Args: {
+          p_event_id: string;
+          p_title: string;
+          p_starts_at: string;
+          p_description?: string | null;
+          p_location?: string | null;
+          p_ends_at?: string | null;
+          p_capacity?: number | null;
+        };
+        Returns: void;
+      };
+      cancel_event: { Args: { p_event_id: string }; Returns: void };
+      register_for_event: { Args: { p_event_id: string }; Returns: EventRegistrationStatus };
+      cancel_registration: { Args: { p_event_id: string }; Returns: void };
+      list_events: { Args: { p_upcoming_only?: boolean }; Returns: EventListRpcRow[] };
+      get_event: { Args: { p_event_id: string }; Returns: EventDetailRpcRow[] };
+      list_event_registrants: { Args: { p_event_id: string }; Returns: EventRegistrantRpcRow[] };
+      get_my_event_ticket: {
+        Args: { p_event_id: string };
+        Returns: { status: EventRegistrationStatus; check_in_code: string | null; checked_in_at: string | null }[];
+      };
+      check_in_by_code: {
+        Args: { p_code: string };
+        Returns: { user_id: string; full_name: string | null; event_id: string; event_title: string }[];
+      };
+      check_in_manually: { Args: { p_event_id: string; p_user_id: string }; Returns: void };
+      get_my_certificate: {
+        Args: { p_event_id: string };
+        Returns: { issued_at: string; event_title: string; full_name: string | null; event_date: string }[];
       };
       search_schoolmates: {
         Args: { p_query: string };

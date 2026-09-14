@@ -48,7 +48,7 @@ done
 echo "→ reaplicação do setup-completo.sql sobre um banco já povoado"
 run "${ROOT}/supabase/setup-completo.sql"
 
-for f in "${ROOT}"/supabase/tests/3*.sql; do
+for f in "${ROOT}"/supabase/tests/[3-9]*.sql; do
   echo "   $(basename "$f")"
   run "$f"
 done

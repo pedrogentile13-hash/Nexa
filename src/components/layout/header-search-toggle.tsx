@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { SearchBar } from '@/features/search/components/search-bar';
-import { searchContent } from '@/features/search/server/actions';
+import { searchGlobal } from '@/features/search/server/actions';
 
 /**
  * Ícone de busca do cabeçalho do app.
@@ -33,7 +33,7 @@ export function HeaderSearchToggle() {
   return (
     <div className="bg-bg absolute inset-0 z-10 flex items-center gap-2 px-4 md:px-6 lg:px-8">
       <div className="min-w-0 flex-1">
-        <SearchBar placeholder="Buscar conteúdo…" search={searchContent} />
+        <SearchBar placeholder="Buscar conteúdo, colegas, comunidades…" search={searchGlobal} />
       </div>
       <button
         type="button"

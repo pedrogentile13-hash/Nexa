@@ -297,6 +297,13 @@ grant execute on function public.delete_comment(uuid) to authenticated;
 -- `posts`/`profiles` diretamente (não teria como: nenhuma das duas libera
 -- select direto pra "outra pessoa").
 -- ----------------------------------------------------------------------------
+-- `drop` antes do `create or replace`: fases futuras (Fase 6, biblioteca
+-- comunitária) mudam as colunas de retorno desta função — sem o drop aqui,
+-- reaplicar esta migração do zero sobre um banco que já passou pela versão
+-- nova quebraria com "cannot change return type of existing function".
+drop function if exists public.list_feed(integer, timestamptz);
+drop function if exists public.list_saved_posts(integer, timestamptz);
+
 create or replace function public.list_feed(p_limit integer default 20, p_before timestamptz default null)
 returns table (
   id uuid,

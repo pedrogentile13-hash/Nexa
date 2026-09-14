@@ -464,6 +464,10 @@ $$;
 
 grant execute on function public.list_community_members(uuid) to authenticated;
 
+-- Mesmo motivo do drop em `list_feed`/`list_saved_posts` (Fase 2): a Fase 6
+-- muda as colunas de retorno desta função.
+drop function if exists public.list_community_feed(uuid, integer, timestamptz);
+
 create or replace function public.list_community_feed(
   p_community_id uuid,
   p_limit integer default 20,

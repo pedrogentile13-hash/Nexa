@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { FileText, Loader2, School, Search, User, X } from 'lucide-react';
+import { FileText, Loader2, School, Search, User, Users, X } from 'lucide-react';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { kindLabel } from '@/features/admin/lib/labels';
-import type { AdminSearchResult, ContentSearchResult } from '../server/actions';
+import type { AdminSearchResult, ContentSearchResult, StudentSearchResult } from '../server/actions';
 
 /**
  * Barra de busca do cabeçalho.
@@ -17,10 +17,11 @@ import type { AdminSearchResult, ContentSearchResult } from '../server/actions';
  * navegar com teclado) é idêntica nas duas.
  */
 
-type Result = ContentSearchResult | AdminSearchResult;
+type Result = ContentSearchResult | AdminSearchResult | StudentSearchResult;
 
 function resultHref(result: Result): Route {
   if (result.type === 'content') return `/estudar/${result.id}` as Route;
+  if (result.type === 'community') return `/comunidade/c/${result.id}` as Route;
   if (result.type === 'person') return `/admin/usuarios/${result.id}` as Route;
   return '/admin/escolas' as Route;
 }
@@ -28,6 +29,7 @@ function resultHref(result: Result): Route {
 function ResultIcon({ result }: { result: Result }) {
   if (result.type === 'person') return <User className="size-4" aria-hidden />;
   if (result.type === 'school') return <School className="size-4" aria-hidden />;
+  if (result.type === 'community') return <Users className="size-4" aria-hidden />;
   return <FileText className="size-4" aria-hidden />;
 }
 
@@ -39,6 +41,8 @@ function resultLabel(result: Result): string {
 
 function resultHint(result: Result): string {
   if (result.type === 'content') return `${kindLabel(result.kind)} · ${result.subjectName}`;
+  if (result.type === 'community')
+    return `${result.memberCount.toLocaleString('pt-BR')} ${result.memberCount === 1 ? 'membro' : 'membros'}`;
   if (result.type === 'person')
     return result.schoolName ? `${result.role} · ${result.schoolName}` : result.role;
   return 'Escola';

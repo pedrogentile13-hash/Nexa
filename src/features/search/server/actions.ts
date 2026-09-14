@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getAdminIdentity } from '@/features/admin/server/guard';
+import { isFeatureEnabled } from '@/lib/feature-flags';
 import type { ResourceKind } from '@/types/database.types';
 
 /**
@@ -61,7 +62,54 @@ export interface SchoolSearchResult {
   name: string;
 }
 
+export interface CommunitySearchResult {
+  type: 'community';
+  id: string;
+  name: string;
+  memberCount: number;
+}
+
 export type AdminSearchResult = ContentSearchResult | PersonSearchResult | SchoolSearchResult;
+
+/**
+ * Busca do aluno (Fase 12 — busca global estendida): além de conteúdo
+ * (`searchContent`, já existente), passa a incluir colegas e comunidades
+ * quando a Community está ligada — reaproveita `search_schoolmates` (mesma
+ * RLS de escola) e `list_communities` (mesma RLS de visibilidade), não
+ * duplica nenhuma das duas regras aqui.
+ */
+export type StudentSearchResult = ContentSearchResult | PersonSearchResult | CommunitySearchResult;
+
+export async function searchGlobal(query: string): Promise<StudentSearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < MIN_QUERY_LENGTH) return [];
+
+  const content = await searchContent(trimmed);
+  if (!(await isFeatureEnabled('community_enabled'))) return content;
+
+  const supabase = await createClient();
+  const [schoolmatesRes, communitiesRes] = await Promise.all([
+    supabase.rpc('search_schoolmates', { p_query: trimmed }),
+    supabase.rpc('list_communities', { p_query: trimmed }),
+  ]);
+
+  const people: PersonSearchResult[] = (schoolmatesRes.data ?? []).slice(0, RESULT_LIMIT).map((r) => ({
+    type: 'person' as const,
+    id: r.user_id,
+    name: r.full_name ?? 'Sem nome',
+    role: 'Colega',
+    schoolName: r.class_name,
+  }));
+
+  const communities: CommunitySearchResult[] = (communitiesRes.data ?? []).slice(0, RESULT_LIMIT).map((c) => ({
+    type: 'community' as const,
+    id: c.id,
+    name: c.name,
+    memberCount: c.member_count,
+  }));
+
+  return [...content, ...people, ...communities];
+}
 
 export async function searchAdmin(query: string): Promise<AdminSearchResult[]> {
   const trimmed = query.trim();

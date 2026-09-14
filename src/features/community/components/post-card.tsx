@@ -8,6 +8,7 @@ import type { SocialVisibility } from '@/types/database.types';
 import { deleteComment, deletePost, getPostComments, toggleLike, toggleSave } from '../server/feed-actions';
 import type { FeedPost, PostComment } from '../server/feed-queries';
 import { CommentForm } from './comment-form';
+import { ReportButton } from './report-button';
 
 const VISIBILITY_LABEL: Record<SocialVisibility, string> = {
   private: 'Só eu',
@@ -110,7 +111,7 @@ export function PostCard({ post, onRemoved }: { post: FeedPost; onRemoved: (post
               {VISIBILITY_LABEL[post.visibility]}
             </p>
           </div>
-          {post.isOwn && (
+          {post.isOwn ? (
             <button
               type="button"
               onClick={handleDelete}
@@ -120,6 +121,8 @@ export function PostCard({ post, onRemoved }: { post: FeedPost; onRemoved: (post
             >
               <Trash2 className="size-4" aria-hidden />
             </button>
+          ) : (
+            <ReportButton targetType="post" targetId={post.id} className="shrink-0 p-2" />
           )}
         </div>
 

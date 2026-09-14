@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { StudyTopBar } from './study-top-bar';
+import { RatingStars } from '@/features/community/components/rating-stars';
 import { addHighlight, removeHighlight, saveProgress } from '../server/actions';
 import { Markdown } from './markdown';
 import { useContentTimeTracking } from '../hooks/use-content-time-tracking';
@@ -144,6 +145,9 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
         {resource.description && (
           <p className="text-muted mt-2 text-sm leading-relaxed">{resource.description}</p>
         )}
+        <div className="mt-3">
+          <RatingStars resourceId={resource.id} />
+        </div>
 
         <div className={cn('mt-6 leading-relaxed', SIZES[sizeIndex])}>
           <Markdown source={resource.body ?? ''} />

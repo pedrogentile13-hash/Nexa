@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { deleteMessage, getMessages, sendMessage } from '../server/chat-actions';
 import type { ChatMessage } from '../server/chat-queries';
+import { ReportButton } from './report-button';
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -116,6 +117,13 @@ export function ChatView({ communityId, canModerate }: { communityId: string; ca
                     >
                       <Trash2 className="size-3" aria-hidden />
                     </button>
+                  )}
+                  {!message.isOwn && (
+                    <ReportButton
+                      targetType="message"
+                      targetId={message.id}
+                      className="opacity-0 transition-opacity group-hover:opacity-70 hover:!opacity-100"
+                    />
                   )}
                 </div>
               </div>
