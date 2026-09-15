@@ -31,7 +31,7 @@ const BY_CODE = {
   provider_disabled: 'Esse provedor de login não está habilitado no projeto Supabase.',
   validation_failed: 'Dados inválidos. Confira o e-mail e a senha.',
   same_password: 'A nova senha precisa ser diferente da atual.',
-  otp_expired: 'Esse link expirou. Peça um novo.',
+  otp_expired: 'Esse link ou código expirou, ou já foi usado. Peça um novo.',
 } as const;
 
 /**

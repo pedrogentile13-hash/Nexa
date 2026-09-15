@@ -14,6 +14,7 @@ import {
   recoverSchema,
   signInSchema,
   signUpSchema,
+  verifyCodeSchema,
   type AuthFormState,
   type AuthMode,
 } from '../schemas';
@@ -57,7 +58,11 @@ async function currentOrigin(): Promise<string> {
   return env.NEXT_PUBLIC_SITE_URL;
 }
 
-function invalid(message: string, mode: AuthMode, field?: 'email' | 'password'): AuthFormState {
+function invalid(
+  message: string,
+  mode: AuthMode,
+  field?: 'email' | 'password' | 'code',
+): AuthFormState {
   return { status: 'error', message, mode, field };
 }
 
@@ -154,7 +159,14 @@ async function enterWithPassword(formData: FormData): Promise<AuthFormState> {
   redirect(next as Route);
 }
 
-/** Envia o link mágico. Nunca revela se o e-mail já tem conta. */
+/**
+ * Envia o link mágico. Nunca revela se o e-mail já tem conta.
+ *
+ * O mesmo envio (`signInWithOtp`) gera, do lado do Supabase, tanto o link
+ * quanto um código de 6 dígitos — qual dos dois aparece no e-mail depende só
+ * do template configurado no painel. `verifyMagicCode` abaixo confirma o
+ * código sem depender de o aluno abrir o e-mail no mesmo aparelho.
+ */
 async function sendMagicLink(formData: FormData): Promise<AuthFormState> {
   const parsed = magicLinkSchema.safeParse({
     email: formData.get('email'),
@@ -179,7 +191,37 @@ async function sendMagicLink(formData: FormData): Promise<AuthFormState> {
 
   if (error) return invalid(authErrorMessage(error), 'magic');
 
-  return { status: 'sent', email: parsed.data.email };
+  return { status: 'code', email: parsed.data.email };
+}
+
+/** Confirma o código de 6 dígitos enviado por `sendMagicLink`. */
+export async function verifyMagicCode(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const parsed = verifyCodeSchema.safeParse({
+    email: formData.get('email'),
+    code: formData.get('code'),
+    next: formData.get('next') ?? undefined,
+  });
+
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return invalid(issue?.message ?? 'Confira o código.', 'magic', 'code');
+  }
+
+  const supabase = await createClient();
+  const next = safeNext(parsed.data.next);
+
+  const { error } = await supabase.auth.verifyOtp({
+    email: parsed.data.email,
+    token: parsed.data.code,
+    type: 'email',
+  });
+
+  if (error) return invalid(authErrorMessage(error), 'magic', 'code');
+
+  redirect(next as Route);
 }
 
 /** Mantido como Server Action própria: o botão do Google é um form separado. */

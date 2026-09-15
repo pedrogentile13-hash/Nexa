@@ -3,11 +3,21 @@
 import Link from 'next/link';
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, MailCheck, UserPlus } from 'lucide-react';
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  Lock,
+  Mail,
+  MailCheck,
+  UserPlus,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { authenticate, signInWithGoogle } from '../server/actions';
+import { authenticate, signInWithGoogle, verifyMagicCode } from '../server/actions';
 import type { AuthFormState, AuthMode } from '../schemas';
 
 /** A marca do Google. Inline porque a CSP bloqueia asset externo. */
@@ -184,15 +194,8 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
-  if (state.status === 'sent') {
-    return (
-      <Confirmation
-        title="Link enviado"
-        email={state.email}
-        body="Abra o e-mail neste mesmo aparelho e você já entra."
-        hint="Não chegou? Confira o spam — ou crie a conta com e-mail e senha, que funciona na hora."
-      />
-    );
+  if (state.status === 'code') {
+    return <CodeForm email={state.email} next={next} resendAction={formAction} />;
   }
 
   if (state.status === 'confirm') {
@@ -321,6 +324,114 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
           <GoogleButton next={next} />
         </>
       )}
+    </div>
+  );
+}
+
+function CodeSubmit() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="animate-spin" aria-hidden />
+          Confirmando…
+        </>
+      ) : (
+        <>
+          <KeyRound aria-hidden />
+          Confirmar código
+        </>
+      )}
+    </Button>
+  );
+}
+
+function ResendButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="text-muted hover:text-text mx-auto block text-sm underline-offset-4 hover:underline disabled:opacity-60"
+    >
+      {pending ? 'Reenviando…' : 'Reenviar código'}
+    </button>
+  );
+}
+
+/**
+ * Digitar o código de 6 dígitos que veio junto do link mágico no e-mail.
+ *
+ * `resendAction` reaproveita a MESMA Server Action (`authenticate`) do
+ * formulário principal — reenviar é literalmente pedir o link mágico de novo
+ * para o mesmo e-mail, então não precisa de um segundo estado para acompanhar.
+ */
+function CodeForm({
+  email,
+  next,
+  resendAction,
+}: {
+  email: string;
+  next: string;
+  resendAction: (formData: FormData) => void;
+}) {
+  const [state, formAction] = useActionState(verifyMagicCode, INITIAL);
+  const error = state.status === 'error' ? state.message : undefined;
+
+  return (
+    <div className="space-y-5">
+      <div className="text-center">
+        <div className="bg-success-soft text-success mx-auto mb-4 grid size-14 place-items-center rounded-full">
+          <MailCheck className="size-6" aria-hidden />
+        </div>
+        <h2 className="text-lg font-semibold">Digite o código</h2>
+        <p className="text-muted mx-auto mt-2 max-w-xs text-sm leading-relaxed">
+          Enviamos um código de 6 dígitos para <strong className="text-text">{email}</strong>.
+        </p>
+      </div>
+
+      <form action={formAction} className="space-y-3">
+        <input type="hidden" name="email" value={email} />
+        <input type="hidden" name="next" value={next} />
+
+        <div>
+          <Label htmlFor="code">Código</Label>
+          <Input
+            id="code"
+            name="code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]*"
+            maxLength={6}
+            placeholder="000000"
+            required
+            autoFocus
+            className="text-center text-lg tracking-[0.5em]"
+            aria-describedby={error ? 'code-error' : undefined}
+            aria-invalid={error ? true : undefined}
+          />
+        </div>
+
+        {error && (
+          <p id="code-error" role="alert" className="text-danger text-sm leading-relaxed">
+            {error}
+          </p>
+        )}
+
+        <CodeSubmit />
+      </form>
+
+      <form action={resendAction}>
+        <input type="hidden" name="mode" value="magic" />
+        <input type="hidden" name="email" value={email} />
+        <input type="hidden" name="next" value={next} />
+        <ResendButton />
+      </form>
+
+      <p className="text-subtle text-center text-xs leading-relaxed">
+        Não chegou? Confira o spam. O código vale por alguns minutos.
+      </p>
     </div>
   );
 }

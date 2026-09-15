@@ -14,6 +14,17 @@ const next = z.string().optional();
 
 export const magicLinkSchema = z.object({ email, next });
 
+/** Confirmação do código de 6 dígitos que acompanha o link mágico no e-mail. */
+export const verifyCodeSchema = z.object({
+  email,
+  code: z
+    .string()
+    .trim()
+    .length(6, 'O código tem 6 dígitos.')
+    .regex(/^\d{6}$/, 'O código só tem números.'),
+  next,
+});
+
 /** Pedido de recuperação: só o e-mail. */
 export const recoverSchema = z.object({ email });
 
@@ -81,8 +92,10 @@ export function parseAuthMode(value: FormDataEntryValue | null): AuthMode {
  */
 export type AuthFormState =
   | { status: 'idle' }
-  /** Magic link enviado. */
+  /** Link de recuperação de senha enviado. */
   | { status: 'sent'; email: string }
+  /** Link mágico enviado — o e-mail também traz um código de 6 dígitos para digitar aqui. */
+  | { status: 'code'; email: string }
   /** Conta criada, mas o projeto exige confirmação por e-mail antes de entrar. */
   | { status: 'confirm'; email: string }
-  | { status: 'error'; message: string; mode?: AuthMode; field?: 'email' | 'password' };
+  | { status: 'error'; message: string; mode?: AuthMode; field?: 'email' | 'password' | 'code' };
