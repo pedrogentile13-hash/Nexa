@@ -361,7 +361,7 @@ function ResendButton() {
 }
 
 /**
- * Digitar o código de 6 dígitos que veio junto do link mágico no e-mail.
+ * Digitar o código de 8 dígitos que veio junto do link mágico no e-mail.
  *
  * `resendAction` reaproveita a MESMA Server Action (`authenticate`) do
  * formulário principal — reenviar é literalmente pedir o link mágico de novo
@@ -387,7 +387,7 @@ function CodeForm({
         </div>
         <h2 className="text-lg font-semibold">Digite o código</h2>
         <p className="text-muted mx-auto mt-2 max-w-xs text-sm leading-relaxed">
-          Enviamos um código de 6 dígitos para <strong className="text-text">{email}</strong>.
+          Enviamos um código de 8 dígitos para <strong className="text-text">{email}</strong>.
         </p>
       </div>
 
@@ -403,11 +403,11 @@ function CodeForm({
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]*"
-            maxLength={6}
-            placeholder="000000"
+            maxLength={8}
+            placeholder="00000000"
             required
             autoFocus
-            className="text-center text-lg tracking-[0.5em]"
+            className="text-center text-lg tracking-[0.35em]"
             aria-describedby={error ? 'code-error' : undefined}
             aria-invalid={error ? true : undefined}
           />

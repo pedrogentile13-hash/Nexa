@@ -175,7 +175,7 @@ async function enterWithPassword(formData: FormData): Promise<AuthFormState> {
  * Envia o link mágico. Nunca revela se o e-mail já tem conta.
  *
  * O mesmo envio (`signInWithOtp`) gera, do lado do Supabase, tanto o link
- * quanto um código de 6 dígitos — qual dos dois aparece no e-mail depende só
+ * quanto um código de 8 dígitos — qual dos dois aparece no e-mail depende só
  * do template configurado no painel. `verifyMagicCode` abaixo confirma o
  * código sem depender de o aluno abrir o e-mail no mesmo aparelho.
  */
@@ -211,7 +211,7 @@ async function sendMagicLink(formData: FormData): Promise<AuthFormState> {
   return { status: 'code', email: parsed.data.email };
 }
 
-/** Confirma o código de 6 dígitos enviado por `sendMagicLink`. */
+/** Confirma o código de 8 dígitos enviado por `sendMagicLink`. */
 export async function verifyMagicCode(
   _prev: AuthFormState,
   formData: FormData,
