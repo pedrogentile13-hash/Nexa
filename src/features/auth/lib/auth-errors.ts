@@ -17,6 +17,20 @@ export interface AuthErrorLike {
   message?: string;
 }
 
+/**
+ * Normaliza o que um `catch` pegou em algo que `authErrorMessage` entende.
+ *
+ * `supabase-js` normalmente devolve `{ error }` sem lançar — mas uma falha de
+ * rede genuína (SMTP do projeto fora do ar, DNS, timeout) pode fazer o
+ * `fetch` interno lançar de verdade. Sem isto, essa exceção subia sem
+ * tratamento até o `error.tsx` da tela inteira: o aluno ficava sem
+ * explicação nenhuma justamente na hora que uma mensagem faria diferença.
+ */
+export function toAuthErrorLike(err: unknown): AuthErrorLike {
+  if (err instanceof Error) return { message: err.message };
+  return { message: typeof err === 'string' ? err : 'unexpected_failure' };
+}
+
 const BY_CODE = {
   invalid_credentials: 'E-mail ou senha incorretos.',
   email_not_confirmed: 'Confirme seu e-mail antes de entrar. O link está na sua caixa de entrada.',

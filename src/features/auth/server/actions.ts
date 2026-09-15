@@ -6,7 +6,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { env } from '@/lib/env';
 import { safeNext } from '../lib/safe-next';
-import { authErrorMessage, isConfigurationError } from '../lib/auth-errors';
+import { authErrorMessage, isConfigurationError, toAuthErrorLike } from '../lib/auth-errors';
 import {
   magicLinkSchema,
   newPasswordSchema,
@@ -66,6 +66,7 @@ function invalid(
   return { status: 'error', message, mode, field };
 }
 
+
 /**
  * Ponto único do formulário de login. O modo vem em um campo escondido, então
  * a tela inteira usa um `useActionState` só e nunca fica com dois estados de
@@ -103,13 +104,19 @@ async function createAccount(formData: FormData): Promise<AuthFormState> {
   const origin = await currentOrigin();
   const next = safeNext(parsed.data.next);
 
-  const { data, error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    options: {
-      emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(next)}`,
-    },
-  });
+  let signUpResult;
+  try {
+    signUpResult = await supabase.auth.signUp({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      options: {
+        emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+      },
+    });
+  } catch (err) {
+    return invalid(authErrorMessage(toAuthErrorLike(err)), 'signup');
+  }
+  const { data, error } = signUpResult;
 
   if (error) {
     return invalid(
@@ -149,10 +156,15 @@ async function enterWithPassword(formData: FormData): Promise<AuthFormState> {
   const supabase = await createClient();
   const next = safeNext(parsed.data.next);
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email: parsed.data.email,
-    password: parsed.data.password,
-  });
+  let error;
+  try {
+    ({ error } = await supabase.auth.signInWithPassword({
+      email: parsed.data.email,
+      password: parsed.data.password,
+    }));
+  } catch (err) {
+    error = toAuthErrorLike(err);
+  }
 
   if (error) return invalid(authErrorMessage(error), 'signin');
 
@@ -181,13 +193,18 @@ async function sendMagicLink(formData: FormData): Promise<AuthFormState> {
   const origin = await currentOrigin();
   const next = safeNext(parsed.data.next);
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email: parsed.data.email,
-    options: {
-      shouldCreateUser: true,
-      emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(next)}`,
-    },
-  });
+  let error;
+  try {
+    ({ error } = await supabase.auth.signInWithOtp({
+      email: parsed.data.email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+      },
+    }));
+  } catch (err) {
+    error = toAuthErrorLike(err);
+  }
 
   if (error) return invalid(authErrorMessage(error), 'magic');
 
@@ -213,11 +230,16 @@ export async function verifyMagicCode(
   const supabase = await createClient();
   const next = safeNext(parsed.data.next);
 
-  const { error } = await supabase.auth.verifyOtp({
-    email: parsed.data.email,
-    token: parsed.data.code,
-    type: 'email',
-  });
+  let error;
+  try {
+    ({ error } = await supabase.auth.verifyOtp({
+      email: parsed.data.email,
+      token: parsed.data.code,
+      type: 'email',
+    }));
+  } catch (err) {
+    error = toAuthErrorLike(err);
+  }
 
   if (error) return invalid(authErrorMessage(error), 'magic', 'code');
 
@@ -230,15 +252,21 @@ export async function signInWithGoogle(formData: FormData): Promise<void> {
   const origin = await currentOrigin();
   const next = safeNext(formData.get('next')?.toString());
 
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      queryParams: { access_type: 'offline', prompt: 'consent' },
-    },
-  });
+  let oauthResult;
+  try {
+    oauthResult = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+      },
+    });
+  } catch (err) {
+    oauthResult = { data: { url: null }, error: toAuthErrorLike(err) };
+  }
+  const { data, error } = oauthResult;
 
-  if (error || !data.url) {
+  if (error || !data?.url) {
     const message = error
       ? authErrorMessage(error)
       : 'Não consegui abrir o login do Google. Verifique se o provedor está habilitado no Supabase.';
@@ -269,9 +297,14 @@ export async function requestPasswordReset(
   const supabase = await createClient();
   const origin = await currentOrigin();
 
-  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${origin}/auth/confirm?next=${encodeURIComponent('/redefinir-senha')}`,
-  });
+  let error;
+  try {
+    ({ error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+      redirectTo: `${origin}/auth/confirm?next=${encodeURIComponent('/redefinir-senha')}`,
+    }));
+  } catch (err) {
+    error = toAuthErrorLike(err);
+  }
 
   // Só erro de infraestrutura aparece — limite de envio, SMTP fora do ar. Um
   // "não encontrei esse e-mail" seria a fuga de informação descrita acima.
