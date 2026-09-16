@@ -3,6 +3,7 @@ import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { authErrorMessage } from '@/features/auth/lib/auth-errors';
 import { safeNext } from '@/features/auth/lib/safe-next';
+import { safeOrigin } from '@/features/auth/lib/safe-origin';
 
 /**
  * Fecha qualquer volta de autenticação: link de e-mail ou OAuth.
@@ -22,7 +23,13 @@ import { safeNext } from '@/features/auth/lib/safe-next';
  * Aceitar os três em qualquer uma das rotas remove essa classe inteira de erro.
  */
 export async function completeSignIn(request: NextRequest): Promise<NextResponse> {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  // Nunca a origem de `request.url` — atrás do proxy da Hostinger ela vem como
+  // o endereço interno de bind do servidor (`0.0.0.0`), não o domínio público.
+  const origin = safeOrigin(
+    request.headers.get('x-forwarded-host'),
+    request.headers.get('x-forwarded-proto'),
+  );
   const next = safeNext(searchParams.get('next'));
 
   // O Supabase pode voltar com erro explícito (link expirado, acesso negado).

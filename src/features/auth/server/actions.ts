@@ -4,8 +4,8 @@ import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { env } from '@/lib/env';
 import { safeNext } from '../lib/safe-next';
+import { safeOrigin } from '../lib/safe-origin';
 import { authErrorMessage, isConfigurationError, toAuthErrorLike } from '../lib/auth-errors';
 import {
   magicLinkSchema,
@@ -35,27 +35,10 @@ import {
  * aquele módulo para entender por que um `next` solto é vetor de phishing.
  */
 
-/** IPv4 cru (com ou sem porta) — nunca é um domínio público real, sempre indício de
- * proxy repassando o endereço interno onde o servidor escuta (ex.: `0.0.0.0`). */
-const RAW_IPV4_HOST = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/;
-
-/**
- * Origem da requisição atual, para deploys de preview redirecionarem para si mesmos.
- *
- * `x-forwarded-host` só é confiável quando parece um domínio de verdade — alguns
- * proxies (visto na Hostinger) repassam o endereço interno de bind do servidor
- * (`0.0.0.0`) nesse cabeçalho em vez do host público, o que mandaria o
- * `redirectTo` do OAuth para um endereço que o navegador do usuário não alcança.
- * `NEXT_PUBLIC_SITE_URL`, configurada à mão, nunca tem esse problema.
- */
+/** Origem da requisição atual, para deploys de preview redirecionarem para si mesmos. */
 async function currentOrigin(): Promise<string> {
   const headerList = await headers();
-  const forwardedHost = headerList.get('x-forwarded-host');
-  const forwardedProto = headerList.get('x-forwarded-proto') ?? 'https';
-  if (forwardedHost && !RAW_IPV4_HOST.test(forwardedHost)) {
-    return `${forwardedProto}://${forwardedHost}`;
-  }
-  return env.NEXT_PUBLIC_SITE_URL;
+  return safeOrigin(headerList.get('x-forwarded-host'), headerList.get('x-forwarded-proto'));
 }
 
 function invalid(
