@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { env } from '@/lib/env';
@@ -40,11 +41,21 @@ export async function createClient() {
  *
  * Uses `getUser()` — which validates the JWT against Supabase — rather than
  * `getSession()`, whose payload comes from a cookie the client can edit.
+ *
+ * `getUser()` is a real network round-trip to Supabase's Auth server, not a
+ * local cookie read. Without `cache()`, every layout/page/action on the
+ * critical path that needs the session paid its own round-trip — up to three
+ * of them stacked on a single navigation (middleware, `(app)/layout.tsx`,
+ * the page itself), which is both slow and, when Supabase or the Netlify
+ * function is having a transient hiccup, three independent chances to fail.
+ * `cache()` dedupes repeated calls within the same request's render pass —
+ * it never persists across requests, so this does not reintroduce the
+ * cross-request leak `createClient()`'s own comment warns about.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
-}
+});

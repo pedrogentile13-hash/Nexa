@@ -1,0 +1,1234 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
+import { sendPushToUsers } from '@/lib/push/send';
+import { assertSubjectAllowed, requireAdmin, requireContentManager, resolveSchoolId } from './guard';
+import { parseAssets, parseSimuladoCode } from '../lib/simulado-import';
+
+/**
+ * Escritas do painel.
+ *
+ * Toda ação começa por `requireAdmin()` e termina numa escrita que a RLS
+ * também autorizaria por conta própria. A checagem no TypeScript não substitui
+ * a do banco — ela existe para que a falha vire uma mensagem em vez de um erro
+ * cru do PostgREST, e para que o `school_id` de uma escrita venha do PERFIL de
+ * quem escreve, nunca de um campo do formulário.
+ */
+
+export type AdminState =
+  { status: 'idle' } | { status: 'saved'; warning?: string } | { status: 'error'; message: string };
+
+const ok: AdminState = { status: 'saved' };
+const fail = (message: string): AdminState => ({ status: 'error', message });
+
+function firstIssue(error: z.ZodError): string {
+  return error.issues[0]?.message ?? 'Revise os campos.';
+}
+
+/** Texto → slug estável. Chave de URL não pode depender de acento. */
+function toSlug(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+// ---------------------------------------------------------------- escolas --
+
+const schoolSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2, 'O nome da escola precisa de ao menos 2 letras.').max(160),
+  city: z.string().trim().max(80).optional().nullable(),
+  state: z.string().trim().length(2, 'A UF tem 2 letras.').optional().or(z.literal('')),
+});
+
+export async function saveSchool(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+  if (!identity.isGlobal) return fail('Só a administração geral cria e edita escolas.');
+
+  const parsed = schoolSchema.safeParse({
+    id: formData.get('id') || undefined,
+    name: formData.get('name'),
+    city: formData.get('city') || null,
+    state: formData.get('state') || '',
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const supabase = await createClient();
+  const payload = {
+    name: parsed.data.name,
+    city: parsed.data.city || null,
+    state: parsed.data.state ? parsed.data.state.toUpperCase() : null,
+    is_verified: true,
+    created_by: identity.userId,
+  };
+
+  const { error } = parsed.data.id
+    ? await supabase.from('schools').update(payload).eq('id', parsed.data.id)
+    : await supabase.from('schools').insert(payload);
+
+  if (error) return fail(error.message);
+
+  revalidatePath('/admin/escolas');
+  return ok;
+}
+
+export async function deleteSchool(formData: FormData): Promise<void> {
+  const identity = await requireAdmin();
+  if (!identity.isGlobal) return;
+
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('schools').delete().eq('id', id);
+  revalidatePath('/admin/escolas');
+}
+
+// --------------------------------------------------------------- matérias --
+
+const subjectSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2, 'Dê um nome à matéria.').max(80),
+  area: z.enum(['linguagens', 'matematica', 'ciencias', 'humanas', 'tecnologia', 'outros']),
+  defaultColor: z.string().trim().min(2).max(20),
+  defaultIcon: z.string().trim().min(2).max(40),
+  sortOrder: z.coerce.number().int().min(0).max(999),
+  isActive: z.coerce.boolean(),
+});
+
+export async function saveSubject(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+  if (!identity.isGlobal)
+    return fail('O catálogo de matérias é compartilhado por todas as escolas.');
+
+  const parsed = subjectSchema.safeParse({
+    id: formData.get('id') || undefined,
+    name: formData.get('name'),
+    area: formData.get('area'),
+    defaultColor: formData.get('defaultColor') || 'blue',
+    defaultIcon: formData.get('defaultIcon') || 'book-open',
+    sortOrder: formData.get('sortOrder') || 100,
+    isActive: formData.get('isActive') === 'on' || formData.get('isActive') === 'true',
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const supabase = await createClient();
+  const payload = {
+    name: parsed.data.name,
+    slug: toSlug(parsed.data.name),
+    area: parsed.data.area,
+    default_color: parsed.data.defaultColor,
+    default_icon: parsed.data.defaultIcon,
+    sort_order: parsed.data.sortOrder,
+    is_active: parsed.data.isActive,
+  };
+
+  const { error } = parsed.data.id
+    ? await supabase.from('subject_catalog').update(payload).eq('id', parsed.data.id)
+    : await supabase.from('subject_catalog').insert(payload);
+
+  if (error) {
+    return fail(error.code === '23505' ? 'Já existe uma matéria com esse nome.' : error.message);
+  }
+
+  revalidatePath('/admin/materias');
+  return ok;
+}
+
+// --------------------------------------------------------------- assuntos --
+
+const topicSchema = z.object({
+  id: z.string().uuid().optional(),
+  subjectId: z.string().uuid('Escolha a matéria.'),
+  name: z.string().trim().min(2, 'Dê um nome ao assunto.').max(120),
+  schoolId: z.string().optional(),
+  sortOrder: z.coerce.number().int().min(0).max(999),
+});
+
+export async function saveTopic(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+
+  const parsed = topicSchema.safeParse({
+    id: formData.get('id') || undefined,
+    subjectId: formData.get('subjectId'),
+    name: formData.get('name'),
+    schoolId: formData.get('schoolId') || undefined,
+    sortOrder: formData.get('sortOrder') || 100,
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const supabase = await createClient();
+  const payload = {
+    subject_catalog_id: parsed.data.subjectId,
+    name: parsed.data.name,
+    slug: toSlug(parsed.data.name),
+    school_id: resolveSchoolId(identity, parsed.data.schoolId ?? null),
+    sort_order: parsed.data.sortOrder,
+    created_by: identity.userId,
+  };
+
+  const { error } = parsed.data.id
+    ? await supabase.from('content_topics').update(payload).eq('id', parsed.data.id)
+    : await supabase.from('content_topics').insert(payload);
+
+  if (error) {
+    return fail(
+      error.code === '23505' ? 'Já existe um assunto com esse nome nesta matéria.' : error.message,
+    );
+  }
+
+  revalidatePath('/admin/materias');
+  return ok;
+}
+
+export async function deleteTopic(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('content_topics').delete().eq('id', id);
+  revalidatePath('/admin/materias');
+}
+
+// --------------------------------------------------------------- conteúdo --
+
+const resourceSchema = z.object({
+  id: z.string().uuid().optional(),
+  kind: z.enum(['resumo', 'podcast', 'video', 'imagem', 'musica', 'quiz', 'simulado']),
+  subjectId: z.string().uuid('Escolha a matéria.'),
+  topicId: z.string().uuid().optional().or(z.literal('')),
+  schoolId: z.string().optional(),
+  title: z.string().trim().min(2, 'Dê um título.').max(200),
+  subtitle: z.string().trim().max(160).optional().or(z.literal('')),
+  description: z.string().trim().max(2000).optional().or(z.literal('')),
+  body: z.string().max(200_000).optional().or(z.literal('')),
+  /** Só importa para kind='resumo': markdown (padrão) ou pdf. */
+  contentFormat: z.enum(['markdown', 'pdf', 'html']).default('markdown'),
+  storagePath: z.string().trim().max(500).optional().or(z.literal('')),
+  externalUrl: z
+    .string()
+    .trim()
+    .url('O link precisa começar com http.')
+    .optional()
+    .or(z.literal('')),
+  thumbnailUrl: z
+    .string()
+    .trim()
+    .url('A capa precisa ser um link válido.')
+    .optional()
+    .or(z.literal('')),
+  durationSeconds: z.coerce.number().int().min(0).max(86400).optional(),
+  difficulty: z.enum(['facil', 'medio', 'anglo', 'dificil']),
+  timeLimitSeconds: z.coerce.number().int().min(0).max(86400).optional(),
+  xpReward: z.coerce.number().int().min(0).max(1000),
+  isPublished: z.boolean(),
+  tags: z.string().max(300).optional().or(z.literal('')),
+  bimestre: z.coerce.number().int().min(1).max(4).optional(),
+  /** Só usado em kind='quiz'/'simulado' — array de assets (textos-base,
+   *  imagens, gráficos, tabelas), mesmo formato/validação do importador v2. */
+  assetsJson: z.string().max(50_000).optional().or(z.literal('')),
+});
+
+/**
+ * Avisa quem cursa a matéria que um conteúdo novo saiu do rascunho.
+ *
+ * `notify_subject_students` roda como `security definer` no banco — é o que
+ * permite gravar notificação para OUTRO usuário, coisa que a RLS de
+ * `notifications` (cada um só escreve a própria) nunca deixaria escrito
+ * direto daqui. Falha de notificação nunca derruba a publicação em si: o
+ * conteúdo já está salvo de qualquer jeito.
+ */
+async function notifyPublished(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  subjectCatalogId: string,
+  title: string,
+  resourceId: string,
+  schoolId: string | null,
+): Promise<void> {
+  const { data: notifiedUserIds } = await supabase.rpc('notify_subject_students', {
+    p_subject_catalog_id: subjectCatalogId,
+    p_title: 'Novo conteúdo publicado',
+    p_body: title,
+    p_link: `/estudar/${resourceId}`,
+    p_school_id: schoolId,
+  });
+
+  if (notifiedUserIds && notifiedUserIds.length > 0) {
+    await sendPushToUsers(notifiedUserIds, {
+      title: 'Novo conteúdo publicado',
+      body: title,
+      link: `/estudar/${resourceId}`,
+    });
+  }
+}
+
+export async function saveResource(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireContentManager();
+
+  const parsed = resourceSchema.safeParse({
+    id: formData.get('id') || undefined,
+    kind: formData.get('kind'),
+    subjectId: formData.get('subjectId'),
+    topicId: formData.get('topicId') || '',
+    schoolId: formData.get('schoolId') || undefined,
+    title: formData.get('title'),
+    subtitle: formData.get('subtitle') || '',
+    description: formData.get('description') || '',
+    body: formData.get('body') || '',
+    contentFormat: formData.get('contentFormat') || 'markdown',
+    storagePath: formData.get('storagePath') || '',
+    externalUrl: formData.get('externalUrl') || '',
+    thumbnailUrl: formData.get('thumbnailUrl') || '',
+    durationSeconds: formData.get('durationSeconds') || 0,
+    difficulty: formData.get('difficulty') || 'medio',
+    timeLimitSeconds: formData.get('timeLimitSeconds') || 0,
+    xpReward: formData.get('xpReward') || 0,
+    isPublished: formData.get('isPublished') === 'on' || formData.get('isPublished') === 'true',
+    tags: formData.get('tags') || '',
+    bimestre: formData.get('bimestre') || undefined,
+    assetsJson: formData.get('assetsJson') || '',
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const data = parsed.data;
+
+  const scopeError = assertSubjectAllowed(identity, data.subjectId);
+  if (scopeError) return fail(scopeError);
+
+  // Recursos da prova (quiz/simulado): mesma validação do importador v2,
+  // aplicada aqui a um array avulso (sem o resto do envelope "simulation").
+  let assets: ReturnType<typeof parseAssets> = [];
+  if (data.kind === 'quiz' || data.kind === 'simulado') {
+    const raw = data.assetsJson?.trim() || '[]';
+    let rawArray: unknown;
+    try {
+      rawArray = JSON.parse(raw);
+    } catch {
+      return fail('Recursos da prova: isso não é um JSON válido — confira vírgulas e colchetes.');
+    }
+    const assetErrors: string[] = [];
+    assets = parseAssets(rawArray, assetErrors);
+    if (assetErrors.length > 0) return fail(`Recursos da prova: ${assetErrors[0]}`);
+  }
+
+  // O check `resources_has_payload` no banco recusaria isso, mas com uma
+  // mensagem de constraint. Aqui a recusa é em português e diz o que fazer.
+  const needsPayload = data.kind !== 'quiz' && data.kind !== 'simulado';
+  if (needsPayload && !data.body && !data.storagePath && !data.externalUrl) {
+    return fail('Falta o conteúdo: escreva o texto, envie um arquivo ou informe um link.');
+  }
+
+  const isPdfResumo = data.kind === 'resumo' && data.contentFormat === 'pdf';
+  if (isPdfResumo && !data.storagePath) {
+    return fail('Envie o arquivo PDF, ou volte para "Escrever texto".');
+  }
+
+  const supabase = await createClient();
+
+  // Extração acontece na hora do envio (ADR-039: síncrono, sem fila) — e só
+  // quando o ARQUIVO é novo. Reabrir o formulário para trocar só o título não
+  // deveria custar uma extração de novo, nem arriscar sobrescrever um texto
+  // já extraído por um download que falhou por acaso.
+  let pdfMeta: { pageCount: number; readingSeconds: number; text: string } | null = null;
+  // A extração é auxiliar (tempo de leitura estimado, contagem de páginas) —
+  // o leitor do aluno embute o PDF original num `<iframe>` e não depende
+  // dela pra nada. Por isso uma falha aqui NUNCA aborta o salvamento: fazia
+  // isso antes, e qualquer causa (PDF ruim, mas também binário nativo
+  // ausente, timeout, falta de memória na function) travava o admin sem
+  // conseguir publicar o PDF de jeito nenhum, com uma mensagem genérica que
+  // não dizia qual dos dois motivos era.
+  let pdfExtractionFailed = false;
+  if (isPdfResumo && data.storagePath) {
+    const pdfPath = data.storagePath;
+    const previousPath = data.id
+      ? (await supabase.from('resources').select('storage_path').eq('id', data.id).maybeSingle())
+          .data?.storage_path
+      : null;
+
+    if (pdfPath !== previousPath) {
+      const { data: file, error: downloadError } = await supabase.storage
+        .from('nexa-content')
+        .download(pdfPath);
+
+      if (downloadError || !file) {
+        return fail(
+          'Não consegui baixar o PDF enviado para processar. Tente enviar o arquivo de novo.',
+        );
+      }
+
+      try {
+        // Import só acontece aqui dentro, e não no topo do arquivo: `pdf.ts`
+        // carrega `pdfjs-dist`, que arrasta consigo todo o resto das ações
+        // deste módulo (excluir, publicar matéria etc.) para o mesmo pacote
+        // da função serverless — e derrubava TODAS elas se essa biblioteca
+        // falhasse ao carregar, mesmo quando nenhum PDF estava em jogo.
+        const { extractPdf } = await import('./pdf');
+        const buffer = Buffer.from(await file.arrayBuffer());
+        pdfMeta = await extractPdf(buffer);
+      } catch (extractError) {
+        // Único jeito de diferenciar "PDF corrompido" de "binário nativo
+        // ausente no Netlify" depois, olhando os logs de função.
+        console.error('[extractPdf] falhou', extractError);
+        pdfExtractionFailed = true;
+      }
+    }
+  }
+
+  const payload = {
+    kind: data.kind,
+    subject_catalog_id: data.subjectId,
+    topic_id: data.topicId || null,
+    school_id: resolveSchoolId(identity, data.schoolId ?? null),
+    title: data.title,
+    subtitle: data.subtitle || null,
+    description: data.description || null,
+    body: isPdfResumo ? null : data.body || null,
+    content_format: data.kind === 'resumo' ? data.contentFormat : 'markdown',
+    storage_path: data.storagePath || null,
+    external_url: data.externalUrl || null,
+    thumbnail_url: data.thumbnailUrl || null,
+    duration_seconds: pdfMeta
+      ? pdfMeta.readingSeconds
+      : data.durationSeconds
+        ? data.durationSeconds
+        : null,
+    difficulty: data.difficulty,
+    time_limit_seconds: data.timeLimitSeconds ? data.timeLimitSeconds : null,
+    xp_reward: data.xpReward,
+    is_published: data.isPublished,
+    tags: data.tags
+      ? data.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [],
+    bimestre: data.bimestre ?? null,
+    created_by: identity.userId,
+    ...(data.kind === 'quiz' || data.kind === 'simulado' ? { assets } : {}),
+    ...(pdfMeta
+      ? {
+          pdf_status: 'processado' as const,
+          pdf_page_count: pdfMeta.pageCount,
+          pdf_extracted_text: pdfMeta.text,
+        }
+      : pdfExtractionFailed
+        ? { pdf_status: 'erro' as const, pdf_page_count: null, pdf_extracted_text: null }
+        : {}),
+  };
+
+  const warning = pdfExtractionFailed
+    ? 'não consegui processar o texto do PDF automaticamente (tempo de leitura pode ficar impreciso). O aluno já consegue abrir e ler o arquivo normalmente.'
+    : undefined;
+
+  if (data.id) {
+    // Lido ANTES do update — é o único jeito de saber se esta escrita é
+    // quem está publicando agora, ou só editando algo que já era público.
+    const { data: previous } = await supabase
+      .from('resources')
+      .select('is_published')
+      .eq('id', data.id)
+      .maybeSingle();
+
+    const { error } = await supabase.from('resources').update(payload).eq('id', data.id);
+    if (error) return fail(error.message);
+
+    if (data.isPublished && !previous?.is_published) {
+      await notifyPublished(supabase, data.subjectId, data.title, data.id, payload.school_id);
+    }
+
+    revalidatePath(identity.basePath);
+    revalidatePath(`${identity.basePath}/${data.id}`);
+    return warning ? { status: 'saved', warning } : ok;
+  }
+
+  const { data: created, error } = await supabase
+    .from('resources')
+    .insert(payload)
+    .select('id')
+    .single();
+
+  if (error) return fail(error.message);
+
+  if (data.isPublished) {
+    await notifyPublished(supabase, data.subjectId, data.title, created.id, payload.school_id);
+  }
+
+  revalidatePath(identity.basePath);
+  // Quiz e simulado nascem vazios: o próximo passo real é cadastrar questões,
+  // então a ação leva direto para lá em vez de devolver a uma lista.
+  redirect(
+    data.kind === 'quiz' || data.kind === 'simulado'
+      ? `${identity.basePath}/${created.id}/questoes`
+      : `${identity.basePath}/${created.id}`,
+  );
+}
+
+export async function toggleResourcePublished(formData: FormData): Promise<void> {
+  const identity = await requireContentManager();
+  const id = formData.get('id');
+  const next = formData.get('next') === 'true';
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  const { data: resource } = await supabase
+    .from('resources')
+    .select('is_published, subject_catalog_id, title, school_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  await supabase.from('resources').update({ is_published: next }).eq('id', id);
+
+  if (next && resource && !resource.is_published) {
+    await notifyPublished(
+      supabase,
+      resource.subject_catalog_id,
+      resource.title,
+      id,
+      resource.school_id,
+    );
+  }
+
+  revalidatePath(identity.basePath);
+  revalidatePath(`${identity.basePath}/${id}`);
+}
+
+export async function deleteResource(formData: FormData): Promise<void> {
+  const identity = await requireContentManager();
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('resources').delete().eq('id', id);
+  revalidatePath(identity.basePath);
+  redirect(identity.basePath);
+}
+
+// --------------------------------------------------------------- questões --
+
+const questionSchema = z.object({
+  id: z.string().uuid().optional(),
+  resourceId: z.string().uuid(),
+  statement: z.string().trim().min(3, 'Escreva o enunciado.').max(4000),
+  explanation: z.string().trim().max(4000).optional().or(z.literal('')),
+  difficulty: z.enum(['facil', 'medio', 'anglo', 'dificil']),
+  topicId: z.string().uuid().optional().or(z.literal('')),
+  options: z
+    .array(z.string().trim().min(1, 'Nenhuma alternativa pode ficar vazia.').max(1000))
+    .min(2, 'Uma questão precisa de pelo menos 2 alternativas.')
+    .max(6, 'No máximo 6 alternativas.'),
+  correctIndex: z.coerce.number().int().min(0),
+  groupId: z.string().trim().max(60).optional().or(z.literal('')),
+  resourceRefs: z.array(z.string().trim().max(60)).optional().default([]),
+});
+
+export async function saveQuestion(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireContentManager();
+
+  const options = formData
+    .getAll('option')
+    .map((o) => String(o))
+    .filter((o) => o.trim().length > 0);
+
+  const parsed = questionSchema.safeParse({
+    id: formData.get('id') || undefined,
+    resourceId: formData.get('resourceId'),
+    statement: formData.get('statement'),
+    explanation: formData.get('explanation') || '',
+    difficulty: formData.get('difficulty') || 'medio',
+    topicId: formData.get('topicId') || '',
+    options,
+    correctIndex: formData.get('correctIndex') ?? 0,
+    groupId: formData.get('groupId') || '',
+    resourceRefs: formData.getAll('resourceRefs').map((r) => String(r)),
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const { resourceId, statement, explanation, difficulty, topicId, correctIndex, groupId, resourceRefs } =
+    parsed.data;
+  if (correctIndex >= parsed.data.options.length) {
+    return fail('Marque qual alternativa é a correta.');
+  }
+
+  const supabase = await createClient();
+
+  let questionId = parsed.data.id;
+  if (questionId) {
+    const { error } = await supabase
+      .from('questions')
+      .update({
+        statement,
+        explanation: explanation || null,
+        difficulty,
+        topic_id: topicId || null,
+        group_id: groupId || null,
+        resource_refs: resourceRefs,
+      })
+      .eq('id', questionId);
+    if (error) return fail(error.message);
+
+    // As alternativas são reescritas por inteiro. Casar uma a uma pelo índice
+    // criaria o caso em que a resposta certa migra para outra alternativa
+    // durante uma reordenação — silenciosamente, e só percebido na correção.
+    await supabase.from('question_options').delete().eq('question_id', questionId);
+  } else {
+    const { data: last } = await supabase
+      .from('questions')
+      .select('position')
+      .eq('resource_id', resourceId)
+      .order('position', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const { data: created, error } = await supabase
+      .from('questions')
+      .insert({
+        resource_id: resourceId,
+        position: (last?.position ?? 0) + 1,
+        statement,
+        explanation: explanation || null,
+        difficulty,
+        topic_id: topicId || null,
+        group_id: groupId || null,
+        resource_refs: resourceRefs,
+      })
+      .select('id')
+      .single();
+
+    if (error) return fail(error.message);
+    questionId = created.id;
+  }
+
+  const { error: optionsError } = await supabase.from('question_options').insert(
+    parsed.data.options.map((body, index) => ({
+      question_id: questionId as string,
+      position: index + 1,
+      body,
+      is_correct: index === correctIndex,
+    })),
+  );
+
+  if (optionsError) return fail(optionsError.message);
+
+  revalidatePath(`${identity.basePath}/${resourceId}/questoes`);
+  return ok;
+}
+
+export async function deleteQuestion(formData: FormData): Promise<void> {
+  const identity = await requireContentManager();
+  const id = formData.get('id');
+  const resourceId = formData.get('resourceId');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('questions').delete().eq('id', id);
+  if (typeof resourceId === 'string') revalidatePath(`${identity.basePath}/${resourceId}/questoes`);
+}
+
+// ------------------------------------------------- simulado por código -----
+
+const importSimuladoSchema = z.object({
+  kind: z.enum(['quiz', 'simulado']),
+  subjectId: z.string().uuid('Escolha a matéria.'),
+  topicId: z.string().uuid().optional().or(z.literal('')),
+  schoolId: z.string().optional(),
+  title: z.string().trim().min(2, 'Dê um título.').max(200),
+  description: z.string().trim().max(2000).optional().or(z.literal('')),
+  difficulty: z.enum(['facil', 'medio', 'anglo', 'dificil']),
+  timeLimitSeconds: z.coerce.number().int().min(0).max(86400).optional(),
+  tags: z.string().max(300).optional().or(z.literal('')),
+  code: z.string().min(1, 'Cole o código.'),
+});
+
+/**
+ * Publica um quiz ou simulado inteiro a partir do código colado.
+ *
+ * Mesmo formato de código para os dois formatos — o que muda é só o `kind`
+ * gravado no recurso e se o tempo de prova faz sentido (só simulado tem
+ * cronômetro; quiz nunca teve essa noção em nenhum outro lugar do app).
+ *
+ * Revalida no servidor mesmo o formulário já tendo travado o botão "Publicar"
+ * enquanto havia erro — o código veio de um `<textarea>`, e nada impede que
+ * ele tenha mudado entre a última validação no cliente e o clique.
+ */
+export async function importSimulado(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireContentManager();
+
+  const parsed = importSimuladoSchema.safeParse({
+    kind: formData.get('kind') || 'simulado',
+    subjectId: formData.get('subjectId'),
+    topicId: formData.get('topicId') || '',
+    schoolId: formData.get('schoolId') || undefined,
+    title: formData.get('title'),
+    description: formData.get('description') || '',
+    difficulty: formData.get('difficulty') || 'medio',
+    timeLimitSeconds: formData.get('timeLimitSeconds') || 1200,
+    tags: formData.get('tags') || '',
+    code: formData.get('code'),
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const data = parsed.data;
+
+  const scopeError = assertSubjectAllowed(identity, data.subjectId);
+  if (scopeError) return fail(scopeError);
+
+  const result = parseSimuladoCode(data.code);
+  if (!result.ok) {
+    const firstError =
+      result.parseError ??
+      result.simulationErrors[0] ??
+      result.questions.find((q) => q.errors.length > 0)?.errors[0] ??
+      result.writingTasks.find((w) => w.errors.length > 0)?.errors[0] ??
+      'Revise o código antes de publicar.';
+    return fail(`Não publiquei: ${firstError}`);
+  }
+
+  const supabase = await createClient();
+
+  // Matéria por questão (v2, prova mista — seção 14): resolve por NOME
+  // contra o catálogo INTEIRO, não só o recorte do formulário — precisa
+  // enxergar matérias fora do escopo do professor pra poder RECUSAR
+  // explicitamente a prova inteira, não só deixar de achar e seguir em frente.
+  const distinctSubjectNames = [
+    ...new Set(result.questions.map((q) => q.subjectName).filter((n): n is string => Boolean(n))),
+  ];
+  const subjectByName = new Map<string, string>();
+  if (distinctSubjectNames.length > 0) {
+    const { data: allSubjects } = await supabase.from('subject_catalog').select('id, name');
+    for (const s of allSubjects ?? []) subjectByName.set(s.name.trim().toLowerCase(), s.id);
+  }
+
+  const effectiveSubjectByIndex = new Map<number, string>();
+  for (const question of result.questions) {
+    let effective = data.subjectId;
+    if (question.subjectName) {
+      const match = subjectByName.get(question.subjectName.trim().toLowerCase());
+      if (match) effective = match;
+    }
+    const questionScopeError = assertSubjectAllowed(identity, effective);
+    if (questionScopeError) {
+      return fail(`Questão ${question.sourceId}: matéria "${question.subjectName}" fora do seu escopo — ${questionScopeError}`);
+    }
+    effectiveSubjectByIndex.set(question.index, effective);
+  }
+
+  // Tópico por questão: só CASA com um assunto que já existe no catálogo da
+  // matéria EFETIVA daquela questão (pode divergir da matéria escolhida no
+  // formulário, numa prova mista) — nunca cria um novo silenciosamente.
+  const distinctEffectiveSubjectIds = [...new Set(effectiveSubjectByIndex.values())];
+  const { data: topicsRows } = await supabase
+    .from('content_topics')
+    .select('id, name, subject_catalog_id')
+    .in('subject_catalog_id', distinctEffectiveSubjectIds);
+  const topicByNameAndSubject = new Map(
+    (topicsRows ?? []).map((t) => [`${t.subject_catalog_id}:${t.name.trim().toLowerCase()}`, t.id]),
+  );
+
+  const tags = [
+    ...(result.simulationCode ? [result.simulationCode] : []),
+    ...(data.tags
+      ? data.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : []),
+  ];
+
+  // `settings.timeLimitMinutes` (v2) manda mais que o campo do formulário
+  // quando presente — é a fonte de verdade autorada na prova; sem ele, cai
+  // no mesmo comportamento de sempre (campo do formulário, só pra simulado).
+  const timeLimitSeconds =
+    data.kind === 'simulado'
+      ? result.settings.timeLimitMinutes
+        ? result.settings.timeLimitMinutes * 60
+        : data.timeLimitSeconds || null
+      : null;
+
+  const { data: resource, error: resourceError } = await supabase
+    .from('resources')
+    .insert({
+      kind: data.kind,
+      subject_catalog_id: data.subjectId,
+      topic_id: data.topicId || null,
+      school_id: resolveSchoolId(identity, data.schoolId ?? null),
+      title: data.title,
+      description: data.description || null,
+      difficulty: data.difficulty,
+      time_limit_seconds: timeLimitSeconds,
+      xp_reward: 100,
+      // Nasce sempre como rascunho — publicar é uma decisão de quem revisou a
+      // prévia, nunca um efeito colateral do envio.
+      is_published: false,
+      tags,
+      created_by: identity.userId,
+      schema_version: result.schemaVersion,
+      settings: result.settings,
+      assets: result.assets,
+      sections: result.sections,
+      exam_mode: result.mode,
+      exam_style: result.examStyle,
+      grade_levels: result.grade !== null ? [String(result.grade)] : [],
+    })
+    .select('id')
+    .single();
+
+  if (resourceError || !resource) {
+    return fail(resourceError?.message ?? `Não consegui criar o ${data.kind}.`);
+  }
+
+  for (const question of result.questions) {
+    const effectiveSubjectId = effectiveSubjectByIndex.get(question.index) as string;
+    const topicId = question.topicName
+      ? (topicByNameAndSubject.get(`${effectiveSubjectId}:${question.topicName.toLowerCase()}`) ?? null)
+      : null;
+
+    const { data: createdQuestion, error: questionError } = await supabase
+      .from('questions')
+      .insert({
+        resource_id: resource.id,
+        position: question.index,
+        statement: question.statement,
+        explanation: question.explanation,
+        difficulty: question.difficulty,
+        topic_id: topicId,
+        // null = usa a matéria do recurso — só grava quando de fato diverge.
+        subject_catalog_id: effectiveSubjectId === data.subjectId ? null : effectiveSubjectId,
+        group_id: question.groupId,
+        resource_refs: question.resourceRefs,
+        subtopic: question.subtopicName,
+        book: question.book,
+        module: question.module,
+        skills: question.skills,
+        error_types: question.errorTypes,
+        estimated_time_seconds: question.estimatedTimeSeconds,
+      })
+      .select('id')
+      .single();
+
+    if (questionError || !createdQuestion) {
+      // O recurso já existe (como rascunho) com o que deu certo até aqui —
+      // apagar tudo por causa de uma questão isolada jogaria fora o trabalho
+      // de importar as outras. O admin revisa e completa manualmente.
+      return fail(
+        `${data.kind === 'quiz' ? 'Quiz' : 'Simulado'} criado, mas parei na questão ${question.index}: ${questionError?.message ?? 'erro desconhecido'}. Complete o resto pela tela de questões.`,
+      );
+    }
+
+    const { error: optionsError } = await supabase.from('question_options').insert(
+      question.options.map((option, i) => ({
+        question_id: createdQuestion.id,
+        position: i + 1,
+        body: option.text,
+        is_correct: option.key === question.correctKey,
+      })),
+    );
+
+    if (optionsError) {
+      return fail(
+        `${data.kind === 'quiz' ? 'Quiz' : 'Simulado'} criado, mas parei nas alternativas da questão ${question.index}: ${optionsError.message}. Complete o resto pela tela de questões.`,
+      );
+    }
+  }
+
+  for (const task of result.writingTasks) {
+    const { error: taskError } = await supabase.from('writing_tasks').insert({
+      resource_id: resource.id,
+      position: task.index,
+      title: task.title,
+      genre: task.genre,
+      theme: task.theme,
+      prompt: task.prompt,
+      instructions: task.instructions,
+      resource_refs: task.resourceRefs,
+      min_words: task.minWords,
+      max_words: task.maxWords,
+      evaluation_criteria: task.evaluationCriteria,
+    });
+
+    if (taskError) {
+      return fail(
+        `${data.kind === 'quiz' ? 'Quiz' : 'Simulado'} criado, mas parei na redação "${task.title}": ${taskError.message}. Complete o resto pela tela de questões.`,
+      );
+    }
+  }
+
+  revalidatePath(identity.basePath);
+  redirect(`${identity.basePath}/${resource.id}/questoes`);
+}
+
+// ---------------------------------------------------------------- trilhas --
+
+const trackSchema = z.object({
+  id: z.string().uuid().optional(),
+  subjectId: z.string().uuid('Escolha a matéria.'),
+  schoolId: z.string().optional(),
+  title: z.string().trim().min(2, 'Dê um título à trilha.').max(160),
+  description: z.string().trim().max(1000).optional().or(z.literal('')),
+  category: z.enum(['enem', 'fundamental', 'reforco', 'carreiras', 'habilidades']),
+  isPublished: z.boolean(),
+});
+
+export async function saveTrack(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+
+  const parsed = trackSchema.safeParse({
+    id: formData.get('id') || undefined,
+    subjectId: formData.get('subjectId'),
+    schoolId: formData.get('schoolId') || undefined,
+    title: formData.get('title'),
+    description: formData.get('description') || '',
+    category: formData.get('category'),
+    isPublished: formData.get('isPublished') === 'on' || formData.get('isPublished') === 'true',
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const supabase = await createClient();
+  const payload = {
+    subject_catalog_id: parsed.data.subjectId,
+    school_id: resolveSchoolId(identity, parsed.data.schoolId ?? null),
+    title: parsed.data.title,
+    description: parsed.data.description || null,
+    category: parsed.data.category,
+    is_published: parsed.data.isPublished,
+    created_by: identity.userId,
+  };
+
+  if (parsed.data.id) {
+    const { error } = await supabase.from('tracks').update(payload).eq('id', parsed.data.id);
+    if (error) return fail(error.message);
+    revalidatePath(`/admin/trilhas/${parsed.data.id}`);
+    return ok;
+  }
+
+  const { data: created, error } = await supabase
+    .from('tracks')
+    .insert(payload)
+    .select('id')
+    .single();
+  if (error) return fail(error.message);
+
+  revalidatePath('/admin/trilhas');
+  redirect(`/admin/trilhas/${created.id}`);
+}
+
+export async function deleteTrack(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  // Seções, lições, vínculos com recurso e progresso do aluno saem juntos —
+  // todos têm `on delete cascade` até chegar em `tracks`.
+  await supabase.from('tracks').delete().eq('id', id);
+  revalidatePath('/admin/trilhas');
+  redirect('/admin/trilhas');
+}
+
+export async function addTrackSection(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const trackId = formData.get('trackId');
+  const title = formData.get('title');
+  if (typeof trackId !== 'string' || typeof title !== 'string' || !title.trim()) return;
+
+  const supabase = await createClient();
+  const { data: last } = await supabase
+    .from('track_sections')
+    .select('position')
+    .eq('track_id', trackId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  await supabase
+    .from('track_sections')
+    .insert({ track_id: trackId, title: title.trim(), position: (last?.position ?? 0) + 1 });
+
+  revalidatePath(`/admin/trilhas/${trackId}`);
+}
+
+export async function addTrackLesson(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const sectionId = formData.get('sectionId');
+  const trackId = formData.get('trackId');
+  const title = formData.get('title');
+  if (typeof sectionId !== 'string' || typeof title !== 'string' || !title.trim()) return;
+
+  const supabase = await createClient();
+  const { data: last } = await supabase
+    .from('track_lessons')
+    .select('id, position')
+    .eq('section_id', sectionId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  await supabase.from('track_lessons').insert({
+    section_id: sectionId,
+    title: title.trim(),
+    position: (last?.position ?? 0) + 1,
+    estimated_minutes: Number(formData.get('estimatedMinutes')) || null,
+    xp_reward: Number(formData.get('xpReward')) || 20,
+    // Encadeia na anterior por padrão: uma trilha é uma sequência, e ter que
+    // ligar cada nó à mão é o tipo de passo que se esquece e só aparece quando
+    // o aluno vê tudo destravado de uma vez.
+    unlock_after_lesson_id: last?.id ?? null,
+  });
+
+  if (typeof trackId === 'string') revalidatePath(`/admin/trilhas/${trackId}`);
+}
+
+export async function attachLessonResource(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  await requireAdmin();
+  const lessonId = formData.get('lessonId');
+  const resourceId = formData.get('resourceId');
+  const trackId = formData.get('trackId');
+  if (typeof lessonId !== 'string') return fail('Lição inválida.');
+  if (typeof resourceId !== 'string' || !resourceId) return fail('Escolha um conteúdo.');
+
+  const supabase = await createClient();
+  const { data: last } = await supabase
+    .from('track_lesson_resources')
+    .select('position')
+    .eq('lesson_id', lessonId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from('track_lesson_resources')
+    .insert({ lesson_id: lessonId, resource_id: resourceId, position: (last?.position ?? 0) + 1 });
+
+  // Sem checar o erro, uma falha (constraint de par repetido, RLS, o que
+  // for) travava o botão "Juntar" num silêncio total — a lição parecia
+  // aceitar o clique e não guardava nada, sem nenhum aviso do porquê.
+  if (error) {
+    return fail(
+      error.code === '23505'
+        ? 'Este conteúdo já está nesta lição.'
+        : 'Não consegui juntar esse conteúdo. Tente de novo.',
+    );
+  }
+
+  if (typeof trackId === 'string') revalidatePath(`/admin/trilhas/${trackId}`);
+  return ok;
+}
+
+export async function detachLessonResource(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  const trackId = formData.get('trackId');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('track_lesson_resources').delete().eq('id', id);
+  if (typeof trackId === 'string') revalidatePath(`/admin/trilhas/${trackId}`);
+}
+
+export async function deleteTrackLesson(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  const trackId = formData.get('trackId');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('track_lessons').delete().eq('id', id);
+  if (typeof trackId === 'string') revalidatePath(`/admin/trilhas/${trackId}`);
+}
+
+// ----------------------------------------------------------------- pessoas --
+
+const roleSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(['student', 'teacher_admin', 'school_admin', 'admin']),
+  schoolId: z.string().optional(),
+});
+
+export async function setPersonRole(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+  if (!identity.isGlobal) return fail('Só a administração geral muda papéis.');
+
+  const parsed = roleSchema.safeParse({
+    userId: formData.get('userId'),
+    role: formData.get('role'),
+    schoolId: formData.get('schoolId') || undefined,
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  // Rebaixar a si mesmo deixaria o painel sem dono e sem porta de volta: só o
+  // SQL Editor traria alguém de novo. É um erro de um clique, e caro.
+  if (parsed.data.userId === identity.userId && parsed.data.role !== 'admin') {
+    return fail('Você não pode retirar o próprio acesso de administrador.');
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      role: parsed.data.role,
+      // A escola é salva pra QUALQUER papel escolhido no seletor — inclusive
+      // student. Antes só gravava quando o papel era school_admin, e o
+      // seletor de escola de um aluno virava um botão que não fazia nada.
+      school_id: parsed.data.schoolId ? parsed.data.schoolId : null,
+    })
+    .eq('id', parsed.data.userId);
+
+  if (error) return fail(error.message);
+
+  revalidatePath('/admin/usuarios');
+  return ok;
+}
+
+// ----------------------------------------------------------------- turmas --
+
+const classSchema = z.object({
+  id: z.string().uuid().optional(),
+  schoolId: z.string().optional(),
+  name: z.string().trim().min(1, 'Dê um nome à turma.').max(40),
+});
+
+export async function saveClass(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+
+  const parsed = classSchema.safeParse({
+    id: formData.get('id') || undefined,
+    schoolId: formData.get('schoolId') || undefined,
+    name: formData.get('name'),
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const schoolId = resolveSchoolId(identity, parsed.data.schoolId ?? null);
+  if (!schoolId) return fail('Escolha uma escola.');
+
+  const supabase = await createClient();
+  const payload = { school_id: schoolId, name: parsed.data.name, created_by: identity.userId };
+
+  const { error } = parsed.data.id
+    ? await supabase.from('classes').update(payload).eq('id', parsed.data.id)
+    : await supabase.from('classes').insert(payload);
+
+  if (error) {
+    return fail(
+      error.code === '23505' ? 'Essa escola já tem uma turma com esse nome.' : error.message,
+    );
+  }
+
+  revalidatePath('/admin/turmas');
+  return ok;
+}
+
+export async function deleteClass(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('classes').delete().eq('id', id);
+  revalidatePath('/admin/turmas');
+}
+
+// ------------------------------------------------------------ professores --
+
+const teacherAssignmentSchema = z.object({
+  teacherId: z.string().uuid('Escolha o professor.'),
+  schoolId: z.string().uuid('Escolha a escola.'),
+  subjectCatalogId: z.string().uuid('Escolha a matéria.'),
+  classId: z.string().uuid('Escolha a turma.'),
+});
+
+export async function saveTeacherAssignment(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+
+  const parsed = teacherAssignmentSchema.safeParse({
+    teacherId: formData.get('teacherId'),
+    schoolId: formData.get('schoolId'),
+    subjectCatalogId: formData.get('subjectCatalogId'),
+    classId: formData.get('classId'),
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const schoolId = resolveSchoolId(identity, parsed.data.schoolId);
+  if (!schoolId) return fail('Escolha uma escola.');
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('teacher_assignments').insert({
+    teacher_id: parsed.data.teacherId,
+    school_id: schoolId,
+    subject_catalog_id: parsed.data.subjectCatalogId,
+    class_id: parsed.data.classId,
+    created_by: identity.userId,
+  });
+
+  if (error) {
+    return fail(
+      error.code === '23505'
+        ? 'Este professor já está atribuído a essa matéria nessa turma.'
+        : error.message,
+    );
+  }
+
+  revalidatePath('/admin/professores');
+  return ok;
+}
+
+export async function deleteTeacherAssignment(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.from('teacher_assignments').delete().eq('id', id);
+  revalidatePath('/admin/professores');
+}
+
+// -------------------------------------------------------------- redações --
+
+const gradeEssaySchema = z.object({
+  essayId: z.string().uuid(),
+  resourceId: z.string().uuid(),
+  scores: z.record(z.string(), z.coerce.number().min(0)),
+  totalScore: z.coerce.number().min(0),
+});
+
+/**
+ * Corrige uma redação. A autorização de verdade é a `grade_essay` no banco
+ * (só quem gerencia a matéria do recurso pode gravar nota) — aqui só
+ * traduzimos o erro do RPC em português.
+ */
+export async function gradeEssay(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireContentManager();
+
+  const scoresRaw: Record<string, number> = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith('score.')) scoresRaw[key.slice('score.'.length)] = Number(value);
+  }
+
+  const parsed = gradeEssaySchema.safeParse({
+    essayId: formData.get('essayId'),
+    resourceId: formData.get('resourceId'),
+    scores: scoresRaw,
+    totalScore: formData.get('totalScore'),
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('grade_essay', {
+    p_essay_id: parsed.data.essayId,
+    p_scores: parsed.data.scores,
+    p_total_score: parsed.data.totalScore,
+  });
+  if (error) return fail(error.message);
+
+  revalidatePath(`${identity.basePath}/${parsed.data.resourceId}/redacoes`);
+  return ok;
+}
