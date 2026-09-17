@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, Trophy, UserPlus, Users } from 'lucide-react';
+import { Loader2, Sparkles, Trophy, UserPlus, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,9 +35,26 @@ function Avatar({ url, name, size = 8 }: { url: string | null; name: string; siz
  * `suggested_people`). "Próximos eventos" do mockup fica de fora — Eventos
  * ainda não é uma fase implementada (roadmap), não um card vazio de mentira.
  */
-export function CommunitySidebar({ data }: { data: CommunitySidebarData }) {
+export function CommunitySidebar({
+  data,
+  creatorEnabled,
+}: {
+  data: CommunitySidebarData;
+  creatorEnabled: boolean;
+}) {
   return (
     <aside className="space-y-4">
+      {creatorEnabled && (
+        <Link
+          href="/comunidade/criar"
+          className="border-border bg-surface hover:bg-surface-2 flex items-center gap-2.5 rounded-2xl border p-3.5 text-sm font-medium transition-colors"
+        >
+          <span className="bg-brand-soft text-brand-text grid size-9 shrink-0 place-items-center rounded-xl">
+            <Sparkles className="size-4" aria-hidden />
+          </span>
+          Criar com IA
+        </Link>
+      )}
       <FeaturedCommunities initial={data.featuredCommunities} />
       <SchoolRankingCard entries={data.schoolRanking} />
       <SuggestedPeopleCard initial={data.suggestedPeople} />

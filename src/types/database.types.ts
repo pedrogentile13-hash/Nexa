@@ -361,6 +361,25 @@ export type ResourceRow = {
   /** `null` = deriva de `kind` (quiz->practice, simulado->exam). */
   exam_mode: ExamMode | null;
   exam_style: string | null;
+  /** Só usado quando `ai_generated`; `null` = conteúdo de admin/professor. */
+  visibility: ResourceVisibility | null;
+  community_id: string | null;
+  ai_generated: boolean;
+};
+
+export type ResourceVisibility = 'private' | 'friends' | 'school' | 'community' | 'public';
+
+export type CreatorResourceRpcRow = {
+  id: string;
+  kind: ResourceKind;
+  title: string;
+  description: string | null;
+  subject_name: string;
+  visibility: ResourceVisibility;
+  community_id: string | null;
+  community_name: string | null;
+  question_count: number;
+  created_at: string;
 };
 
 export type ResourceChapterRow = {
@@ -1219,6 +1238,23 @@ export type Database = {
       current_school_id: { Args: { p_user_id?: string }; Returns: string | null };
       can_manage_school: { Args: { p_school_id: string | null; p_user_id?: string }; Returns: boolean };
       can_view_resource: { Args: { p_resource_id: string; p_user_id?: string }; Returns: boolean };
+      create_ai_resource: {
+        Args: {
+          p_kind: 'quiz' | 'resumo';
+          p_subject_catalog_id: string;
+          p_title: string;
+          p_description?: string | null;
+          p_body?: string | null;
+          p_questions?: unknown;
+        };
+        Returns: string;
+      };
+      list_my_ai_resources: { Args: Record<string, never>; Returns: CreatorResourceRpcRow[] };
+      update_ai_resource_visibility: {
+        Args: { p_resource_id: string; p_visibility: ResourceVisibility; p_community_id?: string | null };
+        Returns: void;
+      };
+      delete_ai_resource: { Args: { p_resource_id: string }; Returns: void };
       quiz_questions: {
         Args: { p_resource_id: string };
         Returns: {

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Loader2, Sparkles } from 'lucide-react';
 import { PageMain } from '@/components/layout/page-main';
 import { UnderlineTabs } from '@/components/ui/underline-tabs';
 import { getSavedPosts } from '../server/feed-actions';
@@ -28,9 +29,11 @@ const TABS: { value: Tab; label: string }[] = [
 export function FeedView({
   initialFeed,
   sidebar,
+  creatorEnabled,
 }: {
   initialFeed: FeedPost[];
   sidebar: CommunitySidebarData;
+  creatorEnabled: boolean;
 }) {
   const [tab, setTab] = useState<Tab>('feed');
   const [feed, setFeed] = useState(initialFeed);
@@ -107,6 +110,17 @@ export function FeedView({
             )
           ) : (
             <>
+              {tab === 'feed' && creatorEnabled && (
+                <Link
+                  href="/comunidade/criar"
+                  className="border-border bg-surface hover:bg-surface-2 flex items-center gap-2.5 rounded-2xl border p-3.5 text-sm font-medium transition-colors"
+                >
+                  <span className="bg-brand-soft text-brand-text grid size-9 shrink-0 place-items-center rounded-xl">
+                    <Sparkles className="size-4" aria-hidden />
+                  </span>
+                  Criar quiz ou resumo com IA
+                </Link>
+              )}
               {tab === 'feed' && <PostComposer />}
 
               {tab === 'salvos' && loadingSaved ? (
@@ -133,7 +147,7 @@ export function FeedView({
         </div>
 
         <div className="hidden py-4 lg:block">
-          <CommunitySidebar data={sidebar} />
+          <CommunitySidebar data={sidebar} creatorEnabled={creatorEnabled} />
         </div>
       </div>
     </PageMain>

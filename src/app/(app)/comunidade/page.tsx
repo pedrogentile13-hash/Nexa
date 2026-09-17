@@ -22,12 +22,16 @@ export default async function ComunidadePage() {
   // a URL enquanto a fase está desligada ainda conseguiria abrir a tela.
   if (!(await isFeatureEnabled('community_enabled'))) redirect('/hoje');
 
-  const [initialFeed, sidebar] = await Promise.all([listFeed(), getCommunitySidebarData()]);
+  const [initialFeed, sidebar, creatorEnabled] = await Promise.all([
+    listFeed(),
+    getCommunitySidebarData(),
+    isFeatureEnabled('creator_enabled'),
+  ]);
 
   return (
     <>
       <AppHeader title="Comunidade" subtitle="O que está rolando na sua escola" />
-      <FeedView initialFeed={initialFeed} sidebar={sidebar} />
+      <FeedView initialFeed={initialFeed} sidebar={sidebar} creatorEnabled={creatorEnabled} />
     </>
   );
 }
