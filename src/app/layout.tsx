@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import Script from 'next/script';
 import './globals.css';
 
 const inter = Inter({
@@ -73,12 +72,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        {/* Google AdSense — script oficial de autorização de anúncios do site. */}
-        <Script
+        {/*
+          Google AdSense — precisa estar no HTML bruto que o servidor manda na
+          primeira resposta, não injetado via JS depois de hidratar (é isso
+          que `next/script` com `afterInteractive` faz, e é por isso que o
+          rastreador do AdSense não achava a tag: HTML bruto sem ela).
+        */}
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3390934579146373"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
         />
       </head>
       <body className="min-h-dvh antialiased">{children}</body>
