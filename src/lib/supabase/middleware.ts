@@ -112,6 +112,18 @@ export async function updateSession(request: NextRequest) {
   // `onboarded` cai para `false`, que na pior hipótese manda um aluno já
   // onboarded de volta para /bem-vindo — recuperável com um clique, bem
   // menos grave que uma página em branco.
+  //
+  // O `select` pede `journey`, que é coluna nova. ENQUANTO a migração não
+  // roda no banco, o PostgREST responde 42703 ("column does not exist") — e
+  // `supabase-js` NÃO lança nessa situação, devolve `{data: null, error}`.
+  // Sem o retry abaixo, `profile` virava null, `onboarded` virava false, e o
+  // middleware mandava TODO MUNDO pro /bem-vindo, que por sua vez devolvia
+  // pro /hoje: loop de redirecionamento, app inteiro inacessível.
+  //
+  // Deploy e migração nunca acontecem no mesmo instante, então este portão —
+  // que roda em toda requisição — não pode assumir que o banco já mudou. Em
+  // regime normal é uma consulta só; a segunda só existe na janela em que a
+  // coluna ainda não chegou.
   let profile: { onboarded_at: string | null; journey: string | null } | null = null;
   try {
     const result = await supabase
@@ -119,7 +131,17 @@ export async function updateSession(request: NextRequest) {
       .select('onboarded_at, journey')
       .eq('id', user.id)
       .maybeSingle();
-    profile = result.data;
+
+    if (result.error) {
+      const fallback = await supabase
+        .from('profiles')
+        .select('onboarded_at')
+        .eq('id', user.id)
+        .maybeSingle();
+      profile = fallback.data ? { onboarded_at: fallback.data.onboarded_at, journey: null } : null;
+    } else {
+      profile = result.data;
+    }
   } catch {
     profile = null;
   }

@@ -77,6 +77,9 @@ export const getNavContext = cache(async () => {
     supabase.from('feature_flags').select('enabled').eq('key', 'vestibular_enabled').maybeSingle(),
   ]);
 
+  // Sem `journey` no banco ainda, `data` volta null (o PostgREST recusa a
+  // consulta) — e 'school' é a resposta certa: é o que toda conta existente
+  // é, e o padrão da coluna quando ela for criada.
   return {
     journey: data?.journey ?? ('school' as const),
     vestibularEnabled: Boolean(flag?.enabled),

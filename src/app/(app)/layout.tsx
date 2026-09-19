@@ -26,13 +26,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Uma leitura minúscula por chave primária. O middleware já garantiu que
   // existe sessão, então isto nunca corre para um visitante anônimo.
-  const { data: profile } = user
-    ? await supabase
-        .from('profiles')
-        .select('full_name, avatar_url, role, journey')
-        .eq('id', user.id)
-        .maybeSingle()
-    : { data: null };
+  //
+  // Mesmo cuidado do middleware: `journey` é coluna nova, e enquanto a
+  // migração não roda o PostgREST recusa a consulta inteira (42703) em vez de
+  // só ignorar a coluna. Sem o retry, o shell perderia nome, avatar E papel
+  // de admin — a navegação inteira degradaria por causa de um campo que é só
+  // preferência de tela.
+  const profile = user ? await readProfileForShell(supabase, user.id) : null;
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
   const isTeacher = profile?.role === 'teacher_admin';
@@ -70,4 +70,32 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <InstallPrompt />
     </div>
   );
+}
+
+/**
+ * Lê o perfil do shell tolerando `journey` ainda não existir no banco.
+ *
+ * Em regime normal é uma consulta só. A segunda existe apenas na janela
+ * entre publicar o código e rodar a migração — janela que sempre existe,
+ * porque as duas coisas nunca acontecem no mesmo instante.
+ */
+async function readProfileForShell(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+) {
+  const full = await supabase
+    .from('profiles')
+    .select('full_name, avatar_url, role, journey')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (!full.error) return full.data;
+
+  const fallback = await supabase
+    .from('profiles')
+    .select('full_name, avatar_url, role')
+    .eq('id', userId)
+    .maybeSingle();
+
+  return fallback.data ? { ...fallback.data, journey: 'school' as const } : null;
 }
