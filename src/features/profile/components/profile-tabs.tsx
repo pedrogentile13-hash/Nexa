@@ -18,7 +18,8 @@ import { SchoolPicker, type CurrentSchool } from './school-picker';
 import { ClassPicker } from './class-picker';
 import type { ClassOption } from '@/features/classes/server/queries';
 import { SocialProfileForm } from '@/features/community/components/social-profile-form';
-import type { SocialVisibility } from '@/types/database.types';
+import { JourneyPicker } from '@/features/vestibular/components/journey-picker';
+import type { Journey, SocialVisibility } from '@/types/database.types';
 
 type Tab = 'conta' | 'notificacoes' | 'aparencia' | 'privacidade';
 
@@ -41,6 +42,8 @@ export function ProfileTabs({
   schoolClasses,
   notificationSettings,
   socialProfile,
+  journey,
+  vestibularEnabled,
 }: {
   email?: string | null;
   fullName: string;
@@ -53,6 +56,8 @@ export function ProfileTabs({
   schoolClasses: ClassOption[];
   notificationSettings: NotificationSettings;
   socialProfile: { username: string | null; bio: string | null; visibility: SocialVisibility };
+  journey: Journey;
+  vestibularEnabled: boolean;
 }) {
   const [tab, setTab] = useState<Tab>('conta');
 
@@ -99,6 +104,12 @@ export function ProfileTabs({
                 weeklyGoal={weeklyGoal}
               />
             </div>
+
+            {vestibularEnabled && (
+              <div className="border-border border-t pt-4">
+                <JourneyPicker current={journey} />
+              </div>
+            )}
 
             <div className="border-border border-t pt-4">
               <SocialProfileForm

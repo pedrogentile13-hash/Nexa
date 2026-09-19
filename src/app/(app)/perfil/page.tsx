@@ -12,7 +12,7 @@ import type { AchievementListItem } from '@/features/profile/components/achievem
 import { RARITY_LABEL } from '@/features/ranking/lib/rarity';
 import { listSchoolClasses } from '@/features/classes/server/queries';
 import { getMySocialProfile } from '@/features/community/server/queries';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { createClient, getCurrentUser, getNavContext } from '@/lib/supabase/server';
 import type { NotificationSettings } from '@/types/database.types';
 
 export const metadata: Metadata = {
@@ -27,6 +27,8 @@ export default async function ProfilePage() {
   if (!user) redirect('/login');
 
   const supabase = await createClient();
+  // Deduplicada por requisição — o shell já leu isto pra montar a navegação.
+  const navContext = await getNavContext();
 
   const [{ data: profile }, { data: stats }, { data: userAchievements }, { data: achievements }, socialProfile] =
     await Promise.all([
@@ -135,6 +137,8 @@ export default async function ProfilePage() {
           schoolClasses={schoolClasses}
           notificationSettings={notificationSettings}
           socialProfile={socialProfile}
+          journey={navContext.journey}
+          vestibularEnabled={navContext.vestibularEnabled}
         />
 
         {/* Conquistas — resumo só; a lista completa (com raridade e progresso

@@ -67,3 +67,25 @@ export async function removeExamTarget(formData: FormData): Promise<void> {
   await supabase.rpc('remove_exam_target', { p_exam_id: examId });
   revalidatePath('/vestibular');
 }
+
+/**
+ * Troca a jornada da conta (Perfil).
+ *
+ * `revalidatePath('/', 'layout')` e não só a rota atual: a jornada decide a
+ * navegação do shell inteiro, que vive no layout — sem derrubar o cache dele,
+ * o menu continuaria mostrando a plataforma antiga até a próxima recarga
+ * completa.
+ */
+export async function changeJourney(
+  journey: 'school' | 'vestibular' | 'both',
+): Promise<{ status: 'ok' } | { status: 'error'; message: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('set_journey', { p_journey: journey });
+
+  if (error) {
+    return { status: 'error', message: 'Não consegui trocar agora — tenta de novo.' };
+  }
+
+  revalidatePath('/', 'layout');
+  return { status: 'ok' };
+}

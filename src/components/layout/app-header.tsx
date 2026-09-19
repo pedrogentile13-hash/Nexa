@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Flame, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getNavContext } from '@/lib/supabase/server';
+import { PlatformSwitcher } from './platform-switcher';
 import { HeaderSearchToggle } from './header-search-toggle';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 
@@ -14,7 +16,7 @@ import { NotificationBell } from '@/features/notifications/components/notificati
  * página mostra tudo, e quem decide o que cabe é o layout flexível, não uma
  * regra de "isto substitui aquilo".
  */
-export function AppHeader({
+export async function AppHeader({
   title,
   subtitle,
   streak,
@@ -31,6 +33,9 @@ export function AppHeader({
   action?: React.ReactNode;
 }) {
   const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
+  // Leitura deduplicada por requisição (`cache()`): o shell já pediu a mesma
+  // coisa pra montar a navegação, então isto não custa um round-trip novo.
+  const { journey, vestibularEnabled } = await getNavContext();
 
   return (
     <header className="pt-safe bg-bg/85 sticky top-0 z-30 backdrop-blur-lg">
@@ -38,10 +43,14 @@ export function AppHeader({
           começa num ponto e os cartões em outro — foi essa divergência que
           deixou o desktop desalinhado. */}
       <div className="mx-auto flex w-full max-w-[1440px] items-center gap-3 px-4 py-3 md:px-6 lg:px-8">
-        <Link href="/hoje" aria-label="Nexa Study · início" className="shrink-0">
-          {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image */}
-          <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-8" />
-        </Link>
+        {/* No celular a marca é o seletor de plataforma: é o único lugar da
+            tela onde ela aparece, então é nela que o menu tem que morar. */}
+        <PlatformSwitcher
+          journey={journey}
+          vestibularEnabled={vestibularEnabled}
+          variant="mark"
+          className="shrink-0"
+        />
 
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-xl leading-tight font-semibold tracking-tight">{title}</h1>

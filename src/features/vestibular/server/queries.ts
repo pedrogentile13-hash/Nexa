@@ -1,5 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
-import type { Difficulty, ExamKind, ResourceKind } from '@/types/database.types';
+import type {
+  Difficulty,
+  ExamKind,
+  ResourceKind,
+  StudyPlanReason,
+} from '@/types/database.types';
 
 /**
  * Leituras do Nexa Vestibular.
@@ -161,4 +166,63 @@ export async function listVestibularSubjects(): Promise<{ id: string; name: stri
     if (subject && !seen.has(row.subject_catalog_id)) seen.set(row.subject_catalog_id, subject.name);
   }
   return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/* ---- Home do vestibulando ----------------------------------------------- */
+
+export interface VestibularHome {
+  fullName: string | null;
+  examName: string | null;
+  targetYear: number | null;
+  targetCourse: string | null;
+  targetInstitution: string | null;
+  applicationDate: string | null;
+  daysUntil: number | null;
+  dailyGoalMinutes: number;
+  minutesToday: number;
+  streakDays: number;
+  questionsToday: number;
+  accuracyWeek: number | null;
+  pendingErrors: number;
+  nextTopicId: string | null;
+  nextTopicName: string | null;
+  nextTopicSubject: string | null;
+  nextTopicReason: StudyPlanReason | null;
+  openSessionId: string | null;
+}
+
+/**
+ * Tudo que a primeira tela do vestibulando precisa, num round-trip só.
+ *
+ * Eram seis consultas (contagem regressiva, meta do dia, sequência, foco de
+ * hoje, erro pendente, acerto da semana) numa tela que abre todo dia. Seis
+ * idas ao banco em série fazem o app parecer lento mesmo quando cada uma é
+ * rápida — por isso a montagem mora em `vestibular_home()`, no banco.
+ */
+export async function getVestibularHome(): Promise<VestibularHome | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('vestibular_home');
+  const row = data?.[0];
+  if (error || !row) return null;
+
+  return {
+    fullName: row.full_name,
+    examName: row.exam_name,
+    targetYear: row.target_year,
+    targetCourse: row.target_course,
+    targetInstitution: row.target_institution,
+    applicationDate: row.application_date,
+    daysUntil: row.days_until,
+    dailyGoalMinutes: row.daily_goal_minutes ?? 0,
+    minutesToday: row.minutes_today,
+    streakDays: row.streak_days,
+    questionsToday: Number(row.questions_today),
+    accuracyWeek: row.accuracy_week === null ? null : Number(row.accuracy_week),
+    pendingErrors: Number(row.pending_errors),
+    nextTopicId: row.next_topic_id,
+    nextTopicName: row.next_topic_name,
+    nextTopicSubject: row.next_topic_subject,
+    nextTopicReason: row.next_topic_reason,
+    openSessionId: row.open_session_id,
+  };
 }

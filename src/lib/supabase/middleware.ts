@@ -24,6 +24,7 @@ const PUBLIC_PREFIXES = [
 
 const ONBOARDING_PATH = '/bem-vindo';
 const HOME_PATH = '/hoje';
+const VESTIBULAR_HOME_PATH = '/vestibular';
 
 /**
  * O painel não passa pelo onboarding.
@@ -111,11 +112,11 @@ export async function updateSession(request: NextRequest) {
   // `onboarded` cai para `false`, que na pior hipótese manda um aluno já
   // onboarded de volta para /bem-vindo — recuperável com um clique, bem
   // menos grave que uma página em branco.
-  let profile: { onboarded_at: string | null } | null = null;
+  let profile: { onboarded_at: string | null; journey: string | null } | null = null;
   try {
     const result = await supabase
       .from('profiles')
-      .select('onboarded_at')
+      .select('onboarded_at, journey')
       .eq('id', user.id)
       .maybeSingle();
     profile = result.data;
@@ -124,6 +125,12 @@ export async function updateSession(request: NextRequest) {
   }
 
   const onboarded = Boolean(profile?.onboarded_at);
+  // Quem escolheu a jornada do vestibular tem OUTRA casa. Mandar essa pessoa
+  // pra /hoje depois do login seria abrir o app numa tela sobre lição de casa
+  // e bimestre — exatamente o que a escolha dela dizia não querer.
+  // 'both' continua em /hoje: quem está nos dois tem a escola como base e
+  // troca de plataforma pelo menu do logo quando quiser.
+  const home = profile?.journey === 'vestibular' ? VESTIBULAR_HOME_PATH : HOME_PATH;
 
   if (pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)) return response;
 
@@ -136,7 +143,17 @@ export async function updateSession(request: NextRequest) {
 
   if (onboarded && (pathname === '/login' || pathname === ONBOARDING_PATH)) {
     const url = request.nextUrl.clone();
-    url.pathname = HOME_PATH;
+    url.pathname = home;
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
+  // `/hoje` é a casa da escola. Um vestibulando puro que caia nela (link
+  // antigo, atalho salvo, a raiz do site) vai pra casa DELE — a tela existe e
+  // funciona, mas não é sobre a vida dele.
+  if (onboarded && profile?.journey === 'vestibular' && pathname === HOME_PATH) {
+    const url = request.nextUrl.clone();
+    url.pathname = VESTIBULAR_HOME_PATH;
     url.search = '';
     return NextResponse.redirect(url);
   }

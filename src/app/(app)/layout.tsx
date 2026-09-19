@@ -29,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: profile } = user
     ? await supabase
         .from('profiles')
-        .select('full_name, avatar_url, role')
+        .select('full_name, avatar_url, role, journey')
         .eq('id', user.id)
         .maybeSingle()
     : { data: null };
@@ -38,6 +38,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isTeacher = profile?.role === 'teacher_admin';
   const communityEnabled = user ? await isFeatureEnabled('community_enabled') : false;
   const vestibularEnabled = user ? await isFeatureEnabled('vestibular_enabled') : false;
+  // A jornada escolhida na criação da conta decide qual das duas plataformas
+  // é a "casa" desta pessoa — e portanto qual navegação abre por padrão.
+  const journey = profile?.journey ?? 'school';
 
   return (
     <div className="flex min-h-dvh">
@@ -48,6 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isTeacher={isTeacher}
         communityEnabled={communityEnabled}
         vestibularEnabled={vestibularEnabled}
+        journey={journey}
       />
       <div className="min-w-0 flex-1">
         {/* pb-nav reserva a altura da barra + o indicador de home do iPhone. */}
@@ -58,6 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isTeacher={isTeacher}
         communityEnabled={communityEnabled}
         vestibularEnabled={vestibularEnabled}
+        journey={journey}
       />
       {/* Fica no shell, não em uma tela: o convite deve alcançar quem já está
           usando o app, e não depender de o aluno passar por uma página

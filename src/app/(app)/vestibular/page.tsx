@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
-import { VestibularDashboard } from '@/features/vestibular/components/vestibular-dashboard';
+import { VestibularHomeView } from '@/features/vestibular/components/vestibular-home';
 import { VestibularSetup } from '@/features/vestibular/components/vestibular-setup';
 import {
-  getVestibularOverview,
+  getVestibularHome,
   getVestibularProfile,
   listExams,
 } from '@/features/vestibular/server/queries';
@@ -14,7 +14,7 @@ import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
   title: 'Vestibular',
-  description: 'Sua preparação para o vestibular: contagem regressiva, questões e desempenho.',
+  description: 'Sua preparação: contagem regressiva, o próximo passo e o seu desempenho.',
 };
 
 export const dynamic = 'force-dynamic';
@@ -26,8 +26,9 @@ export default async function VestibularPage() {
 
   const [profile, exams] = await Promise.all([getVestibularProfile(), listExams()]);
 
-  // Sem objetivo definido, a tela inteira é a pergunta — não faz sentido
-  // mostrar painel vazio de quem ainda não disse qual prova vai fazer.
+  // Quem chega aqui vindo do onboarding do vestibular já tem objetivo. Esta
+  // tela é pra quem veio da jornada escolar e está entrando na plataforma
+  // pela primeira vez — sem prova escolhida, o painel inteiro seria vazio.
   if (!profile?.mainExamId) {
     return (
       <>
@@ -41,17 +42,18 @@ export default async function VestibularPage() {
     );
   }
 
-  const overview = await getVestibularOverview();
+  const home = await getVestibularHome();
 
   return (
     <>
       <AppHeader
-        title="Vestibular"
-        subtitle={profile.mainExamName ? `Foco: ${profile.mainExamName}` : 'Sua preparação'}
+        title="Minha preparação"
+        subtitle={profile.mainExamName ? `Foco: ${profile.mainExamName}` : undefined}
       />
       <PageMain>
         <div className="mx-auto max-w-2xl space-y-6 py-4">
-          <VestibularDashboard overview={overview} />
+          {home && <VestibularHomeView home={home} />}
+
           <details className="border-border bg-surface rounded-2xl border p-4">
             <summary className="cursor-pointer text-sm font-semibold">Mudar meu objetivo</summary>
             <div className="mt-4">

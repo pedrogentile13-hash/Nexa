@@ -59,3 +59,26 @@ export const getCurrentUser = cache(async () => {
   } = await supabase.auth.getUser();
   return user;
 });
+
+/**
+ * Jornada + flag do vestibular, deduplicadas por requisição.
+ *
+ * O shell já lê isso pra escolher a navegação, e o cabeçalho precisa do
+ * mesmo dado pro seletor de plataforma. Sem `cache()` seriam duas leituras
+ * por tela; com ele, a segunda chamada devolve o resultado da primeira.
+ */
+export const getNavContext = cache(async () => {
+  const user = await getCurrentUser();
+  if (!user) return { journey: 'school' as const, vestibularEnabled: false };
+
+  const supabase = await createClient();
+  const [{ data }, { data: flag }] = await Promise.all([
+    supabase.from('profiles').select('journey').eq('id', user.id).maybeSingle(),
+    supabase.from('feature_flags').select('enabled').eq('key', 'vestibular_enabled').maybeSingle(),
+  ]);
+
+  return {
+    journey: data?.journey ?? ('school' as const),
+    vestibularEnabled: Boolean(flag?.enabled),
+  };
+});

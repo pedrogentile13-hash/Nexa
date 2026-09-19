@@ -116,6 +116,7 @@ export type ProfileRow = {
   monthly_subjects_goal: number;
   notification_settings: NotificationSettings;
   onboarded_at: string | null;
+  journey: Journey;
   created_at: string;
   updated_at: string;
 }
@@ -399,15 +400,26 @@ export type ExamEditionRow = {
   created_at: string;
 };
 
+/** Qual Nexa a pessoa usa. Escolhido na criação da conta, trocável no Perfil. */
+export type Journey = 'school' | 'vestibular' | 'both';
+
 export type VestibularProfileRow = {
   user_id: string;
   main_exam_id: string | null;
   target_year: number | null;
   graduation_year: number | null;
   daily_study_minutes: number | null;
+  target_course: string | null;
+  target_institution: string | null;
+  study_days_per_week: number | null;
+  finished_high_school: boolean;
+  prep_context: PrepContext | null;
   created_at: string;
   updated_at: string;
 };
+
+/** Onde a pessoa se prepara — muda o tom do app, não o conteúdo. */
+export type PrepContext = 'cursinho' | 'escola' | 'sozinho' | 'outro';
 
 export type UserExamTargetRow = {
   id: string;
@@ -428,6 +440,34 @@ export type VestibularProfileRpcRow = {
   target_year: number | null;
   graduation_year: number | null;
   daily_study_minutes: number | null;
+  target_course: string | null;
+  target_institution: string | null;
+  study_days_per_week: number | null;
+  finished_high_school: boolean;
+  prep_context: PrepContext | null;
+};
+
+export type VestibularHomeRpcRow = {
+  full_name: string | null;
+  exam_name: string | null;
+  exam_slug: string | null;
+  target_year: number | null;
+  target_course: string | null;
+  target_institution: string | null;
+  application_date: string | null;
+  days_until: number | null;
+  daily_goal_minutes: number | null;
+  minutes_today: number;
+  streak_days: number;
+  questions_today: number;
+  accuracy_week: number | null;
+  pending_errors: number;
+  next_topic_id: string | null;
+  next_topic_name: string | null;
+  next_topic_subject: string | null;
+  next_topic_reason: StudyPlanReason | null;
+  /** Sessão de treino deixada em aberto — vira um "continuar de onde parou". */
+  open_session_id: string | null;
 };
 
 export type ExamListRpcRow = {
@@ -1550,6 +1590,11 @@ export type Database = {
           p_target_year?: number | null;
           p_graduation_year?: number | null;
           p_daily_study_minutes?: number | null;
+          p_target_course?: string | null;
+          p_target_institution?: string | null;
+          p_study_days_per_week?: number | null;
+          p_finished_high_school?: boolean | null;
+          p_prep_context?: string | null;
         };
         Returns: void;
       };
@@ -2002,6 +2047,26 @@ export type Database = {
         };
         Returns: Json;
       };
+      bootstrap_vestibular_student: {
+        Args: {
+          p_full_name: string;
+          p_main_exam_id: string | null;
+          p_target_year: number | null;
+          p_timezone?: string;
+          p_daily_goal_minutes?: number | null;
+          p_catalog_ids?: string[];
+          p_target_course?: string | null;
+          p_target_institution?: string | null;
+          p_study_days_per_week?: number | null;
+          p_finished_high_school?: boolean;
+          p_prep_context?: string | null;
+          p_grade_level?: string | null;
+          p_also_school?: boolean;
+        };
+        Returns: Json;
+      };
+      set_journey: { Args: { p_journey: Journey }; Returns: void };
+      vestibular_home: { Args: Record<string, never>; Returns: VestibularHomeRpcRow[] };
     };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;

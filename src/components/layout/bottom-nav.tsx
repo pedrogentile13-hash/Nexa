@@ -24,6 +24,8 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveActivePlatform } from './platform-switcher';
+import type { Journey } from '@/types/database.types';
 
 /**
  * Navegação principal do celular.
@@ -97,14 +99,19 @@ export function BottomNav({
   isTeacher = false,
   communityEnabled = false,
   vestibularEnabled = false,
+  journey = 'school',
 }: {
   isAdmin?: boolean;
   isTeacher?: boolean;
   communityEnabled?: boolean;
   vestibularEnabled?: boolean;
+  journey?: Journey;
 }) {
   const pathname = usePathname();
-  const inVestibular = vestibularEnabled && pathname.startsWith('/vestibular');
+  // Mesma regra da `SideNav`: a jornada decide o menu padrão, a URL só manda
+  // quando a pessoa entra na outra plataforma.
+  const inVestibular =
+    vestibularEnabled && resolveActivePlatform(pathname, journey) === 'vestibular';
 
   const fixedItems = inVestibular ? VESTIBULAR_FIXED_ITEMS : FIXED_ITEMS;
   const moreItems = inVestibular

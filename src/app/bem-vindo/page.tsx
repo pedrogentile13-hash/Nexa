@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { OnboardingFlow } from '@/features/onboarding/components/onboarding-flow';
 import { getSubjectCatalog } from '@/features/onboarding/server/queries';
 import { CORE_SUBJECT_SLUGS } from '@/features/onboarding/types';
+import { isFeatureEnabled } from '@/lib/feature-flags';
 import { createClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -19,9 +20,15 @@ export default async function OnboardingPage() {
 
   if (!user) redirect('/login');
 
-  const [catalog, { data: profile }] = await Promise.all([
+  const [catalog, { data: profile }, vestibularEnabled, { data: examRows }] = await Promise.all([
     getSubjectCatalog(),
     supabase.from('profiles').select('full_name, onboarded_at').eq('id', user.id).maybeSingle(),
+    isFeatureEnabled('vestibular_enabled'),
+    supabase
+      .from('exams')
+      .select('id, name, organization')
+      .eq('is_active', true)
+      .order('sort_order'),
   ]);
 
   // Belt and braces: the middleware already redirects, but a direct navigation
@@ -40,6 +47,8 @@ export default async function OnboardingPage() {
       coreSubjectIds={coreSubjectIds}
       defaultName={profile?.full_name ?? ''}
       fallbackTimezone="America/Sao_Paulo"
+      exams={examRows ?? []}
+      vestibularEnabled={vestibularEnabled}
     />
   );
 }

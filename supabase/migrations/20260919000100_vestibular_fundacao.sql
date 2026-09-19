@@ -431,6 +431,11 @@ $$;
 
 grant execute on function public.save_vestibular_profile(uuid, integer, integer, integer) to authenticated;
 
+-- Mesmo motivo do `drop` de `vestibular_overview` logo abaixo: `create or
+-- replace` não muda tipo de retorno, e uma fase seguinte que acrescente uma
+-- coluna aqui tornaria esta migração impossível de reaplicar.
+drop function if exists public.get_vestibular_profile();
+
 create or replace function public.get_vestibular_profile()
 returns table (
   user_id uuid,

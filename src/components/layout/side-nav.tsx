@@ -12,7 +12,6 @@ import {
   Newspaper,
   Route as RouteIcon,
   RotateCcw,
-  School,
   Shield,
   Sparkles,
   Target,
@@ -22,6 +21,8 @@ import {
   Users2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PlatformSwitcher, resolveActivePlatform } from './platform-switcher';
+import type { Journey } from '@/types/database.types';
 
 /**
  * Coluna de navegação do desktop.
@@ -93,39 +94,6 @@ const VESTIBULAR_SECONDARY_ITEMS: NavItem[] = [
   { href: '/ranking', label: 'Ranking', Icon: Trophy },
 ];
 
-function ContextSwitch({ inVestibular }: { inVestibular: boolean }) {
-  return (
-    <div className="bg-surface-2 mb-2 flex gap-1 rounded-xl p-1" role="group" aria-label="Ambiente">
-      <Link
-        href="/hoje"
-        aria-current={inVestibular ? undefined : 'true'}
-        className={cn(
-          'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors',
-          inVestibular
-            ? 'text-muted hover:text-text font-medium'
-            : 'bg-surface text-brand-text font-semibold shadow-sm',
-        )}
-      >
-        <School className="size-3.5" aria-hidden />
-        Escola
-      </Link>
-      <Link
-        href="/vestibular"
-        aria-current={inVestibular ? 'true' : undefined}
-        className={cn(
-          'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors',
-          inVestibular
-            ? 'bg-surface text-brand-text font-semibold shadow-sm'
-            : 'text-muted hover:text-text font-medium',
-        )}
-      >
-        <GraduationCap className="size-3.5" aria-hidden />
-        Vestibular
-      </Link>
-    </div>
-  );
-}
-
 function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
   return (
     <Link
@@ -152,6 +120,7 @@ export function SideNav({
   isTeacher,
   communityEnabled,
   vestibularEnabled,
+  journey = 'school',
 }: {
   name?: string | null;
   avatarUrl?: string | null;
@@ -159,13 +128,18 @@ export function SideNav({
   isTeacher?: boolean;
   communityEnabled?: boolean;
   vestibularEnabled?: boolean;
+  journey?: Journey;
 } = {}) {
   const pathname = usePathname();
   const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
   const firstName = name?.trim()?.split(/\s+/)[0] ?? null;
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const inVestibular = Boolean(vestibularEnabled) && pathname.startsWith('/vestibular');
+  // A jornada decide o menu padrão; a URL só manda quando você entra na
+  // outra plataforma. É o que faz um vestibulando ver a navegação dele
+  // também em Revisões e Biblioteca, que são telas compartilhadas.
+  const inVestibular =
+    Boolean(vestibularEnabled) && resolveActivePlatform(pathname, journey) === 'vestibular';
 
   const primaryItems = inVestibular
     ? [...VESTIBULAR_PRIMARY_ITEMS, ...(communityEnabled ? [COMMUNITY_ITEM] : [])]
@@ -184,18 +158,12 @@ export function SideNav({
       className="border-border bg-surface hidden w-64 shrink-0 flex-col border-r md:flex"
     >
       <div className="sticky top-0 flex h-dvh flex-col gap-0.5 overflow-y-auto p-3">
-        <Link href="/hoje" aria-label="Nexa Study · início" className="mb-3 flex items-center gap-2.5 px-1">
-          {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image */}
-          <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-9 shrink-0" />
-          <span className="leading-none">
-            <span className="block text-base font-bold tracking-tight">NEXA</span>
-            <span className="text-subtle block text-[10px] font-semibold tracking-[0.2em]">
-              STUDY
-            </span>
-          </span>
-        </Link>
-
-        {vestibularEnabled && <ContextSwitch inVestibular={inVestibular} />}
+        <PlatformSwitcher
+          journey={journey}
+          vestibularEnabled={vestibularEnabled}
+          variant="full"
+          className="mb-3"
+        />
 
         <div className="space-y-0.5">
           {primaryItems.map((item) => (
