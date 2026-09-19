@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { env } from '@/lib/env';
@@ -40,11 +41,47 @@ export async function createClient() {
  *
  * Uses `getUser()` — which validates the JWT against Supabase — rather than
  * `getSession()`, whose payload comes from a cookie the client can edit.
+ *
+ * `getUser()` is a real network round-trip to Supabase's Auth server, not a
+ * local cookie read. Without `cache()`, every layout/page/action on the
+ * critical path that needs the session paid its own round-trip — up to three
+ * of them stacked on a single navigation (middleware, `(app)/layout.tsx`,
+ * the page itself), which is both slow and, when Supabase or the Netlify
+ * function is having a transient hiccup, three independent chances to fail.
+ * `cache()` dedupes repeated calls within the same request's render pass —
+ * it never persists across requests, so this does not reintroduce the
+ * cross-request leak `createClient()`'s own comment warns about.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
-}
+});
+
+/**
+ * Jornada + flag do vestibular, deduplicadas por requisição.
+ *
+ * O shell já lê isso pra escolher a navegação, e o cabeçalho precisa do
+ * mesmo dado pro seletor de plataforma. Sem `cache()` seriam duas leituras
+ * por tela; com ele, a segunda chamada devolve o resultado da primeira.
+ */
+export const getNavContext = cache(async () => {
+  const user = await getCurrentUser();
+  if (!user) return { journey: 'school' as const, vestibularEnabled: false };
+
+  const supabase = await createClient();
+  const [{ data }, { data: flag }] = await Promise.all([
+    supabase.from('profiles').select('journey').eq('id', user.id).maybeSingle(),
+    supabase.from('feature_flags').select('enabled').eq('key', 'vestibular_enabled').maybeSingle(),
+  ]);
+
+  // Sem `journey` no banco ainda, `data` volta null (o PostgREST recusa a
+  // consulta) — e 'school' é a resposta certa: é o que toda conta existente
+  // é, e o padrão da coluna quando ela for criada.
+  return {
+    journey: data?.journey ?? ('school' as const),
+    vestibularEnabled: Boolean(flag?.enabled),
+  };
+});

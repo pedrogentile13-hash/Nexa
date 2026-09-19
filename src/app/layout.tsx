@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { AppSplash } from '@/components/layout/app-splash';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -10,18 +11,19 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Nexa',
-    template: '%s · Nexa',
+    default: 'Nexa Study',
+    template: '%s · Nexa Study',
   },
   description:
-    'Nexa organiza sua vida acadêmica: o que fazer hoje, suas notas, sua rotina e sua evolução em um só lugar.',
-  applicationName: 'Nexa',
+    'Nexa Study organiza sua vida acadêmica: o que fazer hoje, seu desempenho automático, sua rotina e sua evolução em um só lugar.',
+  applicationName: 'Nexa Study',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
-    // Installed from the iOS share sheet, Nexa opens without Safari chrome —
-    // the difference between "an app" and "a website", per README Parte 3.
+    // Installed from the iOS share sheet, Nexa Study opens without Safari
+    // chrome — the difference between "an app" and "a website", per README
+    // Parte 3.
     capable: true,
-    title: 'Nexa',
+    title: 'Nexa Study',
     statusBarStyle: 'default',
   },
   formatDetection: {
@@ -71,8 +73,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/*
+          Google AdSense — precisa estar no HTML bruto que o servidor manda na
+          primeira resposta, não injetado via JS depois de hidratar (é isso
+          que `next/script` com `afterInteractive` faz, e é por isso que o
+          rastreador do AdSense não achava a tag: HTML bruto sem ela).
+        */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3390934579146373"
+          crossOrigin="anonymous"
+        />
       </head>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased">
+        <AppSplash />
+        {children}
+      </body>
     </html>
   );
 }

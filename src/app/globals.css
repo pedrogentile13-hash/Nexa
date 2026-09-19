@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * Nexa design system.
+ * Nexa Study design system.
  *
  * Two layers, on purpose:
  *   1. Raw palette   — the actual colors. Never referenced by components.
@@ -9,11 +9,13 @@
  *      Components only ever use these, which is what makes dark mode a
  *      12-line override instead of an audit of every file.
  *
- * The brand blue from README Parte 3 (#2563EB) measures 5.2:1 on white: it
- * passes WCAG AA for normal text but fails AAA, so it is used for surfaces,
- * buttons and headings — and `--brand-text` (a darker step) is used whenever
- * brand color carries small text. In dark mode the brand LIGHTENS, because
- * #2563EB on a near-black surface is far too dim to read.
+ * Rebrand (roxo→ciano, identidade "Nexa Study"): o roxo #7C3AED mede 5,70:1
+ * sobre branco — passa AA normal, ainda reprova AAA, mesma faixa do azul
+ * antigo (5,2:1) — então segue o mesmo papel: superfícies, botões e títulos,
+ * com `--brand-text` (um passo mais escuro, #6D28D9, 7,11:1) carregando texto
+ * pequeno. No escuro o brand CLAREIA para #A78BFA (7,19:1 sobre o fundo quase
+ * preto) pela mesma razão de sempre: a versão saturada fica escura demais
+ * sobre um fundo quase preto.
  */
 
 @custom-variant dark (&:is(.dark *));
@@ -33,10 +35,14 @@
   --text-subtle: #8a93a1;
 
   /* Brand */
-  --brand: #2563eb;
-  --brand-hover: #1d4ed8;
-  --brand-text: #1d4ed8; /* brand color carrying small text */
-  --brand-soft: #eaf1fe;
+  --brand: #7c3aed;
+  /* Halo difuso atrás do ícone na tela de carregamento. Mais forte que o
+     brand puro não funciona: o blur come opacidade, e abaixo disto o brilho
+     some no fundo branco. */
+  --brand-glow: rgb(124 58 237 / 0.3);
+  --brand-hover: #6d28d9;
+  --brand-text: #6d28d9; /* brand color carrying small text */
+  --brand-soft: #f1ebfd;
   --brand-fg: #ffffff;
 
   /* Status */
@@ -48,7 +54,47 @@
   --danger-soft: #fdecea;
 
   /* Focus */
-  --ring: #2563eb;
+  --ring: #7c3aed;
+
+  /*
+   * Cores de gráfico. Separadas dos tokens de UI porque respondem a outro
+   * critério: separação perceptual entre marcas adjacentes, inclusive para
+   * daltonismo. Validadas com scripts/validate_palette.js da skill dataviz —
+   * o par warning/danger da UI reprovou (ΔE 8.0, indistinguível até com visão
+   * normal), então o gráfico usa duas cores em vez de três. `--chart-line`
+   * segue o brand (é a série "você"): reprovaria a mesma checagem de ΔE se
+   * ficasse azul num app roxo.
+   */
+  --chart-line: #7c3aed;
+  --chart-alert: #c2261f;
+  --chart-grid: #e3e7ec;
+
+  /* Paleta categórica (skill dataviz, references/palette.md) — usada nos
+     gráficos de RECURSO de simulado (bar/line/pie de dados do enunciado, ex.
+     "população por região"), onde cada categoria precisa de identidade
+     própria e o par acima (linha "você"/alerta) não serve. Ordem FIXA —
+     nunca ciclada — validada contra daltonismo nas duas cores adjacentes. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
+  /* Degradê de cabeçalho, identidade Nexa Study. Fica em token porque aparece
+     em várias telas — cópias do mesmo `linear-gradient` divergem no primeiro
+     ajuste de matiz.
+
+     Termina em ciano #0E7490 (não o ciano vibrante do logo, #22D3EE, que mede
+     só 1,9:1 com texto branco e reprovaria até em texto grande): o passo mais
+     escuro mede 5,36:1, o roxo inicial 5,70:1, e o meio do degradê (onde as
+     duas cores se misturam) 6,23:1 — o pior ponto da faixa toda fica em
+     5,36:1, acima do azul→ciano anterior (5,17:1), então o título é legível
+     ao longo de TODA a extensão. */
+  --gradient-header: linear-gradient(135deg, #7c3aed 0%, #0e7490 100%);
+  --gradient-header-fg: #ffffff;
 }
 
 .dark {
@@ -63,11 +109,12 @@
   --text-muted: #9aa4b2;
   --text-subtle: #6b7481;
 
-  --brand: #4d86f7;
-  --brand-hover: #6b9bf9;
-  --brand-text: #85aefa;
-  --brand-soft: #141e33;
-  --brand-fg: #06101f;
+  --brand: #a78bfa;
+  --brand-glow: rgb(167 139 250 / 0.22);
+  --brand-hover: #bda1fb;
+  --brand-text: #c4b5fd;
+  --brand-soft: #211a35;
+  --brand-fg: #14102a;
 
   --success: #4ade80;
   --success-soft: #10261a;
@@ -76,7 +123,27 @@
   --danger: #f87171;
   --danger-soft: #2b1414;
 
-  --ring: #4d86f7;
+  --ring: #a78bfa;
+
+  /* Passos próprios do tema escuro, não um espelho do claro. */
+  --chart-line: #a78bfa;
+  --chart-alert: #ef5350;
+  --chart-grid: #242a35;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+
+  /* No escuro o degradê perde saturação e vira mistura escura da mesma matiz,
+     roxo→ciano — a versão vibrante do tema claro sobre #0a0c11 viraria um
+     bloco que brilha mais que o conteúdo. */
+  --gradient-header: linear-gradient(135deg, #1e1533 0%, #0f2a30 100%);
+  --gradient-header-fg: #f2f4f8;
 }
 
 /*
@@ -110,6 +177,10 @@
   --color-danger-soft: var(--danger-soft);
 
   --color-ring: var(--ring);
+
+  --color-chart-line: var(--chart-line);
+  --color-chart-alert: var(--chart-alert);
+  --color-chart-grid: var(--chart-grid);
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
@@ -218,5 +289,170 @@
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  /*
+   * Exportar relatório em PDF sem nenhuma dependência de geração server-side
+   * (ver `PrintButton`): a impressão nativa do navegador ("Salvar como PDF"
+   * já embutida em todo navegador moderno) faz o trabalho. `.no-print` some
+   * da folha impressa — nav lateral, barra superior, botões de ação — sem
+   * precisar de nenhum componente/rota dedicados a imprimir.
+   */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
+}
+
+/* ------------------------------------------------------------ marca em espera --
+ * A marca parada, usada na abertura do app e na troca de tela.
+ *
+ * Mora aqui, em CSS puro, e não em classes utilitárias, porque o splash de
+ * abertura precisa pintar ANTES de qualquer JavaScript — inclusive antes da
+ * hidratação. Um componente que dependesse de estilos calculados no cliente
+ * apareceria depois do momento em que é necessário.
+ */
+.nexa-brand-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+/* O brilho difuso atrás do ícone. `::before` em vez de box-shadow: sombra
+   colorida do tamanho que este halo precisa ficaria dura na borda; o
+   gradiente radial com blur é o que dá o esfumaçado. */
+.nexa-brand-glow {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.nexa-brand-glow::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--brand-glow) 0%, transparent 70%);
+  filter: blur(12px);
+}
+
+.nexa-brand-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  /* 20px num quadrado de 68 é a proporção do "squircle" do Android — o mesmo
+     recorte que o sistema aplica ao ícone na tela inicial. */
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow:
+    0 8px 22px -12px rgb(0 0 0 / 0.22),
+    0 0 0 1px var(--border);
+}
+
+.nexa-brand-card img {
+  width: 38px;
+  height: 38px;
+}
+
+.nexa-brand-wordmark {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+/* "Study" em itálico e na cor da marca, como a segunda metade de um logotipo
+   — é o que separa a palavra em duas sem precisar de uma imagem. */
+.nexa-brand-wordmark em {
+  font-style: italic;
+  color: var(--brand);
+}
+
+.nexa-brand-dots {
+  display: flex;
+  gap: 0.375rem;
+  margin-top: 0.125rem;
+}
+
+.nexa-brand-dots i {
+  width: 5.5px;
+  height: 5.5px;
+  border-radius: 9999px;
+  background: var(--brand);
+  animation: nexa-dot 1.25s ease-in-out infinite;
+}
+
+.nexa-brand-dots i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.nexa-brand-dots i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes nexa-dot {
+  0%,
+  65%,
+  100% {
+    opacity: 0.22;
+    transform: scale(0.8);
+  }
+  32% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Quem pediu menos movimento fica com os pontos parados e legíveis, em vez
+   de nenhum sinal de que algo está acontecendo. */
+@media (prefers-reduced-motion: reduce) {
+  .nexa-brand-dots i {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
+/* ---------------------------------------------------------------- splash --
+ * A tela que cobre o vão entre o splash nativo do Android e a primeira
+ * pintura do app.
+ *
+ * A saída é por animação de CSS, não por JavaScript: um overlay em
+ * `position: fixed` que só sai quando um script roda é um jeito de tornar o
+ * app inacessível se o script falhar. Aqui o pior caso é sumir cedo demais.
+ *
+ * O atraso de 120ms antes do fade evita o pior efeito colateral desta tela:
+ * numa navegação rápida (ou num recarregamento com cache quente) ela
+ * apareceria e sumiria num piscar, que lê como defeito. Abaixo desse tempo,
+ * ninguém chega a ver.
+ */
+#nexa-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  /*
+   * Branco literal no tema claro, pra casar com o splash NATIVO do Android
+   * (que é uma cor sólida e não tem tema escuro). O fundo do app é #f6f7f9 —
+   * a diferença entre os dois é imperceptível, e é o último passo da emenda.
+   * No escuro, branco seria um flash na cara de quem escolheu o tema escuro,
+   * então ali vale o fundo real do app.
+   */
+  background: #ffffff;
+  animation: nexa-splash-out 0.35s ease 0.12s forwards;
+}
+
+.dark #nexa-splash {
+  background: var(--bg);
+}
+
+@keyframes nexa-splash-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
   }
 }
