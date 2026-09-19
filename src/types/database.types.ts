@@ -585,6 +585,54 @@ export type VestibularTopicPerformanceRpcRow = {
   status: MasteryStatus;
 };
 
+export type ExamTopicFrequencyRow = {
+  id: string;
+  exam_id: string;
+  topic_id: string;
+  frequency_percent: number;
+  editions_counted: number;
+  note: string | null;
+  created_by: string | null;
+  updated_at: string;
+};
+
+/** 'cadastrada' = valor curado à mão; 'derivada' = fatia do assunto no acervo. */
+export type ExamTopicWeightSource = 'cadastrada' | 'derivada';
+
+export type ExamTopicWeightRpcRow = {
+  topic_id: string;
+  topic_name: string;
+  subject_id: string;
+  subject_name: string;
+  subject_color: string;
+  frequency_percent: number;
+  source: ExamTopicWeightSource;
+};
+
+export type StudyPlanPhase = 'base' | 'reta_final';
+
+export type StudyPlanReason =
+  | 'cai_muito_e_voce_erra'
+  | 'cai_muito'
+  | 'voce_erra'
+  | 'reforco';
+
+export type VestibularStudyPlanRpcRow = {
+  topic_id: string;
+  topic_name: string;
+  subject_id: string;
+  subject_name: string;
+  subject_color: string;
+  frequency_percent: number;
+  frequency_source: ExamTopicWeightSource;
+  mastery_percent: number | null;
+  answered_count: number;
+  priority_score: number;
+  reason: StudyPlanReason;
+  phase: StudyPlanPhase;
+  days_until: number | null;
+};
+
 export type VestibularErrorRpcRow = {
   question_id: string;
   statement: string;
@@ -1248,6 +1296,7 @@ export type Database = {
       user_exam_targets: Table<UserExamTargetRow>;
       practice_sessions: Table<PracticeSessionRow>;
       practice_answers: Table<PracticeAnswerRow>;
+      exam_topic_frequency: Table<ExamTopicFrequencyRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -1536,6 +1585,7 @@ export type Database = {
           p_subject_catalog_id?: string | null;
           p_difficulty?: string | null;
           p_question_count?: number;
+          p_topic_id?: string | null;
         };
         Returns: string;
       };
@@ -1569,6 +1619,21 @@ export type Database = {
       };
       start_error_practice: {
         Args: { p_subject_catalog_id?: string | null; p_question_count?: number };
+        Returns: string;
+      };
+      exam_topic_weights: { Args: { p_exam_id: string | null }; Returns: ExamTopicWeightRpcRow[] };
+      vestibular_study_plan: {
+        Args: { p_limit?: number };
+        Returns: VestibularStudyPlanRpcRow[];
+      };
+      set_exam_topic_frequency: {
+        Args: {
+          p_exam_id: string;
+          p_topic_id: string;
+          p_frequency_percent: number;
+          p_editions_counted?: number;
+          p_note?: string | null;
+        };
         Returns: string;
       };
       quiz_questions: {

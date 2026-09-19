@@ -71,10 +71,20 @@ export function VestibularDashboard({ overview }: { overview: VestibularOverview
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="border-border bg-surface flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4">
           <div className="min-w-0">
+            <p className="text-sm font-semibold">Plano de estudo</p>
+            <p className="text-muted text-sm">Por onde começar, na ordem que rende mais.</p>
+          </div>
+          <Button asChild>
+            <Link href="/vestibular/plano">Ver plano</Link>
+          </Button>
+        </div>
+
+        <div className="border-border bg-surface flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4">
+          <div className="min-w-0">
             <p className="text-sm font-semibold">Praticar agora</p>
             <p className="text-muted text-sm">Treino avulso ou uma prova anterior inteira.</p>
           </div>
-          <Button asChild>
+          <Button variant="outline" asChild>
             <Link href="/vestibular/questoes">Ver questões</Link>
           </Button>
         </div>

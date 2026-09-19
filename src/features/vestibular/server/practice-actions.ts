@@ -17,6 +17,8 @@ export async function createPracticeSession(input: {
   subjectId?: string | null;
   difficulty?: string | null;
   questionCount?: number;
+  /** Usado pelo plano de estudo: treinar exatamente um assunto. */
+  topicId?: string | null;
 }): Promise<{ status: 'ok'; sessionId: string } | { status: 'error'; message: string }> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('start_practice_session', {
@@ -24,6 +26,7 @@ export async function createPracticeSession(input: {
     p_subject_catalog_id: input.subjectId ?? null,
     p_difficulty: input.difficulty ?? null,
     p_question_count: Math.min(50, Math.max(1, input.questionCount ?? 10)),
+    p_topic_id: input.topicId ?? null,
   });
 
   if (error || !data) {
