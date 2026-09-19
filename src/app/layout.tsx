@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { AppSplash } from '@/components/layout/app-splash';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -84,7 +85,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           crossOrigin="anonymous"
         />
       </head>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased">
+        <AppSplash />
+        {children}
+      </body>
     </html>
   );
 }

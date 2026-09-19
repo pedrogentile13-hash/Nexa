@@ -20,8 +20,16 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'portrait',
     lang: 'pt-BR',
     dir: 'ltr',
-    background_color: '#f6f7f9',
-    theme_color: '#7c3aed',
+    // Branco, não o fundo do app (#f6f7f9): esta cor é a do splash NATIVO do
+    // Android, gerado no build do APK a partir dela + do ícone 512. O cinza
+    // deixava a tela de abertura com cara de página não carregada.
+    background_color: '#ffffff',
+    // A cor da barra de STATUS (em cima) no app instalado. Estava roxa
+    // (`--brand`) enquanto o app inteiro é claro — o TWA pega este valor no
+    // build, então a faixa de cima destoava de tudo. Agora é o mesmo fundo do
+    // app, igual ao `viewport.themeColor` do layout raiz, que é quem manda no
+    // navegador. Os dois apontavam pra cores diferentes; agora não mais.
+    theme_color: '#f6f7f9',
     categories: ['education', 'productivity'],
     // Gerados por scripts/generate-icons.mjs a partir de public/brand/logo-mark-src.png
     // (a arte oficial da marca). 192/512 e maskable são necessários e nenhum

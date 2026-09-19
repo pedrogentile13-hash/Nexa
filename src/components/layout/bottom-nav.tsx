@@ -180,10 +180,23 @@ export function BottomNav({
         </div>
       )}
 
+      {/*
+        Fundo SÓLIDO (`bg-surface`), não mais translúcido com blur.
+        
+        O translúcido era mais bonito por si só, mas tornava impossível o que
+        esta barra precisa fazer no app instalado: encostar na barra de
+        navegação do Android sem emenda. A cor daquela barra é nativa e fixa
+        (gravada no APK); a de uma faixa com 85% de opacidade muda conforme o
+        conteúdo que passa por baixo dela. As duas só casam se esta for uma
+        cor só — então a linha de corte aparecia de novo a cada rolagem.
+
+        A `border-t` continua: ela separa a navegação do CONTEÚDO, que é outra
+        divisão, essa sim desejada.
+      */}
       <nav
         aria-label="Navegação principal"
         className={cn(
-          'border-border bg-surface/85 fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-lg',
+          'border-border bg-surface fixed inset-x-0 bottom-0 z-40 border-t',
           'pb-safe md:hidden',
         )}
       >

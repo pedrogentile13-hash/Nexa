@@ -299,3 +299,83 @@
     }
   }
 }
+
+/* ---------------------------------------------------------------- splash --
+ * A tela que cobre o vão entre o splash nativo do Android e a primeira
+ * pintura do app.
+ *
+ * A saída é por animação de CSS, não por JavaScript: um overlay em
+ * `position: fixed` que só sai quando um script roda é um jeito de tornar o
+ * app inacessível se o script falhar. Aqui o pior caso é sumir cedo demais.
+ *
+ * O atraso de 120ms antes do fade evita o pior efeito colateral desta tela:
+ * numa navegação rápida (ou num recarregamento com cache quente) ela
+ * apareceria e sumiria num piscar, que lê como defeito. Abaixo desse tempo,
+ * ninguém chega a ver.
+ */
+#nexa-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  /*
+   * Branco literal no tema claro, pra casar com o splash NATIVO do Android
+   * (que é uma cor sólida e não tem tema escuro). O fundo do app é #f6f7f9 —
+   * a diferença entre os dois é imperceptível, e é o último passo da emenda.
+   * No escuro, branco seria um flash na cara de quem escolheu o tema escuro,
+   * então ali vale o fundo real do app.
+   */
+  background: #ffffff;
+  animation: nexa-splash-out 0.35s ease 0.12s forwards;
+}
+
+.dark #nexa-splash {
+  background: var(--bg);
+}
+
+.nexa-splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.nexa-splash-inner img {
+  width: 56px;
+  height: 56px;
+}
+
+.nexa-splash-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--brand);
+  animation: nexa-splash-spin 0.7s linear infinite;
+}
+
+.nexa-splash-label {
+  color: var(--text-subtle);
+  font-size: 0.8125rem;
+}
+
+@keyframes nexa-splash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes nexa-splash-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* Quem pediu menos movimento não recebe giro nenhum — só o fade. */
+@media (prefers-reduced-motion: reduce) {
+  .nexa-splash-spinner {
+    animation: none;
+  }
+}
