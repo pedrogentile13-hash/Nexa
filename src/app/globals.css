@@ -36,6 +36,10 @@
 
   /* Brand */
   --brand: #7c3aed;
+  /* Halo difuso atrás do ícone na tela de carregamento. Mais forte que o
+     brand puro não funciona: o blur come opacidade, e abaixo disto o brilho
+     some no fundo branco. */
+  --brand-glow: rgb(124 58 237 / 0.3);
   --brand-hover: #6d28d9;
   --brand-text: #6d28d9; /* brand color carrying small text */
   --brand-soft: #f1ebfd;
@@ -106,6 +110,7 @@
   --text-subtle: #6b7481;
 
   --brand: #a78bfa;
+  --brand-glow: rgb(167 139 250 / 0.22);
   --brand-hover: #bda1fb;
   --brand-text: #c4b5fd;
   --brand-soft: #211a35;
@@ -300,6 +305,116 @@
   }
 }
 
+/* ------------------------------------------------------------ marca em espera --
+ * A marca parada, usada na abertura do app e na troca de tela.
+ *
+ * Mora aqui, em CSS puro, e não em classes utilitárias, porque o splash de
+ * abertura precisa pintar ANTES de qualquer JavaScript — inclusive antes da
+ * hidratação. Um componente que dependesse de estilos calculados no cliente
+ * apareceria depois do momento em que é necessário.
+ */
+.nexa-brand-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.125rem;
+}
+
+/* O brilho difuso atrás do ícone. `::before` em vez de box-shadow: sombra
+   colorida do tamanho que este halo precisa ficaria dura na borda; o
+   gradiente radial com blur é o que dá o esfumaçado. */
+.nexa-brand-glow {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.nexa-brand-glow::before {
+  content: '';
+  position: absolute;
+  inset: -34%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--brand-glow) 0%, transparent 70%);
+  filter: blur(16px);
+}
+
+.nexa-brand-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  /* 28px num quadrado de 96 é a proporção do "squircle" do Android — o mesmo
+     recorte que o sistema aplica ao ícone na tela inicial. */
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow:
+    0 10px 30px -12px rgb(0 0 0 / 0.25),
+    0 0 0 1px var(--border);
+}
+
+.nexa-brand-card img {
+  width: 56px;
+  height: 56px;
+}
+
+.nexa-brand-wordmark {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+/* "Study" em itálico e na cor da marca, como a segunda metade de um logotipo
+   — é o que separa a palavra em duas sem precisar de uma imagem. */
+.nexa-brand-wordmark em {
+  font-style: italic;
+  color: var(--brand);
+}
+
+.nexa-brand-dots {
+  display: flex;
+  gap: 0.4375rem;
+}
+
+.nexa-brand-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--brand);
+  animation: nexa-dot 1.25s ease-in-out infinite;
+}
+
+.nexa-brand-dots i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.nexa-brand-dots i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes nexa-dot {
+  0%,
+  65%,
+  100% {
+    opacity: 0.22;
+    transform: scale(0.8);
+  }
+  32% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Quem pediu menos movimento fica com os pontos parados e legíveis, em vez
+   de nenhum sinal de que algo está acontecendo. */
+@media (prefers-reduced-motion: reduce) {
+  .nexa-brand-dots i {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
 /* ---------------------------------------------------------------- splash --
  * A tela que cobre o vão entre o splash nativo do Android e a primeira
  * pintura do app.
@@ -334,48 +449,9 @@
   background: var(--bg);
 }
 
-.nexa-splash-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.875rem;
-}
-
-.nexa-splash-inner img {
-  width: 56px;
-  height: 56px;
-}
-
-.nexa-splash-spinner {
-  width: 22px;
-  height: 22px;
-  border-radius: 9999px;
-  border: 2.5px solid var(--border);
-  border-top-color: var(--brand);
-  animation: nexa-splash-spin 0.7s linear infinite;
-}
-
-.nexa-splash-label {
-  color: var(--text-subtle);
-  font-size: 0.8125rem;
-}
-
-@keyframes nexa-splash-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes nexa-splash-out {
   to {
     opacity: 0;
     visibility: hidden;
-  }
-}
-
-/* Quem pediu menos movimento não recebe giro nenhum — só o fade. */
-@media (prefers-reduced-motion: reduce) {
-  .nexa-splash-spinner {
-    animation: none;
   }
 }
