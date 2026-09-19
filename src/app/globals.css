@@ -317,7 +317,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.125rem;
+  gap: 0.875rem;
 }
 
 /* O brilho difuso atrás do ícone. `::before` em vez de box-shadow: sombra
@@ -332,36 +332,36 @@
 .nexa-brand-glow::before {
   content: '';
   position: absolute;
-  inset: -34%;
+  inset: -30%;
   border-radius: 9999px;
   background: radial-gradient(circle, var(--brand-glow) 0%, transparent 70%);
-  filter: blur(16px);
+  filter: blur(12px);
 }
 
 .nexa-brand-card {
   position: relative;
   display: grid;
   place-items: center;
-  width: 96px;
-  height: 96px;
-  /* 28px num quadrado de 96 é a proporção do "squircle" do Android — o mesmo
+  width: 68px;
+  height: 68px;
+  /* 20px num quadrado de 68 é a proporção do "squircle" do Android — o mesmo
      recorte que o sistema aplica ao ícone na tela inicial. */
-  border-radius: 28px;
+  border-radius: 20px;
   background: var(--surface);
   box-shadow:
-    0 10px 30px -12px rgb(0 0 0 / 0.25),
+    0 8px 22px -12px rgb(0 0 0 / 0.22),
     0 0 0 1px var(--border);
 }
 
 .nexa-brand-card img {
-  width: 56px;
-  height: 56px;
+  width: 38px;
+  height: 38px;
 }
 
 .nexa-brand-wordmark {
-  font-size: 1.5rem;
+  font-size: 1.0625rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   color: var(--text);
 }
 
@@ -374,12 +374,13 @@
 
 .nexa-brand-dots {
   display: flex;
-  gap: 0.4375rem;
+  gap: 0.375rem;
+  margin-top: 0.125rem;
 }
 
 .nexa-brand-dots i {
-  width: 7px;
-  height: 7px;
+  width: 5.5px;
+  height: 5.5px;
   border-radius: 9999px;
   background: var(--brand);
   animation: nexa-dot 1.25s ease-in-out infinite;
