@@ -232,6 +232,10 @@ const resourceSchema = z.object({
   isPublished: z.boolean(),
   tags: z.string().max(300).optional().or(z.literal('')),
   bimestre: z.coerce.number().int().min(1).max(4).optional(),
+  /** 'vestibular' tira o conteúdo da nota escolar — ver a migração do Vestibular. */
+  context: z.enum(['school', 'vestibular']).default('school'),
+  examId: z.string().uuid().optional().or(z.literal('')),
+  examEditionId: z.string().uuid().optional().or(z.literal('')),
   /** Só usado em kind='quiz'/'simulado' — array de assets (textos-base,
    *  imagens, gráficos, tabelas), mesmo formato/validação do importador v2. */
   assetsJson: z.string().max(50_000).optional().or(z.literal('')),
@@ -294,6 +298,9 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
     isPublished: formData.get('isPublished') === 'on' || formData.get('isPublished') === 'true',
     tags: formData.get('tags') || '',
     bimestre: formData.get('bimestre') || undefined,
+    context: formData.get('context') || 'school',
+    examId: formData.get('examId') || '',
+    examEditionId: formData.get('examEditionId') || '',
     assetsJson: formData.get('assetsJson') || '',
   });
   if (!parsed.success) return fail(firstIssue(parsed.error));
@@ -411,6 +418,12 @@ export async function saveResource(_prev: AdminState, formData: FormData): Promi
           .filter(Boolean)
       : [],
     bimestre: data.bimestre ?? null,
+    // Vínculo de prova só faz sentido em conteúdo de vestibular; marcar
+    // 'school' limpa os dois campos em vez de deixar sobra de uma edição
+    // anterior apontando pro ENEM num material da escola.
+    context: data.context,
+    exam_id: data.context === 'vestibular' ? data.examId || null : null,
+    exam_edition_id: data.context === 'vestibular' ? data.examEditionId || null : null,
     created_by: identity.userId,
     ...(data.kind === 'quiz' || data.kind === 'simulado' ? { assets } : {}),
     ...(pdfMeta

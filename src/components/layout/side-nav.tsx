@@ -12,6 +12,7 @@ import {
   Newspaper,
   Route as RouteIcon,
   RotateCcw,
+  School,
   Shield,
   Sparkles,
   Target,
@@ -70,6 +71,58 @@ const TEACHER_ITEM: NavItem = { href: '/professor', label: 'Professor', Icon: Us
 /** Só aparece com a feature flag `community_enabled` ligada — ver `(app)/layout.tsx`. */
 const COMMUNITY_ITEM: NavItem = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper };
 
+/**
+ * Nexa Vestibular — o menu TROCA dentro de `/vestibular/**` em vez de somar
+ * mais itens ao menu da escola. São dois ambientes do mesmo app (item #3 do
+ * plano do Vestibular): quem está estudando pra prova não quer "Matérias" e
+ * "Bimestre" competindo com "Questões" na mesma coluna. O que é do núcleo
+ * (Comunidade, Ranking, NexaAI, Perfil) segue disponível nos dois.
+ */
+const VESTIBULAR_PRIMARY_ITEMS: NavItem[] = [
+  { href: '/vestibular', label: 'Início', Icon: Home },
+  { href: '/vestibular/questoes', label: 'Questões', Icon: ClipboardCheck },
+  { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
+  { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
+];
+
+const VESTIBULAR_SECONDARY_ITEMS: NavItem[] = [
+  { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
+  { href: '/ranking', label: 'Ranking', Icon: Trophy },
+];
+
+function ContextSwitch({ inVestibular }: { inVestibular: boolean }) {
+  return (
+    <div className="bg-surface-2 mb-2 flex gap-1 rounded-xl p-1" role="group" aria-label="Ambiente">
+      <Link
+        href="/hoje"
+        aria-current={inVestibular ? undefined : 'true'}
+        className={cn(
+          'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors',
+          inVestibular
+            ? 'text-muted hover:text-text font-medium'
+            : 'bg-surface text-brand-text font-semibold shadow-sm',
+        )}
+      >
+        <School className="size-3.5" aria-hidden />
+        Escola
+      </Link>
+      <Link
+        href="/vestibular"
+        aria-current={inVestibular ? 'true' : undefined}
+        className={cn(
+          'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors',
+          inVestibular
+            ? 'bg-surface text-brand-text font-semibold shadow-sm'
+            : 'text-muted hover:text-text font-medium',
+        )}
+      >
+        <GraduationCap className="size-3.5" aria-hidden />
+        Vestibular
+      </Link>
+    </div>
+  );
+}
+
 function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
   return (
     <Link
@@ -95,24 +148,32 @@ export function SideNav({
   isAdmin,
   isTeacher,
   communityEnabled,
+  vestibularEnabled,
 }: {
   name?: string | null;
   avatarUrl?: string | null;
   isAdmin?: boolean;
   isTeacher?: boolean;
   communityEnabled?: boolean;
+  vestibularEnabled?: boolean;
 } = {}) {
   const pathname = usePathname();
   const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
   const firstName = name?.trim()?.split(/\s+/)[0] ?? null;
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const primaryItems = [...PRIMARY_ITEMS, ...(communityEnabled ? [COMMUNITY_ITEM] : [])];
-  const secondaryItems = [
-    ...SECONDARY_ITEMS,
-    ...(isAdmin ? [ADMIN_ITEM] : []),
-    ...(isTeacher ? [TEACHER_ITEM] : []),
-  ];
+  const inVestibular = Boolean(vestibularEnabled) && pathname.startsWith('/vestibular');
+
+  const primaryItems = inVestibular
+    ? [...VESTIBULAR_PRIMARY_ITEMS, ...(communityEnabled ? [COMMUNITY_ITEM] : [])]
+    : [...PRIMARY_ITEMS, ...(communityEnabled ? [COMMUNITY_ITEM] : [])];
+  const secondaryItems = inVestibular
+    ? VESTIBULAR_SECONDARY_ITEMS
+    : [
+        ...SECONDARY_ITEMS,
+        ...(isAdmin ? [ADMIN_ITEM] : []),
+        ...(isTeacher ? [TEACHER_ITEM] : []),
+      ];
 
   return (
     <nav
@@ -130,6 +191,8 @@ export function SideNav({
             </span>
           </span>
         </Link>
+
+        {vestibularEnabled && <ContextSwitch inVestibular={inVestibular} />}
 
         <div className="space-y-0.5">
           {primaryItems.map((item) => (

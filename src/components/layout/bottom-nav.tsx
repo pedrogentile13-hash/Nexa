@@ -13,6 +13,7 @@ import {
   Newspaper,
   Route as RouteIcon,
   RotateCcw,
+  School,
   Shield,
   Sparkles,
   Target,
@@ -61,23 +62,52 @@ const MORE_ITEMS = [
 const ADMIN_ITEM = { href: '/admin', label: 'Admin', Icon: Shield } as const;
 const TEACHER_ITEM = { href: '/professor', label: 'Professor', Icon: Users2 } as const;
 const COMMUNITY_ITEM = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper } as const;
+const VESTIBULAR_ITEM = { href: '/vestibular', label: 'Vestibular', Icon: GraduationCap } as const;
+const SCHOOL_ITEM = { href: '/hoje', label: 'Escola', Icon: School } as const;
+
+/**
+ * Dentro de `/vestibular/**` os cinco alvos fixos TROCAM (mesma decisão da
+ * `SideNav`): cinco continua sendo o teto no celular, então somar não é
+ * opção — quem está em preparação não precisa de "Matérias" e "Agenda" no
+ * polegar, precisa de "Questões".
+ */
+const VESTIBULAR_FIXED_ITEMS = [
+  { href: '/vestibular', label: 'Início', Icon: Home },
+  { href: '/vestibular/questoes', label: 'Questões', Icon: ClipboardCheck },
+  { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
+  { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
+  { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
+] as const;
+
+const VESTIBULAR_MORE_ITEMS = [
+  { href: '/ranking', label: 'Ranking', Icon: Trophy },
+  { href: '/perfil', label: 'Perfil', Icon: User },
+] as const;
 
 export function BottomNav({
   isAdmin = false,
   isTeacher = false,
   communityEnabled = false,
+  vestibularEnabled = false,
 }: {
   isAdmin?: boolean;
   isTeacher?: boolean;
   communityEnabled?: boolean;
+  vestibularEnabled?: boolean;
 }) {
   const pathname = usePathname();
-  const moreItems = [
-    ...(communityEnabled ? [COMMUNITY_ITEM] : []),
-    ...MORE_ITEMS,
-    ...(isAdmin ? [ADMIN_ITEM] : []),
-    ...(isTeacher ? [TEACHER_ITEM] : []),
-  ];
+  const inVestibular = vestibularEnabled && pathname.startsWith('/vestibular');
+
+  const fixedItems = inVestibular ? VESTIBULAR_FIXED_ITEMS : FIXED_ITEMS;
+  const moreItems = inVestibular
+    ? [SCHOOL_ITEM, ...(communityEnabled ? [COMMUNITY_ITEM] : []), ...VESTIBULAR_MORE_ITEMS]
+    : [
+        ...(communityEnabled ? [COMMUNITY_ITEM] : []),
+        ...(vestibularEnabled ? [VESTIBULAR_ITEM] : []),
+        ...MORE_ITEMS,
+        ...(isAdmin ? [ADMIN_ITEM] : []),
+        ...(isTeacher ? [TEACHER_ITEM] : []),
+      ];
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
@@ -143,7 +173,7 @@ export function BottomNav({
         )}
       >
         <ul className="mx-auto flex max-w-lg">
-          {FIXED_ITEMS.map(({ href, label, Icon }) => {
+          {fixedItems.map(({ href, label, Icon }) => {
             const active = isActive(href);
             return (
               <li key={href} className="flex-1">

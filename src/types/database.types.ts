@@ -365,6 +365,118 @@ export type ResourceRow = {
   visibility: ResourceVisibility | null;
   community_id: string | null;
   ai_generated: boolean;
+  /** 'vestibular' NUNCA entra na nota escolar — ver `20260919000100_vestibular_fundacao.sql`. */
+  context: ResourceContext;
+  exam_id: string | null;
+  exam_edition_id: string | null;
+};
+
+export type ResourceContext = 'school' | 'vestibular';
+
+export type ExamKind = 'nacional' | 'vestibular' | 'militar';
+
+export type ExamRow = {
+  id: string;
+  slug: string;
+  name: string;
+  organization: string | null;
+  kind: ExamKind;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+export type ExamEditionRow = {
+  id: string;
+  exam_id: string;
+  year: number;
+  label: string | null;
+  application_date: string | null;
+  application_date_2: string | null;
+  registration_start: string | null;
+  registration_end: string | null;
+  results_date: string | null;
+  created_at: string;
+};
+
+export type VestibularProfileRow = {
+  user_id: string;
+  main_exam_id: string | null;
+  target_year: number | null;
+  graduation_year: number | null;
+  daily_study_minutes: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UserExamTargetRow = {
+  id: string;
+  user_id: string;
+  exam_id: string;
+  target_year: number | null;
+  priority: number;
+  target_course: string | null;
+  target_score: number | null;
+  created_at: string;
+};
+
+export type VestibularProfileRpcRow = {
+  user_id: string;
+  main_exam_id: string | null;
+  main_exam_name: string | null;
+  main_exam_slug: string | null;
+  target_year: number | null;
+  graduation_year: number | null;
+  daily_study_minutes: number | null;
+};
+
+export type ExamListRpcRow = {
+  id: string;
+  slug: string;
+  name: string;
+  organization: string | null;
+  kind: ExamKind;
+  next_edition_year: number | null;
+  next_application_date: string | null;
+};
+
+export type ExamTargetRpcRow = {
+  exam_id: string;
+  exam_name: string;
+  exam_slug: string;
+  target_year: number | null;
+  priority: number;
+  target_course: string | null;
+  target_score: number | null;
+  next_application_date: string | null;
+};
+
+export type VestibularResourceRpcRow = {
+  id: string;
+  kind: ResourceKind;
+  title: string;
+  description: string | null;
+  subject_name: string;
+  subject_color: string;
+  exam_name: string | null;
+  edition_year: number | null;
+  difficulty: Difficulty;
+  question_count: number;
+  time_limit_seconds: number | null;
+  my_best_percent: number | null;
+};
+
+export type VestibularOverviewRpcRow = {
+  exam_name: string | null;
+  edition_year: number | null;
+  application_date: string | null;
+  days_until: number | null;
+  questions_answered: number;
+  correct_answers: number;
+  accuracy_percent: number | null;
+  quizzes_done: number;
+  simulados_done: number;
+  essays_submitted: number;
 };
 
 export type ResourceVisibility = 'private' | 'friends' | 'school' | 'community' | 'public';
@@ -1008,6 +1120,10 @@ export type Database = {
       event_registrations: Table<EventRegistrationRow>;
       attendance: Table<AttendanceRow>;
       certificates: Table<CertificateRow>;
+      exams: Table<ExamRow>;
+      exam_editions: Table<ExamEditionRow>;
+      vestibular_profiles: Table<VestibularProfileRow>;
+      user_exam_targets: Table<UserExamTargetRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -1255,6 +1371,40 @@ export type Database = {
         Returns: void;
       };
       delete_ai_resource: { Args: { p_resource_id: string }; Returns: void };
+      save_vestibular_profile: {
+        Args: {
+          p_main_exam_id?: string | null;
+          p_target_year?: number | null;
+          p_graduation_year?: number | null;
+          p_daily_study_minutes?: number | null;
+        };
+        Returns: void;
+      };
+      get_vestibular_profile: { Args: Record<string, never>; Returns: VestibularProfileRpcRow[] };
+      set_exam_target: {
+        Args: {
+          p_exam_id: string;
+          p_target_year?: number | null;
+          p_priority?: number;
+          p_target_course?: string | null;
+          p_target_score?: number | null;
+        };
+        Returns: void;
+      };
+      remove_exam_target: { Args: { p_exam_id: string }; Returns: void };
+      list_exam_targets: { Args: Record<string, never>; Returns: ExamTargetRpcRow[] };
+      list_exams: { Args: Record<string, never>; Returns: ExamListRpcRow[] };
+      list_vestibular_resources: {
+        Args: {
+          p_exam_id?: string | null;
+          p_year?: number | null;
+          p_subject_catalog_id?: string | null;
+          p_kind?: string | null;
+          p_limit?: number;
+        };
+        Returns: VestibularResourceRpcRow[];
+      };
+      vestibular_overview: { Args: Record<string, never>; Returns: VestibularOverviewRpcRow[] };
       quiz_questions: {
         Args: { p_resource_id: string };
         Returns: {

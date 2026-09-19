@@ -478,6 +478,12 @@ export function ResourceForm({
             </Select>
           </Field>
 
+          <ContextField
+            exams={options.exams}
+            examEditions={options.examEditions}
+            resource={resource}
+          />
+
           <Toggle
             name="isPublished"
             defaultChecked={resource?.is_published ?? false}
@@ -505,5 +511,71 @@ export function ResourceForm({
         </form>
       )}
     </div>
+  );
+}
+
+/**
+ * Contexto do conteúdo: escola ou vestibular.
+ *
+ * Marcar "vestibular" tira o conteúdo da NOTA automática do aluno (a regra
+ * mora em `resources.context`, lida por `subject_scores`) — por isso o aviso
+ * é explícito aqui: é a única coisa neste formulário que muda o boletim.
+ * Prova e edição só aparecem quando fazem sentido.
+ */
+function ContextField({
+  exams,
+  examEditions,
+  resource,
+}: {
+  exams: ResourceFormOptions['exams'];
+  examEditions: ResourceFormOptions['examEditions'];
+  resource?: ResourceRow | null;
+}) {
+  const [context, setContext] = useState<'school' | 'vestibular'>(resource?.context ?? 'school');
+  const [examId, setExamId] = useState(resource?.exam_id ?? '');
+
+  const editions = examEditions.filter((e) => e.examId === examId);
+
+  return (
+    <>
+      <Field label="Contexto" hint="vestibular NÃO entra na nota escolar do aluno">
+        <Select
+          name="context"
+          value={context}
+          onChange={(e) => setContext(e.target.value as 'school' | 'vestibular')}
+        >
+          <option value="school">Escola</option>
+          <option value="vestibular">Vestibular</option>
+        </Select>
+      </Field>
+
+      {context === 'vestibular' && (
+        <>
+          <Field label="Vestibular" hint="opcional — de qual prova é este conteúdo">
+            <Select name="examId" value={examId} onChange={(e) => setExamId(e.target.value)}>
+              <option value="">Sem prova específica</option>
+              {exams.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          {examId && (
+            <Field label="Edição" hint={editions.length ? 'ano da prova' : 'nenhuma edição cadastrada ainda'}>
+              <Select name="examEditionId" defaultValue={resource?.exam_edition_id ?? ''}>
+                <option value="">Sem edição específica</option>
+                {editions.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.year}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+        </>
+      )}
+    </>
   );
 }

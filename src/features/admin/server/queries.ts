@@ -311,6 +311,9 @@ export interface ResourceFormOptions {
   subjects: { id: string; name: string; slug: string }[];
   topics: { id: string; name: string; subjectId: string; schoolId: string | null }[];
   schools: { id: string; name: string }[];
+  /** Vestibulares + edições, para marcar um conteúdo como "ENEM 2024" (contexto vestibular). */
+  exams: { id: string; name: string }[];
+  examEditions: { id: string; examId: string; year: number }[];
 }
 
 export async function getResourceFormOptions(
@@ -318,7 +321,7 @@ export async function getResourceFormOptions(
 ): Promise<ResourceFormOptions> {
   const supabase = await createClient();
 
-  const [subjectsRes, topicsRes, schoolsRes] = await Promise.all([
+  const [subjectsRes, topicsRes, schoolsRes, examsRes, editionsRes] = await Promise.all([
     supabase
       .from('subject_catalog')
       .select('id, name, slug')
@@ -331,6 +334,8 @@ export async function getResourceFormOptions(
     identity.isGlobal
       ? supabase.from('schools').select('id, name').order('name')
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    supabase.from('exams').select('id, name').eq('is_active', true).order('sort_order'),
+    supabase.from('exam_editions').select('id, exam_id, year').order('year', { ascending: false }),
   ]);
 
   // Professor: a lista de matérias encolhe pra só as atribuídas a ele — o
@@ -352,6 +357,12 @@ export async function getResourceFormOptions(
       schoolId: t.school_id,
     })),
     schools: schoolsRes.data ?? [],
+    exams: examsRes.data ?? [],
+    examEditions: (editionsRes.data ?? []).map((e) => ({
+      id: e.id,
+      examId: e.exam_id,
+      year: e.year,
+    })),
   };
 }
 

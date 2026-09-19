@@ -55,8 +55,12 @@ declare
   v_total integer;
   v_afetadas integer;
 begin
+  -- 8 da Community (Fase 0) + 2 do Vestibular (vestibular_enabled/enem_enabled).
+  -- O número exato importa: o que este teste prova é que QUALQUER autenticado
+  -- lê a tabela inteira, então perder uma flag da contagem esconderia uma
+  -- policy de leitura estreita demais.
   select count(*) into v_total from public.feature_flags;
-  assert v_total = 8, format('esperava 8 feature flags legíveis por qualquer autenticado, veio %s', v_total);
+  assert v_total = 10, format('esperava 10 feature flags legíveis por qualquer autenticado, veio %s', v_total);
 
   -- RLS não estoura erro num update que não bate na policy: só afeta 0 linhas.
   update public.feature_flags set enabled = true where key = 'posts_enabled';
