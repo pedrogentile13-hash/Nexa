@@ -476,6 +476,7 @@ export type VestibularOverviewRpcRow = {
   accuracy_percent: number | null;
   quizzes_done: number;
   simulados_done: number;
+  practices_done: number;
   essays_submitted: number;
 };
 
@@ -553,6 +554,51 @@ export type PracticeSessionListRpcRow = {
   total_count: number;
   started_at: string;
   finished_at: string | null;
+};
+
+/* ---- Vestibular · Fase 2: central de erros + desempenho ---------------- */
+
+export type MasteryStatus = 'dominado' | 'desenvolvimento' | 'revisar';
+
+/** 'prova' = veio de uma tentativa de prova; 'treino' = de uma sessão avulsa. */
+export type VestibularAnswerSource = 'prova' | 'treino';
+
+export type VestibularSubjectPerformanceRpcRow = {
+  subject_id: string;
+  subject_name: string;
+  subject_color: string;
+  correct_count: number;
+  total_count: number;
+  accuracy_percent: number;
+  status: MasteryStatus;
+};
+
+export type VestibularTopicPerformanceRpcRow = {
+  subject_id: string;
+  subject_name: string;
+  subject_color: string;
+  topic_id: string | null;
+  topic_name: string;
+  correct_count: number;
+  total_count: number;
+  accuracy_percent: number;
+  status: MasteryStatus;
+};
+
+export type VestibularErrorRpcRow = {
+  question_id: string;
+  statement: string;
+  subject_id: string;
+  subject_name: string;
+  subject_color: string;
+  topic_name: string | null;
+  exam_name: string | null;
+  edition_year: number | null;
+  difficulty: Difficulty;
+  correct_option_body: string | null;
+  explanation: string | null;
+  source: VestibularAnswerSource;
+  answered_at: string;
 };
 
 export type ResourceVisibility = 'private' | 'friends' | 'school' | 'community' | 'public';
@@ -1509,6 +1555,22 @@ export type Database = {
       };
       practice_session_review: { Args: { p_session_id: string }; Returns: PracticeReviewRpcRow[] };
       list_practice_sessions: { Args: { p_limit?: number }; Returns: PracticeSessionListRpcRow[] };
+      vestibular_subject_performance: {
+        Args: Record<string, never>;
+        Returns: VestibularSubjectPerformanceRpcRow[];
+      };
+      vestibular_topic_performance: {
+        Args: { p_subject_catalog_id?: string | null };
+        Returns: VestibularTopicPerformanceRpcRow[];
+      };
+      vestibular_error_list: {
+        Args: { p_subject_catalog_id?: string | null; p_limit?: number };
+        Returns: VestibularErrorRpcRow[];
+      };
+      start_error_practice: {
+        Args: { p_subject_catalog_id?: string | null; p_question_count?: number };
+        Returns: string;
+      };
       quiz_questions: {
         Args: { p_resource_id: string };
         Returns: {

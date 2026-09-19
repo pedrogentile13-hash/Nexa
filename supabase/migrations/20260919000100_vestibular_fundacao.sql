@@ -628,6 +628,13 @@ grant execute on function public.list_vestibular_resources(uuid, integer, uuid, 
 -- Painel do /vestibular: contagem regressiva do alvo + números que contam
 -- SÓ conteúdo de vestibular (o espelho exato do que foi tirado da nota
 -- escolar logo acima).
+-- `drop` explícito antes do `create or replace`: `create or replace` NÃO
+-- consegue mudar o tipo de retorno de uma função, e uma fase seguinte que
+-- acrescente uma coluna a este retorno tornaria esta migração impossível de
+-- reaplicar (o teste de idempotência pega isso na hora). Com o drop aqui, a
+-- ordem de reaplicação volta a funcionar em qualquer estado do banco.
+drop function if exists public.vestibular_overview();
+
 create or replace function public.vestibular_overview()
 returns table (
   exam_name text,

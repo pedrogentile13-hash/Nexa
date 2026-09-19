@@ -71,6 +71,8 @@ export interface VestibularOverview {
   accuracyPercent: number | null;
   quizzesDone: number;
   simuladosDone: number;
+  /** Sessões de treino avulso já encerradas (Fase 1) — não são "simulados". */
+  practicesDone: number;
   essaysSubmitted: number;
 }
 
@@ -89,6 +91,7 @@ export async function getVestibularOverview(): Promise<VestibularOverview> {
     accuracyPercent: row?.accuracy_percent ?? null,
     quizzesDone: row?.quizzes_done ?? 0,
     simuladosDone: row?.simulados_done ?? 0,
+    practicesDone: row?.practices_done ?? 0,
     essaysSubmitted: row?.essays_submitted ?? 0,
   };
 }

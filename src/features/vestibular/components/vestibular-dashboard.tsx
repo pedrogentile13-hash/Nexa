@@ -58,8 +58,8 @@ export function VestibularDashboard({ overview }: { overview: VestibularOverview
         />
         <StatTile
           icon={ClipboardCheck}
-          value={overview.simuladosDone.toLocaleString('pt-BR')}
-          label="Simulados feitos"
+          value={(overview.simuladosDone + overview.practicesDone).toLocaleString('pt-BR')}
+          label="Provas e treinos"
         />
         <StatTile
           icon={PenLine}
@@ -68,14 +68,26 @@ export function VestibularDashboard({ overview }: { overview: VestibularOverview
         />
       </div>
 
-      <div className="border-border bg-surface flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">Praticar agora</p>
-          <p className="text-muted text-sm">Provas anteriores e simulados da sua prova.</p>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="border-border bg-surface flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Praticar agora</p>
+            <p className="text-muted text-sm">Treino avulso ou uma prova anterior inteira.</p>
+          </div>
+          <Button asChild>
+            <Link href="/vestibular/questoes">Ver questões</Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link href="/vestibular/questoes">Ver conteúdo</Link>
-        </Button>
+
+        <div className="border-border bg-surface flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Central de erros</p>
+            <p className="text-muted text-sm">O que você ainda erra, pronto pra refazer.</p>
+          </div>
+          <Button variant="outline" asChild>
+            <Link href="/vestibular/erros">Ver erros</Link>
+          </Button>
+        </div>
       </div>
     </div>
   );

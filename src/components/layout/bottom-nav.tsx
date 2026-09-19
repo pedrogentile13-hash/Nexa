@@ -74,12 +74,19 @@ const SCHOOL_ITEM = { href: '/hoje', label: 'Escola', Icon: School } as const;
 const VESTIBULAR_FIXED_ITEMS = [
   { href: '/vestibular', label: 'Início', Icon: Home },
   { href: '/vestibular/questoes', label: 'Questões', Icon: ClipboardCheck },
+  { href: '/vestibular/erros', label: 'Erros', Icon: Target },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
-  { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
   { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
 ] as const;
 
+/**
+ * "Biblioteca" saiu do polegar pra "Central de erros" entrar — cinco continua
+ * sendo o teto, então entrar é sempre alguém sair. A biblioteca é destino de
+ * navegação ocasional; a central de erros é o que se abre todo dia.
+ */
 const VESTIBULAR_MORE_ITEMS = [
+  { href: '/vestibular/desempenho', label: 'Desempenho', Icon: TrendingUp },
+  { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
   { href: '/ranking', label: 'Ranking', Icon: Trophy },
   { href: '/perfil', label: 'Perfil', Icon: User },
 ] as const;

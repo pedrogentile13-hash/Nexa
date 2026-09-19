@@ -81,6 +81,8 @@ const COMMUNITY_ITEM: NavItem = { href: '/comunidade', label: 'Comunidade', Icon
 const VESTIBULAR_PRIMARY_ITEMS: NavItem[] = [
   { href: '/vestibular', label: 'Início', Icon: Home },
   { href: '/vestibular/questoes', label: 'Questões', Icon: ClipboardCheck },
+  { href: '/vestibular/erros', label: 'Central de erros', Icon: Target },
+  { href: '/vestibular/desempenho', label: 'Desempenho', Icon: TrendingUp },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
   { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
 ];

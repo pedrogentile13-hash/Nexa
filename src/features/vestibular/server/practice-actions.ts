@@ -95,3 +95,26 @@ export async function finishPracticeSession(
     xpAwarded: row.xp_awarded,
   };
 }
+
+/**
+ * Refazer os erros. Abre uma sessão de prática comum montada só com o que o
+ * aluno erra hoje — o player, a correção e o XP da Fase 1 valem sem nenhuma
+ * tela nova.
+ */
+export async function startErrorPractice(input: {
+  subjectId?: string | null;
+  questionCount?: number;
+}): Promise<{ status: 'ok'; sessionId: string } | { status: 'error'; message: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('start_error_practice', {
+    p_subject_catalog_id: input.subjectId ?? null,
+    p_question_count: Math.min(50, Math.max(1, input.questionCount ?? 10)),
+  });
+
+  if (error || !data) {
+    return { status: 'error', message: 'Nenhum erro pendente por aqui — bom sinal.' };
+  }
+
+  revalidatePath('/vestibular/erros');
+  return { status: 'ok', sessionId: data };
+}
