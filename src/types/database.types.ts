@@ -479,6 +479,82 @@ export type VestibularOverviewRpcRow = {
   essays_submitted: number;
 };
 
+/* ---- Vestibular · Fase 1: banco de questões avulsas -------------------- */
+
+export type PracticeSessionRow = {
+  id: string;
+  user_id: string;
+  question_ids: string[];
+  exam_id: string | null;
+  subject_catalog_id: string | null;
+  difficulty: Difficulty | null;
+  correct_count: number;
+  total_count: number;
+  started_at: string;
+  finished_at: string | null;
+};
+
+export type PracticeAnswerRow = {
+  id: string;
+  session_id: string;
+  question_id: string;
+  option_id: string | null;
+  is_correct: boolean;
+  time_spent_seconds: number;
+  answered_at: string;
+};
+
+export type PracticeFilterRpcRow = {
+  kind: 'exam' | 'subject';
+  id: string;
+  name: string;
+  question_count: number;
+};
+
+/**
+ * O contrato importante desta linha é o que ela NÃO tem: `options` não
+ * carrega `is_correct`, exatamente como `quiz_questions`. O gabarito só
+ * aparece na resposta de `answer_practice_question`.
+ */
+export type PracticeQuestionRpcRow = {
+  question_id: string;
+  question_position: number;
+  statement: string;
+  difficulty: Difficulty;
+  topic_name: string | null;
+  subject_name: string | null;
+  exam_name: string | null;
+  edition_year: number | null;
+  options: { id: string; position: number; body: string }[];
+  my_option_id: string | null;
+  my_is_correct: boolean | null;
+};
+
+export type PracticeReviewRpcRow = {
+  question_id: string;
+  question_position: number;
+  statement: string;
+  subject_name: string | null;
+  topic_name: string | null;
+  exam_name: string | null;
+  edition_year: number | null;
+  difficulty: Difficulty;
+  my_option_body: string | null;
+  correct_option_body: string | null;
+  is_correct: boolean;
+  explanation: string | null;
+};
+
+export type PracticeSessionListRpcRow = {
+  id: string;
+  exam_name: string | null;
+  subject_name: string | null;
+  correct_count: number;
+  total_count: number;
+  started_at: string;
+  finished_at: string | null;
+};
+
 export type ResourceVisibility = 'private' | 'friends' | 'school' | 'community' | 'public';
 
 export type CreatorResourceRpcRow = {
@@ -1124,6 +1200,8 @@ export type Database = {
       exam_editions: Table<ExamEditionRow>;
       vestibular_profiles: Table<VestibularProfileRow>;
       user_exam_targets: Table<UserExamTargetRow>;
+      practice_sessions: Table<PracticeSessionRow>;
+      practice_answers: Table<PracticeAnswerRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -1405,6 +1483,32 @@ export type Database = {
         Returns: VestibularResourceRpcRow[];
       };
       vestibular_overview: { Args: Record<string, never>; Returns: VestibularOverviewRpcRow[] };
+      practice_filters: { Args: Record<string, never>; Returns: PracticeFilterRpcRow[] };
+      start_practice_session: {
+        Args: {
+          p_exam_id?: string | null;
+          p_subject_catalog_id?: string | null;
+          p_difficulty?: string | null;
+          p_question_count?: number;
+        };
+        Returns: string;
+      };
+      practice_questions: { Args: { p_session_id: string }; Returns: PracticeQuestionRpcRow[] };
+      answer_practice_question: {
+        Args: {
+          p_session_id: string;
+          p_question_id: string;
+          p_option_id: string | null;
+          p_time_spent_seconds?: number;
+        };
+        Returns: { is_correct: boolean; correct_option_id: string | null; explanation: string | null }[];
+      };
+      finish_practice_session: {
+        Args: { p_session_id: string };
+        Returns: { correct_count: number; total_count: number; xp_awarded: number }[];
+      };
+      practice_session_review: { Args: { p_session_id: string }; Returns: PracticeReviewRpcRow[] };
+      list_practice_sessions: { Args: { p_limit?: number }; Returns: PracticeSessionListRpcRow[] };
       quiz_questions: {
         Args: { p_resource_id: string };
         Returns: {
