@@ -42,7 +42,7 @@ export async function AppHeader({
       {/* Contêiner idêntico ao de `PageMain`: com larguras diferentes, o título
           começa num ponto e os cartões em outro — foi essa divergência que
           deixou o desktop desalinhado. */}
-      <div className="mx-auto flex w-full max-w-[1440px] items-center gap-3 px-4 py-3 md:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-[1440px] items-center gap-2 px-4 py-3 md:gap-3 md:px-6 lg:px-8">
         {/* No celular a marca é o seletor de plataforma: é o único lugar da
             tela onde ela aparece, então é nela que o menu tem que morar. */}
         <PlatformSwitcher
@@ -57,7 +57,7 @@ export async function AppHeader({
           {subtitle && <p className="text-muted truncate text-sm">{subtitle}</p>}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-0.5 md:gap-1.5">
           {action}
 
           {typeof streak === 'number' && streak > 0 && (

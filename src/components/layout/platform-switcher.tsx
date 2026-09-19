@@ -117,14 +117,23 @@ export function PlatformSwitcher({
       >
         <Logo />
         {variant === 'full' && <Wordmark suffix={current.wordmark} />}
-        <ChevronDown
-          className={cn(
-            'text-subtle size-4 shrink-0 transition-transform',
-            variant === 'full' && 'ml-auto',
-            open && 'rotate-180',
-          )}
-          aria-hidden
-        />
+        {/*
+          A seta só aparece na sidebar. No celular ela custava ~22px de uma
+          linha que já disputa espaço com título, subtítulo, busca, sino e
+          avatar — e foi ela que passou a cortar "Bom dia, Pedro" em "Bom dia,
+          Pe...". O logo sozinho já é o alvo do menu (o `aria-label` do botão
+          diz isso a quem usa leitor de tela), e no celular tocar na marca pra
+          ver opções é gesto conhecido o bastante pra não precisar da dica.
+        */}
+        {variant === 'full' && (
+          <ChevronDown
+            className={cn(
+              'text-subtle ml-auto size-4 shrink-0 transition-transform',
+              open && 'rotate-180',
+            )}
+            aria-hidden
+          />
+        )}
       </button>
 
       {open && (

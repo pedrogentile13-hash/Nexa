@@ -1,22 +1,13 @@
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/layout/page-loader';
 
 /**
- * Esqueleto genérico do painel — a barra lateral (`AdminShell`) não passa por
- * aqui, porque `loading.tsx` num segmento só cobre o `children` do layout;
- * quem já viu o painel não vê a navegação piscar ao trocar de seção.
+ * Carregamento de todas as telas desta área.
+ *
+ * `loading.tsx` num segmento vira o fallback de Suspense só do `children` do
+ * layout — a navegação lateral e o rodapé continuam na tela e clicáveis, só
+ * a área de conteúdo troca. É isso que faz a troca de aba parecer instantânea
+ * mesmo quando os dados demoram.
  */
-export default function AdminLoading() {
-  return (
-    <div className="p-5">
-      <Skeleton className="mb-1.5 h-6 w-48" />
-      <Skeleton className="mb-6 h-4 w-72" />
-      <div className="space-y-3">
-        <Skeleton className="h-14 rounded-lg" />
-        <Skeleton className="h-14 rounded-lg" />
-        <Skeleton className="h-14 rounded-lg" />
-        <Skeleton className="h-14 rounded-lg" />
-        <Skeleton className="h-14 rounded-lg" />
-      </div>
-    </div>
-  );
+export default function Loading() {
+  return <PageLoader />;
 }
