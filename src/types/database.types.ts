@@ -116,6 +116,7 @@ export type ProfileRow = {
   monthly_subjects_goal: number;
   notification_settings: NotificationSettings;
   onboarded_at: string | null;
+  birth_date: string | null;
   journey: Journey;
   created_at: string;
   updated_at: string;
@@ -402,6 +403,31 @@ export type ExamEditionRow = {
 
 /** Qual Nexa a pessoa usa. Escolhido na criação da conta, trocável no Perfil. */
 export type Journey = 'school' | 'vestibular' | 'both';
+
+/** 'self' = maior de idade por si; 'guardian' = responsável legal (LGPD art. 14). */
+export type ConsentKind = 'self' | 'guardian';
+
+export type ConsentRecordRow = {
+  id: string;
+  user_id: string;
+  kind: ConsentKind;
+  guardian_name: string | null;
+  guardian_email: string | null;
+  guardian_relationship: string | null;
+  document_version: string;
+  accepted_at: string;
+  revoked_at: string | null;
+};
+
+export type MyConsentRpcRow = {
+  id: string;
+  kind: ConsentKind;
+  guardian_name: string | null;
+  guardian_email: string | null;
+  guardian_relationship: string | null;
+  document_version: string;
+  accepted_at: string;
+};
 
 export type VestibularProfileRow = {
   user_id: string;
@@ -1337,6 +1363,7 @@ export type Database = {
       practice_sessions: Table<PracticeSessionRow>;
       practice_answers: Table<PracticeAnswerRow>;
       exam_topic_frequency: Table<ExamTopicFrequencyRow>;
+      consent_records: Table<ConsentRecordRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -2066,6 +2093,20 @@ export type Database = {
         Returns: Json;
       };
       set_journey: { Args: { p_journey: Journey }; Returns: void };
+      record_consent: {
+        Args: {
+          p_kind: ConsentKind;
+          p_document_version: string;
+          p_guardian_name?: string | null;
+          p_guardian_email?: string | null;
+          p_guardian_relationship?: string | null;
+        };
+        Returns: string;
+      };
+      my_consent: { Args: Record<string, never>; Returns: MyConsentRpcRow[] };
+      export_my_data: { Args: Record<string, never>; Returns: Json };
+      delete_my_account: { Args: Record<string, never>; Returns: void };
+      can_read_performance_of: { Args: { p_target_user_id: string }; Returns: boolean };
       vestibular_home: { Args: Record<string, never>; Returns: VestibularHomeRpcRow[] };
     };
     Enums: Record<never, never>;

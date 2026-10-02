@@ -12,6 +12,7 @@ import type { AchievementListItem } from '@/features/profile/components/achievem
 import { RARITY_LABEL } from '@/features/ranking/lib/rarity';
 import { listSchoolClasses } from '@/features/classes/server/queries';
 import { getMySocialProfile } from '@/features/community/server/queries';
+import { getMyBirthDate, getMyConsent } from '@/features/privacy/server/queries';
 import { createClient, getCurrentUser, getNavContext } from '@/lib/supabase/server';
 import type { NotificationSettings } from '@/types/database.types';
 
@@ -30,12 +31,20 @@ export default async function ProfilePage() {
   // Deduplicada por requisição — o shell já leu isto pra montar a navegação.
   const navContext = await getNavContext();
 
-  const [{ data: profile }, { data: stats }, { data: userAchievements }, { data: achievements }, socialProfile] =
+  const [
+    { data: profile },
+    { data: stats },
+    { data: userAchievements },
+    { data: achievements },
+    socialProfile,
+    consent,
+    birthDate,
+  ] =
     await Promise.all([
       supabase
         .from('profiles')
         .select(
-          'full_name, avatar_url, grade_level, class_id, classes(name), daily_study_goal_minutes, weekly_study_goal_minutes, notification_settings, schools(id, name, city, state)',
+          'full_name, avatar_url, role, grade_level, class_id, classes(name), daily_study_goal_minutes, weekly_study_goal_minutes, notification_settings, schools(id, name, city, state)',
         )
         .eq('id', user.id)
         .maybeSingle(),
@@ -43,6 +52,8 @@ export default async function ProfilePage() {
       supabase.from('user_achievements').select('achievement_id, progress, unlocked_at'),
       supabase.from('achievements').select('*').order('sort_order'),
       getMySocialProfile(),
+      getMyConsent(),
+      getMyBirthDate(),
     ]);
 
   const progressById = new Map((userAchievements ?? []).map((row) => [row.achievement_id, row]));
@@ -137,6 +148,9 @@ export default async function ProfilePage() {
           schoolClasses={schoolClasses}
           notificationSettings={notificationSettings}
           socialProfile={socialProfile}
+          consent={consent}
+          birthDate={birthDate}
+          isAdmin={profile?.role === 'admin' || profile?.role === 'school_admin'}
           journey={navContext.journey}
           vestibularEnabled={navContext.vestibularEnabled}
         />

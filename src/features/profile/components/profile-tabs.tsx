@@ -19,6 +19,8 @@ import { ClassPicker } from './class-picker';
 import type { ClassOption } from '@/features/classes/server/queries';
 import { SocialProfileForm } from '@/features/community/components/social-profile-form';
 import { JourneyPicker } from '@/features/vestibular/components/journey-picker';
+import { PrivacyPanel } from '@/features/privacy/components/privacy-panel';
+import type { ConsentRecord } from '@/features/privacy/server/queries';
 import type { Journey, SocialVisibility } from '@/types/database.types';
 
 type Tab = 'conta' | 'notificacoes' | 'aparencia' | 'privacidade';
@@ -44,6 +46,9 @@ export function ProfileTabs({
   socialProfile,
   journey,
   vestibularEnabled,
+  consent,
+  birthDate,
+  isAdmin,
 }: {
   email?: string | null;
   fullName: string;
@@ -58,6 +63,9 @@ export function ProfileTabs({
   socialProfile: { username: string | null; bio: string | null; visibility: SocialVisibility };
   journey: Journey;
   vestibularEnabled: boolean;
+  consent: ConsentRecord | null;
+  birthDate: string | null;
+  isAdmin: boolean;
 }) {
   const [tab, setTab] = useState<Tab>('conta');
 
@@ -153,13 +161,18 @@ export function ProfileTabs({
       )}
 
       {tab === 'privacidade' && (
-        <Card>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Seus dados</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PrivacyPanel consent={consent} birthDate={birthDate} isAdmin={isAdmin} />
+            </CardContent>
+          </Card>
+
+          <Card>
           <CardContent className="divide-border divide-y p-0">
-            <PrivacyRow
-              icon={<ShieldCheck className="size-4" aria-hidden />}
-              label="Conta e privacidade"
-              comingSoon
-            />
             <PrivacyRow
               icon={<HelpCircle className="size-4" aria-hidden />}
               label="Ajuda e suporte"
@@ -185,7 +198,8 @@ export function ProfileTabs({
               </button>
             </form>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       )}
     </div>
   );
