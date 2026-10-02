@@ -19,7 +19,8 @@
     "db:types": "supabase gen types typescript --local > src/types/database.types.ts",
     "db:reset": "supabase db reset",
     "verify": "npm run typecheck && npm run lint && npm run test",
-    "typegen": "next typegen"
+    "typegen": "next typegen",
+    "smoke": "bash scripts/smoke.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

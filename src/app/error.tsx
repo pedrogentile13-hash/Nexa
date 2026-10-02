@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ErrorReporter } from '@/features/observability/components/error-reporter';
 
 /**
  * Rede de segurança para qualquer exceção não tratada num Server/Client
@@ -29,6 +30,8 @@ export default function RootError({
   }, [error]);
 
   return (
+    <>
+      <ErrorReporter error={error} />
     <main className="grid min-h-dvh place-items-center px-6">
       <div className="border-border bg-surface flex max-w-sm flex-col items-center gap-4 rounded-[20px] border px-6 py-10 text-center">
         <div className="from-danger to-danger/80 grid size-14 place-items-center rounded-[32%] bg-gradient-to-br shadow-md">
@@ -47,5 +50,6 @@ export default function RootError({
         </Button>
       </div>
     </main>
+    </>
   );
 }

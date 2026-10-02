@@ -3,6 +3,8 @@ import { SideNav } from '@/components/layout/side-nav';
 import { InstallPrompt } from '@/features/install/components/install-prompt';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { isFeatureEnabled } from '@/lib/feature-flags';
+import { SHELL_COLUMNS, readWithFallback, type ProfileReader } from '@/lib/supabase/profile-read';
+import type { Journey } from '@/types/database.types';
 
 /**
  * Shell do app autenticado.
@@ -32,7 +34,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // só ignorar a coluna. Sem o retry, o shell perderia nome, avatar E papel
   // de admin — a navegação inteira degradaria por causa de um campo que é só
   // preferência de tela.
-  const profile = user ? await readProfileForShell(supabase, user.id) : null;
+  // `readWithFallback` tem teste próprio — ver `profile-read.test.ts`.
+  const profile = user
+    ? ((await readWithFallback(supabase as unknown as ProfileReader, user.id, SHELL_COLUMNS.wanted, SHELL_COLUMNS.guaranteed, {
+        full_name: null,
+        avatar_url: null,
+        role: 'student',
+        journey: 'school',
+      })) as {
+        full_name: string | null;
+        avatar_url: string | null;
+        role: string;
+        journey: Journey;
+      } | null)
+    : null;
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
   const isTeacher = profile?.role === 'teacher_admin';
@@ -70,32 +85,4 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <InstallPrompt />
     </div>
   );
-}
-
-/**
- * Lê o perfil do shell tolerando `journey` ainda não existir no banco.
- *
- * Em regime normal é uma consulta só. A segunda existe apenas na janela
- * entre publicar o código e rodar a migração — janela que sempre existe,
- * porque as duas coisas nunca acontecem no mesmo instante.
- */
-async function readProfileForShell(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-) {
-  const full = await supabase
-    .from('profiles')
-    .select('full_name, avatar_url, role, journey')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (!full.error) return full.data;
-
-  const fallback = await supabase
-    .from('profiles')
-    .select('full_name, avatar_url, role')
-    .eq('id', userId)
-    .maybeSingle();
-
-  return fallback.data ? { ...fallback.data, journey: 'school' as const } : null;
 }

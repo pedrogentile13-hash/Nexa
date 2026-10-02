@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
 import type { Database } from '@/types/database.types';
+import { ONBOARDING_COLUMNS, readWithFallback, type ProfileReader } from './profile-read';
 
 /** Reachable without a session. */
 const PUBLIC_PREFIXES = [
@@ -124,27 +125,13 @@ export async function updateSession(request: NextRequest) {
   // que roda em toda requisição — não pode assumir que o banco já mudou. Em
   // regime normal é uma consulta só; a segunda só existe na janela em que a
   // coluna ainda não chegou.
-  let profile: { onboarded_at: string | null; journey: string | null } | null = null;
-  try {
-    const result = await supabase
-      .from('profiles')
-      .select('onboarded_at, journey')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (result.error) {
-      const fallback = await supabase
-        .from('profiles')
-        .select('onboarded_at')
-        .eq('id', user.id)
-        .maybeSingle();
-      profile = fallback.data ? { onboarded_at: fallback.data.onboarded_at, journey: null } : null;
-    } else {
-      profile = result.data;
-    }
-  } catch {
-    profile = null;
-  }
+  // A resiliência mora em `readWithFallback`, que tem teste próprio: foi a
+  // falta dele que deixou passar o laço de redirecionamento quando o código
+  // pediu `journey` antes da migração rodar.
+  const profile = (await readWithFallback(supabase as unknown as ProfileReader, user.id, ONBOARDING_COLUMNS.wanted, ONBOARDING_COLUMNS.guaranteed, {
+    onboarded_at: null,
+    journey: 'school',
+  })) as { onboarded_at: string | null; journey: string | null } | null;
 
   const onboarded = Boolean(profile?.onboarded_at);
   // Quem escolheu a jornada do vestibular tem OUTRA casa. Mandar essa pessoa

@@ -407,6 +407,30 @@ export type Journey = 'school' | 'vestibular' | 'both';
 /** 'self' = maior de idade por si; 'guardian' = responsável legal (LGPD art. 14). */
 export type ConsentKind = 'self' | 'guardian';
 
+export type ErrorReportRow = {
+  id: string;
+  user_id: string | null;
+  origin: 'client' | 'server';
+  message: string;
+  stack: string | null;
+  pathname: string | null;
+  digest: string | null;
+  user_agent: string | null;
+  created_at: string;
+};
+
+export type ErrorReportRpcRow = {
+  id: string;
+  origin: 'client' | 'server';
+  message: string;
+  stack: string | null;
+  pathname: string | null;
+  digest: string | null;
+  user_agent: string | null;
+  user_name: string | null;
+  created_at: string;
+};
+
 export type ConsentRecordRow = {
   id: string;
   user_id: string;
@@ -1364,6 +1388,7 @@ export type Database = {
       practice_answers: Table<PracticeAnswerRow>;
       exam_topic_frequency: Table<ExamTopicFrequencyRow>;
       consent_records: Table<ConsentRecordRow>;
+      error_reports: Table<ErrorReportRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -2106,6 +2131,18 @@ export type Database = {
       my_consent: { Args: Record<string, never>; Returns: MyConsentRpcRow[] };
       export_my_data: { Args: Record<string, never>; Returns: Json };
       delete_my_account: { Args: Record<string, never>; Returns: void };
+      report_error: {
+        Args: {
+          p_message: string;
+          p_origin?: 'client' | 'server';
+          p_stack?: string | null;
+          p_pathname?: string | null;
+          p_digest?: string | null;
+          p_user_agent?: string | null;
+        };
+        Returns: void;
+      };
+      recent_error_reports: { Args: { p_limit?: number }; Returns: ErrorReportRpcRow[] };
       can_read_performance_of: { Args: { p_target_user_id: string }; Returns: boolean };
       vestibular_home: { Args: Record<string, never>; Returns: VestibularHomeRpcRow[] };
     };
