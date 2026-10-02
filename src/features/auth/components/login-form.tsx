@@ -17,7 +17,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { authenticate, signInWithGoogle, verifyMagicCode } from '../server/actions';
+import {
+  authenticate,
+  resendConfirmation,
+  signInWithGoogle,
+  verifyMagicCode,
+  type ResendState,
+} from '../server/actions';
 import type { AuthFormState, AuthMode } from '../schemas';
 
 /** A marca do Google. Inline porque a CSP bloqueia asset externo. */
@@ -205,6 +211,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
         email={state.email}
         body="Falta só confirmar o e-mail: abra o link que enviamos e depois volte para entrar."
         hint="Não chegou? Confira o spam — o link vale por uma hora."
+        canResend
       />
     );
   }
@@ -442,11 +449,14 @@ function Confirmation({
   email,
   body,
   hint,
+  canResend = false,
 }: {
   title: string;
   email: string;
   body: string;
   hint: string;
+  /** Só na criação de conta: é o único caso em que há o que reenviar. */
+  canResend?: boolean;
 }) {
   return (
     <div className="text-center">
@@ -458,6 +468,46 @@ function Confirmation({
         {body} Enviado para <strong className="text-text">{email}</strong>.
       </p>
       <p className="text-subtle mt-4 text-xs leading-relaxed">{hint}</p>
+
+      {canResend && <ResendConfirmation email={email} />}
     </div>
+  );
+}
+
+/**
+ * Reenviar o e-mail de confirmação.
+ *
+ * Em `<form action>` e não com `onClick`: assim funciona antes da hidratação,
+ * que é justamente quando alguém numa rede ruim — a mesma rede que pode ter
+ * atrasado o e-mail — estaria tentando.
+ */
+function ResendConfirmation({ email }: { email: string }) {
+  const [state, action] = useActionState<ResendState, FormData>(resendConfirmation, {
+    status: 'idle',
+  });
+
+  if (state.status === 'sent') {
+    return (
+      <p className="text-success mt-5 text-sm">
+        Reenviado. Se ainda não chegar, confira o spam.
+      </p>
+    );
+  }
+
+  return (
+    <form action={action} className="mt-5">
+      <input type="hidden" name="email" value={email} />
+      <ResendButtonInner />
+    </form>
+  );
+}
+
+function ResendButtonInner() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="outline" size="sm" disabled={pending}>
+      {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+      {pending ? 'Reenviando…' : 'Reenviar e-mail'}
+    </Button>
   );
 }

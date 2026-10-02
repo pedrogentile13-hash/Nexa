@@ -343,3 +343,43 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
   redirect('/login');
 }
+
+/**
+ * Reenvia o e-mail de confirmação de conta.
+ *
+ * Existe porque a tela "Conta criada" era um beco sem saída: se o e-mail não
+ * chegava — e no Nexa isso aconteceu de verdade — a única saída era tentar
+ * criar a conta de novo, que falha com "e-mail já cadastrado" e deixa a
+ * pessoa convencida de que o app está quebrado.
+ *
+ * Nunca diz se o e-mail existe ou se já foi confirmado. A resposta é a mesma
+ * nos três casos, pelo mesmo motivo que o login não revela qual campo está
+ * errado: isto é um formulário aberto na internet, e a diferença entre as
+ * respostas seria um jeito de descobrir quem tem conta.
+ */
+export type ResendState = { status: 'idle' } | { status: 'sent' };
+
+export async function resendConfirmation(
+  _prev: ResendState,
+  formData: FormData,
+): Promise<ResendState> {
+  const email = formData.get('email')?.toString()?.trim().toLowerCase() ?? '';
+  if (!email) return { status: 'idle' };
+
+  const supabase = await createClient();
+  const origin = await currentOrigin();
+  const next = safeNext(formData.get('next')?.toString());
+
+  try {
+    await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(next)}` },
+    });
+  } catch {
+    // Falha de infraestrutura cai no mesmo retorno de sucesso de propósito —
+    // ver o comentário acima.
+  }
+
+  return { status: 'sent' };
+}
