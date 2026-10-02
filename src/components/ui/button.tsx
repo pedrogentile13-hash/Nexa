@@ -11,20 +11,31 @@ import { cn } from '@/lib/utils';
  */
 const buttonVariants = cva(
   cn(
-    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium',
-    'transition-colors duration-150 select-none',
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium',
+    'transition-[colors,transform,box-shadow] duration-150 select-none',
     'disabled:pointer-events-none disabled:opacity-50',
     '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   ),
   {
     variants: {
       variant: {
-        primary: 'bg-brand text-brand-fg hover:bg-brand-hover active:scale-[0.985]',
-        secondary: 'bg-surface-2 text-text hover:bg-surface-hover',
-        outline: 'border border-border-strong bg-surface text-text hover:bg-surface-2',
-        ghost: 'text-muted hover:bg-surface-2 hover:text-text',
-        soft: 'bg-brand-soft text-brand-text hover:brightness-95',
-        danger: 'bg-danger text-white hover:brightness-110',
+        primary: 'rounded-md bg-brand text-brand-fg hover:bg-brand-hover active:scale-[0.985]',
+        secondary: 'rounded-md bg-surface-2 text-text hover:bg-surface-hover',
+        outline: 'rounded-md border border-border-strong bg-surface text-text hover:bg-surface-2',
+        ghost: 'rounded-md text-muted hover:bg-surface-2 hover:text-text',
+        soft: 'rounded-md bg-brand-soft text-brand-text hover:brightness-95',
+        danger: 'rounded-md bg-danger text-white hover:brightness-110',
+        /**
+         * O botão "divertido" do onboarding e de CTAs de destaque: pílula
+         * cheia, texto em caixa alta, e uma borda inferior mais escura que
+         * funciona como sombra 3D — o dedo "aperta" o botão, que perde 2px de
+         * profundidade em vez de só mudar de cor.
+         */
+        pop: cn(
+          'rounded-full bg-brand text-brand-fg font-bold tracking-wide uppercase',
+          'shadow-[0_4px_0_0_var(--brand-hover)] active:translate-y-[3px] active:shadow-[0_1px_0_0_var(--brand-hover)]',
+          'disabled:shadow-[0_4px_0_0_var(--brand-hover)] disabled:active:translate-y-0',
+        ),
       },
       size: {
         sm: 'h-10 px-3',
