@@ -5,7 +5,7 @@
  * mesmo bloco, cada uma com timeout/max_tokens diferentes, mas a MESMA lógica
  * de erro). Concentrado aqui pra parar de triplicar quando o Nexa Community
  * (IA Creator, seção 12 do plano) precisar gerar em mais lugares, e pra trocar
- * de provedor (OpenAI, Gemini) em um só ponto no futuro, sem tocar em cada
+ * de provedor (Groq, Gemini) em um só ponto no futuro, sem tocar em cada
  * Server Action.
  *
  * Cada chamador mantém seu próprio texto de erro em português — os motivos
@@ -94,11 +94,93 @@ class GroqProvider implements AIProvider {
   }
 }
 
-const provider: AIProvider = new GroqProvider();
+/**
+ * Modelo do Gemini. Configurável por `GEMINI_MODEL` porque o Google aposenta
+ * modelos com aviso curto — trocar o modelo não pode exigir novo deploy de
+ * código, só mudar uma variável.
+ */
+const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
 
-/** Único ponto de acesso ao provedor configurado — troca de implementação (OpenAI, Gemini) muda só aqui. */
+export class GeminiProvider implements AIProvider {
+  async complete(messages: AIMessage[], options: AICompletionOptions = {}): Promise<AICompletionResult> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return { ok: false, reason: 'missing_api_key' };
+
+    const model = process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
+    const { maxTokens = 1024, temperature = 0.7, timeoutMs = 30_000 } = options;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    // O Gemini não tem papel "system" dentro de `contents`: a instrução vai em
+    // `systemInstruction`, e o papel do modelo se chama "model", não "assistant".
+    const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+    const contents = messages
+      .filter((m) => m.role !== 'system')
+      .map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      }));
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Cabeçalho e não `?key=`: chave na URL acaba em log de proxy e de CDN.
+            'x-goog-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+            contents,
+            generationConfig: { maxOutputTokens: maxTokens, temperature },
+          }),
+          signal: controller.signal,
+        },
+      );
+
+      if (!response.ok) {
+        console.error('[ai/provider] Gemini respondeu erro', response.status, await response.text());
+        return { ok: false, reason: 'http_error', status: response.status };
+      }
+
+      const data = (await response.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+        promptFeedback?: { blockReason?: string };
+      };
+      const candidate = data.candidates?.[0];
+      const text = (candidate?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
+
+      if (!text) {
+        const blocked =
+          Boolean(data.promptFeedback?.blockReason) ||
+          candidate?.finishReason === 'SAFETY' ||
+          candidate?.finishReason === 'PROHIBITED_CONTENT';
+        return blocked ? { ok: false, reason: 'content_filter' } : { ok: false, reason: 'empty' };
+      }
+
+      return { ok: true, text };
+    } catch (err) {
+      console.error('[ai/provider] falha ao chamar o Gemini', err);
+      return { ok: false, reason: 'network', error: err };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+/**
+ * Escolhe o provedor. Gemini quando há `GEMINI_API_KEY`; senão, Groq — assim
+ * subir só a variável nova já troca o provedor, e removê-la devolve o
+ * anterior sem tocar em código (é o caminho de volta se algo der errado).
+ * `AI_PROVIDER=groq|gemini` força um dos dois mesmo com as duas chaves.
+ */
 export function getAIProvider(): AIProvider {
-  return provider;
+  const forced = process.env.AI_PROVIDER;
+  if (forced === 'groq') return new GroqProvider();
+  if (forced === 'gemini' || process.env.GEMINI_API_KEY) return new GeminiProvider();
+  return new GroqProvider();
 }
 
 export async function completeWithAI(
