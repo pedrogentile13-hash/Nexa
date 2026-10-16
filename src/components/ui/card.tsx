@@ -5,9 +5,15 @@ import { cn } from '@/lib/utils';
  * The workhorse container. Borders rather than shadows by default: README
  * Parte 3 asks for calm and whitespace, and a screen of drop shadows reads as
  * busy on a phone.
+ *
+ * Raio de 20px porque é a medida da V2 do kit. Ele é grande o bastante para o
+ * cartão ler como "bloco", e é o que separa esta versão da anterior mesmo em
+ * telas onde nada mais mudou.
  */
 export function Card({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('border-border bg-surface rounded-lg border', className)} {...props} />;
+  return (
+    <div className={cn('border-border bg-surface rounded-[20px] border', className)} {...props} />
+  );
 }
 
 export function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {

@@ -19,6 +19,21 @@ export interface SubjectColor {
   label: string;
   light: { base: string; soft: string; onSoft: string };
   dark: { base: string; soft: string; onSoft: string };
+  /**
+   * Superfície colorida que carrega TEXTO BRANCO — o cabeçalho da tela de
+   * matéria, no guia de desktop.
+   *
+   * Não dá para usar `base`: ele foi escolhido para traço e ponto, onde só
+   * precisa se distinguir do vizinho, e nessa função o laranja mede 3,56:1 com
+   * branco, abaixo até do critério de texto grande. E não dá para usar o `base`
+   * do tema escuro: são pastéis claros, feitos para brilhar sobre fundo escuro,
+   * e TODOS os 18 reprovam como fundo de texto claro.
+   *
+   * Por isso `deep` é um valor só, igual nos dois temas: é uma superfície de
+   * marca, não uma superfície de tema. Dezesseis dos dezoito são idênticos ao
+   * `base`; laranja e rosa foram escurecidos até passar.
+   */
+  deep: string;
 }
 
 export const SUBJECT_COLOR_TOKENS = [
@@ -51,10 +66,30 @@ export const SUBJECT_COLORS: Record<SubjectColorToken, SubjectColor> = {
   violet: t('violet', 'Violeta', '#7c3aed', '#f2ebfe', '#4a2391', '#a482f7', '#231640', '#dccdfd'),
   purple: t('purple', 'Púrpura', '#9333ea', '#f6ebfd', '#571f8d', '#bd82f7', '#2a1440', '#e6cdfd'),
   fuchsia: t('fuchsia', 'Fúcsia', '#c026d3', '#fbeafd', '#71177d', '#e07cec', '#3a1140', '#f5cbfa'),
-  pink: t('pink', 'Rosa', '#db2777', '#fdeaf2', '#821846', '#f27bab', '#3d1024', '#fbc9dd'),
+  pink: t(
+    'pink',
+    'Rosa',
+    '#db2777',
+    '#fdeaf2',
+    '#821846',
+    '#f27bab',
+    '#3d1024',
+    '#fbc9dd',
+    '#d72675',
+  ),
   rose: t('rose', 'Rubro', '#e11d48', '#fdeaee', '#87112b', '#f4788e', '#3d0f18', '#fbc7d1'),
   red: t('red', 'Vermelho', '#dc2626', '#fdeceb', '#851616', '#f47d7d', '#3d1211', '#fbc9c9'),
-  orange: t('orange', 'Laranja', '#ea580c', '#fdefe6', '#8c3407', '#f79151', '#3f1c08', '#fbd5b9'),
+  orange: t(
+    'orange',
+    'Laranja',
+    '#ea580c',
+    '#fdefe6',
+    '#8c3407',
+    '#f79151',
+    '#3f1c08',
+    '#fbd5b9',
+    '#c94c0a',
+  ),
   amber: t('amber', 'Âmbar', '#b45309', '#fdf3e3', '#6f3306', '#e9a13c', '#33210a', '#f6ddab'),
   yellow: t('yellow', 'Amarelo', '#a16207', '#fdf7e0', '#653c04', '#d8b13a', '#2d2409', '#f0e0a4'),
   lime: t('lime', 'Limão', '#4d7c0f', '#f0f8e3', '#2e4a09', '#9dc95a', '#1e2b0a', '#d5eaa8'),
@@ -85,12 +120,16 @@ function t(
   darkBase: string,
   darkSoft: string,
   darkOnSoft: string,
+  deep?: string,
 ): SubjectColor {
   return {
     token,
     label,
     light: { base: lightBase, soft: lightSoft, onSoft: lightOnSoft },
     dark: { base: darkBase, soft: darkSoft, onSoft: darkOnSoft },
+    // Sem valor explícito, `deep` é o próprio `base` — o que vale para a
+    // maioria, já validada em 4,5:1 com branco.
+    deep: deep ?? lightBase,
   };
 }
 
@@ -118,6 +157,8 @@ export function subjectColorVars(token: string | null | undefined): React.CSSPro
     '--subject-base': `light-dark(${c.light.base}, ${c.dark.base})`,
     '--subject-soft': `light-dark(${c.light.soft}, ${c.dark.soft})`,
     '--subject-on-soft': `light-dark(${c.light.onSoft}, ${c.dark.onSoft})`,
+    // Um valor só nos dois temas: `deep` é superfície de marca, não de tema.
+    '--subject-deep': c.deep,
   } as React.CSSProperties;
 }
 

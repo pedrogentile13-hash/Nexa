@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "br.com.nexastudy.twa",
+        "sha256_cert_fingerprints": ["B1:8C:4A:EF:09:1B:52:0D:25:A4:AD:E7:C1:A4:2C:0A:9E:07:6B:ED:E7:58:0B:9D:2B:FD:3D:B3:82:0C:B0:15"]
+      }
+    }]

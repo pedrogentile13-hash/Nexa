@@ -1,0 +1,41 @@
+# ============================================================================
+# Nexa no Netlify
+#
+# O Netlify detecta Next.js sozinho, mas sem este arquivo a versão do Node fica
+# a que estiver de padrão na plataforma — e o build quebra em silêncio quando
+# essa versão muda. Fixar aqui é o que torna o deploy reprodutível.
+#
+# ⚠️ O build EXIGE duas variáveis de ambiente, configuradas no painel
+# (Project configuration → Environment variables). Sem elas `src/lib/env.ts`
+# aborta a compilação de propósito:
+#
+#   NEXT_PUBLIC_SUPABASE_URL       → Supabase → Project Settings → API → Project URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY  → mesma tela → Project API keys → `anon` `public`
+#
+# A chave `anon` é pública por definição (vai para o bundle do navegador); quem
+# protege os dados é a RLS, não o segredo dela. NUNCA use a `service_role` aqui.
+# ============================================================================
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # package.json pede >= 20.11; 22 é a LTS atual e a que o projeto usa em CI.
+  NODE_VERSION = "22"
+  # O build não precisa das dependências de desenvolvimento do Playwright.
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
+# Runtime do Next: middleware, Server Actions e rotas dinâmicas dependem dele.
+# O Netlify normalmente instala sozinho ao detectar Next, mas declarar aqui
+# evita depender da detecção automática.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Previews de PR usam a própria URL, senão os redirects de auth do Supabase
+# apontariam para produção e o login quebraria no preview.
+[context.deploy-preview.environment]
+  NEXT_PUBLIC_SITE_URL = "$DEPLOY_PRIME_URL"
+
+[context.branch-deploy.environment]
+  NEXT_PUBLIC_SITE_URL = "$DEPLOY_PRIME_URL"
