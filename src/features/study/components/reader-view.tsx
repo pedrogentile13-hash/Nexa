@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Check, Highlighter, Minus, Plus, Trash2 } from 'lucide-react';
+import { Check, Highlighter, Loader2, Minus, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { StudyTopBar } from './study-top-bar';
 import { RatingStars } from '@/features/community/components/rating-stars';
-import { addHighlight, removeHighlight, saveProgress } from '../server/actions';
+import { addHighlight, explainPassage, removeHighlight, saveProgress } from '../server/actions';
 import { Markdown } from './markdown';
 import { useContentTimeTracking } from '../hooks/use-content-time-tracking';
 import type { ResourceDetail } from '../server/queries';
@@ -36,6 +36,12 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
   const [percent, setPercent] = useState(resource.progressPercent);
   const [selection, setSelection] = useState<string | null>(null);
   const [isDone, setIsDone] = useState(Boolean(resource.completedAt));
+  const [explain, setExplain] = useState<{
+    passage: string;
+    text: string | null;
+    error: string | null;
+    loading: boolean;
+  } | null>(null);
   const articleRef = useRef<HTMLElement>(null);
   const [, startTransition] = useTransition();
 
@@ -43,6 +49,19 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
     if (value >= 95) setIsDone(true);
     void saveProgress(resource.id, value, null, value >= 95);
   }, 1200);
+
+  function askAI(passage: string, style: 'normal' | 'simples' | 'exemplo') {
+    setExplain({ passage, text: null, error: null, loading: true });
+    startTransition(async () => {
+      const result = await explainPassage(resource.id, passage, style);
+      setExplain({
+        passage,
+        text: result.ok ? result.text : null,
+        error: result.ok ? null : result.message,
+        loading: false,
+      });
+    });
+  }
 
   function onMarkDone() {
     setIsDone(true);
@@ -203,20 +222,99 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
           `bottom-[...]` no celular, não `bottom-0`: mesmo motivo do rodapé
           do quiz — a barra de navegação inferior também é `fixed bottom-0`
           e, renderizada depois, pintava por cima deste botão. */}
-      {selection && (
+      {selection && !explain && (
         <div className="pb-safe fixed inset-x-0 bottom-[calc(4.25rem_+_env(safe-area-inset-bottom))] z-40 px-4 pb-4 md:bottom-0">
-          <button
-            type="button"
-            onClick={() => {
-              void addHighlight(resource.id, selection);
-              setSelection(null);
-              window.getSelection()?.removeAllRanges();
-            }}
-            className="bg-brand text-brand-fg mx-auto flex h-12 max-w-sm items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold shadow-lg"
+          <div className="mx-auto flex max-w-sm gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                askAI(selection, 'normal');
+                setSelection(null);
+                window.getSelection()?.removeAllRanges();
+              }}
+              className="bg-brand text-brand-fg flex h-12 flex-1 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold shadow-lg"
+            >
+              <Sparkles className="size-4" aria-hidden />
+              Explicar com IA
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void addHighlight(resource.id, selection);
+                setSelection(null);
+                window.getSelection()?.removeAllRanges();
+              }}
+              aria-label="Marcar trecho"
+              className="bg-surface text-text border-border grid h-12 w-12 shrink-0 place-items-center rounded-full border shadow-lg"
+            >
+              <Highlighter className="size-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {explain && (
+        <div className="pb-safe fixed inset-x-0 bottom-[calc(4.25rem_+_env(safe-area-inset-bottom))] z-40 px-3 pb-3 md:bottom-0">
+          <section
+            aria-live="polite"
+            className="border-border bg-surface mx-auto max-w-2xl rounded-2xl border p-4 shadow-xl"
           >
-            <Highlighter className="size-4" aria-hidden />
-            Marcar trecho
-          </button>
+            <div className="flex items-start gap-2">
+              <span className="bg-brand-soft text-brand-text grid size-7 shrink-0 place-items-center rounded-full">
+                <Sparkles className="size-3.5" aria-hidden />
+              </span>
+              <p className="text-muted min-w-0 flex-1 truncate pt-1 text-xs italic">“{explain.passage}”</p>
+              <button
+                type="button"
+                onClick={() => setExplain(null)}
+                aria-label="Fechar explicação"
+                className="text-muted hover:bg-surface-2 grid size-9 shrink-0 place-items-center rounded-full"
+              >
+                <X className="size-4" aria-hidden />
+              </button>
+            </div>
+
+            <div className="mt-2 max-h-[40vh] overflow-y-auto text-sm leading-relaxed">
+              {explain.loading ? (
+                <p className="text-muted flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" aria-hidden /> Pensando…
+                </p>
+              ) : explain.error ? (
+                <p role="alert" className="text-danger">{explain.error}</p>
+              ) : (
+                <Markdown source={explain.text ?? ''} />
+              )}
+            </div>
+
+            {!explain.loading && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => askAI(explain.passage, 'simples')}
+                  className="border-border hover:bg-surface-2 rounded-full border px-3 py-1.5 text-xs font-medium"
+                >
+                  Ainda não entendi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => askAI(explain.passage, 'exemplo')}
+                  className="border-border hover:bg-surface-2 rounded-full border px-3 py-1.5 text-xs font-medium"
+                >
+                  Dar um exemplo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void addHighlight(resource.id, explain.passage);
+                    setExplain(null);
+                  }}
+                  className="border-border hover:bg-surface-2 rounded-full border px-3 py-1.5 text-xs font-medium"
+                >
+                  Marcar trecho
+                </button>
+              </div>
+            )}
+          </section>
         </div>
       )}
     </div>

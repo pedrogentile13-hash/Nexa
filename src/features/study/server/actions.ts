@@ -3,6 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { completeWithAI } from '@/lib/ai/provider';
+import { reportError } from '@/features/observability/server/actions';
+import {
+  buildExplainMessages,
+  MAX_PASSAGE_CHARS,
+  parseExplainStyle,
+  surroundingText,
+} from '../lib/explain-prompt';
 
 /**
  * Escritas da aba Estudar.
@@ -295,4 +303,57 @@ export async function reviewFlashcard(resourceId: string, knows: boolean): Promi
     p_position_seconds: null,
     p_completed: knows,
   });
+}
+
+export type ExplainResult = { ok: true; text: string } | { ok: false; message: string };
+
+/**
+ * "Explicar com IA" no leitor: o aluno marca o que não entendeu e recebe uma
+ * explicação do trecho, dentro do contexto do próprio resumo.
+ *
+ * O resumo é lido com o cliente do aluno, então a RLS decide se ele pode vê-lo:
+ * um id de resumo privado de outra pessoa volta vazio e nada é enviado à IA.
+ * Nada é gravado — a explicação é descartável; quem quer guardar usa "Marcar".
+ */
+export async function explainPassage(
+  resourceId: string,
+  passage: string,
+  style?: string,
+): Promise<ExplainResult> {
+  const id = z.string().uuid().safeParse(resourceId);
+  const text = passage.trim().slice(0, MAX_PASSAGE_CHARS);
+  if (!id.success || text.length < 3) return { ok: false, message: 'Marque um trecho do texto primeiro.' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: 'Sessão expirada.' };
+
+  const { data } = await supabase
+    .from('resources')
+    .select('title, body, subject_catalog(name)')
+    .eq('id', id.data)
+    .maybeSingle();
+  if (!data) return { ok: false, message: 'Não encontrei este resumo.' };
+
+  const result = await completeWithAI(
+    buildExplainMessages({
+      title: data.title,
+      subjectName: (data as { subject_catalog?: { name?: string } | null }).subject_catalog?.name ?? 'Estudos',
+      passage: text,
+      context: surroundingText(data.body ?? '', text),
+      style: parseExplainStyle(style),
+    }),
+    { maxTokens: 400, temperature: 0.4, timeoutMs: 20_000 },
+  );
+  if (result.ok) return { ok: true, text: result.text };
+
+  if (result.reason === 'content_filter') return { ok: false, message: 'Não consegui explicar este trecho.' };
+  await reportError({
+    origin: 'server',
+    message: `Explicar com IA falhou: ${result.reason}${'status' in result ? ` (HTTP ${result.status})` : ''}`,
+    pathname: `/estudar/${id.data}`,
+  });
+  return { ok: false, message: 'A IA não respondeu agora — tenta de novo em instantes.' };
 }
