@@ -30,6 +30,7 @@ import {
   type SendMessageState,
 } from '../server/actions';
 import type { ChatMessage, ChatSessionSummary } from '../server/queries';
+import { DEFAULT_TUTOR_MODE, TUTOR_MODES, TUTOR_MODE_LABELS, type TutorMode } from '../tutor';
 
 const SIDEBAR_COLLAPSED_KEY = 'nexaai:sidebar-collapsed';
 
@@ -279,6 +280,7 @@ function ChatPanel({
   messages: ChatMessage[];
 }) {
   const [state, formAction] = useActionState(sendMessage, INITIAL);
+  const [mode, setMode] = useState<TutorMode>(DEFAULT_TUTOR_MODE);
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -307,8 +309,8 @@ function ChatPanel({
             </span>
             <h2 className="mt-3 text-base font-semibold">Como posso ajudar?</h2>
             <p className="text-muted mt-1 text-sm">
-              Pergunte sobre qualquer conteúdo — a NexaAI ainda não tem um provedor conectado, mas
-              sua conversa já fica salva no histórico.
+              Escolha como quer estudar e pergunte sobre qualquer conteúdo — a NexaAI conhece suas
+              notas e os assuntos que você mais precisa revisar.
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               {QUICK_PROMPTS.map((prompt) => (
@@ -348,6 +350,27 @@ function ChatPanel({
 
       <form action={formAction} className="border-border bg-bg/90 sticky bottom-0 border-t pt-3 pb-safe">
         <input type="hidden" name="sessionId" value={activeSessionId ?? ''} />
+        <input type="hidden" name="mode" value={mode} />
+        <div role="radiogroup" aria-label="Modo do tutor" className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
+          {TUTOR_MODES.map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={mode === m}
+              title={TUTOR_MODE_LABELS[m].hint}
+              onClick={() => setMode(m)}
+              className={cn(
+                'shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                mode === m
+                  ? 'border-brand bg-brand-soft text-brand-text'
+                  : 'border-border bg-bg text-muted hover:bg-surface-2',
+              )}
+            >
+              {TUTOR_MODE_LABELS[m].label}
+            </button>
+          ))}
+        </div>
         {state.status === 'error' && (
           <p role="alert" className="text-danger mb-2 text-sm">
             {state.message}

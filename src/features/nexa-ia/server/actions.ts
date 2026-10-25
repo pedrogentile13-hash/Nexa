@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
 import { getChatMessages } from './queries';
+import { buildTutorSystemPrompt, parseTutorMode, type TutorMode } from '../tutor';
 import { reportError } from '@/features/observability/server/actions';
 
 /**
@@ -22,13 +23,6 @@ import { reportError } from '@/features/observability/server/actions';
  * está salva de qualquer forma, então uma falha aqui vira uma mensagem
  * educada, nunca uma tela quebrada.
  */
-
-const SYSTEM_INSTRUCTION = `Você é a NexaAI, a assistente de estudos do Nexa Study — um app usado por estudantes brasileiros do ensino fundamental e médio.
-Responda sempre em português do Brasil, de forma clara, objetiva e didática, como um professor particular paciente.
-Foque em ajudar a entender conceitos, resolver dúvidas de matérias escolares e sugerir como estudar — nunca apenas dê a resposta pronta de uma tarefa sem explicar o raciocínio.
-Se a pergunta não tiver relação com estudos, responda com educação e traga a conversa de volta para como você pode ajudar nos estudos.
-Mantenha as respostas concisas — o aluno está lendo num app, não um livro.
-Formate em Markdown simples (##/### para título quando a resposta tiver partes, **negrito** pra destacar o que importa, listas com "-" pra passos ou exemplos) pra dar hierarquia visual, e use emojis com moderação (1-3, em pontos-chave) — nunca em toda frase, nunca a resposta inteira entre aspas ou em bloco de código.`;
 
 /**
  * Contexto do próprio aluno — notas por matéria (`subject_scores`) e os
@@ -78,11 +72,17 @@ async function buildStudentContext(userId: string): Promise<string> {
   }
 }
 
-async function replyTo(sessionId: string, userId: string): Promise<string> {
-  const studentContext = await buildStudentContext(userId);
-  const systemContent = studentContext
-    ? `${SYSTEM_INSTRUCTION}\n\nContexto sobre este aluno — use com naturalidade para personalizar a ajuda (por exemplo, relacionando a dúvida a um assunto fraco dele), nunca liste os números como se estivesse lendo um relatório: ${studentContext}`
-    : SYSTEM_INSTRUCTION;
+async function readJourney(userId: string): Promise<string | null> {
+  // `journey` é coluna nova: se a migração ainda não rodou o PostgREST devolve
+  // erro (sem lançar) e o data vem null — tratado como "escola".
+  const supabase = await createClient();
+  const { data } = await supabase.from('profiles').select('journey').eq('id', userId).maybeSingle();
+  return (data as { journey?: string | null } | null)?.journey ?? null;
+}
+
+async function replyTo(sessionId: string, userId: string, mode: TutorMode): Promise<string> {
+  const [studentContext, journey] = await Promise.all([buildStudentContext(userId), readJourney(userId)]);
+  const systemContent = buildTutorSystemPrompt({ mode, journey, studentContext });
 
   // Histórico da MESMA sessão vira contexto — sem isso, cada mensagem seria
   // uma conversa nova pra IA, e "e sobre o segundo item?" não faria sentido.
@@ -170,6 +170,7 @@ const sendMessageSchema = z.object({
   // Vazio = ainda não existe conversa selecionada; cria uma na hora.
   sessionId: z.string().uuid().or(z.literal('')),
   content: z.string().trim().min(1, 'Escreva algo antes de enviar.').max(2000),
+  mode: z.string().optional(),
 });
 
 export type SendMessageState =
@@ -184,6 +185,7 @@ export async function sendMessage(
   const parsed = sendMessageSchema.safeParse({
     sessionId: formData.get('sessionId') ?? '',
     content: formData.get('content'),
+    mode: formData.get('mode') ?? undefined,
   });
   if (!parsed.success) {
     return { status: 'error', message: parsed.error.issues[0]?.message ?? 'Revise a mensagem.' };
@@ -217,7 +219,7 @@ export async function sendMessage(
 
   await supabase
     .from('ai_chat_messages')
-    .insert({ session_id: sessionId, role: 'assistant', content: await replyTo(sessionId, user.id) });
+    .insert({ session_id: sessionId, role: 'assistant', content: await replyTo(sessionId, user.id, parseTutorMode(parsed.data.mode)) });
 
   if (!isNewSession) {
     await supabase
