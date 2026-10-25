@@ -80,6 +80,29 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
     }
   }, []);
 
+  // `selectionchange` e não mouseup/touchend: no celular a seleção por toque
+  // longo só se fecha DEPOIS do touchend (o usuário ainda arrasta as alças), e
+  // ler a seleção naquele instante devolvia vazio — o botão nunca aparecia.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    function onSelectionChange() {
+      clearTimeout(timer);
+      // Espera a seleção assentar (alças ainda sendo arrastadas disparam vários eventos).
+      timer = setTimeout(() => {
+        const sel = window.getSelection();
+        const text = sel?.toString().trim() ?? '';
+        const inside =
+          sel && sel.rangeCount > 0 && articleRef.current?.contains(sel.getRangeAt(0).commonAncestorContainer);
+        setSelection(text.length >= 3 && inside ? text : null);
+      }, 250);
+    }
+    document.addEventListener('selectionchange', onSelectionChange);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('selectionchange', onSelectionChange);
+    };
+  }, []);
+
   useEffect(() => {
     function onScroll() {
       const el = articleRef.current;
@@ -156,8 +179,6 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
 
       <article
         ref={articleRef}
-        onMouseUp={() => setSelection(window.getSelection()?.toString().trim() || null)}
-        onTouchEnd={() => setSelection(window.getSelection()?.toString().trim() || null)}
         className="mx-auto max-w-2xl px-5 pt-4 pb-24"
       >
         <h1 className="text-2xl leading-tight font-semibold tracking-tight">{resource.title}</h1>
