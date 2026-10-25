@@ -65,7 +65,8 @@ describe('GeminiProvider', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     mockFetch({ error: 'cota' }, false, 429);
     const result = await new GeminiProvider().complete([{ role: 'user', content: 'x' }]);
-    expect(result).toEqual({ ok: false, reason: 'http_error', status: 429 });
+    // `detail` carrega o corpo do erro do provedor: é ele que diz POR QUE foi 429.
+    expect(result).toEqual({ ok: false, reason: 'http_error', status: 429, detail: '{"error":"cota"}' });
   });
 });
 

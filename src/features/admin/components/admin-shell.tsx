@@ -15,6 +15,7 @@ import {
   Library,
   Route as RouteIcon,
   School,
+  Bot,
   Settings,
   TriangleAlert,
   Sparkles,
@@ -48,6 +49,7 @@ const ITEMS = [
   { href: '/admin/comunidade', label: 'Comunidade', Icon: Flag },
   { href: '/admin/nexaai', label: 'NexaAI', Icon: Sparkles },
   { href: '/admin/notificacoes', label: 'Notificações', Icon: Bell },
+  { href: '/admin/ia', label: 'Diagnóstico da IA', Icon: Bot },
   { href: '/admin/erros', label: 'Erros', Icon: TriangleAlert },
   { href: '/admin/configuracoes', label: 'Configurações', Icon: Settings },
 ] as const;

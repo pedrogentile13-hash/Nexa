@@ -114,7 +114,7 @@ async function replyTo(sessionId: string, userId: string): Promise<string> {
       // lenta". Aqui o admin lê "http_error 403" e sabe o que consertar.
       await reportError({
         origin: 'server',
-        message: `NexaAI falhou: ${result.reason}${'status' in result ? ` (HTTP ${result.status})` : ''}`,
+        message: `NexaAI falhou: ${result.reason}${'status' in result ? ` (HTTP ${result.status})` : ''}${'detail' in result && result.detail ? ` — ${result.detail}` : ''}`,
         pathname: '/nexa-ia',
       });
       return 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';

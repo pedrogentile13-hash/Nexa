@@ -30,7 +30,7 @@ export type AICompletionResult =
   | { ok: false; reason: 'missing_api_key' }
   | { ok: false; reason: 'content_filter' }
   | { ok: false; reason: 'empty' }
-  | { ok: false; reason: 'http_error'; status: number }
+  | { ok: false; reason: 'http_error'; status: number; detail?: string }
   | { ok: false; reason: 'network'; error: unknown };
 
 export interface AIProvider {
@@ -42,7 +42,7 @@ export interface AIProvider {
 // maior modelo de chat de propósito geral disponível na conta atual.
 const GROQ_MODEL = 'openai/gpt-oss-120b';
 
-class GroqProvider implements AIProvider {
+export class GroqProvider implements AIProvider {
   async complete(messages: AIMessage[], options: AICompletionOptions = {}): Promise<AICompletionResult> {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return { ok: false, reason: 'missing_api_key' };
@@ -68,8 +68,9 @@ class GroqProvider implements AIProvider {
       });
 
       if (!response.ok) {
-        console.error('[ai/provider] Groq respondeu erro', response.status, await response.text());
-        return { ok: false, reason: 'http_error', status: response.status };
+        const detail = (await response.text()).slice(0, 300);
+        console.error('[ai/provider] Groq respondeu erro', response.status, detail);
+        return { ok: false, reason: 'http_error', status: response.status, detail };
       }
 
       const data = (await response.json()) as {
@@ -160,8 +161,9 @@ export class GeminiProvider implements AIProvider {
         });
 
       if (!response.ok) {
-        console.error('[ai/provider] Gemini respondeu erro', response.status, await response.text());
-        return { ok: false, reason: 'http_error', status: response.status };
+        const detail = (await response.text()).slice(0, 300);
+        console.error('[ai/provider] Gemini respondeu erro', response.status, detail);
+        return { ok: false, reason: 'http_error', status: response.status, detail };
       }
 
       const data = (await response.json()) as {
