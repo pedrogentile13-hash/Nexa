@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
 import { getChatMessages } from './queries';
+import { reportError } from '@/features/observability/server/actions';
 
 /**
  * Resposta da NexaAI.
@@ -106,10 +107,18 @@ async function replyTo(sessionId: string, userId: string): Promise<string> {
     case 'content_filter':
       // Caso mais comum de vir vazio — a pergunta esbarrou no filtro de conteúdo do próprio provedor.
       return 'Não posso responder isso. Bora voltar para as matérias?';
-    default:
-      // http_error/empty/network já foram logados dentro de `completeWithAI` —
-      // "não consegui pensar" sozinho não precisa dizer a causa pro aluno.
+    default: {
+      // O aluno vê só "não consegui pensar", mas a CAUSA vai pra /admin/erros.
+      // Antes ela só existia no log do servidor, que quase ninguém abre — e foi
+      // assim que uma chave de formato errado ficou parecendo "a IA está
+      // lenta". Aqui o admin lê "http_error 403" e sabe o que consertar.
+      await reportError({
+        origin: 'server',
+        message: `NexaAI falhou: ${result.reason}${'status' in result ? ` (HTTP ${result.status})` : ''}`,
+        pathname: '/nexa-ia',
+      });
       return 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
+    }
   }
 }
 

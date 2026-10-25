@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GeminiProvider, getAIProvider } from './provider';
+import { FallbackProvider, GeminiProvider, geminiEndpoint, getAIProvider, type AIProvider } from './provider';
 
 describe('GeminiProvider', () => {
   beforeEach(() => {
@@ -72,9 +72,9 @@ describe('GeminiProvider', () => {
 describe('getAIProvider', () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it('usa Gemini quando há a chave, e volta pra Groq sem ela', () => {
+  it('usa Gemini com reserva quando há a chave, e só Groq sem ela', () => {
     vi.stubEnv('GEMINI_API_KEY', 'k');
-    expect(getAIProvider()).toBeInstanceOf(GeminiProvider);
+    expect(getAIProvider()).toBeInstanceOf(FallbackProvider);
     vi.stubEnv('GEMINI_API_KEY', '');
     expect(getAIProvider()).not.toBeInstanceOf(GeminiProvider);
   });
@@ -83,5 +83,34 @@ describe('getAIProvider', () => {
     vi.stubEnv('GEMINI_API_KEY', 'k');
     vi.stubEnv('AI_PROVIDER', 'groq');
     expect(getAIProvider()).not.toBeInstanceOf(GeminiProvider);
+  });
+});
+
+describe('geminiEndpoint', () => {
+  it('usa o endereço do AI Studio para chave AIza', () => {
+    expect(geminiEndpoint('AIzaXXXX', 'gemini-2.5-flash')).toContain('generativelanguage.googleapis.com');
+  });
+  it('usa o endereço do Vertex para chave AQ.', () => {
+    expect(geminiEndpoint('AQ.Ab8XXXX', 'gemini-2.5-flash')).toContain('aiplatform.googleapis.com');
+  });
+});
+
+describe('FallbackProvider', () => {
+  const ok: AIProvider = { complete: async () => ({ ok: true, text: 'reserva' }) };
+  const fail: AIProvider = { complete: async () => ({ ok: false, reason: 'http_error', status: 403 }) };
+  const filtered: AIProvider = { complete: async () => ({ ok: false, reason: 'content_filter' }) };
+  const noKey: AIProvider = { complete: async () => ({ ok: false, reason: 'missing_api_key' }) };
+  const msg = [{ role: 'user' as const, content: 'x' }];
+
+  it('cai pro reserva quando o principal falha', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await new FallbackProvider(fail, ok).complete(msg)).toEqual({ ok: true, text: 'reserva' });
+  });
+  it('NÃO contorna o filtro de conteúdo mandando pro reserva', async () => {
+    expect(await new FallbackProvider(filtered, ok).complete(msg)).toEqual({ ok: false, reason: 'content_filter' });
+  });
+  it('reporta o erro do principal se o reserva nem está configurado', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await new FallbackProvider(fail, noKey).complete(msg)).toEqual({ ok: false, reason: 'http_error', status: 403 });
   });
 });

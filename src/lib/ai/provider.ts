@@ -101,6 +101,19 @@ class GroqProvider implements AIProvider {
  */
 const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
 
+/**
+ * Chaves do Google AI Studio começam com `AIza`; as do Vertex AI (Google
+ * Cloud, "express mode") começam com `AQ.` e falam com outro endereço. Aceitar
+ * as duas evita o erro mais provável de quem cola a chave que o Google
+ * mostrou primeiro.
+ */
+export function geminiEndpoint(apiKey: string, model: string): string {
+  const name = encodeURIComponent(model);
+  return apiKey.startsWith('AQ.')
+    ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${name}:generateContent`
+    : `https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent`;
+}
+
 export class GeminiProvider implements AIProvider {
   async complete(messages: AIMessage[], options: AICompletionOptions = {}): Promise<AICompletionResult> {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -122,9 +135,7 @@ export class GeminiProvider implements AIProvider {
       }));
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
+      const response = await fetch(geminiEndpoint(apiKey, model), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -134,11 +145,19 @@ export class GeminiProvider implements AIProvider {
           body: JSON.stringify({
             ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
             contents,
-            generationConfig: { maxOutputTokens: maxTokens, temperature },
+            generationConfig: {
+              maxOutputTokens: maxTokens,
+              temperature,
+              // Os modelos 2.5 "flash" gastam parte de `maxOutputTokens` pensando
+              // antes de responder; com 1024 de teto isso pode consumir tudo e
+              // devolver texto VAZIO — que o app mostra como "não consegui
+              // pensar". Para tirar dúvida de estudante não compensa pensar
+              // longo, então o orçamento de raciocínio é zerado onde é aceito.
+              ...(/2\.5-flash/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+            },
           }),
           signal: controller.signal,
-        },
-      );
+        });
 
       if (!response.ok) {
         console.error('[ai/provider] Gemini respondeu erro', response.status, await response.text());
@@ -176,10 +195,36 @@ export class GeminiProvider implements AIProvider {
  * anterior sem tocar em código (é o caminho de volta se algo der errado).
  * `AI_PROVIDER=groq|gemini` força um dos dois mesmo com as duas chaves.
  */
+/**
+ * Tenta o provedor principal e, se ele FALHAR por motivo técnico, o reserva.
+ *
+ * Só cai pro reserva em falha de infraestrutura (chave ausente, erro HTTP,
+ * rede, resposta vazia). `content_filter` NÃO cai: a pergunta foi barrada de
+ * propósito, e mandá-la a outro provedor seria contornar o filtro em vez de
+ * respeitá-lo.
+ */
+export class FallbackProvider implements AIProvider {
+  constructor(
+    private readonly primary: AIProvider,
+    private readonly secondary: AIProvider,
+  ) {}
+
+  async complete(messages: AIMessage[], options?: AICompletionOptions): Promise<AICompletionResult> {
+    const first = await this.primary.complete(messages, options);
+    if (first.ok || first.reason === 'content_filter') return first;
+
+    console.error('[ai/provider] principal falhou, tentando o reserva:', first.reason);
+    const second = await this.secondary.complete(messages, options);
+    // Se o reserva também não está configurado, o erro útil é o do principal.
+    return !second.ok && second.reason === 'missing_api_key' ? first : second;
+  }
+}
+
 export function getAIProvider(): AIProvider {
   const forced = process.env.AI_PROVIDER;
   if (forced === 'groq') return new GroqProvider();
-  if (forced === 'gemini' || process.env.GEMINI_API_KEY) return new GeminiProvider();
+  if (forced === 'gemini') return new GeminiProvider();
+  if (process.env.GEMINI_API_KEY) return new FallbackProvider(new GeminiProvider(), new GroqProvider());
   return new GroqProvider();
 }
 
