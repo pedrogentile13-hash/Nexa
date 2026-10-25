@@ -103,16 +103,14 @@ export class GroqProvider implements AIProvider {
 const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
 
 /**
- * Chaves do Google AI Studio começam com `AIza`; as do Vertex AI (Google
- * Cloud, "express mode") começam com `AQ.` e falam com outro endereço. Aceitar
- * as duas evita o erro mais provável de quem cola a chave que o Google
- * mostrou primeiro.
+ * Endereço do Gemini API. Vale para chaves `AIza...` E `AQ....`: as duas são
+ * chaves do Gemini API. Uma versão anterior mandava `AQ.` para o Vertex AI
+ * por suposição minha, e o Google respondeu 403 "API has not been used in
+ * project" — a chave do usuário funcionava no Gemini API (outro projeto dele
+ * a usa assim), só não tinha o Vertex ativado.
  */
-export function geminiEndpoint(apiKey: string, model: string): string {
-  const name = encodeURIComponent(model);
-  return apiKey.startsWith('AQ.')
-    ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${name}:generateContent`
-    : `https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent`;
+export function geminiEndpoint(model: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 }
 
 export class GeminiProvider implements AIProvider {
@@ -136,7 +134,7 @@ export class GeminiProvider implements AIProvider {
       }));
 
     try {
-      const response = await fetch(geminiEndpoint(apiKey, model), {
+      const response = await fetch(geminiEndpoint(model), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

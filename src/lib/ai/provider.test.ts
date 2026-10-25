@@ -88,11 +88,9 @@ describe('getAIProvider', () => {
 });
 
 describe('geminiEndpoint', () => {
-  it('usa o endereço do AI Studio para chave AIza', () => {
-    expect(geminiEndpoint('AIzaXXXX', 'gemini-2.5-flash')).toContain('generativelanguage.googleapis.com');
-  });
-  it('usa o endereço do Vertex para chave AQ.', () => {
-    expect(geminiEndpoint('AQ.Ab8XXXX', 'gemini-2.5-flash')).toContain('aiplatform.googleapis.com');
+  it('usa sempre o Gemini API, inclusive para chaves AQ. (regressão: já foram mandadas ao Vertex, que deu 403)', () => {
+    expect(geminiEndpoint('gemini-2.5-flash')).toContain('generativelanguage.googleapis.com');
+    expect(geminiEndpoint('gemini-2.5-flash')).not.toContain('aiplatform');
   });
 });
 
