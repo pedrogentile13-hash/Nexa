@@ -102,7 +102,7 @@ export class GroqProvider implements AIProvider {
  */
 // O Google aposentou o 2.5-flash para contas novas e indicou este na própria
 // mensagem de erro (404). Continua sobrescrevível por GEMINI_MODEL.
-const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash-lite,gemini-3.8-flash';
+const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash-lite,gemini-3.8-flash';
 
 /**
  * Endereço do Gemini API. Vale para chaves `AIza...` E `AQ....`: as duas são
@@ -120,10 +120,30 @@ const THINKING_HEADROOM = 2048;
 /** Status HTTP que significam "o Google está sobrecarregado", não "você errou". */
 const TRANSIENT_STATUS = new Set([500, 502, 503, 504]);
 
+/** Modelos que a chave enxerga para generateContent (para o diagnóstico). */
+export async function listGeminiModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
+      headers: { 'x-goog-api-key': apiKey },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return [];
+    const json = (await res.json()) as {
+      models?: { name?: string; supportedGenerationMethods?: string[] }[];
+    };
+    return (json.models ?? [])
+      .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+      .map((m) => (m.name ?? '').replace(/^models\//, ''))
+      .filter((n) => /^gemini-/.test(n));
+  } catch {
+    return [];
+  }
+}
+
 export function geminiModels(): string[] {
   const raw = process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
   const list = raw.split(',').map((m) => m.trim()).filter(Boolean);
-  return list.length ? list : ['gemini-2.5-flash-lite'];
+  return list.length ? list : ['gemini-3.5-flash-lite'];
 }
 
 export class GeminiProvider implements AIProvider {
