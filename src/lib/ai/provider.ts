@@ -100,7 +100,9 @@ export class GroqProvider implements AIProvider {
  * modelos com aviso curto — trocar o modelo não pode exigir novo deploy de
  * código, só mudar uma variável.
  */
-const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
+// O Google aposentou o 2.5-flash para contas novas e indicou este na própria
+// mensagem de erro (404). Continua sobrescrevível por GEMINI_MODEL.
+const GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
 
 /**
  * Endereço do Gemini API. Vale para chaves `AIza...` E `AQ....`: as duas são
@@ -113,12 +115,15 @@ export function geminiEndpoint(model: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 }
 
+const THINKING_HEADROOM = 2048;
+
 export class GeminiProvider implements AIProvider {
   async complete(messages: AIMessage[], options: AICompletionOptions = {}): Promise<AICompletionResult> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return { ok: false, reason: 'missing_api_key' };
 
     const model = process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
+    const thinkingDisabled = /2\.5-flash/.test(model);
     const { maxTokens = 1024, temperature = 0.7, timeoutMs = 30_000 } = options;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -145,14 +150,19 @@ export class GeminiProvider implements AIProvider {
             ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
             contents,
             generationConfig: {
-              maxOutputTokens: maxTokens,
+              // Modelos que "pensam" gastam parte deste teto antes de escrever.
+              // No 2.5 flash dá pra zerar o raciocínio (abaixo); nos outros o
+              // parâmetro muda de nome entre versões e mandar um desconhecido é
+              // erro 400, então em vez disso sobra folga: sem ela, um teto de
+              // 1024 pode ser consumido inteiro pensando e voltar texto vazio.
+              maxOutputTokens: thinkingDisabled ? maxTokens : maxTokens + THINKING_HEADROOM,
               temperature,
               // Os modelos 2.5 "flash" gastam parte de `maxOutputTokens` pensando
               // antes de responder; com 1024 de teto isso pode consumir tudo e
               // devolver texto VAZIO — que o app mostra como "não consegui
               // pensar". Para tirar dúvida de estudante não compensa pensar
               // longo, então o orçamento de raciocínio é zerado onde é aceito.
-              ...(/2\.5-flash/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+              ...(thinkingDisabled ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
             },
           }),
           signal: controller.signal,

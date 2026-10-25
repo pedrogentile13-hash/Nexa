@@ -87,6 +87,35 @@ describe('getAIProvider', () => {
   });
 });
 
+describe('GeminiProvider — modelo', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+  async function sentBody(model: string) {
+    vi.stubEnv('GEMINI_API_KEY', 'k');
+    vi.stubEnv('GEMINI_MODEL', model);
+    const fn = vi.fn().mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'x' }] } }] }),
+    });
+    vi.stubGlobal('fetch', fn);
+    await new GeminiProvider().complete([{ role: 'user', content: 'x' }], { maxTokens: 1000 });
+    return { url: String(fn.mock.calls[0]![0]), body: JSON.parse((fn.mock.calls[0]![1] as RequestInit).body as string) };
+  }
+
+  it('usa o modelo de GEMINI_MODEL na URL', async () => {
+    expect((await sentBody('gemini-3.8-flash')).url).toContain('models/gemini-3.8-flash:');
+  });
+  it('no 2.5 flash zera o raciocínio e mantém o teto', async () => {
+    const { body } = await sentBody('gemini-2.5-flash');
+    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+    expect(body.generationConfig.maxOutputTokens).toBe(1000);
+  });
+  it('em outros modelos NÃO manda parâmetro de raciocínio e dá folga ao teto', async () => {
+    const { body } = await sentBody('gemini-3.8-flash');
+    expect(body.generationConfig.thinkingConfig).toBeUndefined();
+    expect(body.generationConfig.maxOutputTokens).toBeGreaterThan(1000);
+  });
+});
+
 describe('geminiEndpoint', () => {
   it('usa sempre o Gemini API, inclusive para chaves AQ. (regressão: já foram mandadas ao Vertex, que deu 403)', () => {
     expect(geminiEndpoint('gemini-2.5-flash')).toContain('generativelanguage.googleapis.com');
