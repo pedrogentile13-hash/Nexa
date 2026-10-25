@@ -117,8 +117,48 @@ export function geminiEndpoint(model: string): string {
 
 const THINKING_HEADROOM = 2048;
 
+/** Status HTTP que significam "o Google está sobrecarregado", não "você errou". */
+const TRANSIENT_STATUS = new Set([500, 502, 503, 504]);
+
 export class GeminiProvider implements AIProvider {
+  /**
+   * Pausas entre tentativas. Parametrizável só para o teste não esperar de
+   * verdade — em produção são as duas pausas padrão.
+   */
+  constructor(private readonly retryDelaysMs: number[] = [400, 1200]) {}
+
+  /**
+   * Tenta de novo quando o Google responde 5xx.
+   *
+   * O 503 "This model is currently experiencing high demand. Spikes in demand
+   * are usually temporary" é do próprio Google dizendo que repetir resolve —
+   * e não repetir transforma um pico de segundos numa mensagem de erro para o
+   * aluno. Só 5xx repete: 400/403/404 são erros de configuração que seguem
+   * iguais na segunda tentativa, e repeti-los só atrasaria o diagnóstico.
+   *
+   * O orçamento de tempo é um só (`timeoutMs`), dividido entre as tentativas,
+   * para três tentativas nunca somarem três vezes o limite da Server Action.
+   */
   async complete(messages: AIMessage[], options: AICompletionOptions = {}): Promise<AICompletionResult> {
+    const total = options.timeoutMs ?? 30_000;
+    const deadline = Date.now() + total;
+
+    let result = await this.attempt(messages, { ...options, timeoutMs: total });
+    for (const delay of this.retryDelaysMs) {
+      const transient =
+        !result.ok && result.reason === 'http_error' && TRANSIENT_STATUS.has(result.status);
+      const remaining = deadline - Date.now() - delay;
+      // Sem tempo sobrando pra uma tentativa que preste, devolve o que tem.
+      if (!transient || remaining < 3_000) break;
+
+      console.error('[ai/provider] Gemini sobrecarregado, tentando de novo em', delay, 'ms');
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      result = await this.attempt(messages, { ...options, timeoutMs: remaining });
+    }
+    return result;
+  }
+
+  private async attempt(messages: AIMessage[], options: AICompletionOptions): Promise<AICompletionResult> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return { ok: false, reason: 'missing_api_key' };
 

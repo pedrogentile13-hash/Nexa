@@ -87,6 +87,45 @@ describe('getAIProvider', () => {
   });
 });
 
+describe('GeminiProvider — repetição em 5xx', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+  function seq(responses: { ok: boolean; status: number; body: unknown }[]) {
+    vi.stubEnv('GEMINI_API_KEY', 'k');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    let i = 0;
+    const fn = vi.fn().mockImplementation(async () => {
+      const r = responses[Math.min(i++, responses.length - 1)]!;
+      return { ok: r.ok, status: r.status, json: async () => r.body, text: async () => JSON.stringify(r.body) };
+    });
+    vi.stubGlobal('fetch', fn);
+    return fn;
+  }
+  const overload = { ok: false, status: 503, body: { error: { status: 'UNAVAILABLE' } } };
+  const good = { ok: true, status: 200, body: { candidates: [{ content: { parts: [{ text: 'certo' }] } }] } };
+  const msg = [{ role: 'user' as const, content: 'x' }];
+
+  it('repete no 503 e entrega a resposta quando o Google volta', async () => {
+    const fn = seq([overload, overload, good]);
+    const result = await new GeminiProvider([0, 0]).complete(msg);
+    expect(result).toEqual({ ok: true, text: 'certo' });
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it('desiste depois das tentativas e devolve o 503', async () => {
+    const fn = seq([overload]);
+    const result = await new GeminiProvider([0, 0]).complete(msg);
+    expect(result).toMatchObject({ ok: false, reason: 'http_error', status: 503 });
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it('NÃO repete erro de configuração (403/404): seria só atrasar o diagnóstico', async () => {
+    const fn = seq([{ ok: false, status: 403, body: { error: 'x' } }]);
+    await new GeminiProvider([0, 0]).complete(msg);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('GeminiProvider — modelo', () => {
   afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 

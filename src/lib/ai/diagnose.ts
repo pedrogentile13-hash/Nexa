@@ -16,7 +16,7 @@ import { GeminiProvider, GroqProvider, type AICompletionResult, type AIProvider 
 export interface ProviderDiagnosis {
   name: 'Gemini' | 'Groq';
   configured: boolean;
-  /** Ex.: "AIza…" (AI Studio), "AQ.…" (Vertex), "gsk_…" (Groq). Nunca a chave. */
+  /** Ex.: "AIza…" ou "AQ.…" (Gemini API), "gsk_…" (Groq). Nunca a chave. */
   keyShape: string | null;
   tested: boolean;
   ok: boolean | null;
@@ -27,7 +27,7 @@ export interface ProviderDiagnosis {
 function shapeOf(key: string | undefined): string | null {
   if (!key) return null;
   if (key.startsWith('AIza')) return 'AIza… (Google AI Studio)';
-  if (key.startsWith('AQ.')) return 'AQ.… (Vertex AI)';
+  if (key.startsWith('AQ.')) return 'AQ.… (Gemini API)';
   if (key.startsWith('gsk_')) return 'gsk_… (Groq)';
   return `${key.slice(0, 3)}… (formato desconhecido)`;
 }
@@ -79,5 +79,5 @@ export async function diagnoseAI(run: boolean): Promise<ProviderDiagnosis[]> {
       { name: 'Groq', configured: Boolean(groq), keyShape: shapeOf(groq), tested: false, ok: null, summary: 'Ainda não testado.', detail: null },
     ];
   }
-  return Promise.all([test('Gemini', new GeminiProvider(), gemini), test('Groq', new GroqProvider(), groq)]);
+  return Promise.all([test('Gemini', new GeminiProvider([]), gemini), test('Groq', new GroqProvider(), groq)]);
 }
