@@ -29,6 +29,7 @@ import type { ResourceDetail } from '../server/queries';
 
 const SIZES = ['text-[15px]', 'text-base', 'text-lg', 'text-xl'] as const;
 const STORAGE_KEY = 'nexa:reader-size';
+const PICKED_CLASSES = ['bg-brand-soft', 'rounded-md', 'ring-2', 'ring-brand'];
 
 export function ReaderView({ resource }: { resource: ResourceDetail }) {
   useContentTimeTracking(resource.id);
@@ -43,12 +44,39 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
     loading: boolean;
   } | null>(null);
   const articleRef = useRef<HTMLElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const pickedRef = useRef<HTMLElement | null>(null);
+  // Modo "toque no trecho": evita a seleção nativa do Android, cujo menu
+  // (Copiar / Pesquisar no Google) cobre o texto e disputa com a nossa barra.
+  const [pickMode, setPickMode] = useState(false);
   const [, startTransition] = useTransition();
 
   const [persist] = useDebouncedCallback((value: number) => {
     if (value >= 95) setIsDone(true);
     void saveProgress(resource.id, value, null, value >= 95);
   }, 1200);
+
+  function clearPicked() {
+    pickedRef.current?.classList.remove(...PICKED_CLASSES);
+    pickedRef.current = null;
+  }
+
+  function closeExplain() {
+    clearPicked();
+    setExplain(null);
+  }
+
+  function onBodyClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (!pickMode) return;
+    const block = (event.target as HTMLElement).closest<HTMLElement>('p, li, h1, h2, h3, h4, blockquote, pre');
+    const text = block?.textContent?.trim() ?? '';
+    if (!block || text.length < 3 || !bodyRef.current?.contains(block)) return;
+    clearPicked();
+    block.classList.add(...PICKED_CLASSES);
+    pickedRef.current = block;
+    setPickMode(false);
+    askAI(text, 'normal');
+  }
 
   function askAI(passage: string, style: 'normal' | 'simples' | 'exemplo') {
     setExplain({ passage, text: null, error: null, loading: true });
@@ -177,6 +205,20 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
         />
       </div>
 
+      {pickMode && (
+        <div className="bg-brand text-brand-fg sticky top-[calc(env(safe-area-inset-top)+60px)] z-30 flex items-center gap-2 px-4 py-2.5 text-sm font-medium shadow-md">
+          <Sparkles className="size-4 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1">Toque no parágrafo que você não entendeu</span>
+          <button
+            type="button"
+            onClick={() => setPickMode(false)}
+            className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       <article
         ref={articleRef}
         className="mx-auto max-w-2xl px-5 pt-4 pb-24"
@@ -189,7 +231,26 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
           <RatingStars resourceId={resource.id} />
         </div>
 
-        <div className={cn('mt-6 leading-relaxed', SIZES[sizeIndex])}>
+        {!explain && !pickMode && (
+          <button
+            type="button"
+            onClick={() => setPickMode(true)}
+            className="bg-brand-soft text-brand-text mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold"
+          >
+            <Sparkles className="size-4" aria-hidden />
+            Não entendeu algo? Peça para a IA explicar
+          </button>
+        )}
+
+        <div
+          ref={bodyRef}
+          onClick={onBodyClick}
+          className={cn(
+            'mt-6 leading-relaxed',
+            SIZES[sizeIndex],
+            pickMode && 'cursor-pointer select-none [&_li]:rounded-md [&_li]:py-0.5 [&_p]:rounded-md',
+          )}
+        >
           <Markdown source={resource.body ?? ''} />
         </div>
 
@@ -287,7 +348,7 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
               <p className="text-muted min-w-0 flex-1 truncate pt-1 text-xs italic">“{explain.passage}”</p>
               <button
                 type="button"
-                onClick={() => setExplain(null)}
+                onClick={closeExplain}
                 aria-label="Fechar explicação"
                 className="text-muted hover:bg-surface-2 grid size-9 shrink-0 place-items-center rounded-full"
               >
@@ -327,7 +388,7 @@ export function ReaderView({ resource }: { resource: ResourceDetail }) {
                   type="button"
                   onClick={() => {
                     void addHighlight(resource.id, explain.passage);
-                    setExplain(null);
+                    closeExplain();
                   }}
                   className="border-border hover:bg-surface-2 rounded-full border px-3 py-1.5 text-xs font-medium"
                 >
