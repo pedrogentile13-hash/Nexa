@@ -114,7 +114,7 @@ describe('GeminiProvider — repetição em 5xx', () => {
 
   it('desiste depois das tentativas e devolve o 503', async () => {
     const fn = seq([overload]);
-    const result = await new GeminiProvider([0, 0]).complete(msg);
+    const result = await new GeminiProvider([0, 0], ['um-modelo']).complete(msg);
     expect(result).toMatchObject({ ok: false, reason: 'http_error', status: 503 });
     expect(fn).toHaveBeenCalledTimes(3);
   });
