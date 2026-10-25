@@ -126,6 +126,33 @@ describe('GeminiProvider — repetição em 5xx', () => {
   });
 });
 
+describe('GeminiProvider — lista de modelos', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+  const overload = { ok: false, status: 503, json: async () => ({}), text: async () => '{}' };
+  const good = { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'reserva' }] } }] }) };
+
+  it('troca para o segundo modelo quando o primeiro segue em 503', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubEnv('GEMINI_API_KEY', 'k');
+    vi.stubEnv('GEMINI_MODEL', 'a-model, b-model');
+    const fn = vi.fn().mockResolvedValueOnce(overload).mockResolvedValueOnce(overload).mockResolvedValueOnce(good);
+    vi.stubGlobal('fetch', fn);
+    const result = await new GeminiProvider([0]).complete([{ role: 'user', content: 'x' }]);
+    expect(result).toEqual({ ok: true, text: 'reserva' });
+    expect(String(fn.mock.calls[2]![0])).toContain('b-model');
+  });
+
+  it('não troca de modelo em 403 (erro da chave, igual em qualquer modelo)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubEnv('GEMINI_API_KEY', 'k');
+    vi.stubEnv('GEMINI_MODEL', 'a-model,b-model');
+    const fn = vi.fn().mockResolvedValue({ ok: false, status: 403, json: async () => ({}), text: async () => '{}' });
+    vi.stubGlobal('fetch', fn);
+    await new GeminiProvider([0]).complete([{ role: 'user', content: 'x' }]);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('GeminiProvider — modelo', () => {
   afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 

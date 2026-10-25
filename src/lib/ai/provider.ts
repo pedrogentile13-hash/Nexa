@@ -120,49 +120,81 @@ const THINKING_HEADROOM = 2048;
 /** Status HTTP que significam "o Google está sobrecarregado", não "você errou". */
 const TRANSIENT_STATUS = new Set([500, 502, 503, 504]);
 
+export function geminiModels(): string[] {
+  const raw = process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
+  const list = raw.split(',').map((m) => m.trim()).filter(Boolean);
+  return list.length ? list : [GEMINI_DEFAULT_MODEL];
+}
+
 export class GeminiProvider implements AIProvider {
   /**
-   * Pausas entre tentativas. Parametrizável só para o teste não esperar de
-   * verdade — em produção são as duas pausas padrão.
+   * @param retryDelaysMs pausas entre tentativas no MESMO modelo. Parametrizável
+   *   só para o teste não esperar de verdade.
+   * @param modelsOverride força a lista de modelos (o diagnóstico testa só o
+   *   primeiro, para um reserva que responde não esconder o principal quebrado).
    */
-  constructor(private readonly retryDelaysMs: number[] = [400, 1200]) {}
+  constructor(
+    private readonly retryDelaysMs: number[] = [400, 1200],
+    private readonly modelsOverride?: string[],
+  ) {}
 
   /**
-   * Tenta de novo quando o Google responde 5xx.
+   * `GEMINI_MODEL` aceita uma LISTA separada por vírgula, tentada em ordem.
+   * Modelo novo costuma ficar sobrecarregado (503) ou ser aposentado (404)
+   * justamente quando todo mundo migra pra ele; ter um segundo na lista
+   * transforma isso de "IA fora do ar" em "respondeu pelo modelo ao lado".
+   */
+  private models(): string[] {
+    return this.modelsOverride?.length ? this.modelsOverride : geminiModels();
+  }
+
+  /**
+   * Para cada modelo: tenta, repete em 5xx, e só passa ao próximo se o motivo
+   * for do MODELO (5xx persistente ou 404). 400/403 são da chave/projeto e
+   * seriam iguais em qualquer modelo — trocar só atrasaria o diagnóstico.
    *
-   * O 503 "This model is currently experiencing high demand. Spikes in demand
-   * are usually temporary" é do próprio Google dizendo que repetir resolve —
-   * e não repetir transforma um pico de segundos numa mensagem de erro para o
-   * aluno. Só 5xx repete: 400/403/404 são erros de configuração que seguem
-   * iguais na segunda tentativa, e repeti-los só atrasaria o diagnóstico.
-   *
-   * O orçamento de tempo é um só (`timeoutMs`), dividido entre as tentativas,
-   * para três tentativas nunca somarem três vezes o limite da Server Action.
+   * Um orçamento de tempo só (`timeoutMs`) para tudo, para várias tentativas
+   * nunca somarem várias vezes o limite da Server Action.
    */
   async complete(messages: AIMessage[], options: AICompletionOptions = {}): Promise<AICompletionResult> {
     const total = options.timeoutMs ?? 30_000;
     const deadline = Date.now() + total;
+    let result: AICompletionResult = { ok: false, reason: 'missing_api_key' };
 
-    let result = await this.attempt(messages, { ...options, timeoutMs: total });
-    for (const delay of this.retryDelaysMs) {
-      const transient =
-        !result.ok && result.reason === 'http_error' && TRANSIENT_STATUS.has(result.status);
-      const remaining = deadline - Date.now() - delay;
-      // Sem tempo sobrando pra uma tentativa que preste, devolve o que tem.
-      if (!transient || remaining < 3_000) break;
+    const models = this.models();
+    for (let m = 0; m < models.length; m += 1) {
+      const model = models[m]!;
+      if (m > 0 && deadline - Date.now() < 3_000) break;
 
-      console.error('[ai/provider] Gemini sobrecarregado, tentando de novo em', delay, 'ms');
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      result = await this.attempt(messages, { ...options, timeoutMs: remaining });
+      result = await this.attempt(model, messages, { ...options, timeoutMs: deadline - Date.now() });
+      for (const delay of this.retryDelaysMs) {
+        const transient =
+          !result.ok && result.reason === 'http_error' && TRANSIENT_STATUS.has(result.status);
+        const remaining = deadline - Date.now() - delay;
+        if (!transient || remaining < 3_000) break;
+
+        console.error('[ai/provider] Gemini sobrecarregado, tentando de novo em', delay, 'ms', model);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        result = await this.attempt(model, messages, { ...options, timeoutMs: remaining });
+      }
+
+      if (result.ok) return result;
+      if (result.reason !== 'http_error') return result;
+      const modelProblem = TRANSIENT_STATUS.has(result.status) || result.status === 404;
+      if (!modelProblem) return result;
+      if (m < models.length - 1) console.error('[ai/provider] modelo indisponível, trocando:', model, result.status);
     }
     return result;
   }
 
-  private async attempt(messages: AIMessage[], options: AICompletionOptions): Promise<AICompletionResult> {
+  private async attempt(
+    model: string,
+    messages: AIMessage[],
+    options: AICompletionOptions,
+  ): Promise<AICompletionResult> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return { ok: false, reason: 'missing_api_key' };
 
-    const model = process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
     const thinkingDisabled = /2\.5-flash/.test(model);
     const { maxTokens = 1024, temperature = 0.7, timeoutMs = 30_000 } = options;
     const controller = new AbortController();

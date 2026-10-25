@@ -1,4 +1,4 @@
-import { GeminiProvider, GroqProvider, type AICompletionResult, type AIProvider } from './provider';
+import { GeminiProvider, geminiModels, GroqProvider, type AICompletionResult, type AIProvider } from './provider';
 
 /**
  * Diagnóstico dos provedores de IA, para o painel do admin.
@@ -79,5 +79,14 @@ export async function diagnoseAI(run: boolean): Promise<ProviderDiagnosis[]> {
       { name: 'Groq', configured: Boolean(groq), keyShape: shapeOf(groq), tested: false, ok: null, summary: 'Ainda não testado.', detail: null },
     ];
   }
-  return Promise.all([test('Gemini', new GeminiProvider([]), gemini), test('Groq', new GroqProvider(), groq)]);
+  // Um teste por modelo da lista, cada um isolado: assim aparece qual responde
+  // e qual está sobrecarregado/aposentado, em vez de o reserva mascarar o principal.
+  const geminiRows = Promise.all(
+    geminiModels().map(async (model) => {
+      const row = await test('Gemini', new GeminiProvider([], [model]), gemini);
+      return { ...row, summary: `[${model}] ${row.summary}` };
+    }),
+  );
+  const [g, r] = await Promise.all([geminiRows, test('Groq', new GroqProvider(), groq)]);
+  return [...g, r];
 }
