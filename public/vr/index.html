@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Quarto de Despejo 360°</title>
+<script src="lib/aframe.min.js"></script>
+<style>
+html,body{margin:0;height:100%;background:#000;font-family:system-ui,sans-serif;color:#fff;overflow:hidden}
+#splash{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:radial-gradient(circle at 50% 40%,#2a1f14,#050403);text-align:center;padding:24px}
+#splash h1{font-size:clamp(28px,6vw,56px);margin:0;letter-spacing:.04em}
+#splash p{max-width:560px;opacity:.8;line-height:1.5;margin:0}
+#splash button{font-size:18px;padding:14px 36px;border-radius:999px;border:0;background:#f5b301;color:#111;font-weight:700;cursor:pointer}
+#splash small{opacity:.55}
+#hud{position:fixed;left:12px;top:12px;z-index:10;font-size:13px;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:10px;pointer-events:none}
+#err{position:fixed;left:12px;bottom:12px;z-index:10;font-size:12px;background:rgba(160,30,30,.85);padding:6px 10px;border-radius:8px;display:none}
+</style>
+</head>
+<body>
+<div id="splash">
+<h1>QUARTO DE DESPEJO</h1>
+<p>Uma viagem 360° em três tempos: o quintal da cidade, a sala de estar e a fábrica que move tudo. Olhe ao redor, mire nos pontos brilhantes e segure o olhar (ou toque) para interagir.</p>
+<button id="go">ENTRAR</button>
+<small>VR Box: toque no ícone dos óculos e encaixe o celular. Sem controle: use apenas o olhar (reticle).</small>
+</div>
+<div id="hud"></div>
+<div id="err"></div>
+
+<a-scene id="scene" renderer="antialias:true;colorManagement:true;highRefreshRate:true" vr-mode-ui="enabled:true" loading-screen="enabled:false" device-orientation-permission-ui="enabled:true">
+<a-sky id="sky" radius="60" segments-width="96" segments-height="64" color="#222"></a-sky>
+<a-entity id="world"></a-entity>
+<a-entity id="rig" position="0 1.6 0">
+<a-camera id="cam" look-controls="reverseMouseDrag:false;touchEnabled:true" wasd-controls-enabled="false" fov="80">
+<a-entity id="reticle" cursor="fuse:true;fuseTimeout:1400" raycaster="objects:.clickable;far:70;interval:60" position="0 0 -1"
+geometry="primitive:ring;radiusInner:0.012;radiusOuter:0.02" material="color:#fff;shader:flat;opacity:.9" >
+
+</a-entity>
+<a-text id="status" value="" align="center" position="0 -0.55 -1.4" width="1.6" color="#fff"></a-text>
+<a-sphere id="fade" radius="0.4" segments-width="16" segments-height="12" material="color:#000;side:back;shader:flat;transparent:true;opacity:0" position="0 0 0"></a-sphere>
+</a-camera>
+</a-entity>
+</a-scene>
+
+<script>
+const AREAS=[
+{id:1,nome:"Área 1 · Quarto de Despejo",img:"img/quarto-de-despejo.jpg",c1:"#3b2a1c",c2:"#12100d",c3:"#6b4a2b",
+hot:[
+{yaw:-35,pitch:-12,t:"Panela vazia",b:"Insegurança alimentar é não ter certeza se haverá comida amanhã. Carolina escreveu: \"E assim no dia 13 de maio de 1958 eu lutava contra a escravatura atual — a fome!\""},
+{yaw:30,pitch:-8,t:"Catar para comer",b:"Papel, ferro e restos eram vendidos ou aproveitados. Na favela do Canindé, a sobrevivência dependia do que a cidade jogava fora."},
+{yaw:110,pitch:-5,t:"O barraco",b:"Madeira, lata e papelão. Sem água encanada, sem esgoto, sem privacidade: moradia precária é também uma forma de exclusão."},
+{yaw:-120,pitch:5,t:"O quintal da cidade",b:"\"A favela é o quintal onde jogam os lixos.\" Carolina comparava a cidade a uma casa: o Palácio era a sala de visita; a favela, o quintal."}
+],
+next:{yaw:180,pitch:0,label:"Ir para a Urbanização"}},
+{id:2,nome:"Área 2 · Urbanização (sala de estar)",img:"img/urbanizacao.jpg",c1:"#2a4a6b",c2:"#0b1622",c3:"#8fb7d9",
+hot:[
+{yaw:-40,pitch:2,t:"Comércio",b:"Avenidas e lojas concentram renda e empregos, mas o acesso a elas depende de onde você mora e de quanto custa chegar lá."},
+{yaw:25,pitch:6,t:"Ponte",b:"Pontes e viadutos conectam bairros e, ao mesmo tempo, mostram quem tem prioridade na cidade: o carro ou a pessoa."},
+{yaw:100,pitch:15,t:"Aeroporto",b:"Infraestrutura de escala nacional. A urbanização acelerada do século XX levou o Brasil a ter a maioria da população em cidades."},
+{yaw:-110,pitch:20,t:"Torres de transmissão",b:"Energia e comunicação chegam às cidades por redes que atravessam o território. Conectividade também é direito."}
+],
+next:{yaw:180,pitch:0,label:"Ir para a Industrialização"}},
+{id:3,nome:"Área 3 · Indústrias e Usinas",img:"img/industria-usinas.jpg",c1:"#4a3a2a",c2:"#0d0d0f",c3:"#b9712d",
+hot:[
+{yaw:-30,pitch:8,t:"Usina termelétrica",b:"Queima combustível para gerar vapor e eletricidade. Alimenta fábricas, mas emite poluentes e gases de efeito estufa."},
+{yaw:35,pitch:12,t:"Usina hidrelétrica",b:"Usa a força da água para girar turbinas. A maior parte da eletricidade do Brasil vem de fonte hídrica, com impacto sobre rios e comunidades."},
+{yaw:105,pitch:0,t:"Chaminés e fábricas",b:"A industrialização gerou empregos e atraiu migrantes para a cidade, muitos dos quais acabaram nas periferias e favelas."},
+{yaw:-115,pitch:-5,t:"Trabalhadores",b:"Quem move a indústria raramente vive perto da riqueza que produz. Esse é o elo que fecha o ciclo: indústria, cidade e quarto de despejo."}
+],
+next:{yaw:180,pitch:0,label:"Voltar ao Quarto de Despejo",to:1}}
+];
+
+const $=s=>document.querySelector(s);
+const sky=$("#sky"),world=$("#world"),fade=$("#fade"),status=$("#status"),hud=$("#hud"),err=$("#err");
+let cur=0,found=new Set(),audio=null,busy=false;
+
+function pos(yaw,pitch,r){const y=yaw*Math.PI/180,p=pitch*Math.PI/180;return `${(r*Math.sin(y)*Math.cos(p)).toFixed(3)} ${(r*Math.sin(p)).toFixed(3)} ${(-r*Math.cos(y)*Math.cos(p)).toFixed(3)}`}
+
+function fallback(a){const c=document.createElement("canvas");c.width=2048;c.height=1024;const g=c.getContext("2d");
+const gr=g.createLinearGradient(0,0,0,1024);gr.addColorStop(0,a.c1);gr.addColorStop(.5,a.c3);gr.addColorStop(.5,a.c2);gr.addColorStop(1,"#000");g.fillStyle=gr;g.fillRect(0,0,2048,1024);
+g.fillStyle="rgba(255,255,255,.25)";g.font="48px sans-serif";g.textAlign="center";g.fillText("Coloque "+a.img+" (4096x2048)",1024,500);return c.toDataURL("image/jpeg",.8)}
+
+function loadPano(a){return new Promise(res=>{const im=new Image();im.onload=()=>res(a.img);im.onerror=()=>{err.style.display="block";err.textContent="Imagem não encontrada: "+a.img+" (usando fundo provisório)";res(fallback(a))};im.src=a.img})}
+const cache={};
+function pano(a){return cache[a.id]||(cache[a.id]=loadPano(a))}
+
+function mk(tag,attrs,parent){const e=document.createElement(tag);for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||world).appendChild(e);return e}
+
+function closePanels(){world.querySelectorAll(".panel").forEach(p=>p.remove())}
+
+function openPanel(h,idx){
+closePanels();
+const p=mk("a-entity",{class:"panel",position:pos(h.yaw,Math.max(-5,Math.min(h.pitch,10)),3.6),"look-at":"#cam"});
+mk("a-plane",{width:3.4,height:2.1,color:"#0b0b0d",opacity:.92,class:"clickable",shader:"flat"},p).addEventListener("click",()=>p.remove());
+mk("a-text",{value:h.t,align:"left",position:"-1.5 0.78 0.02",width:3.0,color:"#f5b301",wrapCount:30},p);
+mk("a-text",{value:h.b,align:"left",anchor:"left",baseline:"top",position:"-1.5 0.55 0.02",width:2.9,color:"#fff",wrapCount:46,lineHeight:60},p);
+mk("a-text",{value:"olhe aqui para fechar",align:"center",position:"0 -0.9 0.02",width:2,color:"#888"},p);
+if(!found.has(idx)){found.add(idx);refresh();beep(660)}
+}
+
+function refresh(){const a=AREAS[cur];const t=`${a.nome} · ${found.size}/${a.hot.length}`;status.setAttribute("value",t);hud.textContent=t}
+
+function build(a){
+world.innerHTML="";found=new Set();
+a.hot.forEach((h,i)=>{
+const g=mk("a-entity",{position:pos(h.yaw,h.pitch,9),"look-at":"#cam"});
+const s=mk("a-circle",{radius:.45,color:"#f5b301",shader:"flat",opacity:.85,class:"clickable"},g);
+s.setAttribute("animation__pulse","property:scale;dir:alternate;dur:900;loop:true;from:1 1 1;to:1.25 1.25 1.25;easing:easeInOutSine");
+s.addEventListener("mouseenter",()=>s.setAttribute("color","#fff"));
+s.addEventListener("mouseleave",()=>s.setAttribute("color","#f5b301"));
+s.addEventListener("click",()=>openPanel(h,i));
+mk("a-text",{value:String(i+1),align:"center",position:"0 0 0.01",width:5,color:"#111"},g);
+mk("a-text",{value:h.t,align:"center",position:"0 -0.8 0",width:5,color:"#fff"},g);
+});
+const n=a.next;
+const g=mk("a-entity",{position:pos(n.yaw,n.pitch,8),"look-at":"#cam"});
+const c=mk("a-cone",{"radius-bottom":.7,"radius-top":0,height:1.4,color:"#2ee6a6",shader:"flat",rotation:"0 0 -90",class:"clickable"},g);
+c.setAttribute("animation__move","property:position;dir:alternate;dur:700;loop:true;from:0 0 0;to:0.5 0 0;easing:easeInOutSine");
+c.addEventListener("mouseenter",()=>c.setAttribute("color","#fff"));
+c.addEventListener("mouseleave",()=>c.setAttribute("color","#2ee6a6"));
+c.addEventListener("click",()=>go(n.to!==undefined?n.to:cur+1));
+mk("a-text",{value:n.label,align:"center",position:"0 -1.2 0",width:6,color:"#2ee6a6"},g);
+refresh();
+}
+
+function animFade(to,ms){return new Promise(r=>{fade.removeAttribute("animation__f");fade.setAttribute("animation__f",`property:material.opacity;to:${to};dur:${ms};easing:linear`);setTimeout(r,ms+30)})}
+
+async function go(i){
+if(busy)return;busy=true;beep(330);closePanels();
+await animFade(1,500);
+cur=((i%AREAS.length)+AREAS.length)%AREAS.length;
+const a=AREAS[cur];
+const src=await pano(a);
+sky.setAttribute("src",src);
+build(a);ambient(cur);
+pano(AREAS[(cur+1)%AREAS.length]);
+await animFade(0,700);busy=false;
+}
+
+function beep(f){if(!audio)return;const o=audio.ctx.createOscillator(),g=audio.ctx.createGain();o.frequency.value=f;g.gain.value=.08;o.connect(g).connect(audio.ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,audio.ctx.currentTime+.25);o.stop(audio.ctx.currentTime+.26)}
+
+function ambient(i){
+if(!audio)return;
+const ctx=audio.ctx;if(audio.src){audio.src.stop();audio.src=null}
+const len=ctx.sampleRate*3,buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);let l=0;
+for(let k=0;k<len;k++){const w=Math.random()*2-1;l=(l+.02*w)/1.02;d[k]=l*3.5}
+const s=ctx.createBufferSource();s.buffer=buf;s.loop=true;
+const f=ctx.createBiquadFilter();f.type="lowpass";f.frequency.value=[400,900,260][i];
+audio.gain.gain.value=[.5,.35,.7][i];
+s.connect(f).connect(audio.gain);s.start();audio.src=s;
+}
+
+function initAudio(){try{const ctx=new (window.AudioContext||window.webkitAudioContext)();const gain=ctx.createGain();gain.connect(ctx.destination);audio={ctx,gain,src:null}}catch(e){}}
+
+$("#go").addEventListener("click",()=>{
+initAudio();
+$("#splash").style.display="none";
+const start=()=>go(0);
+if($("#scene").hasLoaded)start();else $("#scene").addEventListener("loaded",start,{once:true});
+});
+
+$("#scene").addEventListener("enter-vr",()=>{hud.style.display="none"});
+$("#scene").addEventListener("exit-vr",()=>{hud.style.display="block"});
+document.addEventListener("keydown",e=>{if(e.key==="ArrowRight")go(cur+1);if(e.key==="ArrowLeft")go(cur-1)});
+</script>
+</body>
+</html>
