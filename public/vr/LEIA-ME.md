@@ -7,6 +7,7 @@ Colocar em `public/vr/img/`, formato equiretangular 2:1, JPG:
 
 | Arquivo | Cena |
 |---|---|
+| `sala-de-estar.jpg` | sala de visita limpa, porta de entrada à frente, quarto de limpeza visível |
 | `quarto-de-despejo.jpg` | favela/barraco, panela vazia, lixo, rua de terra |
 | `urbanizacao.jpg` | avenida com comércio, ponte, aeroporto, torres de transmissão |
 | `industria-usinas.jpg` | usina termelétrica/hidrelétrica, chaminés, fábricas |

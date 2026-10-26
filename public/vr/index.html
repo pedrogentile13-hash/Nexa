@@ -19,7 +19,7 @@ html,body{margin:0;height:100%;background:#000;font-family:system-ui,sans-serif;
 <body>
 <div id="splash">
 <h1>QUARTO DE DESPEJO</h1>
-<p>Uma viagem 360° em três tempos: o quintal da cidade, a sala de estar e a fábrica que move tudo. Olhe ao redor, mire nos pontos brilhantes e segure o olhar (ou toque) para interagir.</p>
+<p>Uma viagem 360° entre a sala de estar, a cidade, a indústria e o quarto de despejo. Olhe ao redor, mire nos pontos brilhantes e segure o olhar (ou toque) para interagir.</p>
 <button id="go">ENTRAR</button>
 <small>VR Box: toque no ícone dos óculos e encaixe o celular. Sem controle: use apenas o olhar (reticle).</small>
 </div>
@@ -27,7 +27,7 @@ html,body{margin:0;height:100%;background:#000;font-family:system-ui,sans-serif;
 <div id="err"></div>
 
 <a-scene id="scene" renderer="antialias:true;colorManagement:true;highRefreshRate:true" vr-mode-ui="enabled:true" loading-screen="enabled:false" device-orientation-permission-ui="enabled:true">
-<a-sky id="sky" radius="60" segments-width="96" segments-height="64" color="#222"></a-sky>
+<a-sky id="sky" radius="60" segments-width="96" segments-height="64" color="#fff"></a-sky>
 <a-entity id="world"></a-entity>
 <a-entity id="rig" position="0 1.6 0">
 <a-camera id="cam" look-controls="reverseMouseDrag:false;touchEnabled:true" wasd-controls-enabled="false" fov="80">
@@ -42,36 +42,46 @@ geometry="primitive:ring;radiusInner:0.012;radiusOuter:0.02" material="color:#ff
 </a-scene>
 
 <script>
-const AREAS=[
-{id:1,nome:"Área 1 · Quarto de Despejo",img:"img/quarto-de-despejo.jpg",c1:"#3b2a1c",c2:"#12100d",c3:"#6b4a2b",
+const ORDER=["sala","urb","ind","quarto"];
+const AREAS={
+sala:{nome:"Sala de Estar",img:"img/sala-de-estar.jpg",c1:"#d8cfc2",c2:"#5a3a22",c3:"#efe7da",snd:[300,.15],
 hot:[
-{yaw:-35,pitch:-12,t:"Panela vazia",b:"Insegurança alimentar é não ter certeza se haverá comida amanhã. Carolina escreveu: \"E assim no dia 13 de maio de 1958 eu lutava contra a escravatura atual — a fome!\""},
-{yaw:30,pitch:-8,t:"Catar para comer",b:"Papel, ferro e restos eram vendidos ou aproveitados. Na favela do Canindé, a sobrevivência dependia do que a cidade jogava fora."},
-{yaw:110,pitch:-5,t:"O barraco",b:"Madeira, lata e papelão. Sem água encanada, sem esgoto, sem privacidade: moradia precária é também uma forma de exclusão."},
-{yaw:-120,pitch:5,t:"O quintal da cidade",b:"\"A favela é o quintal onde jogam os lixos.\" Carolina comparava a cidade a uma casa: o Palácio era a sala de visita; a favela, o quintal."}
+{yaw:-75,pitch:2,t:"A sala de visita",b:"\"O Palácio é a sala de visita. A Prefeitura é a sala de jantar. A cidade é o jardim. E a favela é o quintal onde jogam os lixos.\" Carolina Maria de Jesus."},
+{yaw:160,pitch:-5,t:"Conforto",b:"Tudo limpo, ordenado, pronto para receber. Mas quem mantém essa sala assim raramente mora nela, e o que sobra do trabalho vai para o fundo."}
 ],
-next:{yaw:180,pitch:0,label:"Ir para a Urbanização"}},
-{id:2,nome:"Área 2 · Urbanização (sala de estar)",img:"img/urbanizacao.jpg",c1:"#2a4a6b",c2:"#0b1622",c3:"#8fb7d9",
+links:[
+{yaw:-3,pitch:2,label:"Sair para a cidade",to:"urb"},
+{yaw:102,pitch:2,label:"Quarto de limpeza",to:"quarto"}
+]},
+urb:{nome:"Urbanização",img:"img/urbanizacao.jpg",c1:"#2a4a6b",c2:"#0b1622",c3:"#8fb7d9",snd:[900,.35],
 hot:[
 {yaw:-40,pitch:2,t:"Comércio",b:"Avenidas e lojas concentram renda e empregos, mas o acesso a elas depende de onde você mora e de quanto custa chegar lá."},
-{yaw:25,pitch:6,t:"Ponte",b:"Pontes e viadutos conectam bairros e, ao mesmo tempo, mostram quem tem prioridade na cidade: o carro ou a pessoa."},
+{yaw:25,pitch:6,t:"Viadutos e pontes",b:"Pontes e viadutos conectam bairros e, ao mesmo tempo, mostram quem tem prioridade na cidade: o carro ou a pessoa."},
 {yaw:100,pitch:15,t:"Aeroporto",b:"Infraestrutura de escala nacional. A urbanização acelerada do século XX levou o Brasil a ter a maioria da população em cidades."},
 {yaw:-110,pitch:20,t:"Torres de transmissão",b:"Energia e comunicação chegam às cidades por redes que atravessam o território. Conectividade também é direito."}
 ],
-next:{yaw:180,pitch:0,label:"Ir para a Industrialização"}},
-{id:3,nome:"Área 3 · Indústrias e Usinas",img:"img/industria-usinas.jpg",c1:"#4a3a2a",c2:"#0d0d0f",c3:"#b9712d",
+links:[{yaw:180,pitch:0,label:"Ir para a Industrialização",to:"ind"}]},
+ind:{nome:"Indústrias e Usinas",img:"img/industria-usinas.jpg",c1:"#4a3a2a",c2:"#0d0d0f",c3:"#b9712d",snd:[260,.7],
 hot:[
 {yaw:-30,pitch:8,t:"Usina termelétrica",b:"Queima combustível para gerar vapor e eletricidade. Alimenta fábricas, mas emite poluentes e gases de efeito estufa."},
 {yaw:35,pitch:12,t:"Usina hidrelétrica",b:"Usa a força da água para girar turbinas. A maior parte da eletricidade do Brasil vem de fonte hídrica, com impacto sobre rios e comunidades."},
 {yaw:105,pitch:0,t:"Chaminés e fábricas",b:"A industrialização gerou empregos e atraiu migrantes para a cidade, muitos dos quais acabaram nas periferias e favelas."},
 {yaw:-115,pitch:-5,t:"Trabalhadores",b:"Quem move a indústria raramente vive perto da riqueza que produz. Esse é o elo que fecha o ciclo: indústria, cidade e quarto de despejo."}
 ],
-next:{yaw:180,pitch:0,label:"Voltar ao Quarto de Despejo",to:1}}
-];
+links:[{yaw:180,pitch:0,label:"Voltar à Sala de Estar",to:"sala"}]},
+quarto:{nome:"Quarto de Despejo",img:"img/quarto-de-despejo.jpg",c1:"#3b2a1c",c2:"#12100d",c3:"#6b4a2b",snd:[400,.5],
+hot:[
+{yaw:-35,pitch:-12,t:"Panela vazia",b:"Insegurança alimentar é não ter certeza se haverá comida amanhã. Carolina escreveu: \"E assim no dia 13 de maio de 1958 eu lutava contra a escravatura atual, a fome!\""},
+{yaw:30,pitch:-8,t:"Catar para comer",b:"Papel, ferro e restos eram vendidos ou aproveitados. Na favela do Canindé, a sobrevivência dependia do que a cidade jogava fora."},
+{yaw:110,pitch:-5,t:"O barraco",b:"Madeira, lata e papelão. Sem água encanada, sem esgoto, sem privacidade: moradia precária é também uma forma de exclusão."},
+{yaw:-120,pitch:5,t:"O quintal da cidade",b:"A favela era o lugar onde a cidade escondia o que não queria ver, bem longe da sala de visita."}
+],
+links:[{yaw:180,pitch:0,label:"Voltar à Sala de Estar",to:"sala"}]}
+};
 
 const $=s=>document.querySelector(s);
 const sky=$("#sky"),world=$("#world"),fade=$("#fade"),status=$("#status"),hud=$("#hud"),err=$("#err");
-let cur=0,found=new Set(),audio=null,busy=false;
+let cur="sala",found=new Set(),audio=null,busy=false;
 
 function pos(yaw,pitch,r){const y=yaw*Math.PI/180,p=pitch*Math.PI/180;return `${(r*Math.sin(y)*Math.cos(p)).toFixed(3)} ${(r*Math.sin(p)).toFixed(3)} ${(-r*Math.cos(y)*Math.cos(p)).toFixed(3)}`}
 
@@ -81,7 +91,7 @@ g.fillStyle="rgba(255,255,255,.25)";g.font="48px sans-serif";g.textAlign="center
 
 function loadPano(a){return new Promise(res=>{const im=new Image();im.onload=()=>res(a.img);im.onerror=()=>{err.style.display="block";err.textContent="Imagem não encontrada: "+a.img+" (usando fundo provisório)";res(fallback(a))};im.src=a.img})}
 const cache={};
-function pano(a){return cache[a.id]||(cache[a.id]=loadPano(a))}
+function pano(a){return cache[a.img]||(cache[a.img]=loadPano(a))}
 
 function mk(tag,attrs,parent){const e=document.createElement(tag);for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||world).appendChild(e);return e}
 
@@ -111,14 +121,15 @@ s.addEventListener("click",()=>openPanel(h,i));
 mk("a-text",{value:String(i+1),align:"center",position:"0 0 0.01",width:5,color:"#111"},g);
 mk("a-text",{value:h.t,align:"center",position:"0 -0.8 0",width:5,color:"#fff"},g);
 });
-const n=a.next;
+a.links.forEach(n=>{
 const g=mk("a-entity",{position:pos(n.yaw,n.pitch,8),"look-at":"#cam"});
 const c=mk("a-cone",{"radius-bottom":.7,"radius-top":0,height:1.4,color:"#2ee6a6",shader:"flat",rotation:"0 0 -90",class:"clickable"},g);
 c.setAttribute("animation__move","property:position;dir:alternate;dur:700;loop:true;from:0 0 0;to:0.5 0 0;easing:easeInOutSine");
 c.addEventListener("mouseenter",()=>c.setAttribute("color","#fff"));
 c.addEventListener("mouseleave",()=>c.setAttribute("color","#2ee6a6"));
-c.addEventListener("click",()=>go(n.to!==undefined?n.to:cur+1));
+c.addEventListener("click",()=>go(n.to));
 mk("a-text",{value:n.label,align:"center",position:"0 -1.2 0",width:6,color:"#2ee6a6"},g);
+});
 refresh();
 }
 
@@ -127,25 +138,25 @@ function animFade(to,ms){return new Promise(r=>{fade.removeAttribute("animation_
 async function go(i){
 if(busy)return;busy=true;beep(330);closePanels();
 await animFade(1,500);
-cur=((i%AREAS.length)+AREAS.length)%AREAS.length;
+cur=i;
 const a=AREAS[cur];
 const src=await pano(a);
 sky.setAttribute("src",src);
-build(a);ambient(cur);
-pano(AREAS[(cur+1)%AREAS.length]);
+build(a);ambient(a.snd);
+a.links.forEach(l=>pano(AREAS[l.to]));
 await animFade(0,700);busy=false;
 }
 
 function beep(f){if(!audio)return;const o=audio.ctx.createOscillator(),g=audio.ctx.createGain();o.frequency.value=f;g.gain.value=.08;o.connect(g).connect(audio.ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,audio.ctx.currentTime+.25);o.stop(audio.ctx.currentTime+.26)}
 
-function ambient(i){
+function ambient(snd){
 if(!audio)return;
 const ctx=audio.ctx;if(audio.src){audio.src.stop();audio.src=null}
 const len=ctx.sampleRate*3,buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);let l=0;
 for(let k=0;k<len;k++){const w=Math.random()*2-1;l=(l+.02*w)/1.02;d[k]=l*3.5}
 const s=ctx.createBufferSource();s.buffer=buf;s.loop=true;
-const f=ctx.createBiquadFilter();f.type="lowpass";f.frequency.value=[400,900,260][i];
-audio.gain.gain.value=[.5,.35,.7][i];
+const f=ctx.createBiquadFilter();f.type="lowpass";f.frequency.value=snd[0];
+audio.gain.gain.value=snd[1];
 s.connect(f).connect(audio.gain);s.start();audio.src=s;
 }
 
@@ -154,13 +165,13 @@ function initAudio(){try{const ctx=new (window.AudioContext||window.webkitAudioC
 $("#go").addEventListener("click",()=>{
 initAudio();
 $("#splash").style.display="none";
-const start=()=>go(0);
+const start=()=>go("sala");
 if($("#scene").hasLoaded)start();else $("#scene").addEventListener("loaded",start,{once:true});
 });
 
 $("#scene").addEventListener("enter-vr",()=>{hud.style.display="none"});
 $("#scene").addEventListener("exit-vr",()=>{hud.style.display="block"});
-document.addEventListener("keydown",e=>{if(e.key==="ArrowRight")go(cur+1);if(e.key==="ArrowLeft")go(cur-1)});
+document.addEventListener("keydown",e=>{const i=ORDER.indexOf(cur);if(e.key==="ArrowRight")go(ORDER[(i+1)%ORDER.length]);if(e.key==="ArrowLeft")go(ORDER[(i+ORDER.length-1)%ORDER.length])});
 </script>
 </body>
 </html>
