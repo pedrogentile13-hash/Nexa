@@ -80,6 +80,8 @@ Mesmo núcleo (conta, IA, estudar, desempenho), duas "caras". A jornada já é e
 **Objetivo:** o Anglo usa o Nexa como "sistema da escola", com marca, login e cadastro próprios.
 
 ### Arquitetura recomendada
+> Desenho técnico detalhado (subdomínio, tema, convites, RLS, infra, estimativas): **[`PLANO-ANGLO.md`](./PLANO-ANGLO.md)**.
+
 Não criar um sistema separado. Usar **um Nexa multi-escola**, onde o Anglo é um *tenant*:
 - Já temos `schools` e `school_id` em perfis, professores e conteúdo. A base para isolar por escola (RLS) existe.
 - **Subdomínio com a marca**: `anglo.nexastudy.com.br` — logo, cores e nome da escola; o resto é o mesmo código.
