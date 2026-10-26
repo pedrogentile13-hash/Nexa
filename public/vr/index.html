@@ -19,7 +19,7 @@ html,body{margin:0;height:100%;background:#000;font-family:system-ui,sans-serif;
 <body>
 <div id="splash">
 <h1>QUARTO DE DESPEJO</h1>
-<p>Uma viagem 360° entre a sala de estar, a cidade, a indústria e o quarto de despejo. Olhe ao redor, mire nos pontos brilhantes e segure o olhar (ou toque) para interagir.</p>
+<p>Uma viagem 360° entre a sala de estar, a cidade e o quarto de despejo. Olhe ao redor, mire nos pontos brilhantes e segure o olhar (ou toque) para interagir.</p>
 <button id="go">ENTRAR</button>
 <small>VR Box: toque no ícone dos óculos e encaixe o celular. Sem controle: use apenas o olhar (reticle).</small>
 </div>
@@ -42,7 +42,7 @@ geometry="primitive:ring;radiusInner:0.012;radiusOuter:0.02" material="color:#ff
 </a-scene>
 
 <script>
-const ORDER=["sala","urb","ind","quarto"];
+const ORDER=["sala","urb","quarto"];
 const AREAS={
 sala:{nome:"Sala de Estar",img:"img/sala-de-estar.jpg",c1:"#d8cfc2",c2:"#5a3a22",c3:"#efe7da",snd:[300,.15],
 hot:[
@@ -59,14 +59,6 @@ hot:[
 {yaw:25,pitch:6,t:"Viadutos e pontes",b:"Pontes e viadutos conectam bairros e, ao mesmo tempo, mostram quem tem prioridade na cidade: o carro ou a pessoa."},
 {yaw:100,pitch:15,t:"Aeroporto",b:"Infraestrutura de escala nacional. A urbanização acelerada do século XX levou o Brasil a ter a maioria da população em cidades."},
 {yaw:-110,pitch:20,t:"Torres de transmissão",b:"Energia e comunicação chegam às cidades por redes que atravessam o território. Conectividade também é direito."}
-],
-links:[{yaw:180,pitch:0,label:"Ir para a Industrialização",to:"ind"}]},
-ind:{nome:"Indústrias e Usinas",img:"img/industria-usinas.jpg",c1:"#4a3a2a",c2:"#0d0d0f",c3:"#b9712d",snd:[260,.7],
-hot:[
-{yaw:-30,pitch:8,t:"Usina termelétrica",b:"Queima combustível para gerar vapor e eletricidade. Alimenta fábricas, mas emite poluentes e gases de efeito estufa."},
-{yaw:35,pitch:12,t:"Usina hidrelétrica",b:"Usa a força da água para girar turbinas. A maior parte da eletricidade do Brasil vem de fonte hídrica, com impacto sobre rios e comunidades."},
-{yaw:105,pitch:0,t:"Chaminés e fábricas",b:"A industrialização gerou empregos e atraiu migrantes para a cidade, muitos dos quais acabaram nas periferias e favelas."},
-{yaw:-115,pitch:-5,t:"Trabalhadores",b:"Quem move a indústria raramente vive perto da riqueza que produz. Esse é o elo que fecha o ciclo: indústria, cidade e quarto de despejo."}
 ],
 links:[{yaw:180,pitch:0,label:"Voltar à Sala de Estar",to:"sala"}]},
 quarto:{nome:"Quarto de Despejo",img:"img/quarto-de-despejo.jpg",c1:"#3b2a1c",c2:"#12100d",c3:"#6b4a2b",snd:[400,.5],
