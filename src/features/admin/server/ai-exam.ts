@@ -35,6 +35,7 @@ export async function generateExamDraft(
     difficulty: formData.get('difficulty'),
     questionCount: formData.get('questionCount'),
     includeEssay: formData.get('includeEssay') || undefined,
+    source: formData.get('source') || '',
   });
   if (!parsed.success) {
     return { status: 'error', message: parsed.error.issues[0]?.message ?? 'Revise os campos.' };

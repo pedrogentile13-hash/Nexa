@@ -17,6 +17,8 @@ export const generateExamDraftSchema = z.object({
     .min(1, 'Pelo menos 1 questão.')
     .max(20, 'No máximo 20 por vez.'),
   includeEssay: z.enum(['on']).optional(),
+  /** Planejamento/material do professor: se vier, é a ÚNICA fonte do conteúdo. */
+  source: z.string().trim().max(20000).optional().or(z.literal('')),
 });
 
 export type GenerateExamDraftInput = z.infer<typeof generateExamDraftSchema>;
@@ -27,6 +29,25 @@ const DIFFICULTY_LABEL: Record<string, string> = {
   dificil: 'difícil',
   anglo: 'nível Anglo/ENEM (interpretação, textos-base)',
 };
+
+/**
+ * Bloco que obriga a IA a usar SÓ o material do professor.
+ *
+ * O ponto de ligar o planejamento à IA é o simulado sair com o recorte do
+ * professor; se o modelo completasse com conhecimento geral, voltaríamos ao
+ * simulado genérico — e arriscaríamos cobrar o que o professor não deu.
+ */
+export function sourceBlock(source: string | undefined | null, questionCount: number): string {
+  const text = source?.trim();
+  if (!text) return '';
+  return `
+
+FONTE ÚNICA DO CONTEÚDO — material do professor. Use EXCLUSIVAMENTE o texto entre as marcas abaixo para criar as questões e as explicações. Não use fatos, datas, nomes, fórmulas ou conceitos que não estejam nele, ainda que sejam verdadeiros. Se o material não sustentar ${questionCount} questões boas, gere MENOS questões (pelo menos 1) em vez de inventar. Escreva as explicações com as palavras e o recorte do material.
+<<<MATERIAL
+${text}
+MATERIAL>>>
+`;
+}
 
 export function buildExamPrompt(input: GenerateExamDraftInput, includeEssay: boolean): string {
   const parts = [
@@ -52,7 +73,7 @@ export function buildExamPrompt(input: GenerateExamDraftInput, includeEssay: boo
     ]`
     : '';
 
-  return `Gere um simulado em JSON estrito sobre ${parts.join(', ')}${includeEssay ? ', incluindo uma redação (writingTasks)' : ''}.
+  return `Gere um simulado em JSON estrito sobre ${parts.join(', ')}${includeEssay ? ', incluindo uma redação (writingTasks)' : ''}.${sourceBlock(input.source, input.questionCount)}
 
 Responda APENAS com o JSON abaixo preenchido — sem texto antes ou depois, sem cercar com \`\`\`, exatamente neste formato:
 

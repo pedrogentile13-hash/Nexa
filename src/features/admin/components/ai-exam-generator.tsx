@@ -32,9 +32,14 @@ const INITIAL: GenerateExamDraftState = { status: 'idle' };
 export function AiExamGenerator({
   subjects,
   onGenerated,
+  source,
+  sourceTitle,
 }: {
   subjects: { id: string; name: string }[];
   onGenerated: (code: string, subjectId?: string) => void;
+  /** Planejamento do professor: se houver, a IA só usa este texto. */
+  source?: string;
+  sourceTitle?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? '');
@@ -51,6 +56,15 @@ export function AiExamGenerator({
   const dialog = (
     <Dialog open={open} onClose={() => setOpen(false)} title="Gerar simulado com IA">
       <form action={formAction} className="space-y-3">
+        {source && (
+          <>
+            <input type="hidden" name="source" value={source} />
+            <p className="bg-brand-soft text-brand-text rounded-md px-3 py-2 text-xs">
+              A IA vai usar <b>só</b> o seu planejamento{sourceTitle ? <> “{sourceTitle}”</> : null} como fonte — as
+              questões saem com o seu recorte, não com conhecimento genérico.
+            </p>
+          </>
+        )}
         <Field label="Matéria">
           <Select
             name="subjectName"

@@ -470,6 +470,16 @@ export type BotMessageRow = {
   created_at: string;
 };
 
+export type TeacherPlanRow = {
+  id: string;
+  teacher_id: string;
+  school_id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AiUsageRow = {
   user_id: string;
   day: string;
@@ -1453,6 +1463,7 @@ export type Database = {
       bot_conversations: Table<BotConversationRow>;
       bot_messages: Table<BotMessageRow>;
       ai_usage: Table<AiUsageRow>;
+      teacher_plans: Table<TeacherPlanRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;

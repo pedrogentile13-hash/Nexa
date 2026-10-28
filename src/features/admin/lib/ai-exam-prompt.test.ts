@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildExamPrompt, generateExamDraftSchema, stripCodeFence } from './ai-exam-prompt';
+import { buildExamPrompt, generateExamDraftSchema, sourceBlock, stripCodeFence } from './ai-exam-prompt';
 
 describe('generateExamDraftSchema', () => {
   it('aceita entrada mínima válida', () => {
@@ -89,5 +89,26 @@ describe('stripCodeFence', () => {
   it('devolve o texto como veio quando não há cerca', () => {
     const text = '{"a": 1}';
     expect(stripCodeFence(text)).toBe('{"a": 1}');
+  });
+});
+
+describe('planejamento do professor como fonte única', () => {
+  const base = { subjectName: 'História', difficulty: 'medio' as const, questionCount: 5 };
+
+  it('sem planejamento, o prompt não menciona fonte', () => {
+    expect(buildExamPrompt(base as never, false)).not.toMatch(/FONTE ÚNICA/);
+  });
+
+  it('com planejamento, obriga a usar só o material e a gerar MENOS em vez de inventar', () => {
+    const prompt = buildExamPrompt({ ...base, source: 'Causas: crise financeira e iluminismo.' } as never, false);
+    expect(prompt).toMatch(/FONTE ÚNICA/);
+    expect(prompt).toMatch(/EXCLUSIVAMENTE/);
+    expect(prompt).toMatch(/MENOS questões/);
+    expect(prompt).toContain('Causas: crise financeira e iluminismo.');
+  });
+
+  it('texto em branco não vira fonte', () => {
+    expect(sourceBlock('   ', 5)).toBe('');
+    expect(sourceBlock(undefined, 5)).toBe('');
   });
 });

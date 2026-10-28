@@ -153,9 +153,14 @@ const ASSET_ICON: Record<ExamAsset['type'], typeof BookOpen> = {
 export function SimuladoImporter({
   options,
   canChooseSchool,
+  planSource,
+  planTitle,
 }: {
   options: ResourceFormOptions;
   canChooseSchool: boolean;
+  /** Planejamento do professor escolhido para alimentar a IA. */
+  planSource?: string;
+  planTitle?: string;
 }) {
   const [state, formAction] = useActionState(importSimulado, INITIAL);
   const [kind, setKind] = useState<ImportKind>('simulado');
@@ -284,6 +289,8 @@ export function SimuladoImporter({
               </button>
               <AiExamGenerator
                 subjects={options.subjects}
+                source={planSource}
+                sourceTitle={planTitle}
                 onGenerated={(generatedCode, generatedSubjectId) => {
                   setCode(generatedCode);
                   if (generatedSubjectId) setSubjectId(generatedSubjectId);
