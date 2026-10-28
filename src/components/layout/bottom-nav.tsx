@@ -13,6 +13,7 @@ import {
   Menu,
   MessageCircle,
   Newspaper,
+  PenLine,
   Route as RouteIcon,
   RotateCcw,
   School,
@@ -91,6 +92,7 @@ const VESTIBULAR_FIXED_ITEMS = [
  * "Erros", que são as duas telas que alguém em preparação abre todo dia.
  */
 const VESTIBULAR_MORE_ITEMS = [
+  { href: '/vestibular/redacao', label: 'Redação', Icon: PenLine },
   { href: '/vestibular/desempenho', label: 'Desempenho', Icon: TrendingUp },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
   { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },

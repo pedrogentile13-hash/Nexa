@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useOptimistic, useState, useTransition } from 'react';
-import { Check, Flame, GraduationCap, RotateCcw } from 'lucide-react';
+import { Check, Flame, GraduationCap, Loader2, RotateCcw, Sparkles } from 'lucide-react';
+import { Markdown } from '@/features/study/components/markdown';
 import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { RESOURCE_KIND_ICON } from '@/lib/design/resource-kind';
-import { dismissError, markContentReviewed } from '../server/actions';
+import { dismissError, explainMyError, markContentReviewed } from '../server/actions';
 import type { ReviewItem } from '../server/queries';
 
 /**
@@ -162,6 +163,18 @@ function MiniStat({
 }
 
 function ErrorCard({ item, onDismiss }: { item: ReviewItem; onDismiss: () => void }) {
+  const [why, setWhy] = useState<{ text: string } | { error: string } | null>(null);
+  const [asking, startAsk] = useTransition();
+
+  function askWhy() {
+    if (!item.questionId) return;
+    const id = item.questionId;
+    startAsk(async () => {
+      const r = await explainMyError(id);
+      setWhy(r.ok ? { text: r.markdown } : { error: r.message });
+    });
+  }
+
   return (
     <li
       style={subjectColorVars(item.subjectColor)}
@@ -197,7 +210,22 @@ function ErrorCard({ item, onDismiss }: { item: ReviewItem; onDismiss: () => voi
           </p>
         )}
 
+        {why && (
+          <div
+            aria-live="polite"
+            className="bg-brand-soft text-text rounded-xl px-3.5 py-3 text-sm leading-relaxed"
+          >
+            {'error' in why ? <p className="text-danger">{why.error}</p> : <Markdown source={why.text} />}
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2 pt-1">
+          {item.questionId && !why && (
+            <button type="button" onClick={askWhy} disabled={asking} className={cn(popEmptyStateActionClass, 'text-brand-text')}>
+              {asking ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
+              {asking ? 'Pensando…' : 'Por que errei?'}
+            </button>
+          )}
           <Link href={`/estudar/${item.resourceId}`} className={popEmptyStateActionClass}>
             <RotateCcw className="text-brand size-4" aria-hidden />
             Refazer

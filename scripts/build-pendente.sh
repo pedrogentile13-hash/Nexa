@@ -12,6 +12,7 @@ FILES=(
   20261003000700_painel_escola
   20261003000800_planejamento
   20261003000900_mural
+  20261003001000_redacao
 )
 strip() { grep -vE '^\s*--' "$1" | grep -vE '^\s*$' | sed 's/[[:space:]]*$//'; }
 {

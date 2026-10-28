@@ -23,6 +23,7 @@ Atualizado em 29/10/2026.
 | `20261003000700_painel_escola` | Números da escola para direção e coordenação |
 | `20261003000800_planejamento` | Planejamento do professor (fonte da IA) |
 | `20261003000900_mural` | Mural de avisos oficiais com confirmação de leitura |
+| `20261003001000_redacao` | Histórico do corretor de redação (notas na régua do ENEM) |
 | cadastro do Anglo | Nome, logo e a cor azul do Anglo |
 
 ## Variáveis na Hostinger

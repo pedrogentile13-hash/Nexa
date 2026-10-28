@@ -21,6 +21,7 @@ import {
   Users2,
   MessageCircle,
   Megaphone,
+  PenLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlatformSwitcher, resolveActivePlatform } from './platform-switcher';
@@ -90,6 +91,7 @@ const VESTIBULAR_PRIMARY_ITEMS: NavItem[] = [
   { href: '/vestibular/plano', label: 'Plano de estudo', Icon: RouteIcon },
   { href: '/vestibular/questoes', label: 'Questões', Icon: ClipboardCheck },
   { href: '/vestibular/erros', label: 'Central de erros', Icon: Target },
+  { href: '/vestibular/redacao', label: 'Redação', Icon: PenLine },
   { href: '/vestibular/desempenho', label: 'Desempenho', Icon: TrendingUp },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
   { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },

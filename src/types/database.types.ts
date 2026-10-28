@@ -498,6 +498,21 @@ export type AnnouncementReadRow = {
   read_at: string;
 };
 
+export type EssayCorrectionRow = {
+  id: string;
+  user_id: string;
+  theme: string;
+  essay: string;
+  c1: number;
+  c2: number;
+  c3: number;
+  c4: number;
+  c5: number;
+  total: number;
+  feedback: unknown;
+  created_at: string;
+};
+
 export type AiUsageRow = {
   user_id: string;
   day: string;
@@ -1483,6 +1498,7 @@ export type Database = {
       ai_usage: Table<AiUsageRow>;
       teacher_plans: Table<TeacherPlanRow>;
       school_announcements: Table<SchoolAnnouncementRow>;
+      essay_corrections: Table<EssayCorrectionRow>;
       announcement_reads: Table<AnnouncementReadRow>;
     };
     Views: {
