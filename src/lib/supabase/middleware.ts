@@ -23,6 +23,7 @@ const PUBLIC_PREFIXES = [
   '/politica-de-privacidade',
   '/termos-de-uso',
   '/escola-nao-encontrada',
+  '/api/tenant-check',
 ];
 
 const ONBOARDING_PATH = '/bem-vindo';

@@ -1547,6 +1547,10 @@ export type Database = {
         Returns: string;
       };
       can_create_any_event: { Args: { p_user_id?: string }; Returns: boolean };
+      resolve_school_host: {
+        Args: { p_host: string };
+        Returns: { school_id: string; display_name: string; logo_url: string | null; brand: string | null; brand_text: string | null; brand_soft: string | null }[];
+      };
       can_create_school_event: { Args: { p_school_id: string; p_class_id?: string | null; p_user_id?: string }; Returns: boolean };
       school_staff_level: { Args: { p_school_id: string; p_user_id?: string }; Returns: number };
       can_oversee_teacher: { Args: { p_teacher_id: string; p_user_id?: string }; Returns: boolean };
