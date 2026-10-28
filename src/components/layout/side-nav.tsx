@@ -19,6 +19,7 @@ import {
   Trophy,
   User,
   Users2,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlatformSwitcher, resolveActivePlatform } from './platform-switcher';
@@ -71,6 +72,7 @@ const ADMIN_ITEM: NavItem = { href: '/admin', label: 'Admin', Icon: Shield };
 const TEACHER_ITEM: NavItem = { href: '/professor', label: 'Professor', Icon: Users2 };
 /** Só aparece com a feature flag `community_enabled` ligada — ver `(app)/layout.tsx`. */
 const COMMUNITY_ITEM: NavItem = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper };
+const CHAT_ITEM: NavItem = { href: '/chat', label: 'Professores', Icon: MessageCircle };
 
 /**
  * Nexa Vestibular — o menu TROCA dentro de `/vestibular/**` em vez de somar
@@ -119,6 +121,7 @@ export function SideNav({
   isAdmin,
   isTeacher,
   communityEnabled,
+  chatEnabled,
   vestibularEnabled,
   journey = 'school',
 }: {
@@ -127,6 +130,8 @@ export function SideNav({
   isAdmin?: boolean;
   isTeacher?: boolean;
   communityEnabled?: boolean;
+  /** O aluno tem professores ligados à turma dele (chat da escola). */
+  chatEnabled?: boolean;
   vestibularEnabled?: boolean;
   journey?: Journey;
 } = {}) {
@@ -143,7 +148,7 @@ export function SideNav({
 
   const primaryItems = inVestibular
     ? [...VESTIBULAR_PRIMARY_ITEMS, ...(communityEnabled ? [COMMUNITY_ITEM] : [])]
-    : [...PRIMARY_ITEMS, ...(communityEnabled ? [COMMUNITY_ITEM] : [])];
+    : [...PRIMARY_ITEMS, ...(chatEnabled ? [CHAT_ITEM] : []), ...(communityEnabled ? [COMMUNITY_ITEM] : [])];
   const secondaryItems = inVestibular
     ? VESTIBULAR_SECONDARY_ITEMS
     : [

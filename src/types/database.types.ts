@@ -440,6 +440,36 @@ export type SchoolBrandingRow = {
   updated_at: string;
 };
 
+export type TeacherFaqRow = {
+  id: string;
+  teacher_id: string;
+  school_id: string;
+  class_id: string | null;
+  question: string;
+  answer: string;
+  keywords: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BotConversationRow = {
+  id: string;
+  student_id: string;
+  teacher_id: string;
+  created_at: string;
+};
+
+export type BotMessageRow = {
+  id: string;
+  conversation_id: string;
+  sender: 'student' | 'bot' | 'teacher';
+  content: string;
+  faq_id: string | null;
+  status: 'answered' | 'unanswered' | 'resolved' | null;
+  created_at: string;
+};
+
 export type ErrorReportRpcRow = {
   id: string;
   origin: 'client' | 'server';
@@ -1412,6 +1442,9 @@ export type Database = {
       error_reports: Table<ErrorReportRow>;
       school_domains: Table<SchoolDomainRow>;
       school_branding: Table<SchoolBrandingRow>;
+      teacher_faq: Table<TeacherFaqRow>;
+      bot_conversations: Table<BotConversationRow>;
+      bot_messages: Table<BotMessageRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -1568,6 +1601,17 @@ export type Database = {
         Returns: string;
       };
       can_create_any_event: { Args: { p_user_id?: string }; Returns: boolean };
+      student_has_teacher: { Args: { p_teacher_id: string; p_student_id?: string }; Returns: boolean };
+      my_teachers: { Args: Record<string, never>; Returns: { teacher_id: string; full_name: string; subjects: string }[] };
+      ask_teacher_bot: {
+        Args: { p_teacher_id: string; p_question: string; p_faq_id?: string | null };
+        Returns: { conversation_id: string; answered: boolean; answer: string; message_id: string }[];
+      };
+      my_pending_questions: {
+        Args: Record<string, never>;
+        Returns: { message_id: string; conversation_id: string; student_name: string; question: string | null; asked_at: string }[];
+      };
+      reply_unanswered: { Args: { p_message_id: string; p_reply: string; p_save_as_faq?: boolean }; Returns: void };
       resolve_school_host: {
         Args: { p_host: string };
         Returns: { school_id: string; display_name: string; logo_url: string | null; brand: string | null; brand_text: string | null; brand_soft: string | null }[];

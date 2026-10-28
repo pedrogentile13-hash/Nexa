@@ -10,6 +10,7 @@ import {
   GraduationCap,
   Home,
   Menu,
+  MessageCircle,
   Newspaper,
   Route as RouteIcon,
   RotateCcw,
@@ -64,6 +65,7 @@ const MORE_ITEMS = [
 const ADMIN_ITEM = { href: '/admin', label: 'Admin', Icon: Shield } as const;
 const TEACHER_ITEM = { href: '/professor', label: 'Professor', Icon: Users2 } as const;
 const COMMUNITY_ITEM = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper } as const;
+const CHAT_ITEM = { href: '/chat', label: 'Professores', Icon: MessageCircle } as const;
 const VESTIBULAR_ITEM = { href: '/vestibular', label: 'Vestibular', Icon: GraduationCap } as const;
 const SCHOOL_ITEM = { href: '/hoje', label: 'Escola', Icon: School } as const;
 
@@ -98,12 +100,15 @@ export function BottomNav({
   isAdmin = false,
   isTeacher = false,
   communityEnabled = false,
+  chatEnabled = false,
   vestibularEnabled = false,
   journey = 'school',
 }: {
   isAdmin?: boolean;
   isTeacher?: boolean;
   communityEnabled?: boolean;
+  /** O aluno tem professores ligados à turma dele (chat da escola). */
+  chatEnabled?: boolean;
   vestibularEnabled?: boolean;
   journey?: Journey;
 }) {
@@ -117,6 +122,7 @@ export function BottomNav({
   const moreItems = inVestibular
     ? [SCHOOL_ITEM, ...(communityEnabled ? [COMMUNITY_ITEM] : []), ...VESTIBULAR_MORE_ITEMS]
     : [
+        ...(chatEnabled ? [CHAT_ITEM] : []),
         ...(communityEnabled ? [COMMUNITY_ITEM] : []),
         ...(vestibularEnabled ? [VESTIBULAR_ITEM] : []),
         ...MORE_ITEMS,

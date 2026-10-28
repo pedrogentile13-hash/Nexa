@@ -3,6 +3,7 @@ import { SideNav } from '@/components/layout/side-nav';
 import { InstallPrompt } from '@/features/install/components/install-prompt';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { isFeatureEnabled } from '@/lib/feature-flags';
+import { listMyTeachers } from '@/features/school-chat/server/queries';
 import { SHELL_COLUMNS, readWithFallback, type ProfileReader } from '@/lib/supabase/profile-read';
 import type { Journey } from '@/types/database.types';
 
@@ -52,6 +53,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
   const isTeacher = profile?.role === 'teacher_admin';
   const communityEnabled = user ? await isFeatureEnabled('community_enabled') : false;
+  // Chat da escola: só aparece para quem tem professores ligados à própria turma.
+  const chatEnabled = user ? (await listMyTeachers()).length > 0 : false;
   const vestibularEnabled = user ? await isFeatureEnabled('vestibular_enabled') : false;
   // A jornada escolhida na criação da conta decide qual das duas plataformas
   // é a "casa" desta pessoa — e portanto qual navegação abre por padrão.
@@ -65,6 +68,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isAdmin={isAdmin}
         isTeacher={isTeacher}
         communityEnabled={communityEnabled}
+        chatEnabled={chatEnabled}
         vestibularEnabled={vestibularEnabled}
         journey={journey}
       />
@@ -76,6 +80,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isAdmin={isAdmin}
         isTeacher={isTeacher}
         communityEnabled={communityEnabled}
+        chatEnabled={chatEnabled}
         vestibularEnabled={vestibularEnabled}
         journey={journey}
       />
