@@ -1,5 +1,89 @@
 # Nexa — Roadmap
 
+## Prioridades definidas (28/10)
+
+1. **Aprimorar a IA** (frente 1 abaixo)
+2. **Chat da escola com bot por professor** — a maior inovação
+3. **Eventos exclusivos de escolas; comunidades livres**
+4. **Painel escolar**: direção > coordenação > professores
+5. **Planejamento do professor alimenta a IA** → resumos e simulados automáticos de alta qualidade
+
+### Como se encaixam (ordem de dependência)
+
+```
+ Papéis e hierarquia da escola ──┬──► Painel escolar (4)
+ (direção/coordenação/professor) ├──► Eventos só de escola (3)
+                                 ├──► Chat + bot por professor (2)
+                                 └──► Planejamento do professor (5) ──► IA gera resumo/simulado (5)
+ Limite de uso + custo da IA ──────────► tudo que usa IA (1, 2, 5)
+```
+
+**Primeiro tijolo comum:** a hierarquia de papéis. Hoje existem `student`, `teacher_admin`,
+`school_admin` e `admin`. Faltam pelo menos **direção** e **coordenação** como níveis
+distintos (a coordenação vê o professor; o professor não vê a coordenação). Sem isso, painel,
+eventos e chat não têm como saber quem pode o quê.
+
+### 2 · Chat da escola com bot por professor
+
+**Ideia:** cada professor tem um assistente que responde as dúvidas repetitivas da turma
+("quando é a entrega?", "o que cai na prova?", "qual o material?").
+
+**Regra de ouro: o bot só afirma o que o professor cadastrou.** Datas e regras vêm de
+uma base do professor (*"Base de respostas"*): perguntas e respostas prontas, mais os
+eventos/tarefas do calendário da turma. A IA só serve para *entender a pergunta do aluno*
+e achar a resposta certa; ela **não improvisa** data, nota ou regra.
+
+| Situação | O que o bot faz |
+|---|---|
+| Pergunta bate com uma resposta pronta | responde, mostrando "resposta do Prof. X" |
+| Pergunta é sobre data/tarefa e existe no calendário | responde com o dado do calendário, citando a fonte |
+| Não sabe ou confiança baixa | diz "não tenho essa informação" e **encaminha ao professor** (fila de dúvidas) |
+| Pergunta de conteúdo da matéria | responde como tutor (modo "Explicar"), marcada como **resposta da IA** |
+| Assunto sensível (saúde, bullying, nota individual) | não responde; encaminha à coordenação |
+
+- O professor vê **o que os alunos perguntam** e o que o bot não soube responder → vira a lista do que precisa ser cadastrado.
+- Cada resposta tem 👍/👎; resposta ruim some da base automática até o professor revisar.
+- **Cuidado jurídico:** chat é entre turma e bot/professor, **sem mensagem privada de adulto com menor**. Mensagens ficam registradas e visíveis à coordenação. Horário de silêncio configurável.
+- Dúvida frequente: **100% determinística primeiro** (palavras-chave/embeddings contra a base) e IA só como apoio — barato, previsível e não alucina.
+
+### 3 · Eventos: só escola cria; comunidades continuam livres
+- Tabela de eventos com `school_id`; **criar** exige papel de escola (coordenação/direção; professor para o que é da própria turma). Aluno só **vê e confirma presença**.
+- Comunidades continuam abertas, mas **sem poder de criar evento oficial** (podem ter encontros/avisos próprios, rotulados como "não oficial").
+- Evento oficial aparece no calendário da agenda e dispara aviso push à turma/série certa.
+- Ajuste necessário: revisar o que a comunidade faz hoje com "evento" para não misturar os dois.
+
+### 4 · Painel escolar (direção > coordenação > professores)
+| Quem | Vê | Faz |
+|---|---|---|
+| **Direção** | indicadores da escola toda: engajamento, turmas em risco, uso por professor | cria eventos/avisos gerais, gerencia coordenações |
+| **Coordenação** | séries/turmas sob ela; professores; dúvidas sem resposta; eventos | cria eventos, aprova avisos, vê relatórios por turma |
+| **Professor** | só as próprias turmas e matérias | calendário, base do bot, planejamento, simulados, resumos |
+
+- Tudo escopado por RLS à escola (e à turma, no caso do professor). Nenhum nível enxerga nota **individual** de aluno fora de quem tem esse direito.
+- **Aprimoramento do professor:** painel de "o que a turma mais errou", sugestões de reforço e atividades geradas pela IA, com tempo economizado visível.
+
+### 5 · Planejamento do professor → IA (resumos e simulados de alta qualidade)
+**Fluxo:**
+1. O professor cadastra o **planejamento**: conteúdo por bimestre/aula, objetivos, material de referência (PDF/slides/texto), nível, estilo de cobrança.
+2. A IA recebe **esse material como fonte** (não o conhecimento genérico) e gera resumo, flashcards ou simulado **"no estilo do professor"**.
+3. O professor **revisa e aprova** antes de publicar para a turma (nada vai ao aluno sem aprovação; selo "revisado pelo professor").
+
+**Qualidade — onde isso costuma falhar e como evitar:**
+- Gerar *a partir do material do professor* (citando trecho-fonte), não de memória do modelo → menos erro e mais fidelidade.
+- Simulado: 1 resposta certa verificável pela fonte, explicação de cada alternativa, nível de dificuldade declarado, e checagem automática de formato (já existe o validador `parseSimuladoCode`).
+- "Treinamento do professor": na prática **não é treinar o modelo**, é dar a ele contexto (planejamento, exemplos de questões que o professor aprovou/rejeitou, seu vocabulário). Cada aprovação/rejeição melhora os exemplos usados depois. Barato e sem retreino.
+- Direitos autorais: o material subido é do professor/escola; termo de uso deve dizer isso.
+
+### Ordem sugerida de construção
+1. **Papéis e hierarquia** + tabela de eventos escolares + RLS (base de tudo).
+2. **Painel do professor** (calendário e base de respostas) e **bot por professor** (começar sem IA, só base + busca; IA depois).
+3. **Painel da coordenação/direção** e eventos oficiais com aviso.
+4. **Planejamento → IA** (resumo primeiro, simulado depois).
+5. **Limite de uso, custo e 👍/👎** entram junto desde o passo 2, não depois.
+
+---
+
+
 Quatro frentes, em ordem de dependência. O que está marcado **(a confirmar)**
 é suposição minha e precisa de uma resposta antes de virar tarefa.
 
