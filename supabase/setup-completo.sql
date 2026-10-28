@@ -10,7 +10,7 @@
 -- já rodou uma versão anterior, adiciona só o que falta e deixa o resto como
 -- está. Nenhum dado seu é apagado — nem notas, nem rotina, nem conteúdo.
 --
--- Cria as 73 tabelas, as políticas de RLS, as 1 views, as funções e o
+-- Cria as 74 tabelas, as políticas de RLS, as 1 views, as funções e o
 -- conteúdo inicial (matérias, conquistas e a biblioteca de estudo).
 --
 -- DEPOIS DE RODAR, para virar administrador do painel /admin, rode também:
@@ -15685,6 +15685,174 @@ end;
 $$;
 
 grant execute on function public.reply_unanswered(uuid, text, boolean) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20261003000600_limite_ia.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — Limite diário de uso da IA, por aluno e por recurso
+--
+-- Sem teto, um aluno (ou um script) gasta a cota inteira do provedor de IA
+-- sozinho — e com uma escola inteira usando, o custo deixa de ser previsível.
+-- Esta tabela só CONTA; o limite de cada recurso mora no app e é passado à
+-- função, então ajustar "40 perguntas por dia" não exige migração.
+--
+-- A contagem é atômica (um único upsert): dois cliques simultâneos não
+-- passam o teto por corrida. O "dia" é o de São Paulo, não o do servidor.
+-- ============================================================================
+
+create table if not exists public.ai_usage (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  day date not null,
+  feature text not null check (length(feature) between 1 and 40),
+  uses integer not null default 0 check (uses >= 0),
+  primary key (user_id, day, feature)
+);
+
+alter table public.ai_usage enable row level security;
+
+-- O aluno pode LER o próprio uso (para mostrar "restam 12"); ninguém escreve direto.
+drop policy if exists ai_usage_select_own on public.ai_usage;
+create policy ai_usage_select_own on public.ai_usage
+  for select to authenticated using (user_id = auth.uid());
+
+-- Registra UM uso e diz se ainda estava dentro do limite. Se passou, desfaz o
+-- incremento (para o contador não crescer com tentativas negadas) e devolve falso.
+create or replace function public.consume_ai_quota(p_feature text, p_daily_limit integer)
+returns table (allowed boolean, used integer, remaining integer)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_me uuid := auth.uid();
+  v_day date := (now() at time zone 'America/Sao_Paulo')::date;
+  v_used integer;
+begin
+  if v_me is null then
+    raise exception 'sign in required' using errcode = '28000';
+  end if;
+  if p_daily_limit is null or p_daily_limit < 1 or p_daily_limit > 10000 then
+    raise exception 'limite inválido' using errcode = '22023';
+  end if;
+
+  insert into public.ai_usage (user_id, day, feature, uses)
+  values (v_me, v_day, p_feature, 1)
+  on conflict (user_id, day, feature) do update set uses = public.ai_usage.uses + 1
+  returning uses into v_used;
+
+  if v_used > p_daily_limit then
+    update public.ai_usage set uses = p_daily_limit
+    where user_id = v_me and day = v_day and feature = p_feature;
+    return query select false, p_daily_limit, 0;
+  end if;
+
+  return query select true, v_used, p_daily_limit - v_used;
+end;
+$$;
+
+grant execute on function public.consume_ai_quota(text, integer) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20261003000700_painel_escola.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — Painel da escola (direção e coordenação)
+--
+-- Duas leituras agregadas para a visão geral de quem gerencia uma escola:
+--   * `school_overview`          — números da escola de relance
+--   * `school_teacher_overview`  — uma linha por professor (o que a coordenação
+--                                  supervisiona: respostas cadastradas e
+--                                  perguntas de alunos esperando)
+--
+-- Só nível de coordenação para cima (`school_staff_level >= 2`) da PRÓPRIA
+-- escola, ou a plataforma. Professor não chama (não enxerga os colegas) e
+-- coordenação de outra escola também não.
+--
+-- Devolvem NÚMEROS, nunca linhas de alunos: o painel mostra quantos nunca
+-- entraram, não quem — a lista nominal já existe em /admin/contas, onde a
+-- coordenação a vê porque administra aquelas contas.
+-- ============================================================================
+
+create or replace function public.school_overview(p_school_id uuid)
+returns table (
+  students integer,
+  teachers integer,
+  managed_accounts integer,
+  students_without_class integer,
+  active_last_7_days integer,
+  never_entered integer,
+  pending_questions integer,
+  upcoming_events integer,
+  ai_uses_today integer
+)
+language plpgsql stable security definer set search_path = public as $$
+declare
+  v_today date := (now() at time zone 'America/Sao_Paulo')::date;
+begin
+  if public.school_staff_level(p_school_id) < 2 then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+
+  return query
+  select
+    (select count(*) from public.profiles p where p.school_id = p_school_id and p.role = 'student')::int,
+    (select count(*) from public.profiles p where p.school_id = p_school_id and p.role = 'teacher_admin')::int,
+    (select count(*) from public.profiles p where p.school_id = p_school_id and p.school_login is not null)::int,
+    (select count(*) from public.profiles p where p.school_id = p_school_id and p.role = 'student' and p.class_id is null)::int,
+    (select count(*) from public.profiles p
+       join public.user_stats u on u.user_id = p.id
+      where p.school_id = p_school_id and p.role = 'student' and u.last_active_local_date >= v_today - 6)::int,
+    (select count(*) from public.profiles p
+       left join public.user_stats u on u.user_id = p.id
+      where p.school_id = p_school_id and p.school_login is not null and p.role = 'student'
+        and u.last_active_local_date is null)::int,
+    (select count(*) from public.bot_messages b
+       join public.bot_conversations c on c.id = b.conversation_id
+       join public.profiles t on t.id = c.teacher_id
+      where t.school_id = p_school_id and b.sender = 'bot' and b.status = 'unanswered')::int,
+    (select count(*) from public.events e
+      where e.school_id = p_school_id and e.cancelled_at is null
+        and e.starts_at >= now() and e.starts_at < now() + interval '30 days')::int,
+    coalesce((select sum(a.uses) from public.ai_usage a
+       join public.profiles p on p.id = a.user_id
+      where p.school_id = p_school_id and a.day = v_today), 0)::int;
+end;
+$$;
+
+grant execute on function public.school_overview(uuid) to authenticated;
+
+create or replace function public.school_teacher_overview(p_school_id uuid)
+returns table (
+  teacher_id uuid,
+  full_name text,
+  classes text,
+  faq_count integer,
+  pending_count integer
+)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if public.school_staff_level(p_school_id) < 2 then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+
+  return query
+  select
+    t.id,
+    coalesce(t.full_name, 'Professor'),
+    coalesce((select string_agg(distinct c.name, ', ' order by c.name)
+                from public.teacher_assignments ta join public.classes c on c.id = ta.class_id
+               where ta.teacher_id = t.id), ''),
+    (select count(*) from public.teacher_faq f where f.teacher_id = t.id and f.active)::int,
+    (select count(*) from public.bot_messages b
+       join public.bot_conversations cv on cv.id = b.conversation_id
+      where cv.teacher_id = t.id and b.sender = 'bot' and b.status = 'unanswered')::int
+  from public.profiles t
+  where t.school_id = p_school_id and t.role = 'teacher_admin'
+  order by 5 desc, 2;
+end;
+$$;
+
+grant execute on function public.school_teacher_overview(uuid) to authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────
 -- seed.sql

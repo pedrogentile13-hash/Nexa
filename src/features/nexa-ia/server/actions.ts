@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
+import { checkAiQuota } from '@/lib/ai/quota';
 import { getChatMessages } from './queries';
 import { buildTutorSystemPrompt, parseTutorMode, type TutorMode } from '../tutor';
 import { reportError } from '@/features/observability/server/actions';
@@ -217,9 +218,12 @@ export async function sendMessage(
     .insert({ session_id: sessionId, role: 'user', content });
   if (userError) return { status: 'error', message: 'Não consegui enviar sua mensagem.' };
 
-  await supabase
-    .from('ai_chat_messages')
-    .insert({ session_id: sessionId, role: 'assistant', content: await replyTo(sessionId, user.id, parseTutorMode(parsed.data.mode)) });
+  // Limite diário: passou dele, a conversa continua salva, mas a resposta é o
+  // aviso (e a IA não é chamada, que é o que custa).
+  const quota = await checkAiQuota(supabase, 'nexa_ia');
+  const reply = quota.ok ? await replyTo(sessionId, user.id, parseTutorMode(parsed.data.mode)) : quota.message;
+
+  await supabase.from('ai_chat_messages').insert({ session_id: sessionId, role: 'assistant', content: reply });
 
   if (!isNewSession) {
     await supabase

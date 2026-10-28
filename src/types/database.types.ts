@@ -470,6 +470,13 @@ export type BotMessageRow = {
   created_at: string;
 };
 
+export type AiUsageRow = {
+  user_id: string;
+  day: string;
+  feature: string;
+  uses: number;
+};
+
 export type ErrorReportRpcRow = {
   id: string;
   origin: 'client' | 'server';
@@ -1445,6 +1452,7 @@ export type Database = {
       teacher_faq: Table<TeacherFaqRow>;
       bot_conversations: Table<BotConversationRow>;
       bot_messages: Table<BotMessageRow>;
+      ai_usage: Table<AiUsageRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -1601,6 +1609,22 @@ export type Database = {
         Returns: string;
       };
       can_create_any_event: { Args: { p_user_id?: string }; Returns: boolean };
+      school_overview: {
+        Args: { p_school_id: string };
+        Returns: {
+          students: number; teachers: number; managed_accounts: number; students_without_class: number;
+          active_last_7_days: number; never_entered: number; pending_questions: number;
+          upcoming_events: number; ai_uses_today: number;
+        }[];
+      };
+      school_teacher_overview: {
+        Args: { p_school_id: string };
+        Returns: { teacher_id: string; full_name: string; classes: string; faq_count: number; pending_count: number }[];
+      };
+      consume_ai_quota: {
+        Args: { p_feature: string; p_daily_limit: number };
+        Returns: { allowed: boolean; used: number; remaining: number }[];
+      };
       student_has_teacher: { Args: { p_teacher_id: string; p_student_id?: string }; Returns: boolean };
       my_teachers: { Args: Record<string, never>; Returns: { teacher_id: string; full_name: string; subjects: string }[] };
       ask_teacher_bot: {

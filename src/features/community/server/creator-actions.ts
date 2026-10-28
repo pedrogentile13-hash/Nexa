@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
+import { checkAiQuota } from '@/lib/ai/quota';
 import { parseSimuladoCode } from '@/features/admin/lib/simulado-import';
 import {
   buildCreatorQuizPrompt,
@@ -69,6 +70,9 @@ export async function generateAndSaveCreatorQuiz(
   const subject = await subjectName(parsed.data.subjectCatalogId);
   if (!subject) return { status: 'error', message: 'Matéria inválida.' };
 
+  const quota = await checkAiQuota(await createClient(), 'creator');
+  if (!quota.ok) return { status: 'error', message: quota.message };
+
   const result = await completeWithAI(
     [
       {
@@ -123,6 +127,9 @@ export async function generateAndSaveCreatorSummary(
 
   const subject = await subjectName(parsed.data.subjectCatalogId);
   if (!subject) return { status: 'error', message: 'Matéria inválida.' };
+
+  const quota = await checkAiQuota(await createClient(), 'creator');
+  if (!quota.ok) return { status: 'error', message: quota.message };
 
   const result = await completeWithAI(
     [

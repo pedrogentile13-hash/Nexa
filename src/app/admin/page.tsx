@@ -4,6 +4,8 @@ import { FileText, Plus, Route as RouteIcon, School, Users } from 'lucide-react'
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { getAdminOverview } from '@/features/admin/server/queries';
 import { requireAdmin } from '@/features/admin/server/guard';
+import { SchoolPanel } from '@/features/school-panel/school-panel';
+import { getSchoolOverview } from '@/features/school-panel/queries';
 import { RESOURCE_KINDS, kindPlural } from '@/features/admin/lib/labels';
 import { Button } from '@/components/ui/button';
 import { RESOURCE_KIND_COLOR, RESOURCE_KIND_ICON } from '@/lib/design/resource-kind';
@@ -15,6 +17,8 @@ export const metadata = { title: 'Visão geral' };
 export default async function AdminHomePage() {
   const identity = await requireAdmin();
   const overview = await getAdminOverview();
+  // Direção e coordenação veem, no topo, a escola de relance (a plataforma não: ela não é de uma escola).
+  const school = !identity.isGlobal && identity.schoolId ? await getSchoolOverview(identity.schoolId) : null;
 
   const totalPublished = overview.publishedByKind.reduce((sum, k) => sum + k.count, 0);
 
@@ -34,6 +38,10 @@ export default async function AdminHomePage() {
       />
 
       <div className="space-y-6 p-5">
+        {school && (
+          <SchoolPanel schoolName={identity.schoolName} overview={school.overview} teachers={school.teachers} />
+        )}
+
         {/* Rascunho vem primeiro de propósito: é a única linha aqui que pede
             uma ação. O resto é retrato, e retrato não é tarefa. */}
         {overview.draftCount > 0 && (
