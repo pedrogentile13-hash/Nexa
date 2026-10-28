@@ -1,5 +1,21 @@
 # Nexa — Roadmap
 
+## Status (29/10)
+
+| Item | Estado |
+|---|---|
+| Tutor da NexaAI com modos; "Explicar com IA" no resumo | ✅ no ar |
+| Hierarquia direção › coordenação › professor; eventos só da escola | ✅ |
+| Escola por endereço (`anglomorumbi.nexastudy.com.br`), marca e logo | ✅ |
+| Login só com login e senha, contas criadas pela escola, importação por planilha | ✅ |
+| Chat da escola com o bot de cada professor | ✅ (v1, sem IA: só repete o que o professor cadastrou) |
+| Painel da escola (direção/coordenação) | ✅ (v1: visão geral) |
+| Planejamento do professor → simulado e resumo por IA | ✅ (v1) |
+| Limite diário de IA por aluno | ✅ |
+| Caderno de erros, corretor de redação, cronograma adaptativo, foto, flashcards | ⏳ fila |
+| Comunicação: mural de avisos com confirmação de leitura | ⏳ fila |
+| Consentimento LGPD obrigatório no cadastro | ⏳ decisão pendente |
+
 ## Prioridades definidas (28/10)
 
 1. **Aprimorar a IA** (frente 1 abaixo)
