@@ -1063,7 +1063,7 @@ export async function deleteTrackLesson(formData: FormData): Promise<void> {
 
 const roleSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(['student', 'teacher_admin', 'school_admin', 'admin']),
+  role: z.enum(['student', 'teacher_admin', 'school_coordinator', 'school_director', 'school_admin', 'admin']),
   schoolId: z.string().optional(),
 });
 

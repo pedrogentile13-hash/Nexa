@@ -23,6 +23,9 @@ const SubjectScoresChart = dynamic(() =>
 
 const ROLE_LABEL: Record<string, string> = {
   student: 'Aluno',
+  teacher_admin: 'Professor',
+  school_coordinator: 'Coordenação',
+  school_director: 'Direção',
   school_admin: 'Admin da escola',
   admin: 'Admin geral',
 };

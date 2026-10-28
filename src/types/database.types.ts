@@ -50,7 +50,13 @@ export type XpSourceType =
   | 'lesson'
   | 'resource'
   | 'social';
-export type UserRole = 'student' | 'school_admin' | 'admin' | 'teacher_admin';
+export type UserRole =
+  | 'student'
+  | 'school_admin'
+  | 'admin'
+  | 'teacher_admin'
+  | 'school_director'
+  | 'school_coordinator';
 export type ResourceKind = 'resumo' | 'podcast' | 'video' | 'imagem' | 'musica' | 'quiz' | 'simulado';
 export type Difficulty = 'facil' | 'medio' | 'anglo' | 'dificil';
 export type TrackCategory = 'enem' | 'fundamental' | 'reforco' | 'carreiras' | 'habilidades';
@@ -1540,9 +1546,14 @@ export type Database = {
           p_visibility?: EventVisibility;
           p_community_id?: string | null;
           p_school_id?: string | null;
+          p_class_id?: string | null;
         };
         Returns: string;
       };
+      can_create_any_event: { Args: { p_user_id?: string }; Returns: boolean };
+      can_create_school_event: { Args: { p_school_id: string; p_class_id?: string | null; p_user_id?: string }; Returns: boolean };
+      school_staff_level: { Args: { p_school_id: string; p_user_id?: string }; Returns: number };
+      can_oversee_teacher: { Args: { p_teacher_id: string; p_user_id?: string }; Returns: boolean };
       update_event: {
         Args: {
           p_event_id: string;

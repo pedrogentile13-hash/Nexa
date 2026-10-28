@@ -53,10 +53,13 @@ export function CommunityDetailView({
   community,
   initialFeed,
   initialMembers,
+  canCreateEvent,
 }: {
   community: CommunityDetail;
   initialFeed: FeedPost[];
   initialMembers: CommunityMember[];
+  /** Evento é exclusivo da escola — dono/moderador de comunidade não basta. */
+  canCreateEvent: boolean;
 }) {
   const router = useRouter();
   const [feed, setFeed] = useState(initialFeed);
@@ -224,7 +227,7 @@ export function CommunityDetailView({
         </Card>
       ) : tab === 'eventos' && community.isMember ? (
         <div className="space-y-3">
-          {canModerate && (
+          {canCreateEvent && (
             <div className="flex justify-end">
               <Button type="button" size="sm" onClick={() => setCreatingEvent(true)}>
                 <Plus aria-hidden />

@@ -27,7 +27,7 @@ export type CreateEventState =
   | { status: 'ok'; eventId: string };
 
 /**
- * Cria um evento dentro de uma comunidade — a única origem exposta na UI
+ * Cria um evento (oficial da escola) ligado a uma comunidade — a única origem exposta na UI
  * nesta rodada. `create_event` também aceita `p_school_id` para admin criar
  * evento fora de comunidade, mas essa tela fica para uma fase futura.
  */
