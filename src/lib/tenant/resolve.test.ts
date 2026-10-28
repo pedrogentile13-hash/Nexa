@@ -18,6 +18,7 @@ describe('resolveTenant', () => {
     expect(r.kind).toBe('found');
     if (r.kind === 'found') {
       expect(r.tenant.name).toBe('Anglo Morumbi');
+      expect(r.tenant.host).toBe('anglomorumbi.nexastudy.com.br');
       expect(r.tenant.vars).toMatchObject({ '--brand': '#6d28d9' });
     }
     expect(rpc).toHaveBeenCalledWith('resolve_school_host', { p_host: 'anglomorumbi.nexastudy.com.br' });
@@ -72,13 +73,14 @@ describe('resolveTenant', () => {
 });
 
 describe('cabeçalho interno e CSS', () => {
-  const tenant: Tenant = { id: 's1', name: 'Colégio ção', logoUrl: null, vars: { '--brand': '#6d28d9' } };
+  const tenant: Tenant = { id: 's1', host: 'a.nexastudy.com.br', name: 'Colégio ção', logoUrl: null, vars: { '--brand': '#6d28d9' } };
 
   it('ida e volta preserva acentos; lixo vira null', () => {
     expect(decodeTenant(encodeTenant(tenant))).toEqual(tenant);
     expect(decodeTenant('%%%')).toBeNull();
     expect(decodeTenant(null)).toBeNull();
     expect(decodeTenant(encodeURIComponent('{"x":1}'))).toBeNull();
+    expect(decodeTenant(encodeURIComponent('{"id":"a","name":"b"}'))).toBeNull(); // sem host
   });
 
   it('CSS só no modo claro, e nada sem cores válidas', () => {

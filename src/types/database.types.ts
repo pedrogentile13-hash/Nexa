@@ -112,6 +112,8 @@ export type ProfileRow = {
   role: UserRole;
   /** Só vale para school_admin: direção | coordenação | null. Coluna da migration 20261003000100. */
   school_title?: 'direcao' | 'coordenacao' | null;
+  /** Login da conta criada pela escola (sem e-mail). Coluna da migration 20261003000300. */
+  school_login?: string | null;
   weekly_study_goal_minutes: number;
   daily_study_goal_minutes: number;
   monthly_activities_goal: number;
@@ -419,6 +421,23 @@ export type ErrorReportRow = {
   digest: string | null;
   user_agent: string | null;
   created_at: string;
+};
+
+export type SchoolDomainRow = {
+  host: string;
+  school_id: string;
+  active: boolean;
+  created_at: string;
+};
+
+export type SchoolBrandingRow = {
+  school_id: string;
+  display_name: string | null;
+  logo_url: string | null;
+  brand: string | null;
+  brand_text: string | null;
+  brand_soft: string | null;
+  updated_at: string;
 };
 
 export type ErrorReportRpcRow = {
@@ -1391,6 +1410,8 @@ export type Database = {
       exam_topic_frequency: Table<ExamTopicFrequencyRow>;
       consent_records: Table<ConsentRecordRow>;
       error_reports: Table<ErrorReportRow>;
+      school_domains: Table<SchoolDomainRow>;
+      school_branding: Table<SchoolBrandingRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;

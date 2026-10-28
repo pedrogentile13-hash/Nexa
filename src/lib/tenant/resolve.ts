@@ -15,6 +15,8 @@ export const TENANT_HEADER = 'x-nexa-tenant';
 
 export interface Tenant {
   id: string;
+  /** Endereço da escola (ex.: anglomorumbi.nexastudy.com.br) — base do e-mail fabricado do login. */
+  host: string;
   name: string;
   logoUrl: string | null;
   /** Variáveis de cor que passaram na trava de contraste, ou null. */
@@ -78,6 +80,7 @@ export async function resolveTenant(
           kind: 'found',
           tenant: {
             id: row.school_id,
+            host,
             name: row.display_name,
             logoUrl: row.logo_url,
             vars: safeBrandVars({ brand: row.brand, brand_text: row.brand_text, brand_soft: row.brand_soft }),
@@ -101,7 +104,7 @@ export function decodeTenant(raw: string | null | undefined): Tenant | null {
   if (!raw) return null;
   try {
     const t = JSON.parse(decodeURIComponent(raw)) as Tenant;
-    return typeof t?.id === 'string' && typeof t?.name === 'string' ? t : null;
+    return typeof t?.id === 'string' && typeof t?.name === 'string' && typeof t?.host === 'string' ? t : null;
   } catch {
     return null;
   }

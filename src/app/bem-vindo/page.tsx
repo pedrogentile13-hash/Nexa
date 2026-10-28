@@ -5,6 +5,7 @@ import { getSubjectCatalog } from '@/features/onboarding/server/queries';
 import { CORE_SUBJECT_SLUGS } from '@/features/onboarding/types';
 import { isFeatureEnabled } from '@/lib/feature-flags';
 import { createClient } from '@/lib/supabase/server';
+import { getTenant } from '@/lib/tenant/server';
 
 export const metadata: Metadata = {
   title: 'Bem-vindo',
@@ -20,6 +21,7 @@ export default async function OnboardingPage() {
 
   if (!user) redirect('/login');
 
+  const tenant = await getTenant();
   const [catalog, { data: profile }, vestibularEnabled, { data: examRows }] = await Promise.all([
     getSubjectCatalog(),
     supabase.from('profiles').select('full_name, onboarded_at').eq('id', user.id).maybeSingle(),
@@ -48,7 +50,9 @@ export default async function OnboardingPage() {
       defaultName={profile?.full_name ?? ''}
       fallbackTimezone="America/Sao_Paulo"
       exams={examRows ?? []}
-      vestibularEnabled={vestibularEnabled}
+      // No endereço de uma escola a conta é da escola: um caminho só, sem
+      // perguntar "qual Nexa" (o Vestibular não faz parte do contrato da escola).
+      vestibularEnabled={vestibularEnabled && !tenant}
     />
   );
 }

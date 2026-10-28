@@ -4,6 +4,7 @@ import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { getTenant } from '@/lib/tenant/server';
 import { safeNext } from '../lib/safe-next';
 import { safeOrigin } from '../lib/safe-origin';
 import { authErrorMessage, isConfigurationError, toAuthErrorLike } from '../lib/auth-errors';
@@ -41,6 +42,23 @@ async function currentOrigin(): Promise<string> {
   return safeOrigin(headerList.get('x-forwarded-host'), headerList.get('x-forwarded-proto'));
 }
 
+/**
+ * No endereço de uma escola o acesso é SÓ por login e senha criados pela
+ * coordenação. Esconder os botões não basta — uma Server Action pode ser
+ * chamada sem passar pela tela — então cada entrada alternativa recusa aqui.
+ */
+const SCHOOL_ONLY_MESSAGE = 'Neste endereço o acesso é só por login e senha, entregues pela sua escola.';
+
+/**
+ * E-mails fabricados para as contas das escolas (`ana@anglomorumbi.nexastudy.com.br`)
+ * não podem ser cadastrados "de verdade" no Nexa geral: o domínio é nosso, mas a
+ * caixa não existe — e um cadastro com esse e-mail disputaria o login de um aluno.
+ */
+function isSchoolAccountEmail(email: string): boolean {
+  const root = process.env.TENANT_ROOT_DOMAIN?.trim().toLowerCase();
+  return Boolean(root) && email.trim().toLowerCase().endsWith(`.${root}`);
+}
+
 function invalid(
   message: string,
   mode: AuthMode,
@@ -61,6 +79,7 @@ export async function authenticate(
 ): Promise<AuthFormState> {
   const mode = parseAuthMode(formData.get('mode'));
 
+  if (await getTenant()) return invalid(SCHOOL_ONLY_MESSAGE, 'signin');
   if (mode === 'magic') return sendMagicLink(formData);
   if (mode === 'signup') return createAccount(formData);
   return enterWithPassword(formData);
@@ -81,6 +100,10 @@ async function createAccount(formData: FormData): Promise<AuthFormState> {
       'signup',
       issue?.path[0] === 'password' ? 'password' : 'email',
     );
+  }
+
+  if (isSchoolAccountEmail(parsed.data.email)) {
+    return invalid('Este e-mail não pode ser usado para cadastro.', 'signup', 'email');
   }
 
   const supabase = await createClient();
@@ -171,6 +194,9 @@ async function sendMagicLink(formData: FormData): Promise<AuthFormState> {
   if (!parsed.success) {
     return invalid(parsed.error.issues[0]?.message ?? 'Verifique o e-mail informado.', 'magic');
   }
+  if (isSchoolAccountEmail(parsed.data.email)) {
+    return invalid('Este e-mail não pode ser usado para entrar.', 'magic', 'email');
+  }
 
   const supabase = await createClient();
   const origin = await currentOrigin();
@@ -199,6 +225,8 @@ export async function verifyMagicCode(
   _prev: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
+  if (await getTenant()) return invalid(SCHOOL_ONLY_MESSAGE, 'magic');
+
   const parsed = verifyCodeSchema.safeParse({
     email: formData.get('email'),
     code: formData.get('code'),
@@ -231,6 +259,8 @@ export async function verifyMagicCode(
 
 /** Mantido como Server Action própria: o botão do Google é um form separado. */
 export async function signInWithGoogle(formData: FormData): Promise<void> {
+  if (await getTenant()) redirect(`/login?erro=${encodeURIComponent(SCHOOL_ONLY_MESSAGE)}`);
+
   const supabase = await createClient();
   const origin = await currentOrigin();
   const next = safeNext(formData.get('next')?.toString());
@@ -272,6 +302,8 @@ export async function requestPasswordReset(
   _prev: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
+  if (await getTenant()) return invalid(SCHOOL_ONLY_MESSAGE, 'signin');
+
   const parsed = recoverSchema.safeParse({ email: formData.get('email') });
   if (!parsed.success) {
     return invalid(parsed.error.issues[0]?.message ?? 'Verifique o e-mail.', 'signin', 'email');
@@ -364,7 +396,7 @@ export async function resendConfirmation(
   formData: FormData,
 ): Promise<ResendState> {
   const email = formData.get('email')?.toString()?.trim().toLowerCase() ?? '';
-  if (!email) return { status: 'idle' };
+  if (!email || (await getTenant())) return { status: 'idle' };
 
   const supabase = await createClient();
   const origin = await currentOrigin();

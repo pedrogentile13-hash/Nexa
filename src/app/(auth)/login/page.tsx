@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { BarChart3, BookOpen, Sparkles } from 'lucide-react';
 import { LoginForm } from '@/features/auth/components/login-form';
+import { SchoolLoginForm } from '@/features/auth/components/school-login-form';
 import { safeNext } from '@/features/auth/lib/safe-next';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { headers } from 'next/headers';
@@ -107,10 +108,16 @@ export default async function LoginPage({
             {tenant ? `Bem-vindo ao ${tenant.name}` : 'Bem-vindo ao Nexa Study'}
           </h2>
           <p className="text-muted mt-1.5 mb-6 text-sm">
-            Faça login para continuar sua jornada de aprendizado.
+            {tenant
+              ? 'Entre com o login e a senha que a escola entregou para você.'
+              : 'Faça login para continuar sua jornada de aprendizado.'}
           </p>
 
-          <LoginForm next={next} initialError={params.erro} allowSignup={!tenant} />
+          {tenant ? (
+            <SchoolLoginForm next={next} initialError={params.erro} />
+          ) : (
+            <LoginForm next={next} initialError={params.erro} />
+          )}
 
           {/* O kit não põe troca de tema no login. Ela fica aqui embaixo, fora
               do caminho: quem precisa do modo escuro por conforto visual precisa

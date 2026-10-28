@@ -93,6 +93,17 @@ export async function updateSession(request: NextRequest) {
     { rootDomain: process.env.TENANT_ROOT_DOMAIN, proxySecret: process.env.TENANT_PROXY_SECRET },
   );
   if (tenant.kind === 'found') {
+    // Sem recuperação de senha por e-mail no endereço da escola: quem perde a
+    // senha pede uma nova à coordenação.
+    if (
+      request.nextUrl.pathname.startsWith('/recuperar-senha') ||
+      request.nextUrl.pathname.startsWith('/redefinir-senha')
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
     request.headers.set(TENANT_HEADER, encodeTenant(tenant.tenant));
     response = NextResponse.next({ request });
   } else if (tenant.kind === 'unknown' && !request.nextUrl.pathname.startsWith('/escola-nao-encontrada')) {
