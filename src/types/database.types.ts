@@ -437,6 +437,7 @@ export type SchoolBrandingRow = {
   brand: string | null;
   brand_text: string | null;
   brand_soft: string | null;
+  badge_url?: string | null;
   updated_at: string;
 };
 
@@ -1703,7 +1704,7 @@ export type Database = {
       reply_unanswered: { Args: { p_message_id: string; p_reply: string; p_save_as_faq?: boolean }; Returns: void };
       resolve_school_host: {
         Args: { p_host: string };
-        Returns: { school_id: string; display_name: string; logo_url: string | null; brand: string | null; brand_text: string | null; brand_soft: string | null }[];
+        Returns: { school_id: string; display_name: string; logo_url: string | null; brand: string | null; brand_text: string | null; brand_soft: string | null; badge_url?: string | null }[];
       };
       can_create_school_event: { Args: { p_school_id: string; p_class_id?: string | null; p_user_id?: string }; Returns: boolean };
       school_staff_level: { Args: { p_school_id: string; p_user_id?: string }; Returns: number };

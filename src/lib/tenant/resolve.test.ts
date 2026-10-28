@@ -89,3 +89,18 @@ describe('cabeçalho interno e CSS', () => {
     expect(tenantCss(null)).toBeNull();
   });
 });
+
+describe('selo da escola', () => {
+  it('chega no tenant quando existe e fica nulo quando a migration ainda não rodou', async () => {
+    clearTenantCache();
+    const base = { school_id: 's1', display_name: 'Anglo', logo_url: null, brand: null, brand_text: null, brand_soft: null };
+    const h = headers({ host: 'anglomorumbi.nexastudy.com.br' });
+
+    const com = await resolveTenant(h, { rpc: vi.fn().mockResolvedValue({ data: [{ ...base, badge_url: '/brand/schools/selo.webp' }], error: null }) }, env);
+    expect(com.kind === 'found' && com.tenant.badgeUrl).toBe('/brand/schools/selo.webp');
+
+    clearTenantCache();
+    const sem = await resolveTenant(h, { rpc: vi.fn().mockResolvedValue({ data: [base], error: null }) }, env);
+    expect(sem.kind === 'found' && sem.tenant.badgeUrl).toBeNull();
+  });
+});

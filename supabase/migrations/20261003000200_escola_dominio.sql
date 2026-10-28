@@ -65,6 +65,10 @@ create policy school_branding_manage on public.school_branding
 -- --------------------------------------------------------- resolver endereço --
 -- Pública (anon): devolve só nome, logo e cores de UM endereço ativo. Endereço
 -- desconhecido ou desativado devolve zero linhas.
+-- (Apaga antes: a migração do selo muda o tipo de retorno desta função, e reaplicar
+-- o setup por cima de um banco já atualizado não pode falhar por causa disso.)
+drop function if exists public.resolve_school_host(text);
+
 create or replace function public.resolve_school_host(p_host text)
 returns table (
   school_id uuid,

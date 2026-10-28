@@ -19,6 +19,8 @@ export interface Tenant {
   host: string;
   name: string;
   logoUrl: string | null;
+  /** Selo/certificação da escola (segundo logo), exibido na entrada. */
+  badgeUrl?: string | null;
   /** Variáveis de cor que passaram na trava de contraste, ou null. */
   vars: Record<string, string> | null;
 }
@@ -35,6 +37,8 @@ interface SchoolRow {
   brand: string | null;
   brand_text: string | null;
   brand_soft: string | null;
+  /** Ausente até a migration do selo rodar. */
+  badge_url?: string | null;
 }
 
 /** O mínimo do cliente Supabase que a resolução usa (para teste e para o edge). */
@@ -83,6 +87,7 @@ export async function resolveTenant(
             host,
             name: row.display_name,
             logoUrl: row.logo_url,
+            badgeUrl: row.badge_url ?? null,
             vars: safeBrandVars({ brand: row.brand, brand_text: row.brand_text, brand_soft: row.brand_soft }),
           },
         }

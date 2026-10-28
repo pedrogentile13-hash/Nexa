@@ -139,6 +139,13 @@ export default async function LoginPage({
               do caminho: quem precisa do modo escuro por conforto visual precisa
               dele ANTES de entrar, e o único outro lugar onde ela existe é o
               Perfil — atrás justamente desta tela. */}
+          {tenant?.badgeUrl && (
+            <div className="mt-8 flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element -- selo pequeno da escola */}
+              <img src={tenant.badgeUrl} alt="Selo da escola" className="h-20 w-auto object-contain" />
+            </div>
+          )}
+
           {tenant ? (
             <ForceLightTheme />
           ) : (

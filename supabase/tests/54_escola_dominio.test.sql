@@ -123,3 +123,16 @@ begin
   end;
 end;
 $$;
+
+-- Selo: aceita o caminho local; recusa o que não for https nem /brand/schools/.
+do $$
+begin
+  update public.school_branding set badge_url = '/brand/schools/selo.webp' where school_id = 'e2e2e2e2-0000-0000-0000-000000000001';
+  assert (select badge_url from public.resolve_school_host('colegioa.nexastudy.com.br')) = '/brand/schools/selo.webp', 'o selo não chegou pela função pública';
+  begin
+    update public.school_branding set badge_url = 'javascript:alert(1)' where school_id = 'e2e2e2e2-0000-0000-0000-000000000001';
+    raise exception 'selo javascript: aceito';
+  exception when check_violation then null;
+  end;
+end;
+$$;
