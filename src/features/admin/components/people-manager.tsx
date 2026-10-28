@@ -10,17 +10,11 @@ import { cn } from '@/lib/utils';
 import { FormFeedback, Select } from './form-parts';
 import { setPersonRole, type AdminState } from '../server/actions';
 import type { AdminPerson } from '../server/queries';
+import { SCHOOL_ROLE_LABEL } from '@/lib/school-roles';
 
 const INITIAL: AdminState = { status: 'idle' };
 
-const ROLE_LABEL: Record<string, string> = {
-  student: 'Aluno',
-  teacher_admin: 'Professor',
-  school_coordinator: 'Coordenação',
-  school_director: 'Direção',
-  school_admin: 'Admin da escola',
-  admin: 'Admin geral',
-};
+const ROLE_LABEL: Record<string, string> = SCHOOL_ROLE_LABEL;
 
 export function PeopleManager({
   people,

@@ -36,12 +36,12 @@ insert into public.classes (id, school_id, name) values
   ('d2d2d2d2-0000-0000-0000-000000000001', 'd1d1d1d1-0000-0000-0000-000000000001', '9A'),
   ('d2d2d2d2-0000-0000-0000-000000000002', 'd1d1d1d1-0000-0000-0000-000000000001', '9B');
 
--- Papéis são atribuídos pelo SQL Editor / service_role (auth.uid() nulo).
+-- Papéis e títulos são atribuídos pelo SQL Editor / service_role (auth.uid() nulo).
 update public.profiles set role = 'admin' where id = :'ADMIN';
-update public.profiles set role = 'school_director',    school_id = 'd1d1d1d1-0000-0000-0000-000000000001' where id = :'DIRECAO';
-update public.profiles set role = 'school_coordinator', school_id = 'd1d1d1d1-0000-0000-0000-000000000001' where id = :'COORD';
+update public.profiles set role = 'school_admin', school_title = 'direcao', school_id = 'd1d1d1d1-0000-0000-0000-000000000001' where id = :'DIRECAO';
+update public.profiles set role = 'school_admin', school_title = 'coordenacao', school_id = 'd1d1d1d1-0000-0000-0000-000000000001' where id = :'COORD';
 update public.profiles set role = 'teacher_admin',      school_id = 'd1d1d1d1-0000-0000-0000-000000000001' where id in (:'PROF', :'PROF2');
-update public.profiles set role = 'school_coordinator', school_id = 'd1d1d1d1-0000-0000-0000-000000000002' where id = :'COORD_X';
+update public.profiles set role = 'school_admin', school_title = 'coordenacao', school_id = 'd1d1d1d1-0000-0000-0000-000000000002' where id = :'COORD_X';
 update public.profiles set school_id = 'd1d1d1d1-0000-0000-0000-000000000001', class_id = 'd2d2d2d2-0000-0000-0000-000000000001' where id = :'ALUNO_A';
 update public.profiles set school_id = 'd1d1d1d1-0000-0000-0000-000000000001', class_id = 'd2d2d2d2-0000-0000-0000-000000000002' where id = :'ALUNO_B';
 
@@ -164,3 +164,64 @@ begin
   assert public.can_view_event(v_turma, 'd3d3d3d3-0000-0000-0000-000000000004'), 'professor da turma não vê o evento';
 end;
 $$;
+
+-- 6 · a coordenação NÃO consegue se promover a direção (nem trocar o próprio título)
+set "request.jwt.claim.sub" = 'd3d3d3d3-0000-0000-0000-000000000003'; -- COORD
+set role authenticated;
+
+do $$
+declare v_falhou boolean := false;
+begin
+  begin
+    update public.profiles set school_title = 'direcao' where id = 'd3d3d3d3-0000-0000-0000-000000000003';
+    v_falhou := true;
+  exception when others then null;
+  end;
+  assert not v_falhou, 'coordenação se promoveu a direção sozinha';
+
+  v_falhou := false;
+  begin
+    update public.profiles set school_title = null where id = 'd3d3d3d3-0000-0000-0000-000000000003';
+    v_falhou := true;
+  exception when others then null;
+  end;
+  assert not v_falhou, 'coordenação removeu o próprio título (viraria nível de direção)';
+end;
+$$;
+
+reset role;
+
+-- E o título continua o mesmo depois das tentativas.
+do $$
+begin
+  assert (select school_title from public.profiles where id = 'd3d3d3d3-0000-0000-0000-000000000003') = 'coordenacao',
+    'o título da coordenação mudou';
+end;
+$$;
+
+-- 7 · a LISTA de eventos respeita a turma (não só can_view_event)
+set "request.jwt.claim.sub" = 'd3d3d3d3-0000-0000-0000-000000000007'; -- ALUNO_B (9B)
+set role authenticated;
+
+do $$
+begin
+  assert not exists (select 1 from public.list_events() where title = 'Revisão 9A'),
+    'aluno da 9B recebeu na lista o evento da 9A';
+  assert exists (select 1 from public.list_events() where title = 'Reunião de pais'),
+    'aluno da 9B não recebeu o evento geral da escola';
+end;
+$$;
+
+reset role;
+
+set "request.jwt.claim.sub" = 'd3d3d3d3-0000-0000-0000-000000000006'; -- ALUNO_A (9A)
+set role authenticated;
+
+do $$
+begin
+  assert exists (select 1 from public.list_events() where title = 'Revisão 9A'),
+    'aluno da 9A não recebeu o evento da própria turma';
+end;
+$$;
+
+reset role;

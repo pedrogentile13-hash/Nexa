@@ -50,13 +50,7 @@ export type XpSourceType =
   | 'lesson'
   | 'resource'
   | 'social';
-export type UserRole =
-  | 'student'
-  | 'school_admin'
-  | 'admin'
-  | 'teacher_admin'
-  | 'school_director'
-  | 'school_coordinator';
+export type UserRole = 'student' | 'school_admin' | 'admin' | 'teacher_admin';
 export type ResourceKind = 'resumo' | 'podcast' | 'video' | 'imagem' | 'musica' | 'quiz' | 'simulado';
 export type Difficulty = 'facil' | 'medio' | 'anglo' | 'dificil';
 export type TrackCategory = 'enem' | 'fundamental' | 'reforco' | 'carreiras' | 'habilidades';
@@ -116,6 +110,8 @@ export type ProfileRow = {
   locale: string;
   theme_preference: ThemePreference;
   role: UserRole;
+  /** Só vale para school_admin: direção | coordenação | null. Coluna da migration 20261003000100. */
+  school_title?: 'direcao' | 'coordenacao' | null;
   weekly_study_goal_minutes: number;
   daily_study_goal_minutes: number;
   monthly_activities_goal: number;

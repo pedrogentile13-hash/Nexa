@@ -14,38 +14,50 @@
 --      poder criar evento: "o evento da escola" não pode ser algo que
 --      qualquer aluno que abriu uma comunidade consiga publicar.
 --
--- Decisão de compatibilidade: `school_director` e `school_coordinator` passam
--- por `can_manage_school`, que é a régua usada em dezenas de policies. Assim
--- eles ganham a gestão da PRÓPRIA escola (conteúdo, turmas) sem reescrever
--- nenhuma policy existente — e continuam presos a `school_id`.
+-- Decisão de compatibilidade: direção e coordenação são `school_admin` com um
+-- título (`profiles.school_title`). Assim passam por `can_manage_school` e por
+-- toda checagem `role in ('admin','school_admin')` que já existe, ganhando a
+-- gestão da PRÓPRIA escola sem reescrever nenhuma policy — presos a `school_id`.
 -- ============================================================================
 
 -- ------------------------------------------------------------------ papéis --
-alter table public.profiles drop constraint if exists profiles_role_check;
-alter table public.profiles
-  add constraint profiles_role_check
-  check (role in ('student', 'school_admin', 'admin', 'teacher_admin', 'school_director', 'school_coordinator'));
+-- Direção e coordenação NÃO são papéis novos: continuam `school_admin`, com um
+-- título. Motivo: ao menos seis pontos do schema (upload de arquivo, avisos,
+-- push, escrita de conteúdo) checam `role in ('admin', 'school_admin')`, e
+-- reescrever cada um é arriscar divergir da versão atual de cada função. Com
+-- o título, tudo que já aceita `school_admin` passa a aceitar os dois, e o
+-- que importa para a hierarquia (quem vê quem) lê o título.
+--
+--   school_title = null          → administrador da escola (nível de direção)
+--   school_title = 'direcao'     → direção
+--   school_title = 'coordenacao' → coordenação (enxerga os professores)
+alter table public.profiles add column if not exists school_title text;
 
-comment on column public.profiles.role is
-  'student = aluno; teacher_admin = professor (via teacher_assignments); '
-  'school_coordinator = coordenação da escola; school_director = direção da escola; '
-  'school_admin = administrador da escola (equivale à direção); admin = plataforma.';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_school_title_check') then
+    alter table public.profiles add constraint profiles_school_title_check
+      check (school_title is null or school_title in ('direcao', 'coordenacao'));
+  end if;
+end;
+$$;
 
--- Quem gerencia a escola: plataforma, e direção/coordenação/admin DA escola.
-create or replace function public.can_manage_school(p_school_id uuid, p_user_id uuid default auth.uid())
-returns boolean language sql stable security definer set search_path = public as $$
-  select exists (
-    select 1 from public.profiles p
-    where p.id = p_user_id
-      and (
-        p.role = 'admin'
-        or (
-          p.role in ('school_admin', 'school_director', 'school_coordinator')
-          and p_school_id is not null
-          and p.school_id = p_school_id
-        )
-      )
-  );
+comment on column public.profiles.school_title is
+  'Só vale para role = school_admin: direcao | coordenacao | null (administrador da escola).';
+
+-- A trava de papel agora cobre o título também: sem isso, uma coordenadora
+-- faria `update profiles set school_title = 'direcao'` e subiria de nível
+-- (profiles_update_own libera a linha inteira).
+create or replace function public.guard_profile_role()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (new.role is distinct from old.role or new.school_title is distinct from old.school_title)
+     and auth.uid() is not null and not public.is_admin() then
+    raise exception 'apenas um administrador pode alterar o papel de um perfil'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
 $$;
 
 -- Nível hierárquico DENTRO de uma escola: 4 plataforma, 3 direção/admin da
@@ -57,8 +69,8 @@ returns integer language sql stable security definer set search_path = public as
     select case
       when p.role = 'admin' then 4
       when p.school_id is distinct from p_school_id then 0
-      when p.role in ('school_director', 'school_admin') then 3
-      when p.role = 'school_coordinator' then 2
+      when p.role = 'school_admin' and p.school_title = 'coordenacao' then 2
+      when p.role = 'school_admin' then 3
       when p.role = 'teacher_admin' then 1
       else 0
     end
@@ -142,7 +154,7 @@ returns boolean language sql stable security definer set search_path = public as
     where p.id = p_user_id
       and (
         p.role = 'admin'
-        or (p.school_id is not null and p.role in ('school_admin', 'school_director', 'school_coordinator', 'teacher_admin'))
+        or (p.school_id is not null and p.role in ('school_admin', 'teacher_admin'))
       )
   );
 $$;
@@ -230,3 +242,48 @@ end;
 $$;
 
 grant execute on function public.create_event(text, timestamptz, text, text, timestamptz, integer, text, uuid, uuid, uuid) to authenticated;
+
+-- `list_events` tinha o PRÓPRIO filtro de visibilidade (copiado de
+-- `can_view_event` antes de existir turma) e mostraria o evento de uma turma
+-- para a escola inteira. Passa a usar a mesma função, uma régua só.
+-- Mesma assinatura de retorno, então `create or replace` basta.
+create or replace function public.list_events(p_upcoming_only boolean default true)
+returns table (
+  id uuid,
+  title text,
+  description text,
+  location text,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  capacity integer,
+  community_id uuid,
+  community_name text,
+  cancelled_at timestamptz,
+  registered_count bigint,
+  my_status text,
+  can_manage boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  return query
+  select
+    e.id, e.title, e.description, e.location, e.starts_at, e.ends_at, e.capacity,
+    e.community_id, cm.name, e.cancelled_at,
+    (select count(*) from public.event_registrations r where r.event_id = e.id and r.status = 'registered'),
+    (select r2.status from public.event_registrations r2 where r2.event_id = e.id and r2.user_id = v_me),
+    public.can_manage_event(e.id, v_me)
+  from public.events e
+  left join public.communities cm on cm.id = e.community_id
+  where public.can_view_event(e.id, v_me)
+    and (not p_upcoming_only or e.starts_at >= now() - interval '1 day')
+  order by e.starts_at asc;
+end;
+$$;
+
+grant execute on function public.list_events(boolean) to authenticated;

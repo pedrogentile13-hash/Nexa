@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { choiceToProfile, SCHOOL_ROLE_CHOICES } from '@/lib/school-roles';
 import { sendPushToUsers } from '@/lib/push/send';
 import { assertSubjectAllowed, requireAdmin, requireContentManager, resolveSchoolId } from './guard';
 import { parseAssets, parseSimuladoCode } from '../lib/simulado-import';
@@ -1063,7 +1064,7 @@ export async function deleteTrackLesson(formData: FormData): Promise<void> {
 
 const roleSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(['student', 'teacher_admin', 'school_coordinator', 'school_director', 'school_admin', 'admin']),
+  role: z.enum(SCHOOL_ROLE_CHOICES),
   schoolId: z.string().optional(),
 });
 
@@ -1084,17 +1085,29 @@ export async function setPersonRole(_prev: AdminState, formData: FormData): Prom
     return fail('Você não pode retirar o próprio acesso de administrador.');
   }
 
+  // "Coordenação" e "Direção" são school_admin + título (migration
+  // 20261003000100); a tela só enxerga a escolha, o banco guarda duas colunas.
+  const { role, title } = choiceToProfile(parsed.data.role);
   const supabase = await createClient();
-  const { error } = await supabase
+  const base = {
+    role,
+    // A escola é salva pra QUALQUER papel escolhido no seletor — inclusive
+    // student. Antes só gravava quando o papel era school_admin, e o
+    // seletor de escola de um aluno virava um botão que não fazia nada.
+    school_id: parsed.data.schoolId ? parsed.data.schoolId : null,
+  };
+  let { error } = await supabase
     .from('profiles')
-    .update({
-      role: parsed.data.role,
-      // A escola é salva pra QUALQUER papel escolhido no seletor — inclusive
-      // student. Antes só gravava quando o papel era school_admin, e o
-      // seletor de escola de um aluno virava um botão que não fazia nada.
-      school_id: parsed.data.schoolId ? parsed.data.schoolId : null,
-    })
+    .update({ ...base, school_title: title })
     .eq('id', parsed.data.userId);
+
+  // Código publicado antes do SQL rodar: a coluna ainda não existe (42703) e o
+  // PostgREST recusa o update inteiro. Aplica só o que existia — e avisa se o
+  // pedido dependia do título, para não fingir que virou coordenação.
+  if (error?.code === '42703' || error?.code === 'PGRST204') {
+    if (title) return fail('Aplique o SQL da hierarquia escolar no Supabase antes de nomear direção ou coordenação.');
+    ({ error } = await supabase.from('profiles').update(base).eq('id', parsed.data.userId));
+  }
 
   if (error) return fail(error.message);
 
@@ -1244,4 +1257,77 @@ export async function gradeEssay(_prev: AdminState, formData: FormData): Promise
 
   revalidatePath(`${identity.basePath}/${parsed.data.resourceId}/redacoes`);
   return ok;
+}
+
+// ----------------------------------------------------------------- eventos --
+
+const schoolEventSchema = z.object({
+  schoolId: z.string().optional(),
+  classId: z.string().uuid().optional(),
+  title: z.string().trim().min(2, 'Dê um título ao evento.').max(120),
+  description: z.string().trim().max(2000).optional(),
+  location: z.string().trim().max(200).optional(),
+  startsAt: z.string().min(1, 'Escolha data e hora de início.'),
+  endsAt: z.string().optional(),
+  capacity: z.coerce.number().int().positive().optional(),
+});
+
+/**
+ * Evento oficial da escola. A regra de QUEM pode criar é do banco
+ * (`create_event` → `can_create_school_event`): esta action só repassa. Aqui
+ * o painel já exige admin/school_admin (direção, coordenação), então o erro
+ * esperado é só de dados.
+ */
+export async function saveSchoolEvent(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const identity = await requireAdmin();
+
+  const parsed = schoolEventSchema.safeParse({
+    schoolId: formData.get('schoolId') || undefined,
+    classId: formData.get('classId') || undefined,
+    title: formData.get('title'),
+    description: formData.get('description') || undefined,
+    location: formData.get('location') || undefined,
+    startsAt: formData.get('startsAt'),
+    endsAt: formData.get('endsAt') || undefined,
+    capacity: formData.get('capacity') || undefined,
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const schoolId = resolveSchoolId(identity, parsed.data.schoolId ?? null);
+  if (!schoolId) return fail('Escolha uma escola.');
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('create_event', {
+    p_title: parsed.data.title,
+    p_starts_at: new Date(parsed.data.startsAt).toISOString(),
+    p_description: parsed.data.description ?? null,
+    p_location: parsed.data.location ?? null,
+    p_ends_at: parsed.data.endsAt ? new Date(parsed.data.endsAt).toISOString() : null,
+    p_capacity: parsed.data.capacity ?? null,
+    p_school_id: schoolId,
+    p_class_id: parsed.data.classId ?? null,
+  });
+  if (error) {
+    return fail(
+      error.code === '42883' || error.code === 'PGRST202'
+        ? 'Aplique o SQL da hierarquia escolar no Supabase antes de criar eventos por aqui.'
+        : error.message,
+    );
+  }
+
+  revalidatePath('/admin/eventos');
+  revalidatePath('/comunidade/eventos');
+  revalidatePath('/agenda');
+  return ok;
+}
+
+export async function cancelSchoolEvent(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('id');
+  if (typeof id !== 'string') return;
+
+  const supabase = await createClient();
+  await supabase.rpc('cancel_event', { p_event_id: id });
+  revalidatePath('/admin/eventos');
+  revalidatePath('/comunidade/eventos');
 }

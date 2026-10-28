@@ -1,3 +1,4 @@
+import { SCHOOL_ROLE_LABEL } from '@/lib/school-roles';
 import dynamic from 'next/dynamic';
 import { Flame, NotebookPen, Target, Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,14 +22,7 @@ const SubjectScoresChart = dynamic(() =>
   import('@/features/performance/components/charts').then((m) => m.SubjectScoresChart),
 );
 
-const ROLE_LABEL: Record<string, string> = {
-  student: 'Aluno',
-  teacher_admin: 'Professor',
-  school_coordinator: 'Coordenação',
-  school_director: 'Direção',
-  school_admin: 'Admin da escola',
-  admin: 'Admin geral',
-};
+const ROLE_LABEL: Record<string, string> = SCHOOL_ROLE_LABEL;
 
 export function StudentReport({ report }: { report: AdminStudentReport }) {
   const { person, stats, subjectScores, scoreEvolution, simuladoHistory, studyWeeks } = report;
