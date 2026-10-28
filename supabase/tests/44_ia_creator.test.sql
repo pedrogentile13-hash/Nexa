@@ -139,7 +139,14 @@ reset role;
 
 -- ============================================================================
 -- 4 · visibilidade 'friends'
+--
+-- Regra da migração do material de estudo: quem pertence a uma escola só tira o
+-- conteúdo do privado COM AUTORIZAÇÃO da coordenação. Aqui a autorização é dada
+-- direto (como superusuário); o fluxo de pedir/aprovar tem suíte própria (63).
 -- ============================================================================
+insert into public.publication_requests (resource_id, requester_id, school_id, status)
+values (current_setting('nexa.quiz_id')::uuid, :'CREATOR', '22222222-0000-0000-0000-000000000080', 'approved');
+
 set "request.jwt.claim.sub" = '11111111-9999-9999-9999-999999999980'; -- CREATOR
 set role authenticated;
 select public.update_ai_resource_visibility(current_setting('nexa.quiz_id')::uuid, 'friends');

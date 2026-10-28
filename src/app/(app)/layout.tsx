@@ -1,5 +1,6 @@
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { SideNav } from '@/components/layout/side-nav';
+import { NexaWidget } from '@/features/nexa-ia/components/nexa-widget';
 import { InstallPrompt } from '@/features/install/components/install-prompt';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { isFeatureEnabled } from '@/lib/feature-flags';
@@ -102,6 +103,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           usando o app, e não depender de o aluno passar por uma página
           específica. Ele mesmo decide se aparece. */}
       <InstallPrompt />
+      <NexaWidget />
     </div>
   );
 }

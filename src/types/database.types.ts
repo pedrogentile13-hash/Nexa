@@ -1079,6 +1079,47 @@ export type AiChatMessageRow = {
   created_at: string;
 };
 
+export type StudyDocumentRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  source_kind: 'pdf' | 'image' | 'text';
+  content: string;
+  pages: number | null;
+  created_at: string;
+};
+
+export type PublicationStatus = 'pending' | 'approved' | 'rejected';
+
+export type PublicationRequestRow = {
+  id: string;
+  resource_id: string;
+  requester_id: string;
+  school_id: string;
+  status: PublicationStatus;
+  note: string | null;
+  decision_note: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  created_at: string;
+};
+
+export type PublicationRequestListRow = {
+  id: string;
+  resource_id: string;
+  kind: ResourceKind;
+  title: string;
+  subject_name: string;
+  requester_name: string;
+  class_name: string | null;
+  note: string | null;
+  status: PublicationStatus;
+  decision_note: string | null;
+  question_count: number;
+  preview: string;
+  created_at: string;
+};
+
 export type NotificationRow = {
   id: string;
   user_id: string;
@@ -1462,6 +1503,8 @@ export type Database = {
       long_term_goals: Table<LongTermGoalRow>;
       ai_chat_sessions: Table<AiChatSessionRow>;
       ai_chat_messages: Table<AiChatMessageRow>;
+      study_documents: Table<StudyDocumentRow>;
+      publication_requests: Table<PublicationRequestRow>;
       notifications: Table<NotificationRow>;
       push_subscriptions: Table<PushSubscriptionRow>;
       teacher_assignments: Table<TeacherAssignmentRow>;
@@ -1804,6 +1847,9 @@ export type Database = {
         Returns: void;
       };
       delete_ai_resource: { Args: { p_resource_id: string }; Returns: void };
+      request_publication: { Args: { p_resource_id: string; p_note?: string | null }; Returns: string };
+      list_publication_requests: { Args: { p_status?: string | null }; Returns: PublicationRequestListRow[] };
+      decide_publication: { Args: { p_request_id: string; p_approve: boolean; p_note?: string | null }; Returns: void };
       save_vestibular_profile: {
         Args: {
           p_main_exam_id?: string | null;

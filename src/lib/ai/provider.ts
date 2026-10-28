@@ -14,9 +14,20 @@
  * (aluno vs. admin/professor) e já tinha textos próprios antes desta extração.
  */
 
+/**
+ * Arquivo enviado junto da mensagem do usuário (imagem ou PDF), em base64.
+ * Só o Gemini lê isto; vai direto na requisição e NÃO é guardado por aqui.
+ */
+export interface AIAttachment {
+  mimeType: string;
+  data: string;
+}
+
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  /** Só faz sentido em mensagens do usuário. */
+  attachments?: AIAttachment[];
 }
 
 export interface AICompletionOptions {
@@ -30,6 +41,8 @@ export type AICompletionResult =
   | { ok: false; reason: 'missing_api_key' }
   | { ok: false; reason: 'content_filter' }
   | { ok: false; reason: 'empty' }
+  /** O provedor não sabe fazer o que foi pedido (ex.: ler imagem/PDF no Groq). */
+  | { ok: false; reason: 'unsupported' }
   | { ok: false; reason: 'http_error'; status: number; detail?: string }
   | { ok: false; reason: 'network'; error: unknown };
 
@@ -44,6 +57,10 @@ const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 export class GroqProvider implements AIProvider {
   async complete(messages: AIMessage[], options: AICompletionOptions = {}): Promise<AICompletionResult> {
+    // O modelo de texto da Groq não lê imagem nem PDF: melhor recusar a fingir
+    // que leu e responder sobre um arquivo que ele nunca viu.
+    if (messages.some((m) => m.attachments?.length)) return { ok: false, reason: 'unsupported' };
+
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return { ok: false, reason: 'missing_api_key' };
 
@@ -227,7 +244,11 @@ export class GeminiProvider implements AIProvider {
       .filter((m) => m.role !== 'system')
       .map((m) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
+        parts: [
+          // Os arquivos vão ANTES do texto: o Gemini lê melhor "documento, depois pergunta".
+          ...(m.attachments ?? []).map((a) => ({ inlineData: { mimeType: a.mimeType, data: a.data } })),
+          { text: m.content },
+        ],
       }));
 
     try {
@@ -314,6 +335,8 @@ export class FallbackProvider implements AIProvider {
   async complete(messages: AIMessage[], options?: AICompletionOptions): Promise<AICompletionResult> {
     const first = await this.primary.complete(messages, options);
     if (first.ok || first.reason === 'content_filter') return first;
+    // Com arquivo anexado o reserva (só texto) não serve: erra feio ou não responde.
+    if (messages.some((m) => m.attachments?.length)) return first;
 
     console.error('[ai/provider] principal falhou, tentando o reserva:', first.reason);
     const second = await this.secondary.complete(messages, options);

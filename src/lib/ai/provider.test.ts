@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FallbackProvider, GeminiProvider, geminiEndpoint, getAIProvider, type AIProvider } from './provider';
+import { FallbackProvider, GeminiProvider, GroqProvider, geminiEndpoint, getAIProvider, type AIProvider } from './provider';
 
 describe('GeminiProvider', () => {
   beforeEach(() => {
@@ -206,5 +206,46 @@ describe('FallbackProvider', () => {
   it('reporta o erro do principal se o reserva nem está configurado', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(await new FallbackProvider(fail, noKey).complete(msg)).toEqual({ ok: false, reason: 'http_error', status: 403 });
+  });
+});
+
+describe('anexos (imagem/PDF)', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+  it('o Gemini recebe o arquivo como inlineData ANTES do texto', async () => {
+    vi.stubEnv('GEMINI_API_KEY', 'k');
+    const fn = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: 'li o arquivo' }] } }] }),
+    });
+    vi.stubGlobal('fetch', fn);
+
+    const result = await new GeminiProvider([]).complete([
+      { role: 'user', content: 'resuma', attachments: [{ mimeType: 'application/pdf', data: 'QUJD' }] },
+    ]);
+
+    expect(result).toEqual({ ok: true, text: 'li o arquivo' });
+    const body = JSON.parse((fn.mock.calls[0]![1] as { body: string }).body);
+    expect(body.contents[0].parts[0]).toEqual({ inlineData: { mimeType: 'application/pdf', data: 'QUJD' } });
+    expect(body.contents[0].parts[1]).toEqual({ text: 'resuma' });
+  });
+
+  it('a Groq RECUSA arquivo em vez de fingir que leu', async () => {
+    vi.stubEnv('GROQ_API_KEY', 'k');
+    const fn = vi.fn();
+    vi.stubGlobal('fetch', fn);
+    const r = await new GroqProvider().complete([{ role: 'user', content: 'x', attachments: [{ mimeType: 'image/png', data: 'AA' }] }]);
+    expect(r).toEqual({ ok: false, reason: 'unsupported' });
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('com anexo, falha do Gemini NÃO cai no reserva de texto', async () => {
+    const primary = { complete: vi.fn().mockResolvedValue({ ok: false, reason: 'http_error', status: 503 }) };
+    const secondary = { complete: vi.fn() };
+    const r = await new FallbackProvider(primary, secondary).complete([
+      { role: 'user', content: 'x', attachments: [{ mimeType: 'image/png', data: 'AA' }] },
+    ]);
+    expect(r).toMatchObject({ ok: false, reason: 'http_error' });
+    expect(secondary.complete).not.toHaveBeenCalled();
   });
 });

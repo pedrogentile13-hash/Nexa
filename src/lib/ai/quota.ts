@@ -15,6 +15,7 @@ export const AI_DAILY_LIMITS = {
   creator: 10, // Quiz/Resumo com IA
   essay: 5, // correções de redação
   hint: 40, // dicas de IA dentro do simulado
+  material: 20, // perguntas/leitura de material (PDF, imagem) do aluno
 } as const;
 
 export type AiFeature = keyof typeof AI_DAILY_LIMITS;
@@ -25,6 +26,7 @@ const LABEL: Record<AiFeature, string> = {
   creator: 'criações com IA de hoje',
   essay: 'correções de redação de hoje',
   hint: 'dicas de hoje',
+  material: 'leituras de material de hoje',
 };
 
 interface QuotaClient {

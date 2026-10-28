@@ -41,6 +41,8 @@ function explain(name: string, r: AICompletionResult): { summary: string; detail
       return { summary: 'Bloqueado pelo filtro de conteúdo do provedor.', detail: null };
     case 'empty':
       return { summary: 'O provedor respondeu, mas sem texto.', detail: null };
+    case 'unsupported':
+      return { summary: 'O provedor não suporta o que foi pedido (ex.: ler imagem/PDF).', detail: null };
     case 'network':
       return { summary: 'Falha de rede ou tempo esgotado ao chamar o provedor.', detail: null };
     case 'http_error': {
