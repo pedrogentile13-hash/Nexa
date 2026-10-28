@@ -10,6 +10,7 @@ import {
   Clock,
   Flag,
   Grid3x3,
+  Lightbulb,
   Loader2,
   Sparkles,
   X,
@@ -23,6 +24,8 @@ import { QuestionAssets } from './question-assets';
 import { WritingTaskRunner } from './writing-task-runner';
 import { CalculatorDialog } from './calculator-dialog';
 import { clockTime, humanDuration } from '../lib/format';
+import { getQuestionHint } from '../server/hint-actions';
+import { MAX_HINT_LEVEL } from '../lib/hint-prompt';
 import {
   answerQuestion,
   finishAttempt,
@@ -110,6 +113,10 @@ export function QuizRunner({
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Dicas de IA por questão (máx. 2 níveis). Só existem enquanto a página está aberta.
+  const [hints, setHints] = useState<Record<string, string[]>>({});
+  const [hintError, setHintError] = useState<string | null>(null);
+  const [hintPending, startHint] = useTransition();
 
   const question = orderedQuestions[index];
   const total = orderedQuestions.length;
@@ -573,6 +580,41 @@ export function QuizRunner({
             <Flag className={cn('size-4', isFlagged && 'fill-current')} aria-hidden />
           </button>
         </div>
+
+        {(() => {
+          const given = hints[question.question_id] ?? [];
+          const canAsk = !verdict && given.length < MAX_HINT_LEVEL;
+          const ask = () => {
+            setHintError(null);
+            startHint(async () => {
+              const r = await getQuestionHint(resource.id, question.question_id, given.length + 1);
+              if (r.ok) setHints((cur) => ({ ...cur, [question.question_id]: [...(cur[question.question_id] ?? []), r.hint] }));
+              else setHintError(r.message);
+            });
+          };
+          return (
+            <div className="mt-4 space-y-2">
+              {given.map((h, i) => (
+                <p key={i} className="bg-brand-soft text-text flex gap-2 rounded-lg px-3.5 py-2.5 text-sm leading-relaxed">
+                  <Lightbulb className="text-brand mt-0.5 size-4 shrink-0" aria-hidden />
+                  <span>{h}</span>
+                </p>
+              ))}
+              {hintError && <p role="alert" className="text-danger text-sm">{hintError}</p>}
+              {canAsk && (
+                <button
+                  type="button"
+                  onClick={ask}
+                  disabled={hintPending}
+                  className="text-brand-text hover:bg-brand-soft inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium disabled:opacity-60"
+                >
+                  {hintPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Lightbulb className="size-4" aria-hidden />}
+                  {hintPending ? 'Pensando…' : given.length === 0 ? 'Pedir uma dica' : 'Preciso de mais uma dica'}
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         <ul className="mt-5 space-y-2.5">
           {displayOptions.map((option, optionIndex) => {
