@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin, resolveSchoolId } from '@/features/admin/server/guard';
 import { generatePassword, isValidLogin, loginToEmail, normalizeLogin } from '../lib/credentials';
+import { parseAccountsCsv } from '../lib/csv';
 
 /**
  * Contas criadas pela escola (login + senha, sem e-mail).
@@ -56,6 +57,76 @@ async function schoolHost(schoolId: string): Promise<string | null> {
   return data?.host ?? null;
 }
 
+type AdminClient = NonNullable<ReturnType<typeof createAdminClient>>;
+type AccountRole = 'student' | 'teacher_admin' | 'school_coordinator' | 'school_director';
+
+/**
+ * Cria UMA conta (usuário do Auth + perfil). Compartilhada pela criação avulsa e
+ * pela importação de planilha, para as duas terem exatamente as mesmas regras e
+ * o mesmo desfazimento se algo falhar no meio.
+ */
+async function createOne(input: {
+  admin: AdminClient;
+  schoolId: string;
+  host: string;
+  fullName: string;
+  login: string;
+  role: AccountRole;
+  classId: string | null;
+}): Promise<{ ok: true; password: string } | { ok: false; message: string; duplicate?: boolean }> {
+  const { admin, schoolId, host, fullName, login, role, classId } = input;
+  const isStaffRole = role === 'school_coordinator' || role === 'school_director';
+  const password = generatePassword();
+
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email: loginToEmail(login, host),
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
+  });
+
+  if (createError || !created.user) {
+    const duplicate = /already|registered|exists/i.test(createError?.message ?? '');
+    return {
+      ok: false,
+      duplicate,
+      message: duplicate
+        ? 'Já existe uma conta com esse login nesta escola.'
+        : 'Não consegui criar a conta agora. Tente de novo.',
+    };
+  }
+
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update({
+      full_name: fullName,
+      school_id: schoolId,
+      class_id: role === 'student' ? classId : null,
+      role: isStaffRole ? 'school_admin' : role === 'teacher_admin' ? 'teacher_admin' : 'student',
+      school_title: role === 'school_coordinator' ? 'coordenacao' : role === 'school_director' ? 'direcao' : null,
+      school_login: login,
+    })
+    .eq('id', created.user.id);
+
+  if (profileError) {
+    // Sem o perfil ajustado a conta ficaria solta (sem escola). Desfaz tudo em vez de deixar sobra.
+    await admin.auth.admin.deleteUser(created.user.id);
+    const duplicate = profileError.code === '23505';
+    return {
+      ok: false,
+      duplicate,
+      message:
+        profileError.code === '42703'
+          ? 'Aplique o SQL das contas da escola no Supabase antes de criar contas.'
+          : duplicate
+            ? 'Já existe uma conta com esse login nesta escola.'
+            : 'Não consegui concluir o cadastro da conta. Nada foi criado.',
+    };
+  }
+
+  return { ok: true, password };
+}
+
 export async function createSchoolAccount(_prev: AccountState, formData: FormData): Promise<AccountState> {
   const identity = await requireAdmin();
 
@@ -102,53 +173,21 @@ export async function createSchoolAccount(_prev: AccountState, formData: FormDat
   const admin = createAdminClient();
   if (!admin) return fail(MISSING_KEY);
 
-  const password = generatePassword();
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email: loginToEmail(login, host),
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: parsed.data.fullName },
+  const result = await createOne({
+    admin,
+    schoolId,
+    host,
+    fullName: parsed.data.fullName,
+    login,
+    role: parsed.data.role,
+    classId: parsed.data.classId ?? null,
   });
-
-  if (createError || !created.user) {
-    return fail(
-      /already|registered|exists/i.test(createError?.message ?? '')
-        ? 'Já existe uma conta com esse login nesta escola.'
-        : 'Não consegui criar a conta agora. Tente de novo.',
-    );
-  }
-
-  const { error: profileError } = await admin
-    .from('profiles')
-    .update({
-      full_name: parsed.data.fullName,
-      school_id: schoolId,
-      class_id: parsed.data.role === 'student' ? (parsed.data.classId ?? null) : null,
-      role: isStaffRole ? 'school_admin' : parsed.data.role === 'teacher_admin' ? 'teacher_admin' : 'student',
-      school_title:
-        parsed.data.role === 'school_coordinator' ? 'coordenacao'
-        : parsed.data.role === 'school_director' ? 'direcao'
-        : null,
-      school_login: login,
-    })
-    .eq('id', created.user.id);
-
-  if (profileError) {
-    // Sem o perfil ajustado a conta ficaria solta (sem escola). Desfaz tudo em vez de deixar sobra.
-    await admin.auth.admin.deleteUser(created.user.id);
-    return fail(
-      profileError.code === '42703'
-        ? 'Aplique o SQL das contas da escola no Supabase antes de criar contas.'
-        : profileError.code === '23505'
-          ? 'Já existe uma conta com esse login nesta escola.'
-          : 'Não consegui concluir o cadastro da conta. Nada foi criado.',
-    );
-  }
+  if (!result.ok) return fail(result.message);
 
   revalidatePath('/admin/contas');
   return {
     status: 'issued',
-    credentials: { fullName: parsed.data.fullName, login, password, address: `https://${host}` },
+    credentials: { fullName: parsed.data.fullName, login, password: result.password, address: `https://${host}` },
   };
 }
 
@@ -197,4 +236,105 @@ export async function resetSchoolAccountPassword(_prev: AccountState, formData: 
       address: `https://${host}`,
     },
   };
+}
+
+// ------------------------------------------------------------- planilha --
+
+export interface ImportedAccount {
+  fullName: string;
+  login: string;
+  password: string;
+  className: string | null;
+  role: 'student' | 'teacher_admin';
+}
+
+export type ImportState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string }
+  | {
+      status: 'done';
+      address: string;
+      created: ImportedAccount[];
+      failed: { line: number; name: string; message: string }[];
+    };
+
+/**
+ * Importa uma planilha de alunos/professores de uma vez.
+ *
+ * Cada linha é independente: uma que falha (turma inexistente, login já usado)
+ * não derruba as outras — o relatório diz exatamente quais criou e quais não.
+ * Cria 5 por vez: o Supabase leva ~300 ms por conta, e 200 em fila passariam do
+ * tempo que a hospedagem dá a uma ação.
+ */
+export async function importSchoolAccounts(_prev: ImportState, formData: FormData): Promise<ImportState> {
+  const identity = await requireAdmin();
+  const err = (message: string): ImportState => ({ status: 'error', message });
+
+  const schoolId = resolveSchoolId(identity, String(formData.get('schoolId') ?? '') || null);
+  if (!schoolId) return err('Escolha uma escola.');
+
+  const text = String(formData.get('csv') ?? '');
+  if (!text.trim()) return err('Cole ou envie a planilha primeiro.');
+  if (text.length > 200_000) return err('Arquivo grande demais.');
+
+  const parsed = parseAccountsCsv(text);
+  if (parsed.rows.length === 0 && parsed.errors.length > 0 && parsed.errors[0]!.line === 0) {
+    return err(parsed.errors[0]!.message);
+  }
+  if (parsed.rows.length === 0) {
+    return err(parsed.errors[0] ? `Nenhuma linha válida. Linha ${parsed.errors[0].line}: ${parsed.errors[0].message}` : 'A planilha está vazia.');
+  }
+
+  const host = await schoolHost(schoolId);
+  if (!host) return err('Esta escola ainda não tem um endereço próprio cadastrado, então não dá para criar contas.');
+
+  const admin = createAdminClient();
+  if (!admin) return err(MISSING_KEY);
+
+  const supabase = await createClient();
+  const { data: classRows } = await supabase.from('classes').select('id, name').eq('school_id', schoolId);
+  const fold = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '');
+  const classByName = new Map((classRows ?? []).map((c) => [fold(c.name), c.id]));
+
+  const created: ImportedAccount[] = [];
+  const failed: { line: number; name: string; message: string }[] = parsed.errors.map((e) => ({
+    line: e.line,
+    name: '',
+    message: e.message,
+  }));
+
+  const work = async (row: (typeof parsed.rows)[number]) => {
+    let classId: string | null = null;
+    if (row.className) {
+      classId = classByName.get(fold(row.className)) ?? null;
+      if (!classId) {
+        failed.push({ line: row.line, name: row.fullName, message: `Turma "${row.className}" não existe nesta escola.` });
+        return;
+      }
+    }
+
+    // Login SUGERIDO que já existe no banco: tenta com número. O digitado, não — é erro dela.
+    let login = row.login;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const result = await createOne({ admin, schoolId, host, fullName: row.fullName, login, role: row.role, classId });
+      if (result.ok) {
+        created.push({ fullName: row.fullName, login, password: result.password, className: row.className, role: row.role });
+        return;
+      }
+      if (!result.duplicate || row.loginTyped || attempt === 5) {
+        failed.push({ line: row.line, name: row.fullName, message: result.message });
+        return;
+      }
+      login = normalizeLogin(`${row.login}${attempt + 2}`);
+    }
+  };
+
+  for (let i = 0; i < parsed.rows.length; i += 5) {
+    await Promise.all(parsed.rows.slice(i, i + 5).map(work));
+  }
+
+  created.sort((a, b) => a.fullName.localeCompare(b.fullName, 'pt-BR'));
+  failed.sort((a, b) => a.line - b.line);
+  revalidatePath('/admin/contas');
+  return { status: 'done', address: `https://${host}`, created, failed };
 }

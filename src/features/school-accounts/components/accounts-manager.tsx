@@ -13,6 +13,7 @@ import {
 } from '../server/actions';
 import { normalizeLogin, suggestLogin } from '../lib/credentials';
 import type { SchoolAccount } from '../server/queries';
+import { ImportPanel } from './import-panel';
 
 const INITIAL: AccountState = { status: 'idle' };
 
@@ -66,6 +67,8 @@ export function AccountsManager({
   return (
     <div className="space-y-6">
       {issued && <CredentialsCard credentials={issued} />}
+
+      <ImportPanel schools={schools} isGlobal={isGlobal} />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="order-2 lg:order-1">
