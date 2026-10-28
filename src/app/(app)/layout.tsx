@@ -4,6 +4,7 @@ import { InstallPrompt } from '@/features/install/components/install-prompt';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { isFeatureEnabled } from '@/lib/feature-flags';
 import { listMyTeachers } from '@/features/school-chat/server/queries';
+import { unreadAnnouncementsCount } from '@/features/announcements/server/queries';
 import { SHELL_COLUMNS, readWithFallback, type ProfileReader } from '@/lib/supabase/profile-read';
 import type { Journey } from '@/types/database.types';
 
@@ -55,6 +56,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const communityEnabled = user ? await isFeatureEnabled('community_enabled') : false;
   // Chat da escola: só aparece para quem tem professores ligados à própria turma.
   const chatEnabled = user ? (await listMyTeachers()).length > 0 : false;
+  // Mural: aparece para quem pertence a uma escola. `readWithFallback` é por
+  // coluna conhecida; aqui basta uma leitura simples do vínculo.
+  const [unreadAnnouncements, schoolRow] = user
+    ? await Promise.all([
+        unreadAnnouncementsCount(),
+        supabase.from('profiles').select('school_id').eq('id', user.id).maybeSingle(),
+      ])
+    : [0, null];
+  const announcementsEnabled = Boolean(schoolRow?.data?.school_id);
   const vestibularEnabled = user ? await isFeatureEnabled('vestibular_enabled') : false;
   // A jornada escolhida na criação da conta decide qual das duas plataformas
   // é a "casa" desta pessoa — e portanto qual navegação abre por padrão.
@@ -69,6 +79,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isTeacher={isTeacher}
         communityEnabled={communityEnabled}
         chatEnabled={chatEnabled}
+        announcementsEnabled={announcementsEnabled}
+        unreadAnnouncements={unreadAnnouncements}
         vestibularEnabled={vestibularEnabled}
         journey={journey}
       />
@@ -81,6 +93,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isTeacher={isTeacher}
         communityEnabled={communityEnabled}
         chatEnabled={chatEnabled}
+        announcementsEnabled={announcementsEnabled}
+        unreadAnnouncements={unreadAnnouncements}
         vestibularEnabled={vestibularEnabled}
         journey={journey}
       />

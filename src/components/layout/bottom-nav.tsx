@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   GraduationCap,
   Home,
+  Megaphone,
   Menu,
   MessageCircle,
   Newspaper,
@@ -66,6 +67,7 @@ const ADMIN_ITEM = { href: '/admin', label: 'Admin', Icon: Shield } as const;
 const TEACHER_ITEM = { href: '/professor', label: 'Professor', Icon: Users2 } as const;
 const COMMUNITY_ITEM = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper } as const;
 const CHAT_ITEM = { href: '/chat', label: 'Professores', Icon: MessageCircle } as const;
+const ANNOUNCEMENTS_ITEM = { href: '/avisos', label: 'Avisos', Icon: Megaphone } as const;
 const VESTIBULAR_ITEM = { href: '/vestibular', label: 'Vestibular', Icon: GraduationCap } as const;
 const SCHOOL_ITEM = { href: '/hoje', label: 'Escola', Icon: School } as const;
 
@@ -101,6 +103,8 @@ export function BottomNav({
   isTeacher = false,
   communityEnabled = false,
   chatEnabled = false,
+  announcementsEnabled = false,
+  unreadAnnouncements = 0,
   vestibularEnabled = false,
   journey = 'school',
 }: {
@@ -109,6 +113,9 @@ export function BottomNav({
   communityEnabled?: boolean;
   /** O aluno tem professores ligados à turma dele (chat da escola). */
   chatEnabled?: boolean;
+  /** O usuário pertence a uma escola (mural de avisos). */
+  announcementsEnabled?: boolean;
+  unreadAnnouncements?: number;
   vestibularEnabled?: boolean;
   journey?: Journey;
 }) {
@@ -122,6 +129,7 @@ export function BottomNav({
   const moreItems = inVestibular
     ? [SCHOOL_ITEM, ...(communityEnabled ? [COMMUNITY_ITEM] : []), ...VESTIBULAR_MORE_ITEMS]
     : [
+        ...(announcementsEnabled ? [ANNOUNCEMENTS_ITEM] : []),
         ...(chatEnabled ? [CHAT_ITEM] : []),
         ...(communityEnabled ? [COMMUNITY_ITEM] : []),
         ...(vestibularEnabled ? [VESTIBULAR_ITEM] : []),
@@ -163,6 +171,7 @@ export function BottomNav({
             <ul className="grid grid-cols-3 gap-2">
               {moreItems.map(({ href, label, Icon }) => {
                 const active = isActive(href);
+                const badge = href === '/avisos' ? unreadAnnouncements : 0;
                 return (
                   <li key={href}>
                     <Link
@@ -175,7 +184,14 @@ export function BottomNav({
                           : 'border-border text-muted hover:bg-surface-2',
                       )}
                     >
-                      <Icon className="size-5" aria-hidden strokeWidth={active ? 2.3 : 1.9} />
+                      <span className="relative">
+                        <Icon className="size-5" aria-hidden strokeWidth={active ? 2.3 : 1.9} />
+                        {badge > 0 && (
+                          <span className="bg-danger absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] leading-4 font-semibold text-white">
+                            {badge > 99 ? '99+' : badge}
+                          </span>
+                        )}
+                      </span>
                       <span className="text-xs leading-tight font-medium">{label}</span>
                     </Link>
                   </li>
@@ -259,7 +275,12 @@ export function BottomNav({
                   moreActive ? 'bg-brand-soft' : 'bg-transparent',
                 )}
               >
-                <Menu className="size-[21px]" aria-hidden strokeWidth={moreActive ? 2.4 : 1.9} />
+                <span className="relative">
+                  <Menu className="size-[21px]" aria-hidden strokeWidth={moreActive ? 2.4 : 1.9} />
+                  {unreadAnnouncements > 0 && (
+                    <span className="bg-danger absolute -top-0.5 -right-1 size-2.5 rounded-full" aria-label="Há avisos novos" />
+                  )}
+                </span>
               </span>
               <span
                 className={cn(

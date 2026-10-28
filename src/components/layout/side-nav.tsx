@@ -20,6 +20,7 @@ import {
   User,
   Users2,
   MessageCircle,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlatformSwitcher, resolveActivePlatform } from './platform-switcher';
@@ -47,6 +48,8 @@ interface NavItem {
   href: Route;
   label: string;
   Icon: typeof Home;
+  /** Contador (ex.: avisos não lidos). Some quando zero. */
+  badge?: number;
 }
 
 const PRIMARY_ITEMS: NavItem[] = [
@@ -73,6 +76,7 @@ const TEACHER_ITEM: NavItem = { href: '/professor', label: 'Professor', Icon: Us
 /** Só aparece com a feature flag `community_enabled` ligada — ver `(app)/layout.tsx`. */
 const COMMUNITY_ITEM: NavItem = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper };
 const CHAT_ITEM: NavItem = { href: '/chat', label: 'Professores', Icon: MessageCircle };
+const ANNOUNCEMENTS_ITEM: NavItem = { href: '/avisos', label: 'Avisos', Icon: Megaphone };
 
 /**
  * Nexa Vestibular — o menu TROCA dentro de `/vestibular/**` em vez de somar
@@ -96,7 +100,7 @@ const VESTIBULAR_SECONDARY_ITEMS: NavItem[] = [
   { href: '/ranking', label: 'Ranking', Icon: Trophy },
 ];
 
-function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
+function NavLink({ href, label, Icon, active, badge }: NavItem & { active: boolean }) {
   return (
     <Link
       href={href}
@@ -111,6 +115,11 @@ function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
     >
       <Icon className="size-[18px] shrink-0" aria-hidden strokeWidth={active ? 2.3 : 1.9} />
       <span className="truncate">{label}</span>
+      {badge ? (
+        <span className="bg-danger ml-auto rounded-full px-1.5 py-0.5 text-[11px] leading-none font-semibold text-white tabular-nums">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -122,6 +131,8 @@ export function SideNav({
   isTeacher,
   communityEnabled,
   chatEnabled,
+  announcementsEnabled,
+  unreadAnnouncements = 0,
   vestibularEnabled,
   journey = 'school',
 }: {
@@ -132,6 +143,9 @@ export function SideNav({
   communityEnabled?: boolean;
   /** O aluno tem professores ligados à turma dele (chat da escola). */
   chatEnabled?: boolean;
+  /** O usuário pertence a uma escola (mural de avisos). */
+  announcementsEnabled?: boolean;
+  unreadAnnouncements?: number;
   vestibularEnabled?: boolean;
   journey?: Journey;
 } = {}) {
@@ -148,7 +162,12 @@ export function SideNav({
 
   const primaryItems = inVestibular
     ? [...VESTIBULAR_PRIMARY_ITEMS, ...(communityEnabled ? [COMMUNITY_ITEM] : [])]
-    : [...PRIMARY_ITEMS, ...(chatEnabled ? [CHAT_ITEM] : []), ...(communityEnabled ? [COMMUNITY_ITEM] : [])];
+    : [
+        ...PRIMARY_ITEMS,
+        ...(announcementsEnabled ? [{ ...ANNOUNCEMENTS_ITEM, badge: unreadAnnouncements }] : []),
+        ...(chatEnabled ? [CHAT_ITEM] : []),
+        ...(communityEnabled ? [COMMUNITY_ITEM] : []),
+      ];
   const secondaryItems = inVestibular
     ? VESTIBULAR_SECONDARY_ITEMS
     : [

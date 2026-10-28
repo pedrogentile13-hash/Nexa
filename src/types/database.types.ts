@@ -480,6 +480,24 @@ export type TeacherPlanRow = {
   updated_at: string;
 };
 
+export type SchoolAnnouncementRow = {
+  id: string;
+  school_id: string;
+  author_id: string;
+  class_id: string | null;
+  title: string;
+  body: string;
+  pinned: boolean;
+  expires_at: string | null;
+  created_at: string;
+};
+
+export type AnnouncementReadRow = {
+  announcement_id: string;
+  user_id: string;
+  read_at: string;
+};
+
 export type AiUsageRow = {
   user_id: string;
   day: string;
@@ -1464,6 +1482,8 @@ export type Database = {
       bot_messages: Table<BotMessageRow>;
       ai_usage: Table<AiUsageRow>;
       teacher_plans: Table<TeacherPlanRow>;
+      school_announcements: Table<SchoolAnnouncementRow>;
+      announcement_reads: Table<AnnouncementReadRow>;
     };
     Views: {
       v_resource_library: View<VResourceLibraryRow>;
@@ -1620,6 +1640,24 @@ export type Database = {
         Returns: string;
       };
       can_create_any_event: { Args: { p_user_id?: string }; Returns: boolean };
+      create_announcement: {
+        Args: { p_title: string; p_body: string; p_class_id?: string | null; p_pinned?: boolean; p_expires_at?: string | null };
+        Returns: { announcement_id: string; notified_user_ids: string[] }[];
+      };
+      mark_announcement_read: { Args: { p_id: string }; Returns: void };
+      list_announcements: {
+        Args: { p_limit?: number };
+        Returns: {
+          id: string; title: string; body: string; author_name: string; class_name: string | null; pinned: boolean;
+          created_at: string; is_read: boolean; can_manage: boolean; read_count: number | null; audience_size: number | null;
+        }[];
+      };
+      announcement_readers: {
+        Args: { p_id: string };
+        Returns: { user_id: string; full_name: string; class_name: string | null; read_at: string | null }[];
+      };
+      unread_announcements_count: { Args: Record<string, never>; Returns: number };
+      delete_announcement: { Args: { p_id: string }; Returns: void };
       school_overview: {
         Args: { p_school_id: string };
         Returns: {

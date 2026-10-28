@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { ArrowLeft, Bell, ClipboardList, GraduationCap, Layers, LayoutDashboard, Library, MessageCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, Bell, ClipboardList, GraduationCap, Layers, LayoutDashboard, Library, MessageCircle, Megaphone, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CoMark } from '@/components/layout/school-brand';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
@@ -22,6 +22,7 @@ const ITEMS = [
   { href: '/professor/turmas', label: 'Turmas', Icon: Layers },
   { href: '/professor/conteudo', label: 'Conteúdo', Icon: Library },
   { href: '/professor/avisos', label: 'Avisos', Icon: Bell },
+  { href: '/professor/mural', label: 'Mural da turma', Icon: Megaphone },
   { href: '/professor/planejamento', label: 'Planejamento', Icon: ClipboardList },
   { href: '/professor/respostas', label: 'Chat da turma', Icon: MessageCircle },
   { href: '/professor/nexaai', label: 'NexaAI', Icon: Sparkles },
