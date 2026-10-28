@@ -1,6 +1,6 @@
 # SQL pendente — Nexa
 
-Só o que ainda **não foi aplicado** no Supabase. As 8 migrações anteriores já
+Só o que ainda **não foi aplicado** no Supabase. As 8 primeiras migrações já
 foram aplicadas em 02/10/2026 e saíram desta página.
 
 Atualizado em 28/10/2026.
@@ -8,21 +8,29 @@ Atualizado em 28/10/2026.
 ## Como rodar
 
 1. Abra o **SQL Editor** do projeto no Supabase.
-2. Cole o bloco abaixo e rode.
-3. **Pode rodar de novo com segurança** — a suíte local testa a reaplicação
-   sobre um banco já povoado.
+2. Rode **uma de cada vez, na ordem** (9, 10, depois o cadastro do Anglo).
+3. **Pode rodar de novo com segurança** — a suíte local testa a reaplicação.
 
 Se aparecer "API Error: happened while trying to acquire connection to the
 database", é o editor sem conexão: nada foi aplicado, espere e repita.
 
-## O que faz
+## O que cada uma faz
 
 | # | Arquivo | O que faz |
 |---|---|---|
-| 9 | `20261003000100_hierarquia_escolar.sql` | Direção e coordenação (são `school_admin` com um título; a coordenação enxerga os professores e não o contrário, e **ninguém muda o próprio título**). **Evento oficial exclusivo da escola**: cria a gestão da escola ou o professor da própria turma; dono de comunidade não. Evento pode ser de uma turma só, e a lista de eventos respeita isso. |
+| 9 | `20261003000100_hierarquia_escolar.sql` | Direção e coordenação (são `school_admin` com um título; ninguém muda o próprio título). Evento oficial exclusivo da escola, por escola ou por turma. |
+| 10 | `20261003000200_escola_dominio.sql` | Uma escola por endereço: tabelas de endereços e de marca, e uma função pública que devolve só nome/logo/cores de UM endereço. |
+| — | `seed-anglo-morumbi.sql` | Cadastra o Colégio Anglo Morumbi e liga `anglomorumbi.nexastudy.com.br` a ele. |
 
-**Para nomear direção/coordenação:** `/admin` → Usuários → escolha o papel.
-**Para criar eventos:** `/admin/eventos`.
+## Depois do SQL: uma variável na Hostinger
+
+Em **Variáveis de ambiente** do app, acrescente e reinicie:
+
+```
+TENANT_ROOT_DOMAIN=nexastudy.com.br
+```
+
+Sem essa variável o recurso fica desligado e o app age como sempre.
 
 ---
 
@@ -318,4 +326,139 @@ end;
 $$;
 
 grant execute on function public.list_events(boolean) to authenticated;
+```
+
+---
+
+## 10. Escola por endereço
+
+```sql
+-- ============================================================================
+-- Nexa — Escola por endereço (anglomorumbi.nexastudy.com.br)
+--
+-- Um único Nexa, vários endereços. Cada escola tem um ou mais endereços
+-- (`school_domains`) e uma marca (`school_branding`: nome, logo, cores).
+--
+-- O app descobre a escola ANTES do login (a tela de entrada já mostra a marca
+-- da escola), então a consulta precisa funcionar para quem não está logado.
+-- Mas as tabelas NÃO são abertas ao `anon`: quem abre é uma função
+-- `security definer` que devolve só o que é público (nome, logo, cores) para
+-- um endereço específico — não dá para listar as escolas clientes.
+-- ============================================================================
+
+-- ---------------------------------------------------------------- endereços --
+create table if not exists public.school_domains (
+  host text primary key
+    check (host = lower(host) and host ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'),
+  school_id uuid not null references public.schools (id) on delete cascade,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists school_domains_school_idx on public.school_domains (school_id);
+
+alter table public.school_domains enable row level security;
+
+-- Registrar um endereço é decisão da plataforma, não da escola: um
+-- school_admin apontando `qualquer.coisa` para a própria escola seria
+-- sequestro de endereço.
+drop policy if exists school_domains_admin on public.school_domains;
+create policy school_domains_admin on public.school_domains
+  for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+-- Quem gerencia a escola enxerga os endereços dela (só leitura).
+drop policy if exists school_domains_select_manager on public.school_domains;
+create policy school_domains_select_manager on public.school_domains
+  for select to authenticated
+  using (public.can_manage_school(school_id));
+
+-- ------------------------------------------------------------------- marca --
+create table if not exists public.school_branding (
+  school_id uuid primary key references public.schools (id) on delete cascade,
+  display_name text check (display_name is null or length(btrim(display_name)) between 2 and 80),
+  logo_url text check (logo_url is null or (length(logo_url) <= 500 and logo_url ~ '^https://')),
+  brand text check (brand is null or brand ~ '^#[0-9a-fA-F]{6}$'),
+  brand_text text check (brand_text is null or brand_text ~ '^#[0-9a-fA-F]{6}$'),
+  brand_soft text check (brand_soft is null or brand_soft ~ '^#[0-9a-fA-F]{6}$'),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.school_branding enable row level security;
+
+drop policy if exists school_branding_select on public.school_branding;
+create policy school_branding_select on public.school_branding
+  for select to authenticated
+  using (school_id = public.current_school_id() or public.can_manage_school(school_id));
+
+drop policy if exists school_branding_manage on public.school_branding;
+create policy school_branding_manage on public.school_branding
+  for all to authenticated
+  using (public.can_manage_school(school_id))
+  with check (public.can_manage_school(school_id));
+
+-- --------------------------------------------------------- resolver endereço --
+-- Pública (anon): devolve só nome, logo e cores de UM endereço ativo. Endereço
+-- desconhecido ou desativado devolve zero linhas.
+create or replace function public.resolve_school_host(p_host text)
+returns table (
+  school_id uuid,
+  display_name text,
+  logo_url text,
+  brand text,
+  brand_text text,
+  brand_soft text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    d.school_id,
+    coalesce(b.display_name, s.name),
+    b.logo_url,
+    b.brand,
+    b.brand_text,
+    b.brand_soft
+  from public.school_domains d
+  join public.schools s on s.id = d.school_id
+  left join public.school_branding b on b.school_id = d.school_id
+  where d.host = lower(btrim(p_host))
+    and d.active;
+$$;
+
+grant execute on function public.resolve_school_host(text) to anon, authenticated;
+```
+
+---
+
+## Cadastro do Anglo Morumbi
+
+```sql
+-- Cadastra o Colégio Anglo Morumbi e liga o endereço a ele.
+-- Roda DEPOIS da migração 10. Pode rodar de novo com segurança.
+do $$
+declare
+  v_school uuid;
+begin
+  select id into v_school from public.schools where name ilike '%anglo%morumbi%' order by created_at limit 1;
+
+  if v_school is null then
+    insert into public.schools (name, city, state, is_verified)
+    values ('Colégio Anglo Morumbi', 'São Paulo', 'SP', true)
+    returning id into v_school;
+  end if;
+
+  insert into public.school_domains (host, school_id)
+  values ('anglomorumbi.nexastudy.com.br', v_school)
+  on conflict (host) do update set school_id = excluded.school_id, active = true;
+
+  -- Só o nome por enquanto. Cores e logo entram quando a escola mandar a marca
+  -- (o app recusa cores sem contraste suficiente e usa o tema do Nexa).
+  insert into public.school_branding (school_id, display_name)
+  values (v_school, 'Colégio Anglo Morumbi')
+  on conflict (school_id) do nothing;
+end;
+$$;
 ```

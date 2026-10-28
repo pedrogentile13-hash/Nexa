@@ -3,6 +3,8 @@ import { BarChart3, BookOpen, Sparkles } from 'lucide-react';
 import { LoginForm } from '@/features/auth/components/login-form';
 import { safeNext } from '@/features/auth/lib/safe-next';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { headers } from 'next/headers';
+import { decodeTenant, TENANT_HEADER } from '@/lib/tenant/resolve';
 
 export const metadata: Metadata = {
   title: 'Entrar',
@@ -39,6 +41,7 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const next = safeNext(params.next);
+  const tenant = decodeTenant((await headers()).get(TENANT_HEADER));
 
   return (
     <main className="pb-safe flex min-h-dvh flex-col lg:flex-row">
@@ -54,7 +57,7 @@ export default async function LoginPage({
         {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image */}
         <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-9 shrink-0 lg:hidden" />
         <span className="text-lg font-bold tracking-tight lg:hidden">
-          NEXA <span className="font-normal opacity-80">STUDY</span>
+          {tenant ? tenant.name : <>NEXA <span className="font-normal opacity-80">STUDY</span></>}
         </span>
 
         <div className="mx-auto hidden w-full max-w-md lg:block">
@@ -62,7 +65,7 @@ export default async function LoginPage({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-11 shrink-0" />
             <span className="text-xl leading-none font-bold tracking-tight">
-              NEXA <span className="font-normal opacity-80">STUDY</span>
+              {tenant ? tenant.name : <>NEXA <span className="font-normal opacity-80">STUDY</span></>}
             </span>
           </div>
 
@@ -100,12 +103,14 @@ export default async function LoginPage({
 
       <div className="flex flex-1 flex-col justify-center px-5 pt-6 pb-8 lg:px-16">
         <div className="mx-auto w-full max-w-sm">
-          <h2 className="text-2xl font-semibold tracking-tight">Bem-vindo ao Nexa Study</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            {tenant ? `Bem-vindo ao ${tenant.name}` : 'Bem-vindo ao Nexa Study'}
+          </h2>
           <p className="text-muted mt-1.5 mb-6 text-sm">
             Faça login para continuar sua jornada de aprendizado.
           </p>
 
-          <LoginForm next={next} initialError={params.erro} />
+          <LoginForm next={next} initialError={params.erro} allowSignup={!tenant} />
 
           {/* O kit não põe troca de tema no login. Ela fica aqui embaixo, fora
               do caminho: quem precisa do modo escuro por conforto visual precisa

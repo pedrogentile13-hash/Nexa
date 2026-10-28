@@ -189,7 +189,16 @@ function PasswordField({
 
 const INITIAL: AuthFormState = { status: 'idle' };
 
-export function LoginForm({ next, initialError }: { next: string; initialError?: string }) {
+export function LoginForm({
+  next,
+  initialError,
+  allowSignup = true,
+}: {
+  next: string;
+  initialError?: string;
+  /** Falso no endereço de uma escola: o cadastro é feito por ela. */
+  allowSignup?: boolean;
+}) {
   const [state, formAction] = useActionState(authenticate, INITIAL);
   const [mode, setMode] = useState<AuthMode>('signin');
 
@@ -222,7 +231,10 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
 
   return (
     <div className="space-y-5">
-      {mode !== 'magic' && <ModeSwitchLink mode={mode} onChange={setMode} />}
+      {mode !== 'magic' && allowSignup && <ModeSwitchLink mode={mode} onChange={setMode} />}
+      {mode !== 'magic' && !allowSignup && (
+        <p className="text-muted text-right text-sm">O cadastro é feito pela sua escola.</p>
+      )}
 
       <form action={formAction} className="space-y-3">
         <input type="hidden" name="next" value={next} />

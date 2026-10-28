@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
 import type { Database } from '@/types/database.types';
+import { encodeTenant, resolveTenant, TENANT_HEADER, type TenantRpcClient } from '@/lib/tenant/resolve';
 import { ONBOARDING_COLUMNS, readWithFallback, type ProfileReader } from './profile-read';
 
 /** Reachable without a session. */
@@ -21,6 +22,7 @@ const PUBLIC_PREFIXES = [
   // decidindo se cria uma, no link do rodapé do cadastro.
   '/politica-de-privacidade',
   '/termos-de-uso',
+  '/escola-nao-encontrada',
 ];
 
 const ONBOARDING_PATH = '/bem-vindo';
@@ -75,6 +77,29 @@ export async function updateSession(request: NextRequest) {
       },
     },
   );
+
+  // Escola pelo endereço (anglomorumbi.nexastudy.com.br). O cabeçalho interno
+  // é SEMPRE apagado primeiro: ele só pode vir daqui, nunca do cliente — senão
+  // qualquer um mandaria `x-nexa-tenant` e se passaria por outra escola.
+  // Falha aberta: sem `TENANT_ROOT_DOMAIN`, ou com qualquer erro, é o Nexa de sempre.
+  request.headers.delete(TENANT_HEADER);
+  // `response` já foi criada acima com os cabeçalhos ORIGINAIS: sem recriá-la, o
+  // cabeçalho forjado seguia adiante mesmo depois do delete (o teste pegou isto).
+  response = NextResponse.next({ request });
+  const tenant = await resolveTenant(
+    request.headers,
+    supabase as unknown as TenantRpcClient,
+    { rootDomain: process.env.TENANT_ROOT_DOMAIN, proxySecret: process.env.TENANT_PROXY_SECRET },
+  );
+  if (tenant.kind === 'found') {
+    request.headers.set(TENANT_HEADER, encodeTenant(tenant.tenant));
+    response = NextResponse.next({ request });
+  } else if (tenant.kind === 'unknown' && !request.nextUrl.pathname.startsWith('/escola-nao-encontrada')) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/escola-nao-encontrada';
+    url.search = '';
+    return NextResponse.rewrite(url);
+  }
 
   // getUser() validates the JWT with Supabase. getSession() would read it from a
   // cookie the client can edit, which is not a basis for an access decision.

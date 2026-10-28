@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { headers } from 'next/headers';
 import { AppSplash } from '@/components/layout/app-splash';
+import { decodeTenant, tenantCss, TENANT_HEADER } from '@/lib/tenant/resolve';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -68,11 +70,16 @@ const themeScript = `
 })();
 `;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Escola do endereço (definida pelo middleware). Só as CORES entram aqui; nome
+  // e logo aparecem nas telas que os usam.
+  const tenantStyle = tenantCss(decodeTenant((await headers()).get(TENANT_HEADER)));
+
   return (
     <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {tenantStyle && <style dangerouslySetInnerHTML={{ __html: tenantStyle }} />}
         {/*
           Google AdSense — precisa estar no HTML bruto que o servidor manda na
           primeira resposta, não injetado via JS depois de hidratar (é isso

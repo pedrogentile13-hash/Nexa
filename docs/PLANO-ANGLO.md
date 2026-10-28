@@ -4,6 +4,14 @@
 > nenhuma linha de código foi escrita. Itens marcados **(verificar)** dependem de algo
 > que não consegui confirmar daqui (Hostinger, Supabase, a escola).
 
+> **Atualização (28/10):** o subdomínio `anglomorumbi.nexastudy.com.br` já chega ao app Nexa
+> (a Hostinger o entrega com o nome original no cabeçalho `Host`), então o **Cloudflare não é
+> necessário agora**. O app lê o `Host` direto. O suporte a proxy (cabeçalho + segredo) ficou
+> pronto no código para quando houver muitas escolas. Cada nova escola ainda exige cadastrar o
+> subdomínio na Hostinger (manual) — é o limite desta fase.
+> Variável: `TENANT_ROOT_DOMAIN=nexastudy.com.br`. Implementado: `src/lib/tenant/*`, migration
+> `20261003000200_escola_dominio.sql`, tela de entrada com a marca da escola.
+
 ## A ideia em uma frase
 
 Um único Nexa, vários endereços. Quem entra por `anglo.nexastudy.com.br` vê a marca do
