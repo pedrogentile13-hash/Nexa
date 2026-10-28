@@ -112,6 +112,8 @@ export type ProfileRow = {
   role: UserRole;
   /** Só vale para school_admin: direção | coordenação | null. Coluna da migration 20261003000100. */
   school_title?: 'direcao' | 'coordenacao' | null;
+  /** Só vale para role = admin: nulo = geral; 'limited' = restrito. Coluna da migration 20261003001200. */
+  admin_scope?: 'limited' | null;
   /** Login da conta criada pela escola (sem e-mail). Coluna da migration 20261003000300. */
   school_login?: string | null;
   weekly_study_goal_minutes: number;

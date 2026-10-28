@@ -10,21 +10,19 @@ import { cn } from '@/lib/utils';
 import { FormFeedback, Select } from './form-parts';
 import { setPersonRole, type AdminState } from '../server/actions';
 import type { AdminPerson } from '../server/queries';
-import { SCHOOL_ROLE_LABEL } from '@/lib/school-roles';
+import { PLATFORM_ROLE_LABEL } from '@/lib/school-roles';
 
 const INITIAL: AdminState = { status: 'idle' };
 
-const ROLE_LABEL: Record<string, string> = SCHOOL_ROLE_LABEL;
+
 
 export function PeopleManager({
   people,
-  schools,
   currentUserId,
   search,
   readOnly = false,
 }: {
   people: AdminPerson[];
-  schools: { id: string; name: string }[];
   currentUserId: string;
   search: string;
   /** Admin de escola vê a lista pra chegar no relatório, mas não edita papel/escola. */
@@ -61,13 +59,13 @@ export function PeopleManager({
               <span
                 className={cn(
                   'grid size-9 shrink-0 place-items-center rounded-full',
-                  person.role === 'student'
+                  person.platformRole === 'student'
                     ? 'bg-surface-2 text-muted'
                     : 'bg-brand-soft text-brand-text',
                 )}
                 aria-hidden
               >
-                {person.role === 'student' ? (
+                {person.platformRole === 'student' ? (
                   <User className="size-4" />
                 ) : (
                   <ShieldCheck className="size-4" />
@@ -83,7 +81,7 @@ export function PeopleManager({
                   {isSelf && <span className="text-subtle ml-2 text-xs font-normal">você</span>}
                 </Link>
                 <span className="text-muted text-xs">
-                  {ROLE_LABEL[person.role] ?? person.role}
+                  {PLATFORM_ROLE_LABEL[person.platformRole]}
                   {person.schoolName ? ` · ${person.schoolName}` : ''}
                 </span>
               </span>
@@ -95,44 +93,29 @@ export function PeopleManager({
                 </Link>
               </Button>
 
-              {!readOnly && (
+              {!readOnly && person.platformRole === 'managed' && (
+                <span className="text-subtle text-xs">Gerenciado pela escola</span>
+              )}
+
+              {!readOnly && person.platformRole !== 'managed' && (
                 <form action={formAction} className="flex flex-wrap items-center gap-2">
                   <input type="hidden" name="userId" value={person.id} />
                   {/* Rebaixar o próprio papel é bloqueado no servidor (deixaria o
-                      painel sem dono) — o seletor fica travado no papel atual pra
-                      não parecer que dá pra mudar e falhar só ao aplicar. Mas
-                      escola é independente disso: nada impede o próprio admin de
-                      se vincular a uma escola, então esse campo (e o botão) não
-                      têm por que ficar bloqueados junto. */}
-                  {isSelf && <input type="hidden" name="role" value={person.role} />}
+                      painel sem dono) — o seletor fica travado para não parecer
+                      que dá pra mudar e falhar só ao aplicar. */}
+                  {isSelf && <input type="hidden" name="role" value={person.platformRole} />}
                   <Select
                     name={isSelf ? undefined : 'role'}
-                    defaultValue={person.role}
+                    defaultValue={person.platformRole}
                     className="w-auto"
                     aria-label={`Papel de ${person.fullName ?? 'pessoa'}`}
                     disabled={isSelf}
                   >
                     <option value="student">Aluno</option>
-                    <option value="teacher_admin">Professor</option>
-                    <option value="school_coordinator">Coordenação</option>
-                    <option value="school_director">Direção</option>
-                    <option value="school_admin">Admin da escola</option>
+                    <option value="admin_limited">Admin (funções limitadas)</option>
                     <option value="admin">Admin geral</option>
                   </Select>
-                  <Select
-                    name="schoolId"
-                    defaultValue={person.schoolId ?? ''}
-                    className="w-auto"
-                    aria-label="Escola"
-                  >
-                    <option value="">Sem escola</option>
-                    {schools.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <Button type="submit" variant="secondary">
+                  <Button type="submit" variant="secondary" disabled={isSelf}>
                     Aplicar
                   </Button>
                 </form>

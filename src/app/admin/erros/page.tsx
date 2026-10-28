@@ -1,5 +1,5 @@
 import { AdminHeader } from '@/features/admin/components/admin-shell';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 import { ErrorList } from '@/features/observability/components/error-list';
 import { listRecentErrors } from '@/features/observability/server/queries';
 
@@ -7,7 +7,7 @@ export const metadata = { title: 'Erros' };
 export const dynamic = 'force-dynamic';
 
 export default async function AdminErrorsPage() {
-  await requireAdmin();
+  await requireAccess('/admin/erros');
   const errors = await listRecentErrors(100);
 
   return (

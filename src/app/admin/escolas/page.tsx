@@ -2,12 +2,12 @@ import { School } from 'lucide-react';
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { SchoolManager } from '@/features/admin/components/school-manager';
 import { listSchools } from '@/features/admin/server/queries';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Escolas' };
 
 export default async function SchoolsPage() {
-  const identity = await requireAdmin();
+  const identity = await requireAccess('/admin/escolas');
   const schools = await listSchools();
 
   if (!identity.isGlobal) {

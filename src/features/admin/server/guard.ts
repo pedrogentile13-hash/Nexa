@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import type { UserRole } from '@/types/database.types';
+import { canAccessPath, type AdminScope } from '../lib/scope';
 import { getTeacherAssignments, getTeacherIdentity } from '@/features/teacher/server/guard';
 
 /**
@@ -23,6 +24,41 @@ export interface AdminIdentity {
   avatarUrl: string | null;
   /** Admin global enxerga e edita todas as escolas; school_admin só a dele. */
   isGlobal: boolean;
+  /** O "olhar" do painel: full (geral), limited (restrito) ou school (direção/coordenação). */
+  scope: AdminScope;
+}
+
+interface AdminProfileRow {
+  role: string;
+  admin_scope?: string | null;
+  school_id: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  schools: { name: string } | null;
+}
+
+/**
+ * `admin_scope` é coluna nova: antes do SQL rodar, o PostgREST recusa a consulta
+ * INTEIRA (42703) sem lançar. Sem o retry, o painel sumiria para todo admin —
+ * então cai para a leitura de antes (e ninguém vira "restrito" por engano).
+ */
+async function readAdminProfile(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<AdminProfileRow | null> {
+  const full = await supabase
+    .from('profiles')
+    .select('role, admin_scope, school_id, full_name, avatar_url, schools(name)')
+    .eq('id', userId)
+    .maybeSingle();
+  if (!full.error) return full.data as unknown as AdminProfileRow | null;
+
+  const base = await supabase
+    .from('profiles')
+    .select('role, school_id, full_name, avatar_url, schools(name)')
+    .eq('id', userId)
+    .maybeSingle();
+  return base.data as unknown as AdminProfileRow | null;
 }
 
 /**
@@ -38,26 +74,41 @@ export const getAdminIdentity = cache(async (): Promise<AdminIdentity | null> =>
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data } = await supabase
-    .from('profiles')
-    .select('role, school_id, full_name, avatar_url, schools(name)')
-    .eq('id', user.id)
-    .maybeSingle();
-
+  const data = await readAdminProfile(supabase, user.id);
   if (!data || (data.role !== 'admin' && data.role !== 'school_admin')) return null;
+  const adminScope = data.admin_scope ?? null;
 
-  const school = data.schools as unknown as { name: string } | null;
+  const school = data.schools;
 
   return {
     userId: user.id,
-    role: data.role,
+    role: data.role as AdminIdentity['role'],
     schoolId: data.school_id,
     schoolName: school?.name ?? null,
     fullName: data.full_name,
     avatarUrl: data.avatar_url,
     isGlobal: data.role === 'admin',
+    scope: data.role === 'school_admin' ? 'school' : adminScope === 'limited' ? 'limited' : 'full',
   };
 });
+
+/**
+ * Corta o render se o escopo desta pessoa não pode abrir este caminho.
+ * Usa a mesma tabela do menu (`ADMIN_ACCESS`): o que some do menu também fecha
+ * a URL direta.
+ */
+export async function requireAccess(pathname: string): Promise<AdminIdentity> {
+  const identity = await requireAdmin();
+  if (!canAccessPath(identity.scope, pathname)) redirect('/admin');
+  return identity;
+}
+
+/** Só o admin GERAL: para as ações que mudam papéis, escolas e configurações. */
+export async function requireFullAdmin(): Promise<AdminIdentity> {
+  const identity = await requireAdmin();
+  if (identity.scope !== 'full') redirect('/admin');
+  return identity;
+}
 
 /** Versão que corta o render. Use em toda page e Server Action do painel. */
 export async function requireAdmin(): Promise<AdminIdentity> {

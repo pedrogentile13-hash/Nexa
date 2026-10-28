@@ -53,3 +53,34 @@ export function profileToChoice(role: string, title: string | null | undefined):
   }
   return (SCHOOL_ROLE_CHOICES as readonly string[]).includes(role) ? (role as SchoolRoleChoice) : 'student';
 }
+
+/**
+ * Papéis que a PLATAFORMA concede: só administração. Direção, coordenação e
+ * professores são criados pela própria escola (Contas da escola) — a
+ * plataforma não os atribui por fora.
+ */
+export const PLATFORM_ROLE_CHOICES = ['student', 'admin_limited', 'admin'] as const;
+export type PlatformRoleChoice = (typeof PLATFORM_ROLE_CHOICES)[number];
+
+export const PLATFORM_ROLE_LABEL: Record<PlatformRoleChoice | 'managed', string> = {
+  student: 'Aluno',
+  admin_limited: 'Admin (funções limitadas)',
+  admin: 'Admin geral',
+  managed: 'Gerenciado pela escola',
+};
+
+export function platformChoiceToProfile(choice: PlatformRoleChoice): {
+  role: 'student' | 'admin';
+  adminScope: 'limited' | null;
+} {
+  if (choice === 'admin') return { role: 'admin', adminScope: null };
+  if (choice === 'admin_limited') return { role: 'admin', adminScope: 'limited' };
+  return { role: 'student', adminScope: null };
+}
+
+/** O que a tela mostra para uma pessoa. 'managed' = papel que a escola controla. */
+export function profileToPlatformChoice(role: string, adminScope: string | null | undefined): PlatformRoleChoice | 'managed' {
+  if (role === 'admin') return adminScope === 'limited' ? 'admin_limited' : 'admin';
+  if (role === 'student') return 'student';
+  return 'managed';
+}

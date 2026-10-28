@@ -4,9 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { choiceToProfile, SCHOOL_ROLE_CHOICES } from '@/lib/school-roles';
+import { PLATFORM_ROLE_CHOICES, platformChoiceToProfile } from '@/lib/school-roles';
 import { sendPushToUsers } from '@/lib/push/send';
-import { assertSubjectAllowed, requireAdmin, requireContentManager, resolveSchoolId } from './guard';
+import { assertSubjectAllowed, requireAdmin, requireContentManager, requireFullAdmin, resolveSchoolId } from './guard';
 import { parseAssets, parseSimuladoCode } from '../lib/simulado-import';
 
 /**
@@ -50,7 +50,7 @@ const schoolSchema = z.object({
 });
 
 export async function saveSchool(_prev: AdminState, formData: FormData): Promise<AdminState> {
-  const identity = await requireAdmin();
+  const identity = await requireFullAdmin();
   if (!identity.isGlobal) return fail('Só a administração geral cria e edita escolas.');
 
   const parsed = schoolSchema.safeParse({
@@ -81,7 +81,7 @@ export async function saveSchool(_prev: AdminState, formData: FormData): Promise
 }
 
 export async function deleteSchool(formData: FormData): Promise<void> {
-  const identity = await requireAdmin();
+  const identity = await requireFullAdmin();
   if (!identity.isGlobal) return;
 
   const id = formData.get('id');
@@ -1064,48 +1064,54 @@ export async function deleteTrackLesson(formData: FormData): Promise<void> {
 
 const roleSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(SCHOOL_ROLE_CHOICES),
+  role: z.enum(PLATFORM_ROLE_CHOICES),
+  // Só vale se vier no formulário; ausente = não mexe na escola da pessoa.
   schoolId: z.string().optional(),
 });
 
+/**
+ * A plataforma só concede ADMINISTRAÇÃO (geral ou restrita) ou devolve a pessoa
+ * a aluno. Direção, coordenação e professores são criados e geridos pela
+ * própria escola (Contas da escola) — por isso não existem aqui.
+ *
+ * Só o admin GERAL chama (o restrito não promove ninguém); o banco impõe o mesmo.
+ */
 export async function setPersonRole(_prev: AdminState, formData: FormData): Promise<AdminState> {
-  const identity = await requireAdmin();
-  if (!identity.isGlobal) return fail('Só a administração geral muda papéis.');
+  const identity = await requireFullAdmin();
 
   const parsed = roleSchema.safeParse({
     userId: formData.get('userId'),
     role: formData.get('role'),
-    schoolId: formData.get('schoolId') || undefined,
+    schoolId: formData.has('schoolId') ? String(formData.get('schoolId') ?? '') : undefined,
   });
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
   // Rebaixar a si mesmo deixaria o painel sem dono e sem porta de volta: só o
   // SQL Editor traria alguém de novo. É um erro de um clique, e caro.
   if (parsed.data.userId === identity.userId && parsed.data.role !== 'admin') {
-    return fail('Você não pode retirar o próprio acesso de administrador.');
+    return fail('Você não pode retirar o próprio acesso de administrador geral.');
   }
 
-  // "Coordenação" e "Direção" são school_admin + título (migration
-  // 20261003000100); a tela só enxerga a escolha, o banco guarda duas colunas.
-  const { role, title } = choiceToProfile(parsed.data.role);
   const supabase = await createClient();
-  const base = {
-    role,
-    // A escola é salva pra QUALQUER papel escolhido no seletor — inclusive
-    // student. Antes só gravava quando o papel era school_admin, e o
-    // seletor de escola de um aluno virava um botão que não fazia nada.
-    school_id: parsed.data.schoolId ? parsed.data.schoolId : null,
-  };
+
+  // Esta tela não gerencia papéis de escola: não rebaixa direção/coordenação/professor.
+  const { data: current } = await supabase.from('profiles').select('role').eq('id', parsed.data.userId).maybeSingle();
+  if (current && current.role !== 'student' && current.role !== 'admin') {
+    return fail('Esta conta é gerenciada pela escola (Contas da escola) — a plataforma não altera o papel dela.');
+  }
+
+  const { role, adminScope } = platformChoiceToProfile(parsed.data.role);
+  const base: { role: 'student' | 'admin'; school_title: null; school_id?: string | null } = { role, school_title: null };
+  if (parsed.data.schoolId !== undefined) base.school_id = parsed.data.schoolId ? parsed.data.schoolId : null;
+
   let { error } = await supabase
     .from('profiles')
-    .update({ ...base, school_title: title })
+    .update({ ...base, admin_scope: adminScope })
     .eq('id', parsed.data.userId);
 
-  // Código publicado antes do SQL rodar: a coluna ainda não existe (42703) e o
-  // PostgREST recusa o update inteiro. Aplica só o que existia — e avisa se o
-  // pedido dependia do título, para não fingir que virou coordenação.
+  // Código publicado antes do SQL do admin restrito: a coluna ainda não existe.
   if (error?.code === '42703' || error?.code === 'PGRST204') {
-    if (title) return fail('Aplique o SQL da hierarquia escolar no Supabase antes de nomear direção ou coordenação.');
+    if (adminScope) return fail('Aplique o SQL do admin restrito no Supabase antes de criar um admin com funções limitadas.');
     ({ error } = await supabase.from('profiles').update(base).eq('id', parsed.data.userId));
   }
 

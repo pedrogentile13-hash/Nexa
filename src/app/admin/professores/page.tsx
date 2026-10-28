@@ -7,12 +7,12 @@ import {
   listTeachers,
 } from '@/features/admin/server/queries';
 import { listSchoolClasses } from '@/features/classes/server/queries';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Professores' };
 
 export default async function TeacherAssignmentsPage() {
-  const identity = await requireAdmin();
+  const identity = await requireAccess('/admin/professores');
   const [assignments, teachers, options, classes] = await Promise.all([
     listTeacherAssignments(),
     listTeachers(identity.isGlobal ? undefined : (identity.schoolId ?? undefined)),

@@ -1,12 +1,12 @@
 import { Settings } from 'lucide-react';
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { ComingSoon } from '@/components/layout/coming-soon';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Configurações' };
 
 export default async function AdminSettingsPage() {
-  await requireAdmin();
+  await requireAccess('/admin/configuracoes');
 
   return (
     <>

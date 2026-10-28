@@ -10,16 +10,23 @@ export const metadata: Metadata = {
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const identity = await requireAdmin();
 
-  const scope = identity.isGlobal
-    ? 'Administração geral · todas as escolas'
-    : `Escola: ${identity.schoolName ?? 'sem escola vinculada'}`;
+  const scopeText =
+    identity.scope === 'full'
+      ? 'Administração geral · todas as escolas'
+      : identity.scope === 'limited'
+        ? 'Administração · funções limitadas'
+        : `Escola: ${identity.schoolName ?? 'sem escola vinculada'}`;
+
+  const roleLabel =
+    identity.scope === 'full' ? 'Admin geral' : identity.scope === 'limited' ? 'Admin' : identity.schoolName ?? 'Escola';
 
   return (
     <AdminShell
-      scopeLabel={scope}
+      scope={identity.scope}
+      scopeLabel={scopeText}
       fullName={identity.fullName}
       avatarUrl={identity.avatarUrl}
-      roleLabel={identity.isGlobal ? 'Admin geral' : 'Admin da escola'}
+      roleLabel={roleLabel}
     >
       {children}
     </AdminShell>

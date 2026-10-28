@@ -1,12 +1,12 @@
 import { Bell } from 'lucide-react';
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { ComingSoon } from '@/components/layout/coming-soon';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Notificações' };
 
 export default async function AdminNotificationsPage() {
-  await requireAdmin();
+  await requireAccess('/admin/notificacoes');
 
   return (
     <>

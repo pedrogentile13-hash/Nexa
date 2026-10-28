@@ -2,14 +2,14 @@ import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { AnnouncementsManager } from '@/features/announcements/components/announcements-manager';
 import { listAnnouncements } from '@/features/announcements/server/queries';
 import { listClasses } from '@/features/admin/server/queries';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Mural de avisos' };
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminMuralPage() {
-  const identity = await requireAdmin();
+  const identity = await requireAccess('/admin/mural');
   const [announcements, classes] = await Promise.all([listAnnouncements(), listClasses()]);
 
   return (

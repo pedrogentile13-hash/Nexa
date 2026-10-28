@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { StudentReport } from '@/features/admin/components/student-report';
 import { getAdminStudentReport } from '@/features/admin/server/queries';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Relatório do aluno' };
 export const dynamic = 'force-dynamic';
@@ -12,7 +12,7 @@ export default async function StudentReportPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const identity = await requireAdmin();
+  const identity = await requireAccess('/admin/usuarios');
   const { id } = await params;
 
   const report = await getAdminStudentReport(id);

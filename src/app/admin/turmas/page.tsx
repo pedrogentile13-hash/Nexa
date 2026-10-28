@@ -1,12 +1,12 @@
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { ClassManager } from '@/features/admin/components/class-manager';
 import { listClasses, listSchools } from '@/features/admin/server/queries';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Turmas' };
 
 export default async function ClassesPage() {
-  const identity = await requireAdmin();
+  const identity = await requireAccess('/admin/turmas');
   const [classes, schools] = await Promise.all([
     listClasses(),
     identity.isGlobal ? listSchools() : Promise.resolve([]),

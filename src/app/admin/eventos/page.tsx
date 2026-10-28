@@ -1,13 +1,13 @@
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { SchoolEventManager } from '@/features/admin/components/school-event-manager';
 import { listClasses, listSchools } from '@/features/admin/server/queries';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 import { listEvents } from '@/features/community/server/event-queries';
 
 export const metadata = { title: 'Eventos' };
 
 export default async function SchoolEventsPage() {
-  const identity = await requireAdmin();
+  const identity = await requireAccess('/admin/eventos');
   const [events, classes, schools] = await Promise.all([
     listEvents(false),
     listClasses(),

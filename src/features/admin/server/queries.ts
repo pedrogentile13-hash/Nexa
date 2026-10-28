@@ -1,4 +1,4 @@
-import { profileToChoice } from '@/lib/school-roles';
+import { profileToChoice, profileToPlatformChoice } from '@/lib/school-roles';
 import { createClient } from '@/lib/supabase/server';
 import type { AdminIdentity, ContentIdentity } from './guard';
 import type { Difficulty, ResourceKind, TrackCategory } from '@/types/database.types';
@@ -480,6 +480,8 @@ export interface AdminPerson {
   id: string;
   fullName: string | null;
   role: string;
+  /** O que a tela de Usuários mostra: aluno, admin, admin restrito ou "gerenciado pela escola". */
+  platformRole: 'student' | 'admin_limited' | 'admin' | 'managed';
   schoolId: string | null;
   schoolName: string | null;
   createdAt: string;
@@ -498,10 +500,11 @@ export async function listPeople(search?: string, schoolId?: string): Promise<Ad
   // `school_title` é coluna nova: antes do SQL rodar o PostgREST recusa a
   // consulta inteira (e supabase-js não lança). Sem o título, a lista continua
   // abrindo — só mostra "Admin da escola" onde seria direção/coordenação.
-  let res = await build('id, full_name, role, school_title, school_id, created_at, schools(name)');
+  let res = await build('id, full_name, role, school_title, admin_scope, school_id, created_at, schools(name)');
+  if (res.error) res = await build('id, full_name, role, school_title, school_id, created_at, schools(name)');
   if (res.error) res = await build('id, full_name, role, school_id, created_at, schools(name)');
   const rows = (res.data ?? []) as unknown as Array<{
-    id: string; full_name: string | null; role: string; school_title?: string | null;
+    id: string; full_name: string | null; role: string; school_title?: string | null; admin_scope?: string | null;
     school_id: string | null; created_at: string; schools: unknown;
   }>;
 
@@ -511,6 +514,7 @@ export async function listPeople(search?: string, schoolId?: string): Promise<Ad
       id: p.id,
       fullName: p.full_name,
       role: profileToChoice(p.role, p.school_title),
+      platformRole: profileToPlatformChoice(p.role, p.admin_scope),
       schoolId: p.school_id,
       schoolName: school?.name ?? null,
       createdAt: p.created_at,
@@ -533,6 +537,7 @@ export async function getPersonById(userId: string): Promise<AdminPerson | null>
     id: data.id,
     fullName: data.full_name,
     role: data.role,
+    platformRole: profileToPlatformChoice(data.role, null),
     schoolId: data.school_id,
     schoolName: school?.name ?? null,
     createdAt: data.created_at,
@@ -651,6 +656,7 @@ export async function listTeachers(schoolId?: string): Promise<AdminPerson[]> {
       id: p.id,
       fullName: p.full_name,
       role: p.role,
+      platformRole: profileToPlatformChoice(p.role, null),
       schoolId: p.school_id,
       schoolName: school?.name ?? null,
       createdAt: p.created_at,

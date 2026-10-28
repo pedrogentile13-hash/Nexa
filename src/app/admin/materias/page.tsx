@@ -1,12 +1,12 @@
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { SubjectManager } from '@/features/admin/components/subject-manager';
 import { listSchools, listSubjectsWithTopics } from '@/features/admin/server/queries';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Matérias' };
 
 export default async function SubjectsPage() {
-  const identity = await requireAdmin();
+  const identity = await requireAccess('/admin/materias');
   const [subjects, schools] = await Promise.all([
     listSubjectsWithTopics(),
     identity.isGlobal ? listSchools() : Promise.resolve([]),

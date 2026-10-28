@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { choiceToProfile, profileToChoice, SCHOOL_ROLE_CHOICES } from './school-roles';
+import {
+  choiceToProfile,
+  PLATFORM_ROLE_CHOICES,
+  platformChoiceToProfile,
+  profileToChoice,
+  profileToPlatformChoice,
+  SCHOOL_ROLE_CHOICES,
+} from './school-roles';
 
 describe('school-roles', () => {
   it('coordenação e direção viram school_admin com título', () => {
@@ -23,5 +30,25 @@ describe('school-roles', () => {
   it('título sem school_admin é ignorado e papel desconhecido vira aluno', () => {
     expect(profileToChoice('student', 'coordenacao')).toBe('student');
     expect(profileToChoice('hacker', null)).toBe('student');
+  });
+});
+
+describe('papéis da plataforma', () => {
+  it('a plataforma só concede aluno, admin restrito e admin geral', () => {
+    expect([...PLATFORM_ROLE_CHOICES]).toEqual(['student', 'admin_limited', 'admin']);
+  });
+
+  it('o admin restrito é role admin com escopo limitado; o geral não tem escopo', () => {
+    expect(platformChoiceToProfile('admin_limited')).toEqual({ role: 'admin', adminScope: 'limited' });
+    expect(platformChoiceToProfile('admin')).toEqual({ role: 'admin', adminScope: null });
+    expect(platformChoiceToProfile('student')).toEqual({ role: 'student', adminScope: null });
+  });
+
+  it('ida e volta, e papéis de escola aparecem como gerenciados pela escola', () => {
+    for (const c of PLATFORM_ROLE_CHOICES) {
+      const { role, adminScope } = platformChoiceToProfile(c);
+      expect(profileToPlatformChoice(role, adminScope)).toBe(c);
+    }
+    for (const role of ['teacher_admin', 'school_admin']) expect(profileToPlatformChoice(role, null)).toBe('managed');
   });
 });

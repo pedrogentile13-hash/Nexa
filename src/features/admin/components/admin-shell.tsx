@@ -6,26 +6,19 @@ import { usePathname } from 'next/navigation';
 import {
   ArrowLeft,
   BarChart3,
-  Bell,
-  BookOpen,
-  CalendarDays,
   Flag,
   GraduationCap,
-  KeyRound,
   Megaphone,
   Layers,
   LayoutDashboard,
   Library,
-  Route as RouteIcon,
   School,
   Bot,
   Settings,
-  TriangleAlert,
-  Sparkles,
-  Users,
-  Users2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { activeSection, sectionsFor, tabMatches, type IconKey } from '../lib/sections';
+import type { AdminScope } from '../lib/scope';
 import { CoMark } from '@/components/layout/school-brand';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { SearchBar } from '@/features/search/components/search-bar';
@@ -40,53 +33,35 @@ import { searchAdmin } from '@/features/search/server/actions';
  * o suficiente para conferir e publicar do celular, não para escrever.
  */
 
-const ITEMS = [
-  { href: '/admin', label: 'Visão geral', Icon: LayoutDashboard, exact: true },
-  { href: '/admin/conteudo', label: 'Conteúdo', Icon: Library },
-  { href: '/admin/trilhas', label: 'Trilhas', Icon: RouteIcon },
-  { href: '/admin/materias', label: 'Matérias', Icon: BookOpen },
-  { href: '/admin/escolas', label: 'Escolas', Icon: School },
-  { href: '/admin/turmas', label: 'Turmas', Icon: Layers },
-  { href: '/admin/usuarios', label: 'Usuários', Icon: Users },
-  { href: '/admin/professores', label: 'Professores', Icon: Users2 },
-  { href: '/admin/contas', label: 'Contas da escola', Icon: KeyRound },
-  { href: '/admin/mural', label: 'Mural de avisos', Icon: Megaphone },
-  { href: '/admin/eventos', label: 'Eventos', Icon: CalendarDays },
-  { href: '/admin/relatorios', label: 'Relatórios', Icon: BarChart3 },
-  { href: '/admin/comunidade', label: 'Comunidade', Icon: Flag },
-  { href: '/admin/nexaai', label: 'NexaAI', Icon: Sparkles },
-  { href: '/admin/notificacoes', label: 'Notificações', Icon: Bell },
-  { href: '/admin/ia', label: 'Diagnóstico da IA', Icon: Bot },
-  { href: '/admin/erros', label: 'Erros', Icon: TriangleAlert },
-  { href: '/admin/configuracoes', label: 'Configurações', Icon: Settings },
-] as const;
-
-function useActive(href: string, exact?: boolean) {
-  const pathname = usePathname();
-  return exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-}
+const ICONS: Record<IconKey, typeof School> = {
+  layout: LayoutDashboard,
+  library: Library,
+  layers: Layers,
+  school: School,
+  megaphone: Megaphone,
+  flag: Flag,
+  bot: Bot,
+  chart: BarChart3,
+  settings: Settings,
+};
 
 function NavLink({
   href,
   label,
   Icon,
-  exact,
-  compact,
+  active,
 }: {
   href: Route;
   label: string;
   Icon: typeof School;
-  exact?: boolean;
-  compact?: boolean;
+  active: boolean;
 }) {
-  const active = useActive(href, exact);
   return (
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-2.5 rounded-md text-sm whitespace-nowrap transition-colors',
-        compact ? 'h-11 px-3' : 'h-11 px-3',
+        'flex h-11 items-center gap-2.5 rounded-md px-3 text-sm whitespace-nowrap transition-colors',
         active
           ? 'bg-brand-soft text-brand-text font-semibold'
           : 'text-muted hover:bg-surface-2 hover:text-text font-medium',
@@ -98,20 +73,54 @@ function NavLink({
   );
 }
 
+/** Abas da seção atual (Turmas ↔ Professores, Mural ↔ Eventos…). Só aparece com 2+ abas. */
+function SectionTabs({ scope }: { scope: AdminScope }) {
+  const pathname = usePathname();
+  const section = activeSection(sectionsFor(scope), pathname);
+  if (!section || section.tabs.length < 2) return null;
+
+  return (
+    <nav aria-label={section.label} className="no-print border-border bg-surface flex gap-1 overflow-x-auto border-b px-5">
+      {section.tabs.map((t) => {
+        const active = tabMatches(t.href, pathname);
+        return (
+          <Link
+            key={t.href}
+            href={t.href as Route}
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+              'relative flex h-11 shrink-0 items-center px-3 text-sm whitespace-nowrap',
+              active ? 'text-brand-text font-semibold' : 'text-muted hover:text-text font-medium',
+            )}
+          >
+            {t.label}
+            {active && <span aria-hidden className="bg-brand absolute inset-x-2 bottom-0 h-0.5 rounded-full" />}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function AdminShell({
   children,
+  scope,
   scopeLabel,
   fullName,
   avatarUrl,
   roleLabel,
 }: {
   children: React.ReactNode;
+  scope: AdminScope;
   scopeLabel: string;
   fullName: string | null;
   avatarUrl: string | null;
   roleLabel: string;
 }) {
   const initial = fullName?.trim()?.[0]?.toUpperCase() ?? '?';
+  const pathname = usePathname();
+  const sections = sectionsFor(scope);
+  const current = activeSection(sections, pathname);
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
@@ -135,8 +144,14 @@ export function AdminShell({
             aria-label="Navegação do painel"
             className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-visible"
           >
-            {ITEMS.map((item) => (
-              <NavLink key={item.href} {...item} />
+            {sections.map((section) => (
+              <NavLink
+                key={section.key}
+                href={section.href as Route}
+                label={section.label}
+                Icon={ICONS[section.icon]}
+                active={current?.key === section.key}
+              />
             ))}
           </nav>
 
@@ -196,6 +211,7 @@ export function AdminShell({
           </div>
         </header>
 
+        <SectionTabs scope={scope} />
         <main className="min-w-0">{children}</main>
       </div>
     </div>

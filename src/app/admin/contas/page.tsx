@@ -2,13 +2,13 @@ import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { AccountsManager } from '@/features/school-accounts/components/accounts-manager';
 import { listSchoolAccounts } from '@/features/school-accounts/server/queries';
 import { listClasses, listSchools } from '@/features/admin/server/queries';
-import { requireAdmin } from '@/features/admin/server/guard';
+import { requireAccess } from '@/features/admin/server/guard';
 import { createClient } from '@/lib/supabase/server';
 
 export const metadata = { title: 'Contas da escola' };
 
 export default async function SchoolAccountsPage() {
-  const identity = await requireAdmin();
+  const identity = await requireAccess('/admin/contas');
   const [accounts, classes, schools] = await Promise.all([
     listSchoolAccounts(),
     listClasses(),
