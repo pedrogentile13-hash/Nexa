@@ -25,6 +25,7 @@ import {
   Users2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CoMark } from '@/components/layout/school-brand';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { SearchBar } from '@/features/search/components/search-bar';
 import { searchAdmin } from '@/features/search/server/actions';
@@ -116,8 +117,7 @@ export function AdminShell({
         <div className="lg:sticky lg:top-0">
           <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 lg:block">
             <Link href="/admin" className="flex items-center gap-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image */}
-              <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-8 shrink-0" />
+              <CoMark className="size-8" />
               <span className="text-base font-semibold">
                 Nexa Study <span className="text-muted font-normal">admin</span>
               </span>

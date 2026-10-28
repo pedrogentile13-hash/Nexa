@@ -4,6 +4,7 @@ import { LoginForm } from '@/features/auth/components/login-form';
 import { SchoolLoginForm } from '@/features/auth/components/school-login-form';
 import { safeNext } from '@/features/auth/lib/safe-next';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { ForceLightTheme } from '@/components/force-light-theme';
 import { headers } from 'next/headers';
 import { decodeTenant, TENANT_HEADER } from '@/lib/tenant/resolve';
 
@@ -35,6 +36,19 @@ const FEATURES = [
   },
 ];
 
+/**
+ * Logo da escola num disco branco: o logo tem fundo transparente e foi
+ * desenhado para papel claro; direto sobre o degradê da faixa ele some.
+ */
+function SchoolBadge({ logoUrl, name, className }: { logoUrl: string; name: string; className: string }) {
+  return (
+    <span className={`grid shrink-0 place-items-center rounded-full bg-white p-1.5 shadow-sm ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- logo pequeno da escola */}
+      <img src={logoUrl} alt={name} className="size-full object-contain" />
+    </span>
+  );
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -57,6 +71,7 @@ export default async function LoginPage({
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image */}
         <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-9 shrink-0 lg:hidden" />
+        {tenant?.logoUrl && <SchoolBadge logoUrl={tenant.logoUrl} name={tenant.name} className="size-10 lg:hidden" />}
         <span className="text-lg font-bold tracking-tight lg:hidden">
           {tenant ? tenant.name : <>NEXA <span className="font-normal opacity-80">STUDY</span></>}
         </span>
@@ -65,6 +80,7 @@ export default async function LoginPage({
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-11 shrink-0" />
+            {tenant?.logoUrl && <SchoolBadge logoUrl={tenant.logoUrl} name={tenant.name} className="size-14" />}
             <span className="text-xl leading-none font-bold tracking-tight">
               {tenant ? tenant.name : <>NEXA <span className="font-normal opacity-80">STUDY</span></>}
             </span>
@@ -123,9 +139,13 @@ export default async function LoginPage({
               do caminho: quem precisa do modo escuro por conforto visual precisa
               dele ANTES de entrar, e o único outro lugar onde ela existe é o
               Perfil — atrás justamente desta tela. */}
-          <div className="mt-10 flex justify-center">
-            <ThemeToggle />
-          </div>
+          {tenant ? (
+            <ForceLightTheme />
+          ) : (
+            <div className="mt-10 flex justify-center">
+              <ThemeToggle />
+            </div>
+          )}
         </div>
       </div>
     </main>

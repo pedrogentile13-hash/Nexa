@@ -1,5 +1,6 @@
 'use client';
 
+import { CoMark } from './school-brand';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -221,10 +222,7 @@ export function resolveActivePlatform(
 }
 
 function Logo() {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image
-    <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-9 shrink-0" />
-  );
+  return <CoMark className="size-9" />;
 }
 
 function Wordmark({ suffix }: { suffix: string }) {

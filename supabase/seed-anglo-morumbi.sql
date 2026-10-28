@@ -16,10 +16,16 @@ begin
   values ('anglomorumbi.nexastudy.com.br', v_school)
   on conflict (host) do update set school_id = excluded.school_id, active = true;
 
-  -- Só o nome por enquanto. Cores e logo entram quando a escola mandar a marca
-  -- (o app recusa cores sem contraste suficiente e usa o tema do Nexa).
-  insert into public.school_branding (school_id, display_name)
-  values (v_school, 'Colégio Anglo Morumbi')
-  on conflict (school_id) do nothing;
+  -- Marca do Anglo: o azul do logo (#0a4585) e o arquivo do logo, que vive no
+  -- app. O app só aplica as cores se passarem na trava de contraste.
+  insert into public.school_branding (school_id, display_name, logo_url, brand, brand_text, brand_soft)
+  values (v_school, 'Colégio Anglo Morumbi', '/brand/schools/anglomorumbi.webp', '#0a4585', '#0a3d75', '#e8f0fa')
+  on conflict (school_id) do update set
+    display_name = excluded.display_name,
+    logo_url = excluded.logo_url,
+    brand = excluded.brand,
+    brand_text = excluded.brand_text,
+    brand_soft = excluded.brand_soft,
+    updated_at = now();
 end;
 $$;

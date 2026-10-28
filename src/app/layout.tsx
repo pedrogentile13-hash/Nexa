@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { headers } from 'next/headers';
 import { AppSplash } from '@/components/layout/app-splash';
+import { SchoolBrandProvider } from '@/components/layout/school-brand';
 import { decodeTenant, tenantCss, TENANT_HEADER } from '@/lib/tenant/resolve';
 
 const inter = Inter({
@@ -58,9 +59,11 @@ export const viewport: Viewport = {
  * start. It has to be inline and synchronous in <head> — any React-driven
  * approach runs after the browser has already painted.
  */
-const themeScript = `
+const themeScript = (lockLogin: boolean) => `
 (function () {
   try {
+    // No endereço de uma escola a tela de login é sempre clara (pedido da escola).
+    if (${lockLogin} && location.pathname === '/login') return;
     var stored = localStorage.getItem('nexa-theme');
     var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (stored === 'dark' || (stored !== 'light' && prefersDark)) {
@@ -73,12 +76,13 @@ const themeScript = `
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Escola do endereço (definida pelo middleware). Só as CORES entram aqui; nome
   // e logo aparecem nas telas que os usam.
-  const tenantStyle = tenantCss(decodeTenant((await headers()).get(TENANT_HEADER)));
+  const tenant = decodeTenant((await headers()).get(TENANT_HEADER));
+  const tenantStyle = tenantCss(tenant);
 
   return (
     <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript(Boolean(tenant)) }} />
         {tenantStyle && <style dangerouslySetInnerHTML={{ __html: tenantStyle }} />}
         {/*
           Google AdSense — precisa estar no HTML bruto que o servidor manda na
@@ -93,8 +97,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="min-h-dvh antialiased">
-        <AppSplash />
-        {children}
+        <SchoolBrandProvider value={tenant ? { name: tenant.name, logoUrl: tenant.logoUrl } : null}>
+          <AppSplash />
+          {children}
+        </SchoolBrandProvider>
       </body>
     </html>
   );

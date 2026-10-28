@@ -62,3 +62,11 @@ describe('safeBrandVars', () => {
     expect(Math.round(contrastRatio('#000000', '#ffffff'))).toBe(21);
   });
 });
+
+describe('paleta do Anglo Morumbi', () => {
+  it('o azul do logo passa na trava de contraste e vira tema', () => {
+    const vars = safeBrandVars({ brand: '#0a4585', brand_text: '#0a3d75', brand_soft: '#e8f0fa' });
+    expect(vars).not.toBeNull();
+    expect(vars?.['--brand']).toBe('#0a4585');
+  });
+});

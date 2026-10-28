@@ -99,3 +99,27 @@ begin
 end;
 $$;
 reset role;
+
+-- Logo: aceita https e o caminho local do app; recusa o resto.
+do $$
+begin
+  update public.school_branding set logo_url = '/brand/schools/anglo.webp' where school_id = 'e2e2e2e2-0000-0000-0000-000000000001';
+  update public.school_branding set logo_url = 'https://cdn.exemplo.com/l.png' where school_id = 'e2e2e2e2-0000-0000-0000-000000000001';
+
+  begin
+    update public.school_branding set logo_url = 'javascript:alert(1)' where school_id = 'e2e2e2e2-0000-0000-0000-000000000001';
+    raise exception 'logo javascript: aceito';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.school_branding set logo_url = 'data:image/png;base64,AAAA' where school_id = 'e2e2e2e2-0000-0000-0000-000000000001';
+    raise exception 'logo data: aceito';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.school_branding set logo_url = '/brand/schools/../../etc/passwd' where school_id = 'e2e2e2e2-0000-0000-0000-000000000001';
+    raise exception 'logo com .. aceito';
+  exception when check_violation then null;
+  end;
+end;
+$$;
