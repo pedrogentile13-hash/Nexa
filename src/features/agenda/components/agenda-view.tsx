@@ -5,6 +5,7 @@ import {
   CalendarPlus,
   CalendarSync,
   CalendarX,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -17,7 +18,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Chip } from '@/components/ui/chip';
 import { PopEmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -153,35 +153,51 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
           />
         )}
 
-        {subjectOptions.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <Chip active={subjectFilter === null} onClick={() => setSubjectFilter(null)}>
-              Todas
-            </Chip>
-            {subjectOptions.map((subject) => (
-              <Chip
-                key={subject.id}
-                active={subjectFilter === subject.id}
-                onClick={() => setSubjectFilter(subject.id)}
-                style={subjectColorVars(subject.color)}
-              >
-                <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: 'var(--subject-base)' }} />
-                {subject.name}
-              </Chip>
-            ))}
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <Segmented
+              label="Como ver a agenda"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'mes', label: 'Mês' },
+                { value: 'semana', label: 'Semana' },
+                { value: 'lista', label: 'Lista' },
+              ]}
+            />
           </div>
-        )}
+          {selected !== today && (
+            <button
+              type="button"
+              onClick={() => setSelected(today)}
+              className="bg-brand-soft text-brand-text h-11 shrink-0 rounded-full px-4 text-sm font-semibold"
+            >
+              Hoje
+            </button>
+          )}
+        </div>
 
-        <Segmented
-          label="Como ver a agenda"
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: 'mes', label: 'Mês' },
-            { value: 'semana', label: 'Semana' },
-            { value: 'lista', label: 'Lista' },
-          ]}
-        />
+        {subjectOptions.length > 0 && (
+          <label className="relative block">
+            <span className="sr-only">Filtrar por matéria</span>
+            <select
+              value={subjectFilter ?? ''}
+              onChange={(e) => setSubjectFilter(e.target.value || null)}
+              className={cn(
+                'border-border bg-surface h-11 w-full appearance-none rounded-xl border pr-9 pl-3 text-sm font-medium',
+                subjectFilter && 'border-brand/40 bg-brand-soft text-brand-text',
+              )}
+            >
+              <option value="">Todas as matérias</option>
+              {subjectOptions.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown aria-hidden className="text-subtle pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
+          </label>
+        )}
 
         {mode === 'lista' ? (
           <ContinuousList events={upcoming} today={today} onAdd={() => setShowAdd(true)} />
@@ -216,7 +232,7 @@ export function AgendaView({ events, today }: { events: AgendaEvent[]; today: st
                           dots.length ? `, ${dots.length} item${dots.length === 1 ? '' : 's'}` : ''
                         }`}
                         className={cn(
-                          'flex aspect-square min-h-11 flex-col items-center justify-center rounded-xl text-xs transition-colors',
+                          'flex h-12 flex-col items-center justify-center rounded-xl text-sm transition-colors',
                           isSelected
                             ? 'bg-brand text-brand-fg font-semibold'
                             : isToday

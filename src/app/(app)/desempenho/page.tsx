@@ -167,7 +167,7 @@ export default async function PerformancePage() {
     <>
       <AppHeader
         title="Seu progresso em foco."
-        subtitle="Acompanhe seu desempenho, identifique pontos de melhoria e evolua sempre."
+        subtitle="Notas e evolução, automáticas."
         action={<AverageBadge average={data.overallScore} delta={delta} />}
       />
 
@@ -186,9 +186,67 @@ export default async function PerformancePage() {
           />
         </div>
 
+        {/* Boletim automático: todas as matérias numa tabela só, como o boletim
+            da escola — a nota vem dos quizzes e simulados, ninguém digita. */}
+        {data.subjectScores.length > 0 && (
+          <Card className="min-w-0 overflow-hidden lg:col-span-2 lg:row-start-2">
+            <CardHeader className="flex-row items-center justify-between gap-3">
+              <CardTitle>Boletim</CardTitle>
+              <span className="text-muted text-xs">Média geral {formatGrade(data.overallScore, 1)}</span>
+            </CardHeader>
+            <table className="w-full text-sm">
+              <caption className="sr-only">Nota automática por matéria, com avaliações feitas e empenho</caption>
+              <thead>
+                <tr className="text-muted border-border border-y text-xs">
+                  <th scope="col" className="px-4 py-2.5 text-left font-semibold">
+                    Disciplinas
+                  </th>
+                  <th scope="col" className="px-2 py-2.5 text-center font-semibold">
+                    Provas
+                  </th>
+                  <th scope="col" className="px-2 py-2.5 text-center font-semibold">
+                    Empenho
+                  </th>
+                  <th scope="col" className="px-4 py-2.5 text-right font-semibold">
+                    Nota
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...data.subjectScores]
+                  .sort((a, b) => a.subjectName.localeCompare(b.subjectName, 'pt-BR'))
+                  .map((subject) => {
+                    const grade = subject.blendedScore;
+                    const failing = grade !== null && grade < PASSING_GRADE;
+                    return (
+                      <tr key={subject.subjectId} className="even:bg-surface-2/60">
+                        <th scope="row" className="px-4 py-3 text-left leading-tight font-medium">
+                          {subject.subjectName}
+                          {subject.targetGrade !== null && grade !== null && grade < subject.targetGrade && !failing && (
+                            <span className="text-subtle block text-xs font-normal">meta {formatGrade(subject.targetGrade, 1)}</span>
+                          )}
+                        </th>
+                        <td className="tabular text-muted px-2 py-3 text-center">{subject.quizzesDone + subject.simuladosDone}</td>
+                        <td className="tabular text-muted px-2 py-3 text-center">{Math.round(subject.empenhoIndex * 100)}%</td>
+                        <td
+                          className={cn(
+                            'tabular px-4 py-3 text-right text-base font-semibold',
+                            grade === null ? 'text-subtle' : failing ? 'text-danger' : 'text-brand-text',
+                          )}
+                        >
+                          {formatGrade(grade, 1)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </Card>
+        )}
+
         {hasScores ? (
           <>
-            <Card className="min-w-0 lg:col-start-1 lg:row-start-2">
+            <Card className="min-w-0 lg:col-start-1 lg:row-start-3">
               <CardContent className="p-4">
                 <p className="text-sm leading-relaxed font-medium">{evolutionSentence}</p>
                 <div className="mt-3">
@@ -197,7 +255,7 @@ export default async function PerformancePage() {
               </CardContent>
             </Card>
 
-            <Card className="min-w-0 lg:col-start-1 lg:row-start-3">
+            <Card className="min-w-0 lg:col-start-1 lg:row-start-4">
               <CardContent className="p-4">
                 <p className="text-sm leading-relaxed font-medium">{subjectsSentence}</p>
                 <div className="mt-3">
@@ -207,7 +265,7 @@ export default async function PerformancePage() {
             </Card>
           </>
         ) : (
-          <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-2">
+          <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-3">
             <PopEmptyState
               icon={<NotebookPen className="text-white" />}
               title="Seu desempenho começa aqui"
@@ -224,7 +282,7 @@ export default async function PerformancePage() {
           </div>
         )}
 
-        <Card className="min-w-0 lg:col-start-2 lg:row-start-3">
+        <Card className="min-w-0 lg:col-start-2 lg:row-start-4">
           <CardHeader>
             <CardTitle>Estudo por semana</CardTitle>
           </CardHeader>
@@ -235,7 +293,7 @@ export default async function PerformancePage() {
 
         {/* Nível: sóbrio de propósito. O XP aparece menor que a nota do
             cabeçalho, porque a nota é o que importa e o XP é reconhecimento. */}
-        <Card className="min-w-0 lg:col-start-2 lg:row-start-2">
+        <Card className="min-w-0 lg:col-start-2 lg:row-start-3">
           <CardHeader>
             <CardTitle>Nível</CardTitle>
           </CardHeader>
@@ -416,67 +474,6 @@ export default async function PerformancePage() {
           </Link>
         )}
 
-        {/* O gráfico não pode ser a única forma de ler os números. */}
-        {gradedSubjects.length > 0 && (
-          <Card className="min-w-0 lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Todos os números</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <table className="w-full text-sm">
-                <caption className="sr-only">Nota automática por matéria, com meta e situação</caption>
-                <thead>
-                  <tr className="text-subtle border-border border-b text-left text-xs">
-                    <th scope="col" className="pb-2 font-medium">
-                      Matéria
-                    </th>
-                    <th scope="col" className="pb-2 text-right font-medium">
-                      Nota
-                    </th>
-                    <th scope="col" className="pb-2 text-right font-medium">
-                      Meta
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-border divide-y">
-                  {gradedSubjects.map((subject) => {
-                    const grade = subject.blendedScore ?? 0;
-                    const isBelowPassing = grade < PASSING_GRADE;
-                    const isBelowTarget =
-                      !isBelowPassing && subject.targetGrade !== null && grade < subject.targetGrade;
-                    return (
-                      <tr key={subject.subjectId}>
-                        <th scope="row" className="py-2 text-left font-medium">
-                          {subject.subjectName}
-                          {isBelowPassing && (
-                            <span className="text-danger ml-1.5 text-xs font-normal">
-                              abaixo da média
-                            </span>
-                          )}
-                          {isBelowTarget && (
-                            <span className="text-muted ml-1.5 text-xs font-normal">
-                              abaixo da meta
-                            </span>
-                          )}
-                        </th>
-                        <td className="tabular py-2 text-right font-semibold">
-                          {formatGrade(subject.blendedScore, 1)}
-                        </td>
-                        <td className="tabular text-muted py-2 text-right">
-                          {subject.targetGrade !== null ? (
-                            formatGrade(subject.targetGrade, 1)
-                          ) : (
-                            <Target className="ml-auto size-3.5 opacity-40" aria-hidden />
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        )}
       </PageMain>
     </>
   );

@@ -10,11 +10,12 @@ export function WeekPlanCard({ plan, today }: { plan: PlanDay[]; today: string }
   if (filled.length === 0) return null;
 
   return (
-    <section className="border-border bg-surface mb-4 rounded-2xl border p-4" aria-label="Plano da semana">
-      <h2 className="flex items-center gap-2 text-sm font-semibold">
+    <details className="group border-border bg-surface mb-4 rounded-2xl border p-4" aria-label="Plano da semana">
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <CalendarCheck className="text-brand size-4" aria-hidden /> Plano da semana
-      </h2>
-      <p className="text-muted mt-0.5 text-xs">Montado com seus assuntos mais fracos e as provas marcadas.</p>
+        <span className="text-muted ml-auto text-xs font-normal group-open:hidden">{filled.length} dias · toque para ver</span>
+      </summary>
+      <p className="text-muted mt-2 text-xs">Montado com seus assuntos mais fracos e as provas marcadas.</p>
       <ol className="mt-3 space-y-2.5">
         {filled.map((d) => (
           <li key={d.date} className="flex gap-3">
@@ -41,6 +42,6 @@ export function WeekPlanCard({ plan, today }: { plan: PlanDay[]; today: string }
       <Link href="/estudar" className="text-brand-text mt-3 inline-block text-xs font-semibold">
         Ir estudar
       </Link>
-    </section>
+    </details>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Library, Route as RouteIcon, SearchX } from 'lucide-react';
+import { ChevronDown, Library, Route as RouteIcon, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-state';
 import { subjectColorVars } from '@/lib/design/subject-colors';
@@ -43,40 +43,31 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-8 md:px-6 md:pt-6 lg:px-8">
-      {/* ---------------------------------------------------- matérias -- */}
-      {data.subjects.length > 0 && (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          <FilterChip active={!subjectFilter} onClick={() => setParam('materia', null)}>
-            Todas
-          </FilterChip>
-          {data.subjects.map((subject) => (
-            <FilterChip
-              key={subject.id}
-              active={subjectFilter === subject.id}
-              color={subject.color}
-              onClick={() => setParam('materia', subject.id)}
-            >
-              {subject.name}
-            </FilterChip>
-          ))}
-        </div>
-      )}
-
-      {/* ---------------------------------------------------- bimestre -- */}
-      {hasBimestre && (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          <FilterChip active={!bimestreFilter} onClick={() => setParam('bimestre', null)}>
-            Todos os bimestres
-          </FilterChip>
-          {BIMESTRES.map((b) => (
-            <FilterChip
-              key={b.value}
-              active={bimestreFilter === String(b.value)}
-              onClick={() => setParam('bimestre', String(b.value))}
-            >
-              {b.label}
-            </FilterChip>
-          ))}
+      {/* ------------------------------------------------------ filtros -- */}
+      {/* Menus suspensos, não fileiras de botões rolando para o lado: com 10+
+          matérias a fileira escondia metade das opções. */}
+      {(data.subjects.length > 0 || hasBimestre) && (
+        <div className="grid grid-cols-2 gap-2.5 md:max-w-xl">
+          {data.subjects.length > 0 && (
+            <FilterSelect
+              label="Matéria"
+              value={subjectFilter ?? ''}
+              onChange={(v) => setParam('materia', v || null)}
+              allLabel="Todas as matérias"
+              options={data.subjects.map((subject) => ({ value: subject.id, label: subject.name }))}
+              className={hasBimestre ? undefined : 'col-span-2'}
+            />
+          )}
+          {hasBimestre && (
+            <FilterSelect
+              label="Bimestre"
+              value={bimestreFilter ?? ''}
+              onChange={(v) => setParam('bimestre', v || null)}
+              allLabel="Todos os bimestres"
+              options={BIMESTRES.map((b) => ({ value: String(b.value), label: b.label }))}
+              className={data.subjects.length > 0 ? undefined : 'col-span-2'}
+            />
+          )}
         </div>
       )}
 
@@ -283,46 +274,6 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
   );
 }
 
-function FilterChip({
-  active,
-  color,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  color?: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      // A cor da matéria só pinta o chip ATIVO. Todos coloridos de uma vez
-      // fazem a barra de filtros competir com o conteúdo que ela filtra.
-      style={
-        color
-          ? {
-              ...subjectColorVars(color),
-              ...(active ? { backgroundColor: 'var(--subject-base)' } : {}),
-            }
-          : undefined
-      }
-      className={cn(
-        'h-11 shrink-0 rounded-full px-4 text-sm font-medium whitespace-nowrap transition-colors',
-        active
-          ? color
-            ? 'text-white'
-            : 'bg-brand text-brand-fg'
-          : 'bg-surface-2 text-muted hover:text-text',
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 function EmptyLibrary({ filtered, kind }: { filtered: boolean; kind?: ResourceKind }) {
   // Um filtro por FORMATO merece um recado específico ("ainda não há
   // simulados") em vez do genérico "nada com esse filtro" — é a diferença
@@ -359,5 +310,45 @@ function EmptyLibrary({ filtered, kind }: { filtered: boolean; kind?: ResourceKi
         )
       }
     />
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  allLabel,
+  options,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  allLabel: string;
+  options: { value: string; label: string }[];
+  className?: string;
+}) {
+  return (
+    <label className={cn('block min-w-0', className)}>
+      <span className="text-muted mb-1 block text-xs font-semibold">{label}</span>
+      <span className="relative block">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={cn(
+            'border-border bg-surface text-text focus-visible:ring-brand h-11 w-full min-w-0 appearance-none truncate rounded-xl border pr-9 pl-3 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none',
+            value && 'border-brand/40 bg-brand-soft text-brand-text',
+          )}
+        >
+          <option value="">{allLabel}</option>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown aria-hidden className="text-subtle pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
+      </span>
+    </label>
   );
 }
