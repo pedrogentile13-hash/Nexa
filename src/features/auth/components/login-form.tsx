@@ -123,7 +123,7 @@ function GoogleButton({ next }: { next: string }) {
 function ModeSwitchLink({ mode, onChange }: { mode: AuthMode; onChange: (mode: AuthMode) => void }) {
   const isSignup = mode === 'signup';
   return (
-    <p className="text-muted text-right text-sm">
+    <p className="text-muted text-center text-sm">
       {isSignup ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}{' '}
       <button
         type="button"
@@ -233,7 +233,7 @@ export function LoginForm({
     <div className="space-y-5">
       {mode !== 'magic' && allowSignup && <ModeSwitchLink mode={mode} onChange={setMode} />}
       {mode !== 'magic' && !allowSignup && (
-        <p className="text-muted text-right text-sm">O cadastro é feito pela sua escola.</p>
+        <p className="text-muted text-center text-sm">O cadastro é feito pela sua escola.</p>
       )}
 
       <form action={formAction} className="space-y-3">

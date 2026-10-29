@@ -25,7 +25,7 @@ import { MiniCalendar } from './mini-calendar';
 import { StreakWeek } from './streak-week';
 import { StudyNowCard } from './study-now-card';
 import { StudyTimer } from './study-timer';
-import { greetingFor, longDate, relativeDay } from '../lib/greeting';
+import { greetingFor, relativeDay, shortDate } from '../lib/greeting';
 import { daysBetween } from '../lib/ranking';
 import type { RankedFocus } from '../lib/ranking';
 import type { ResumeItem, TodaySnapshot } from '../server/queries';
@@ -86,29 +86,22 @@ function StatTile({
         >
           {icon}
         </span>
+      </div>
+      <p className="text-muted mt-2 text-xs leading-tight font-medium">{label}</p>
+      <p className="tabular text-lg leading-tight font-semibold sm:text-xl">{value}</p>
+      <p className="text-subtle mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] leading-tight">
+        {hint}
         {trend !== undefined && trend !== null && trend !== 0 && (
-          <span
-            className={cn(
-              'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
-              trend > 0 ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger',
-            )}
-          >
-            {trend > 0 ? (
-              <TrendingUp className="size-3" aria-hidden />
-            ) : (
-              <TrendingDown className="size-3" aria-hidden />
-            )}
+          <span className={cn('inline-flex items-center gap-0.5 font-semibold tabular-nums', trend > 0 ? 'text-success' : 'text-danger')}>
+            {trend > 0 ? <TrendingUp className="size-3" aria-hidden /> : <TrendingDown className="size-3" aria-hidden />}
             {Math.abs(trend)}%
           </span>
         )}
-      </div>
-      <p className="text-muted mt-2 text-xs font-medium">{label}</p>
-      <p className="tabular text-xl leading-tight font-semibold">{value}</p>
-      {hint && <p className="text-subtle mt-0.5 text-[11px] leading-tight">{hint}</p>}
+      </p>
     </>
   );
 
-  const className = 'border-border bg-surface block rounded-2xl border p-3.5 transition-colors';
+  const className = 'border-border bg-surface block min-w-0 rounded-2xl border p-3 transition-colors sm:p-3.5';
 
   return href ? (
     <Link href={href} className={cn(className, 'hover:bg-surface-2')}>
@@ -195,7 +188,7 @@ export function TodayView({
     <>
       <AppHeader
         title={snapshot.greetingName ? `${greeting}, ${snapshot.greetingName}!` : `${greeting}!`}
-        subtitle={longDate(snapshot.today)}
+        subtitle={shortDate(snapshot.today)}
         avatarUrl={snapshot.avatarUrl}
         name={snapshot.greetingName}
       />

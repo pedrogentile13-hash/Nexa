@@ -66,7 +66,7 @@ export default async function LoginPage({
           sobra área, e o que existe para preencher não é decoração, é a
           resposta a "o que é isto?". */}
       <header
-        className="pt-safe flex items-center gap-2.5 rounded-b-[20px] px-6 pt-6 pb-6 lg:flex-col lg:items-stretch lg:justify-center lg:gap-0 lg:rounded-none lg:px-16 lg:py-16"
+        className="hidden lg:flex lg:flex-col lg:items-stretch lg:justify-center lg:px-16 lg:py-16"
         style={{ background: 'var(--gradient-header)', color: 'var(--gradient-header-fg)' }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve, não precisa de otimização do next/image */}
@@ -118,15 +118,30 @@ export default async function LoginPage({
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col justify-center px-5 pt-6 pb-8 lg:px-16">
+      <div className="pt-safe flex flex-1 flex-col justify-center px-6 py-10 lg:px-16">
         <div className="mx-auto w-full max-w-sm">
-          <h2 className="text-2xl font-semibold tracking-tight">
-            {tenant ? `Bem-vindo ao ${tenant.name}` : 'Bem-vindo ao Nexa Study'}
+          {/* Celular: só a marca, centralizada, sem faixa colorida. */}
+          <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve */}
+              <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-14 shrink-0" />
+              {tenant?.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- logo pequeno da escola
+                <img src={tenant.logoUrl} alt={tenant.name} className="size-14 shrink-0 object-contain" />
+              )}
+            </div>
+            <span className="text-base font-bold tracking-tight">
+              {tenant ? tenant.name : <>NEXA <span className="text-muted font-normal">STUDY</span></>}
+            </span>
+          </div>
+
+          <h2 className="text-center text-2xl font-semibold tracking-tight lg:text-left">
+            {tenant ? 'Entrar' : 'Bem-vindo de volta'}
           </h2>
-          <p className="text-muted mt-1.5 mb-6 text-sm">
+          <p className="text-muted mt-1.5 mb-6 text-center text-sm lg:text-left">
             {tenant
-              ? 'Entre com o login e a senha que a escola entregou para você.'
-              : 'Faça login para continuar sua jornada de aprendizado.'}
+              ? 'Use o login e a senha que a escola entregou.'
+              : 'Continue de onde parou.'}
           </p>
 
           {tenant ? (

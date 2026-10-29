@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import type { Route } from 'next';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   BookOpen,
@@ -50,17 +52,19 @@ const FIXED_ITEMS = [
   { href: '/hoje', label: 'Início', Icon: Home },
   { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
   { href: '/agenda', label: 'Agenda', Icon: CalendarDays },
-  { href: '/disciplinas', label: 'Matérias', Icon: BookOpen },
-  { href: '/desempenho', label: 'Desempenho', Icon: TrendingUp },
 ] as const;
 
-const MORE_ITEMS = [
-  { href: '/ranking', label: 'Ranking', Icon: Trophy },
+const STUDY_ITEMS = [
+  { href: '/disciplinas', label: 'Matérias', Icon: BookOpen },
   { href: '/simulados', label: 'Simulados', Icon: ClipboardCheck },
   { href: '/trilhas', label: 'Trilhas', Icon: RouteIcon },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
-  { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
   { href: '/metas', label: 'Metas', Icon: Target },
+  { href: '/desempenho', label: 'Desempenho', Icon: TrendingUp },
+] as const;
+
+const ACCOUNT_ITEMS = [
+  { href: '/ranking', label: 'Ranking', Icon: Trophy },
   { href: '/perfil', label: 'Perfil', Icon: User },
 ] as const;
 
@@ -82,8 +86,6 @@ const VESTIBULAR_FIXED_ITEMS = [
   { href: '/vestibular', label: 'Início', Icon: Home },
   { href: '/vestibular/plano', label: 'Plano', Icon: RouteIcon },
   { href: '/vestibular/questoes', label: 'Questões', Icon: ClipboardCheck },
-  { href: '/vestibular/erros', label: 'Erros', Icon: Target },
-  { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
 ] as const;
 
 /**
@@ -99,6 +101,8 @@ const VESTIBULAR_MORE_ITEMS = [
   { href: '/ranking', label: 'Ranking', Icon: Trophy },
   { href: '/perfil', label: 'Perfil', Icon: User },
 ] as const;
+
+type NavItem = { href: string; label: string; Icon: typeof Home };
 
 export function BottomNav({
   isAdmin = false,
@@ -128,21 +132,85 @@ export function BottomNav({
     vestibularEnabled && resolveActivePlatform(pathname, journey) === 'vestibular';
 
   const fixedItems = inVestibular ? VESTIBULAR_FIXED_ITEMS : FIXED_ITEMS;
-  const moreItems = inVestibular
-    ? [SCHOOL_ITEM, ...(communityEnabled ? [COMMUNITY_ITEM] : []), ...VESTIBULAR_MORE_ITEMS]
+  const sections: { title: string; items: readonly NavItem[] }[] = inVestibular
+    ? [
+        {
+          title: 'Vestibular',
+          items: VESTIBULAR_MORE_ITEMS.filter(
+            (i) =>
+              i.href.startsWith('/vestibular') || i.href === '/revisoes' || i.href === '/estudar',
+          ),
+        },
+        {
+          title: 'Mais',
+          items: [
+            SCHOOL_ITEM,
+            ...(communityEnabled ? [COMMUNITY_ITEM] : []),
+            ...VESTIBULAR_MORE_ITEMS.filter((i) => i.href === '/ranking' || i.href === '/perfil'),
+          ],
+        },
+      ]
     : [
-        ...(announcementsEnabled ? [ANNOUNCEMENTS_ITEM] : []),
-        ...(chatEnabled ? [CHAT_ITEM] : []),
-        ...(communityEnabled ? [COMMUNITY_ITEM] : []),
-        ...(vestibularEnabled ? [VESTIBULAR_ITEM] : []),
-        ...MORE_ITEMS,
-        ...(isAdmin ? [ADMIN_ITEM] : []),
-        ...(isTeacher ? [TEACHER_ITEM] : []),
-      ];
+        { title: 'Estudar', items: STUDY_ITEMS },
+        {
+          title: 'Escola e comunidade',
+          items: [
+            ...(announcementsEnabled ? [ANNOUNCEMENTS_ITEM] : []),
+            ...(chatEnabled ? [CHAT_ITEM] : []),
+            ...(communityEnabled ? [COMMUNITY_ITEM] : []),
+            ...(vestibularEnabled ? [VESTIBULAR_ITEM] : []),
+          ],
+        },
+        {
+          title: 'Conta',
+          items: [
+            ...ACCOUNT_ITEMS,
+            ...(isAdmin ? [ADMIN_ITEM] : []),
+            ...(isTeacher ? [TEACHER_ITEM] : []),
+          ],
+        },
+      ].filter((sec) => sec.items.length > 0);
+  const moreItems = sections.flatMap((sec) => sec.items);
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const moreActive = moreItems.some((item) => isActive(item.href));
+
+  function openNexa() {
+    if (pathname.startsWith('/nexa-ia')) return;
+    window.dispatchEvent(new Event('nexa:open-chat'));
+  }
+
+  const renderItem = ({ href, label, Icon }: NavItem) => {
+    const active = isActive(href);
+    return (
+      <li key={href} className="flex-1">
+        <Link
+          href={href as Route}
+          aria-current={active ? 'page' : undefined}
+          className={cn(
+            'flex h-16 flex-col items-center justify-center gap-1 transition-colors',
+            active ? 'text-brand-text' : 'text-subtle hover:text-muted',
+          )}
+        >
+          <span
+            aria-hidden
+            className={cn(
+              'grid h-7 w-12 place-items-center rounded-full transition-colors',
+              active ? 'bg-brand-soft' : 'bg-transparent',
+            )}
+          >
+            <Icon className="size-[21px]" aria-hidden strokeWidth={active ? 2.4 : 1.9} />
+          </span>
+          <span
+            className={cn('text-[10.5px] leading-none', active ? 'font-semibold' : 'font-medium')}
+          >
+            {label}
+          </span>
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <>
@@ -170,36 +238,49 @@ export function BottomNav({
                 <X className="size-5" aria-hidden />
               </button>
             </div>
-            <ul className="grid grid-cols-3 gap-2">
-              {moreItems.map(({ href, label, Icon }) => {
-                const active = isActive(href);
-                const badge = href === '/avisos' ? unreadAnnouncements : 0;
-                return (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      onClick={() => setMoreOpen(false)}
-                      className={cn(
-                        'flex flex-col items-center gap-1.5 rounded-2xl border p-3 text-center transition-colors',
-                        active
-                          ? 'border-brand/30 bg-brand-soft text-brand-text'
-                          : 'border-border text-muted hover:bg-surface-2',
-                      )}
-                    >
-                      <span className="relative">
-                        <Icon className="size-5" aria-hidden strokeWidth={active ? 2.3 : 1.9} />
-                        {badge > 0 && (
-                          <span className="bg-danger absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] leading-4 font-semibold text-white">
-                            {badge > 99 ? '99+' : badge}
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-xs leading-tight font-medium">{label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="max-h-[70dvh] space-y-4 overflow-y-auto pb-2">
+              {sections.map((sec) => (
+                <section key={sec.title}>
+                  <h3 className="text-subtle mb-1.5 px-1 text-xs font-semibold tracking-wide uppercase">
+                    {sec.title}
+                  </h3>
+                  <ul className="grid grid-cols-4 gap-2">
+                    {sec.items.map(({ href, label, Icon }) => {
+                      const active = isActive(href);
+                      const badge = href === '/avisos' ? unreadAnnouncements : 0;
+                      return (
+                        <li key={href}>
+                          <Link
+                            href={href as Route}
+                            onClick={() => setMoreOpen(false)}
+                            className={cn(
+                              'flex h-[68px] flex-col items-center justify-center gap-1 rounded-2xl text-center transition-colors',
+                              active
+                                ? 'bg-brand-soft text-brand-text'
+                                : 'bg-surface-2 text-muted hover:text-text',
+                            )}
+                          >
+                            <span className="relative">
+                              <Icon
+                                className="size-5"
+                                aria-hidden
+                                strokeWidth={active ? 2.3 : 1.9}
+                              />
+                              {badge > 0 && (
+                                <span className="bg-danger absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] leading-4 font-semibold text-white">
+                                  {badge > 99 ? '99+' : badge}
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-[11px] leading-tight font-medium">{label}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -225,39 +306,37 @@ export function BottomNav({
         )}
       >
         <ul className="mx-auto flex max-w-lg">
-          {fixedItems.map(({ href, label, Icon }) => {
-            const active = isActive(href);
-            return (
-              <li key={href} className="flex-1">
-                <Link
-                  href={href}
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'flex h-16 flex-col items-center justify-center gap-1 transition-colors',
-                    active ? 'text-brand-text' : 'text-subtle hover:text-muted',
-                  )}
+          {fixedItems.slice(0, 2).map(renderItem)}
+
+          <li className="flex flex-1 justify-center">
+            <button
+              type="button"
+              onClick={openNexa}
+              aria-label="Abrir a NexaAI"
+              className="-mt-6 flex flex-col items-center gap-1"
+            >
+              <span className="bg-brand ring-surface relative grid size-[58px] place-items-center rounded-full shadow-lg ring-4 transition-transform active:scale-95">
+                <Image
+                  src="/brand/nexa-ai.webp"
+                  alt=""
+                  width={44}
+                  height={44}
+                  className="size-11 rounded-full object-cover"
+                />
+                <span
+                  aria-hidden
+                  className="bg-surface text-brand absolute -top-0.5 -right-0.5 grid size-5 place-items-center rounded-full shadow"
                 >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'grid h-7 w-12 place-items-center rounded-full transition-colors',
-                      active ? 'bg-brand-soft' : 'bg-transparent',
-                    )}
-                  >
-                    <Icon className="size-[21px]" aria-hidden strokeWidth={active ? 2.4 : 1.9} />
-                  </span>
-                  <span
-                    className={cn(
-                      'text-[10.5px] leading-none',
-                      active ? 'font-semibold' : 'font-medium',
-                    )}
-                  >
-                    {label}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
+                  <Sparkles className="size-3" />
+                </span>
+              </span>
+              <span className="text-brand-text text-[10.5px] leading-none font-semibold">
+                NexaAI
+              </span>
+            </button>
+          </li>
+
+          {fixedItems.slice(2).map(renderItem)}
 
           <li className="flex-1">
             <button
@@ -280,7 +359,10 @@ export function BottomNav({
                 <span className="relative">
                   <Menu className="size-[21px]" aria-hidden strokeWidth={moreActive ? 2.4 : 1.9} />
                   {unreadAnnouncements > 0 && (
-                    <span className="bg-danger absolute -top-0.5 -right-1 size-2.5 rounded-full" aria-label="Há avisos novos" />
+                    <span
+                      className="bg-danger absolute -top-0.5 -right-1 size-2.5 rounded-full"
+                      aria-label="Há avisos novos"
+                    />
                   )}
                 </span>
               </span>

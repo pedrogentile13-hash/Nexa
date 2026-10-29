@@ -27,11 +27,23 @@ export function NexaWidget() {
   const [pending, startTransition] = useTransition();
   const endRef = useRef<HTMLDivElement>(null);
 
+  // O botão central da barra inferior (celular) abre o mesmo chat.
+  useEffect(() => {
+    const openChat = () => {
+      setView('chat');
+      setOpen(true);
+    };
+    window.addEventListener('nexa:open-chat', openChat);
+    return () => window.removeEventListener('nexa:open-chat', openChat);
+  }, []);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' });
   }, [messages, pending, open, view]);
 
-  if (pathname.startsWith('/nexa-ia') || /^\/estudar\/[^/]+\/(simulado|quiz)/.test(pathname)) return null;
+  if (pathname.startsWith('/nexa-ia')) return null;
+  // No celular o botão da NexaAI mora na barra inferior; o balão solto só existe no desktop.
+  const showBubble = !/^\/estudar\/[^/]+\/(simulado|quiz)/.test(pathname);
 
   function send() {
     if (pending || (!text.trim() && !file)) return;
@@ -93,13 +105,28 @@ export function NexaWidget() {
           <header className="bg-brand text-brand-fg flex items-center gap-2 px-4 py-3">
             <Sparkles className="size-4" aria-hidden />
             <p className="flex-1 text-sm font-semibold">NexaAI</p>
-            <button type="button" onClick={newChat} aria-label="Nova conversa" className="grid size-8 place-items-center rounded-full hover:bg-white/15">
+            <button
+              type="button"
+              onClick={newChat}
+              aria-label="Nova conversa"
+              className="grid size-8 place-items-center rounded-full hover:bg-white/15"
+            >
               <Plus className="size-4" aria-hidden />
             </button>
-            <button type="button" onClick={view === 'history' ? () => setView('chat') : showHistory} aria-label="Histórico" className="grid size-8 place-items-center rounded-full hover:bg-white/15">
+            <button
+              type="button"
+              onClick={view === 'history' ? () => setView('chat') : showHistory}
+              aria-label="Histórico"
+              className="grid size-8 place-items-center rounded-full hover:bg-white/15"
+            >
               <History className="size-4" aria-hidden />
             </button>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="grid size-8 place-items-center rounded-full hover:bg-white/15">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Fechar"
+              className="grid size-8 place-items-center rounded-full hover:bg-white/15"
+            >
               <X className="size-4" aria-hidden />
             </button>
           </header>
@@ -114,9 +141,15 @@ export function NexaWidget() {
                 <ul>
                   {history.map((h) => (
                     <li key={h.id}>
-                      <button type="button" onClick={() => openSession(h.id)} className="hover:bg-surface-2 w-full rounded-xl px-3 py-2.5 text-left">
+                      <button
+                        type="button"
+                        onClick={() => openSession(h.id)}
+                        className="hover:bg-surface-2 w-full rounded-xl px-3 py-2.5 text-left"
+                      >
                         <span className="block truncate text-sm font-medium">{h.title}</span>
-                        <span className="text-muted block text-xs">{new Date(h.updatedAt).toLocaleDateString('pt-BR')}</span>
+                        <span className="text-muted block text-xs">
+                          {new Date(h.updatedAt).toLocaleDateString('pt-BR')}
+                        </span>
                       </button>
                     </li>
                   ))}
@@ -127,22 +160,30 @@ export function NexaWidget() {
             <div className="flex-1 space-y-3 overflow-y-auto p-3">
               {messages.length === 0 && (
                 <p className="text-muted px-2 pt-6 text-center text-sm">
-                  Oi! Pergunte qualquer dúvida de estudo ou anexe um PDF/foto do caderno para eu explicar.
+                  Oi! Pergunte qualquer dúvida de estudo ou anexe um PDF/foto do caderno para eu
+                  explicar.
                 </p>
               )}
               {messages.map((m) => (
-                <div key={m.id} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+                <div
+                  key={m.id}
+                  className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}
+                >
                   <div
                     className={cn(
                       'max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm',
-                      m.role === 'user' ? 'bg-brand text-brand-fg whitespace-pre-wrap' : 'bg-surface-2',
+                      m.role === 'user'
+                        ? 'bg-brand text-brand-fg whitespace-pre-wrap'
+                        : 'bg-surface-2',
                     )}
                   >
                     {m.role === 'user' ? m.content : <Markdown source={m.content} />}
                   </div>
                 </div>
               ))}
-              {pending && <Loader2 className="text-muted size-4 animate-spin" aria-label="Pensando" />}
+              {pending && (
+                <Loader2 className="text-muted size-4 animate-spin" aria-label="Pensando" />
+              )}
               <div ref={endRef} />
             </div>
           )}
@@ -198,18 +239,29 @@ export function NexaWidget() {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label={open ? 'Fechar a NexaAI' : 'Abrir a NexaAI'}
-        aria-expanded={open}
-        className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+5rem)] z-50 size-14 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 md:bottom-6"
-      >
-        <Image src="/brand/nexa-ai.webp" alt="" width={56} height={56} className="size-14 rounded-full object-cover" />
-        <span aria-hidden className="bg-surface text-brand absolute -top-1 -right-1 grid size-6 place-items-center rounded-full shadow">
-          <Sparkles className="size-3.5" />
-        </span>
-      </button>
+      {showBubble && (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-label={open ? 'Fechar a NexaAI' : 'Abrir a NexaAI'}
+          aria-expanded={open}
+          className="fixed right-6 bottom-6 z-50 hidden size-14 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 md:block"
+        >
+          <Image
+            src="/brand/nexa-ai.webp"
+            alt=""
+            width={56}
+            height={56}
+            className="size-14 rounded-full object-cover"
+          />
+          <span
+            aria-hidden
+            className="bg-surface text-brand absolute -top-1 -right-1 grid size-6 place-items-center rounded-full shadow"
+          >
+            <Sparkles className="size-3.5" />
+          </span>
+        </button>
+      )}
     </>
   );
 }

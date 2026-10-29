@@ -53,8 +53,8 @@ export async function AppHeader({
         />
 
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl leading-tight font-semibold tracking-tight">{title}</h1>
-          {subtitle && <p className="text-muted truncate text-sm">{subtitle}</p>}
+          <h1 className="truncate text-lg leading-tight font-semibold tracking-tight md:text-xl">{title}</h1>
+          {subtitle && <p className="text-muted truncate text-xs md:text-sm">{subtitle}</p>}
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5 md:gap-1.5">
