@@ -29,7 +29,7 @@ const BUCKET_META: Record<ReviewItem['bucket'], { title: string; tab: string; de
   atrasada: {
     title: 'Atrasadas',
     tab: 'Atrasadas',
-    description: 'Já passou do dia — o quanto antes revisar, melhor.',
+    description: 'Já passou do dia — o quanto antes revisar, melhor. O que passa de 7 dias sem revisão sai da fila sozinho.',
   },
   hoje: { title: 'Hoje', tab: 'Hoje', description: 'Para revisar ainda hoje.' },
   proxima: { title: 'Próximas', tab: 'Próximas', description: 'Chegando nos próximos dias.' },

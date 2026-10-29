@@ -1,6 +1,6 @@
 import { AdminHeader } from '@/features/admin/components/admin-shell';
 import { PeopleManager } from '@/features/admin/components/people-manager';
-import { listPeople } from '@/features/admin/server/queries';
+import { listPeople, listSchools } from '@/features/admin/server/queries';
 import { requireAccess } from '@/features/admin/server/guard';
 
 export const metadata = { title: 'Pessoas' };
@@ -20,6 +20,7 @@ export default async function PeoplePage({
   // escola já está limitado à própria, escolher outra não faria sentido.
   const schoolFilter = identity.isGlobal ? params.school : identity.schoolId;
   const people = await listPeople(params.q, schoolFilter ?? undefined);
+  const schools = identity.scope === 'full' ? (await listSchools()).map((s) => ({ id: s.id, name: s.name })) : [];
 
   return (
     <>
@@ -37,6 +38,8 @@ export default async function PeoplePage({
           currentUserId={identity.userId}
           search={params.q ?? ''}
           readOnly={identity.scope !== 'full'}
+          schools={schools}
+          canRelocate={identity.scope === 'full' || identity.scope === 'school'}
         />
       </div>
     </>

@@ -1853,6 +1853,7 @@ export type Database = {
         Returns: void;
       };
       delete_ai_resource: { Args: { p_resource_id: string }; Returns: void };
+      move_person_school: { Args: { p_user_id: string; p_school_id?: string | null }; Returns: void };
       request_publication: { Args: { p_resource_id: string; p_note?: string | null }; Returns: string };
       list_publication_requests: { Args: { p_status?: string | null }; Returns: PublicationRequestListRow[] };
       decide_publication: { Args: { p_request_id: string; p_approve: boolean; p_note?: string | null }; Returns: void };

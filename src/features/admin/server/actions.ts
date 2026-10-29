@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { PLATFORM_ROLE_CHOICES, platformChoiceToProfile } from '@/lib/school-roles';
 import { sendPushToUsers } from '@/lib/push/send';
-import { assertSubjectAllowed, requireAdmin, requireContentManager, requireFullAdmin, resolveSchoolId } from './guard';
+import { assertSubjectAllowed, requireAccess, requireAdmin, requireContentManager, requireFullAdmin, resolveSchoolId } from './guard';
 import { parseAssets, parseSimuladoCode } from '../lib/simulado-import';
 
 /**
@@ -1118,6 +1118,34 @@ export async function setPersonRole(_prev: AdminState, formData: FormData): Prom
   if (error) return fail(error.message);
 
   revalidatePath('/admin/usuarios');
+  return ok;
+}
+
+/**
+ * Retira um aluno da escola (ou o realoca, para o admin). Serve para quem entrou
+ * por conta própria (Google, e-mail) e foi parar na escola errada. A regra de
+ * quem pode é do banco (`move_person_school`).
+ */
+export async function movePersonSchool(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  await requireAccess('/admin/usuarios');
+  const userId = z.string().uuid().safeParse(formData.get('userId'));
+  if (!userId.success) return fail('Pessoa inválida.');
+  const target = String(formData.get('schoolId') ?? '');
+  if (target && !z.string().uuid().safeParse(target).success) return fail('Escola inválida.');
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('move_person_school', { p_user_id: userId.data, p_school_id: target || null });
+  if (error) {
+    return fail(
+      error.code === '42501'
+        ? 'Você não pode mover esta pessoa.'
+        : error.code === '42883' || error.code === 'PGRST202'
+          ? 'Aplique o SQL novo no Supabase antes de usar esta função.'
+          : error.message,
+    );
+  }
+  revalidatePath('/admin/usuarios');
+  revalidatePath('/admin/contas');
   return ok;
 }
 

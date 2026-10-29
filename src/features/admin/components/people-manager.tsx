@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { FormFeedback, Select } from './form-parts';
-import { setPersonRole, type AdminState } from '../server/actions';
+import { movePersonSchool, setPersonRole, type AdminState } from '../server/actions';
 import type { AdminPerson } from '../server/queries';
 import { PLATFORM_ROLE_LABEL } from '@/lib/school-roles';
 
@@ -21,14 +21,21 @@ export function PeopleManager({
   currentUserId,
   search,
   readOnly = false,
+  schools = [],
+  canRelocate = false,
 }: {
   people: AdminPerson[];
   currentUserId: string;
   search: string;
   /** Admin de escola vê a lista pra chegar no relatório, mas não edita papel/escola. */
   readOnly?: boolean;
+  /** Escolas para realocar (só o admin geral). */
+  schools?: { id: string; name: string }[];
+  /** Direção/coordenação podem retirar alunos da própria escola; o admin geral também realoca. */
+  canRelocate?: boolean;
 }) {
   const [state, formAction] = useActionState(setPersonRole, INITIAL);
+  const [moveState, moveAction] = useActionState(movePersonSchool, INITIAL);
   const router = useRouter();
 
   return (
@@ -50,6 +57,7 @@ export function PeopleManager({
       </form>
 
       <FormFeedback state={state} />
+      <FormFeedback state={moveState} />
 
       <ul className="border-border bg-surface divide-border divide-y overflow-hidden rounded-lg border">
         {people.map((person) => {
@@ -92,6 +100,39 @@ export function PeopleManager({
                   Ver relatório
                 </Link>
               </Button>
+
+              {canRelocate && person.platformRole === 'student' && (person.schoolId || schools.length > 0) && (
+                <form action={moveAction} className="flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="userId" value={person.id} />
+                  {schools.length > 0 ? (
+                    <>
+                      <Select
+                        name="schoolId"
+                        defaultValue=""
+                        className="w-auto"
+                        aria-label={`Escola de ${person.fullName ?? 'pessoa'}`}
+                      >
+                        <option value="">Sem escola</option>
+                        {schools.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button type="submit" variant="secondary">
+                        Mover
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <input type="hidden" name="schoolId" value="" />
+                      <Button type="submit" variant="secondary">
+                        Retirar da escola
+                      </Button>
+                    </>
+                  )}
+                </form>
+              )}
 
               {!readOnly && person.platformRole === 'managed' && (
                 <span className="text-subtle text-xs">Gerenciado pela escola</span>
