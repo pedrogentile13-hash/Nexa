@@ -42,9 +42,7 @@ export const NAV: NavEntry[] = [
   { href: '/escola/contas', label: 'Contas', icon: 'accounts', roles: LEADERS },
   { href: '/escola/planejamento', label: 'Planejamento', icon: 'plan', roles: ['teacher'] },
   { href: '/escola/chat', label: 'Chat da turma', icon: 'chat', roles: ['teacher'] },
-  // Editor de conteúdo (resumos, simulados, vídeos): ainda é a tela já existente.
-  { href: '/professor/conteudo', label: 'Conteúdo', icon: 'library', roles: ['teacher'] },
-  { href: '/admin/conteudo', label: 'Conteúdo', icon: 'library', roles: LEADERS },
+  { href: '/escola/conteudo', label: 'Conteúdo', icon: 'library', roles: ['teacher', 'coordination', 'direction'] },
   { href: '/escola/visao-aluno', label: 'Visão do aluno', icon: 'eye', roles: ALL },
 ];
 
