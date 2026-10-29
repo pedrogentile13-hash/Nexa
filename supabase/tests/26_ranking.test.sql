@@ -55,7 +55,7 @@ declare
 begin
   insert into public.tasks (user_id, title) values (auth.uid(), 'Tarefa 1')
   returning id into v_task;
-  perform public.award_xp(10, 'Tarefa concluída', 'task', v_task);
+  perform public.award_xp_self(10, 'Tarefa concluída', 'task', v_task);
 
   select xp into v_xp_depois_1a_chamada from public.user_stats where user_id = auth.uid();
 

@@ -1572,6 +1572,11 @@ export type Database = {
         };
         Returns: number;
       };
+      award_xp_self: {
+        Args: { p_amount: number; p_reason: string; p_source_type?: XpSourceType; p_source_id?: string | null };
+        Returns: number;
+      };
+      touch_streak_self: { Args: Record<string, never>; Returns: number };
       touch_streak: { Args: { p_user_id?: string }; Returns: number };
       check_achievements: { Args: { p_user_id?: string }; Returns: void };
       school_ranking: {

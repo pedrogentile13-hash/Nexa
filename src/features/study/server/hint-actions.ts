@@ -4,9 +4,9 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
 import { checkAiQuota } from '@/lib/ai/quota';
-import { buildHintMessages, leaksAnswer, MAX_HINT_LEVEL } from '../lib/hint-prompt';
+import { buildHintMessages, HINT_XP_COST, leaksAnswer, MAX_HINT_LEVEL } from '../lib/hint-prompt';
 
-export type HintResult = { ok: true; hint: string } | { ok: false; message: string };
+export type HintResult = { ok: true; hint: string; xpCost: number } | { ok: false; message: string };
 
 const schema = z.object({
   resourceId: z.string().uuid(),
@@ -64,5 +64,14 @@ export async function getQuestionHint(resourceId: string, questionId: string, le
   if (leaksAnswer(result.text)) {
     return { ok: false, message: 'Não consegui dar uma dica boa para esta questão. Tente reler o enunciado com calma.' };
   }
-  return { ok: true, hint: result.text.trim() };
+  // A dica entregue custa XP (só se a pessoa tiver; o XP nunca fica negativo).
+  const hintLevel = parsed.data.level as 1 | 2;
+  const xpCost = HINT_XP_COST[hintLevel];
+  await supabase.rpc('award_xp_self', {
+    p_amount: -xpCost,
+    p_reason: `Dica de IA (nível ${hintLevel})`,
+    p_source_type: 'system',
+    p_source_id: parsed.data.questionId,
+  });
+  return { ok: true, hint: result.text.trim(), xpCost };
 }

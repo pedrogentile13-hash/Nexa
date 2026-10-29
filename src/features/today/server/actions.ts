@@ -52,13 +52,12 @@ export async function toggleRoutine(routineId: string, done: boolean): Promise<v
     // TODOS os dias seguintes ao primeiro, pra sempre (era o bug: o XP do
     // checklist só pagava uma vez na vida de cada item).
     await Promise.all([
-      supabase.rpc('touch_streak', { p_user_id: user.id }),
-      supabase.rpc('award_xp', {
+      supabase.rpc('touch_streak_self'),
+      supabase.rpc('award_xp_self', {
         p_amount: 5,
         p_reason: 'Item do checklist concluído',
         p_source_type: 'routine',
         p_source_id: dailySourceId('routine', parsed.data, today),
-        p_user_id: user.id,
       }),
     ]);
   } else {
@@ -78,7 +77,7 @@ export async function toggleTask(taskId: string, done: boolean): Promise<void> {
   const parsed = idSchema.safeParse(taskId);
   if (!parsed.success) return;
 
-  const { supabase, user } = await requireUser();
+  const { supabase } = await requireUser();
 
   await supabase
     .from('tasks')
@@ -87,13 +86,12 @@ export async function toggleTask(taskId: string, done: boolean): Promise<void> {
 
   if (done) {
     await Promise.all([
-      supabase.rpc('touch_streak', { p_user_id: user.id }),
-      supabase.rpc('award_xp', {
+      supabase.rpc('touch_streak_self'),
+      supabase.rpc('award_xp_self', {
         p_amount: 10,
         p_reason: 'Tarefa concluída',
         p_source_type: 'task',
         p_source_id: parsed.data,
-        p_user_id: user.id,
       }),
     ]);
   }
@@ -180,13 +178,12 @@ export async function stopStudySession(sessionId: string): Promise<void> {
 
   if (user && duration >= 60) {
     await Promise.all([
-      supabase.rpc('touch_streak', { p_user_id: user.id }),
-      supabase.rpc('award_xp', {
+      supabase.rpc('touch_streak_self'),
+      supabase.rpc('award_xp_self', {
         p_amount: Math.min(50, Math.round(duration / 60)),
         p_reason: 'Sessão de estudo',
         p_source_type: 'study_session',
         p_source_id: parsed.data,
-        p_user_id: user.id,
       }),
     ]);
   }

@@ -122,13 +122,12 @@ export async function POST(request: Request) {
 
   if (seconds >= 60) {
     await Promise.all([
-      supabase.rpc('touch_streak', { p_user_id: user.id }),
-      supabase.rpc('award_xp', {
+      supabase.rpc('touch_streak_self'),
+      supabase.rpc('award_xp_self', {
         p_amount: Math.min(50, Math.round(seconds / 60)),
         p_reason: 'Conteúdo estudado',
         p_source_type: 'study_session',
         p_source_id: inserted.id,
-        p_user_id: user.id,
       }),
     ]);
     revalidatePath('/ranking');

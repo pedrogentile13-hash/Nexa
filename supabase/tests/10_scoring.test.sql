@@ -306,12 +306,12 @@ begin
   insert into public.tasks (user_id, title) values (auth.uid(), 'Tarefa de teste')
   returning id into v_task;
 
-  v_first := public.award_xp(10, 'Tarefa concluída', 'task', v_task);
+  v_first := public.award_xp_self(10, 'Tarefa concluída', 'task', v_task);
   assert v_first = 10, format('first award should grant 10, got %s', v_first);
 
   select xp into v_after_first from public.user_stats where user_id = auth.uid();
 
-  v_second := public.award_xp(10, 'Tarefa concluída', 'task', v_task);
+  v_second := public.award_xp_self(10, 'Tarefa concluída', 'task', v_task);
   assert v_second = 0, format('re-awarding the same source must grant 0, got %s', v_second);
   assert (select xp from public.user_stats where user_id = auth.uid()) = v_after_first,
     're-awarding the same source must not change XP, directly or via achievements';

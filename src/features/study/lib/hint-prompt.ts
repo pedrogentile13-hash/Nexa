@@ -59,3 +59,6 @@ export function leaksAnswer(text: string): boolean {
   const imperative = /\b(?:[Mm]arque|[Ee]scolha|[Aa]ssinale)\s+(?:a\s+)?(?:(?:alternativa|letra|op[cç][aã]o)\s+)?\(?[A-E]\b/;
   return direct.test(text) || imperative.test(text);
 }
+
+/** Cada dica custa um pouco de XP (a segunda, mais direta, custa mais). Cobra uma vez por questão e nível. */
+export const HINT_XP_COST: Record<1 | 2, number> = { 1: 2, 2: 3 };

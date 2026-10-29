@@ -25,7 +25,7 @@ import { WritingTaskRunner } from './writing-task-runner';
 import { CalculatorDialog } from './calculator-dialog';
 import { clockTime, humanDuration } from '../lib/format';
 import { getQuestionHint } from '../server/hint-actions';
-import { MAX_HINT_LEVEL } from '../lib/hint-prompt';
+import { HINT_XP_COST, MAX_HINT_LEVEL } from '../lib/hint-prompt';
 import {
   answerQuestion,
   finishAttempt,
@@ -609,7 +609,9 @@ export function QuizRunner({
                   className="text-brand-text hover:bg-brand-soft inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium disabled:opacity-60"
                 >
                   {hintPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Lightbulb className="size-4" aria-hidden />}
-                  {hintPending ? 'Pensando…' : given.length === 0 ? 'Pedir uma dica' : 'Preciso de mais uma dica'}
+                  {hintPending
+                    ? 'Pensando…'
+                    : `${given.length === 0 ? 'Pedir uma dica' : 'Preciso de mais uma dica'} (−${HINT_XP_COST[(given.length + 1) as 1 | 2]} XP)`}
                 </button>
               )}
             </div>
