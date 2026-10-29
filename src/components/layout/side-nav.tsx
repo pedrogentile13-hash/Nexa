@@ -4,7 +4,6 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import {
-  BookOpen,
   CalendarDays,
   ClipboardCheck,
   GraduationCap,
@@ -53,18 +52,16 @@ interface NavItem {
   badge?: number;
 }
 
+// Simulados e Trilhas vivem dentro da Biblioteca; Matérias saiu (o boletim está em Desempenho).
 const PRIMARY_ITEMS: NavItem[] = [
   { href: '/hoje', label: 'Início', Icon: Home },
-  { href: '/disciplinas', label: 'Matérias', Icon: BookOpen },
-  { href: '/simulados', label: 'Simulados', Icon: ClipboardCheck },
-  { href: '/trilhas', label: 'Trilhas', Icon: RouteIcon },
+  { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
+  { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
   { href: '/agenda', label: 'Agenda', Icon: CalendarDays },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
-  { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
 ];
 
 const SECONDARY_ITEMS: NavItem[] = [
-  { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
   { href: '/metas', label: 'Metas', Icon: Target },
   { href: '/desempenho', label: 'Desempenho', Icon: TrendingUp },
   { href: '/ranking', label: 'Ranking', Icon: Trophy },

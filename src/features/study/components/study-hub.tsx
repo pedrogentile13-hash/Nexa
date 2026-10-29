@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, Library, Route as RouteIcon, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DeleteCreationButton } from '@/features/nexa-ia/components/delete-creation-button';
 import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-state';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { RESOURCE_KIND_COLOR as KIND_COLOR, RESOURCE_KIND_ICON as ICONS } from '@/lib/design/resource-kind';
@@ -249,10 +250,13 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
               const Icon = ICONS[item.kind];
               const duration = humanDuration(item.durationSeconds);
               return (
-                <li key={item.id} className="min-w-0" style={subjectColorVars(item.subjectColor)}>
+                <li key={item.id} className="relative min-w-0" style={subjectColorVars(item.subjectColor)}>
                   <Link
                     href={`/estudar/${item.id}`}
-                    className="border-border bg-surface hover:bg-surface-2 relative flex items-center gap-3 overflow-hidden rounded-lg border p-3.5 transition-colors"
+                    className={cn(
+                      'border-border bg-surface hover:bg-surface-2 relative flex items-center gap-3 overflow-hidden rounded-lg border p-3.5 transition-colors',
+                      item.mine && 'pr-14',
+                    )}
                   >
                     <span
                       aria-hidden
@@ -295,6 +299,11 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
                       </span>
                     )}
                   </Link>
+                  {item.mine && (
+                    <div className="absolute top-1/2 right-2 -translate-y-1/2">
+                      <DeleteCreationButton resourceId={item.id} title={item.title} />
+                    </div>
+                  )}
                 </li>
               );
             })}

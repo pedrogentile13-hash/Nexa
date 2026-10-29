@@ -38,6 +38,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // A tela de Matérias foi retirada (o boletim agora está em Desempenho).
+  async redirects() {
+    return [
+      { source: '/disciplinas', destination: '/estudar', permanent: false },
+      { source: '/disciplinas/:path*', destination: '/estudar', permanent: false },
+    ];
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

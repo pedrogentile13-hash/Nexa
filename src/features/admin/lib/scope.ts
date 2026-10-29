@@ -28,7 +28,7 @@ export const ADMIN_ACCESS: Record<string, readonly AdminScope[]> = {
   '/admin/comunidade': ['full', 'limited'],
   '/admin/notificacoes': ['full', 'limited'],
   '/admin/escolas': ['full'],
-  '/admin/usuarios': ['full'],
+  '/admin/usuarios': ['full', 'school'],
   '/admin/ia': ['full'],
   '/admin/erros': ['full'],
   '/admin/configuracoes': ['full'],

@@ -8,9 +8,9 @@ describe('sectionsFor', () => {
     expect(names('school')).toEqual(['Visão geral', 'Biblioteca', 'Turmas e professores', 'Pessoas e escolas', 'Comunicação', 'IA', 'Relatórios']);
   });
 
-  it('na direção, "Pessoas e escolas" só tem Contas da escola, e "IA" não tem Diagnóstico', () => {
+  it('na direção, "Pessoas e escolas" tem Contas da escola e Usuários (sem Escolas), e "IA" não tem Diagnóstico', () => {
     const pessoas = sectionsFor('school').find((s) => s.key === 'pessoas')!;
-    expect(pessoas.tabs.map((t) => t.label)).toEqual(['Contas da escola']);
+    expect(pessoas.tabs.map((t) => t.label)).toEqual(['Contas da escola', 'Usuários']);
     const ia = sectionsFor('school').find((s) => s.key === 'ia')!;
     expect(ia.tabs.map((t) => t.label)).toEqual(['Assistente', 'Bots dos professores']);
   });

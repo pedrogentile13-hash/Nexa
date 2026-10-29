@@ -5,7 +5,6 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import {
-  BookOpen,
   CalendarDays,
   ClipboardCheck,
   GraduationCap,
@@ -54,9 +53,6 @@ const FIXED_ITEMS = [
 ] as const;
 
 const STUDY_ITEMS = [
-  { href: '/disciplinas', label: 'Matérias', Icon: BookOpen },
-  { href: '/simulados', label: 'Simulados', Icon: ClipboardCheck },
-  { href: '/trilhas', label: 'Trilhas', Icon: RouteIcon },
   { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
   { href: '/metas', label: 'Metas', Icon: Target },
   { href: '/desempenho', label: 'Desempenho', Icon: TrendingUp },

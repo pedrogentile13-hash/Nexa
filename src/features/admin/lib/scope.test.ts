@@ -5,13 +5,13 @@ const can = (scope: AdminScope, path: string) => canAccessPath(scope, path);
 
 describe('canAccessPath', () => {
   it('a direção da escola NÃO vê o que é só da plataforma', () => {
-    for (const path of ['/admin/escolas', '/admin/ia', '/admin/erros', '/admin/configuracoes', '/admin/usuarios', '/admin/materias', '/admin/comunidade']) {
+    for (const path of ['/admin/escolas', '/admin/ia', '/admin/erros', '/admin/configuracoes', '/admin/materias', '/admin/comunidade']) {
       expect(can('school', path), path).toBe(false);
     }
   });
 
   it('a direção da escola vê o que é da escola', () => {
-    for (const path of ['/admin', '/admin/turmas', '/admin/contas', '/admin/mural', '/admin/eventos', '/admin/professores', '/admin/bots', '/admin/nexaai', '/admin/relatorios', '/admin/conteudo']) {
+    for (const path of ['/admin', '/admin/turmas', '/admin/contas', '/admin/usuarios', '/admin/mural', '/admin/eventos', '/admin/professores', '/admin/bots', '/admin/nexaai', '/admin/relatorios', '/admin/conteudo']) {
       expect(can('school', path), path).toBe(true);
     }
   });
@@ -24,7 +24,7 @@ describe('canAccessPath', () => {
   });
 
   it('o admin restrito não mexe em escolas, papéis, configurações nem diagnóstico', () => {
-    for (const path of ['/admin/escolas', '/admin/usuarios', '/admin/configuracoes', '/admin/ia', '/admin/erros']) {
+    for (const path of ['/admin/escolas', '/admin/configuracoes', '/admin/ia', '/admin/erros']) {
       expect(can('limited', path), path).toBe(false);
     }
     for (const path of ['/admin/conteudo', '/admin/relatorios', '/admin/comunidade', '/admin/materias', '/admin/bots']) {
@@ -39,7 +39,8 @@ describe('canAccessPath', () => {
   });
 
   it('subcaminhos herdam a regra do pai', () => {
-    expect(can('school', '/admin/usuarios/abc')).toBe(false);
+    expect(can('school', '/admin/usuarios/abc')).toBe(true);
+    expect(can('school', '/admin/escolas/novo')).toBe(false);
     expect(can('school', '/admin/conteudo/abc/questoes')).toBe(true);
     expect(can('limited', '/admin/escolas/novo')).toBe(false);
   });
