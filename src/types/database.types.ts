@@ -1087,6 +1087,7 @@ export type StudyDocumentRow = {
   source_kind: 'pdf' | 'image' | 'text';
   content: string;
   pages: number | null;
+  code: string | null;
   created_at: string;
 };
 
@@ -1507,6 +1508,7 @@ export type Database = {
       ai_chat_sessions: Table<AiChatSessionRow>;
       ai_chat_messages: Table<AiChatMessageRow>;
       study_documents: Table<StudyDocumentRow>;
+      study_document_counters: Table<{ user_id: string; last_number: number }>;
       school_account_secrets: Table<SchoolAccountSecretRow>;
       publication_requests: Table<PublicationRequestRow>;
       notifications: Table<NotificationRow>;

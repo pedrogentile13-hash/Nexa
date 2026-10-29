@@ -36,8 +36,8 @@ export default async function NexaIaPage({
       {tab === 'conversar' && <NexaIaView activeSessionId={activeSessionId} messages={messages} />}
       {tab === 'material' && (
         <PageScroll
-          title="Material de estudo"
-          subtitle="Envie um PDF, foto ou texto. A NexaAI lê, tira dúvidas e cria resumo e simulado só com o que está no seu material."
+          title="Biblioteca"
+          subtitle="Seus PDFs, fotos e textos de estudo, cada um com uma sigla (B01, B02…). Peça no chat para criar resumos e simulados a partir deles."
         >
           <MaterialTab />
         </PageScroll>

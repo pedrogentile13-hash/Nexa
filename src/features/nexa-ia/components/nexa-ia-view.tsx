@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { ArrowUp, BookOpen, ChevronDown, ClipboardList, Sparkles } from 'lucide-react';
+import { ArrowUp, BookOpen, ChevronDown, ClipboardList, Paperclip, Sparkles, X } from 'lucide-react';
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
 import { sendChat } from '../server/actions';
@@ -35,6 +35,7 @@ export function NexaIaView({
   const [sessionId, setSessionId] = useState(activeSessionId ?? '');
   const [mode, setMode] = useState<TutorMode>(DEFAULT_TUTOR_MODE);
   const [error, setError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [typingId, setTypingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -71,26 +72,35 @@ export function NexaIaView({
   function submit() {
     const el = inputRef.current;
     const content = el?.value.trim() ?? '';
-    if (!el || !content || pending) return;
+    if (!el || (!content && !file) || pending) return;
 
     // A pergunta aparece AGORA; a caixa esvazia; a resposta chega depois.
+    const sentFile = file;
     const optimistic: ChatMessage = {
       id: `tmp-${Date.now()}`,
       role: 'user',
-      content,
+      content: sentFile ? `📎 ${sentFile.name}\n${content}` : content,
       createdAt: new Date().toISOString(),
     };
     setMessages((m) => [...m, optimistic]);
     el.value = '';
     el.style.height = 'auto';
+    setFile(null);
     setError(null);
 
     startTransition(async () => {
-      const r = await sendChat({ sessionId, content, mode });
+      const fd = new FormData();
+      fd.set('sessionId', sessionId);
+      fd.set('content', content);
+      fd.set('mode', mode);
+      if (sentFile) fd.set('file', sentFile);
+      const r = await sendChat(fd);
       if (!r.ok) {
         setMessages((m) => m.filter((x) => x.id !== optimistic.id));
         el.value = content;
         grow(el);
+        setFile(sentFile);
+        setFile(sentFile);
         setError(r.message);
         return;
       }
@@ -184,7 +194,28 @@ export function NexaIaView({
             {error}
           </p>
         )}
-        <div className="border-border bg-surface flex items-end gap-2 rounded-[28px] border px-4 py-2.5 shadow-sm">
+        {file && (
+          <p className="bg-brand-soft text-brand-text mb-2 flex items-center justify-between gap-2 rounded-2xl px-3.5 py-2 text-sm">
+            <span className="min-w-0 truncate">📎 {file.name}</span>
+            <button type="button" onClick={() => setFile(null)} aria-label="Remover anexo" className="shrink-0">
+              <X className="size-4" aria-hidden />
+            </button>
+          </p>
+        )}
+        <div className="border-border bg-surface flex items-end gap-2 rounded-[28px] border px-3 py-2.5 shadow-sm">
+          <label className="text-muted hover:text-text grid size-9 shrink-0 cursor-pointer place-items-center rounded-full" title="Anexar PDF ou imagem">
+            <Paperclip className="size-5" aria-hidden />
+            <span className="sr-only">Anexar PDF ou imagem</span>
+            <input
+              type="file"
+              accept="application/pdf,image/png,image/jpeg,image/webp"
+              className="sr-only"
+              onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null);
+                e.target.value = '';
+              }}
+            />
+          </label>
           <textarea
             ref={inputRef}
             rows={1}

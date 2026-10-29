@@ -1,8 +1,18 @@
 'use client';
 
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
-import { FileText, ImageIcon, Loader2, Sparkles, Trash2, Upload } from 'lucide-react';
+import {
+  Check,
+  FileText,
+  ImageIcon,
+  Loader2,
+  Pencil,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Markdown } from '@/features/study/components/markdown';
 import {
@@ -11,6 +21,7 @@ import {
   createQuizFromDocument,
   createSummaryFromDocument,
   deleteStudyDocument,
+  renameStudyDocument,
   type AskState,
   type CreateFromDocState,
   type MaterialState,
@@ -55,20 +66,19 @@ export function MaterialPanel({
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <section className="border-border bg-surface rounded-2xl border p-4">
-        <h2 className="text-sm font-semibold">Leitor de estudos</h2>
+        <h2 className="text-sm font-semibold">Adicionar à biblioteca</h2>
         <p className="text-muted mt-1 text-xs">
-          Envie um PDF, foto de caderno ou cole um texto. A NexaAI lê, responde dúvidas e cria resumo e simulado só com o que está no seu
-          material. O que ela cria fica privado, na sua Biblioteca.
+          Cada material ganha uma sigla (B01, B02…). No chat da NexaAI, diga por exemplo{' '}
+          <em>“crie um simulado de 5 questões com o B01”</em> e ela usa só aquele material. O que
+          ela cria fica privado, em Meus conteúdos.
         </p>
-        <form
-          ref={formRef}
-          action={action}
-          className="mt-3 space-y-3"
-        >
+        <form ref={formRef} action={action} className="mt-3 space-y-3">
           <label className="border-border hover:border-brand flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-5 text-sm">
             <Upload className="size-4" aria-hidden />
             <span className="min-w-0 truncate">
-              {picked.length > 0 ? `✓ ${picked.join(', ')}` : 'Toque para escolher PDF, imagem ou texto (até 3 arquivos, 6 MB cada)'}
+              {picked.length > 0
+                ? `✓ ${picked.join(', ')}`
+                : 'Toque para escolher PDF, imagem ou texto (até 3 arquivos, 6 MB cada)'}
             </span>
             <input
               type="file"
@@ -79,8 +89,18 @@ export function MaterialPanel({
               onChange={(e) => setPicked(Array.from(e.target.files ?? []).map((f) => f.name))}
             />
           </label>
-          <input name="title" placeholder="Título (se for colar um texto)" maxLength={160} className={fieldClass} />
-          <textarea name="text" rows={4} placeholder="…ou cole aqui o texto que quer estudar" className={fieldClass} />
+          <input
+            name="title"
+            placeholder="Título (se for colar um texto)"
+            maxLength={160}
+            className={fieldClass}
+          />
+          <textarea
+            name="text"
+            rows={4}
+            placeholder="…ou cole aqui o texto que quer estudar"
+            className={fieldClass}
+          />
           <Submit>Adicionar material</Submit>
           {state.status === 'error' && <p className="text-danger text-sm">{state.message}</p>}
           {state.status === 'ok' && <p className="text-success text-sm">{state.message}</p>}
@@ -92,7 +112,13 @@ export function MaterialPanel({
       ) : (
         <ul className="space-y-3">
           {documents.map((d) => (
-            <DocumentCard key={d.id} doc={d} subjects={subjects} expanded={open === d.id} onToggle={() => setOpen(open === d.id ? null : d.id)} />
+            <DocumentCard
+              key={d.id}
+              doc={d}
+              subjects={subjects}
+              expanded={open === d.id}
+              onToggle={() => setOpen(open === d.id ? null : d.id)}
+            />
           ))}
         </ul>
       )}
@@ -115,25 +141,95 @@ function DocumentCard({
   const [ask, askAction] = useActionState(askAboutDocument, IDLE_ASK);
   const [summary, summaryAction] = useActionState(createSummaryFromDocument, IDLE_CREATE);
   const [quiz, quizAction] = useActionState(createQuizFromDocument, IDLE_CREATE);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(doc.title);
+  const [renaming, startRename] = useTransition();
 
   return (
     <li className="border-border bg-surface rounded-2xl border">
       <div className="flex items-center gap-3 p-3.5">
-        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-          <span className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl">
-            <Icon className="size-5" aria-hidden />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold">{doc.title}</span>
-            <span className="text-muted block text-xs">
-              {doc.pages ? `${doc.pages} págs · ` : ''}
-              {Math.max(1, Math.round(doc.chars / 1000))} mil caracteres
-            </span>
-          </span>
-        </button>
+        {editing ? (
+          <form
+            className="flex min-w-0 flex-1 items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const title = value.trim();
+              setEditing(false);
+              if (title && title !== doc.title)
+                startRename(async () => void (await renameStudyDocument(doc.id, title)));
+            }}
+          >
+            <input
+              autoFocus
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              maxLength={160}
+              aria-label="Novo nome do material"
+              className={fieldClass}
+            />
+            <button
+              type="submit"
+              aria-label="Salvar nome"
+              className="text-success grid size-9 shrink-0 place-items-center"
+            >
+              <Check className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              aria-label="Cancelar"
+              className="text-subtle grid size-9 shrink-0 place-items-center"
+            >
+              <X className="size-4" aria-hidden />
+            </button>
+          </form>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={onToggle}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            >
+              <span className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl">
+                <Icon className="size-5" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="flex items-center gap-2">
+                  {doc.code && (
+                    <span className="bg-brand text-brand-fg shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold">
+                      {doc.code}
+                    </span>
+                  )}
+                  <span className="truncate text-sm font-semibold">
+                    {renaming ? value : doc.title}
+                  </span>
+                </span>
+                <span className="text-muted block text-xs">
+                  {doc.pages ? `${doc.pages} págs · ` : ''}
+                  {Math.max(1, Math.round(doc.chars / 1000))} mil caracteres
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setValue(doc.title);
+                setEditing(true);
+              }}
+              aria-label={`Renomear ${doc.title}`}
+              className="text-muted hover:text-text grid size-9 place-items-center rounded-full"
+            >
+              <Pencil className="size-4" aria-hidden />
+            </button>
+          </>
+        )}
         <form action={deleteStudyDocument}>
           <input type="hidden" name="id" value={doc.id} />
-          <button type="submit" aria-label="Apagar material" className="text-muted hover:text-danger grid size-9 place-items-center rounded-full">
+          <button
+            type="submit"
+            aria-label="Apagar material"
+            className="text-muted hover:text-danger grid size-9 place-items-center rounded-full"
+          >
             <Trash2 className="size-4" aria-hidden />
           </button>
         </form>
@@ -145,7 +241,12 @@ function DocumentCard({
             <input type="hidden" name="documentId" value={doc.id} />
             <label className="text-xs font-semibold">Tire uma dúvida sobre este material</label>
             <div className="flex gap-2">
-              <input name="question" placeholder="Ex.: o que é fotossíntese segundo o texto?" maxLength={600} className={fieldClass} />
+              <input
+                name="question"
+                placeholder="Ex.: o que é fotossíntese segundo o texto?"
+                maxLength={600}
+                className={fieldClass}
+              />
               <Submit>
                 <Sparkles className="size-4" aria-hidden />
                 Perguntar
@@ -165,8 +266,12 @@ function DocumentCard({
               <p className="text-xs font-semibold">Criar resumo</p>
               <SubjectSelect subjects={subjects} />
               <Submit className="w-full">Gerar resumo</Submit>
-              {summary.status === 'error' && <p className="text-danger text-xs">{summary.message}</p>}
-              {summary.status === 'ok' && <p className="text-success text-xs">Resumo salvo em &quot;Meus conteúdos&quot;.</p>}
+              {summary.status === 'error' && (
+                <p className="text-danger text-xs">{summary.message}</p>
+              )}
+              {summary.status === 'ok' && (
+                <p className="text-success text-xs">Resumo salvo em &quot;Meus conteúdos&quot;.</p>
+              )}
             </form>
 
             <form action={quizAction} className="border-border space-y-2 rounded-xl border p-3">
@@ -174,14 +279,24 @@ function DocumentCard({
               <p className="text-xs font-semibold">Criar simulado</p>
               <SubjectSelect subjects={subjects} />
               <div className="flex gap-2">
-                <select name="count" defaultValue="5" className={fieldClass} aria-label="Número de questões">
+                <select
+                  name="count"
+                  defaultValue="5"
+                  className={fieldClass}
+                  aria-label="Número de questões"
+                >
                   {[3, 5, 8, 10].map((n) => (
                     <option key={n} value={n}>
                       {n} questões
                     </option>
                   ))}
                 </select>
-                <select name="difficulty" defaultValue="medio" className={fieldClass} aria-label="Dificuldade">
+                <select
+                  name="difficulty"
+                  defaultValue="medio"
+                  className={fieldClass}
+                  aria-label="Dificuldade"
+                >
                   <option value="facil">Fácil</option>
                   <option value="medio">Média</option>
                   <option value="dificil">Difícil</option>
@@ -189,7 +304,11 @@ function DocumentCard({
               </div>
               <Submit className="w-full">Gerar simulado</Submit>
               {quiz.status === 'error' && <p className="text-danger text-xs">{quiz.message}</p>}
-              {quiz.status === 'ok' && <p className="text-success text-xs">Simulado salvo em &quot;Meus conteúdos&quot;.</p>}
+              {quiz.status === 'ok' && (
+                <p className="text-success text-xs">
+                  Simulado salvo em &quot;Meus conteúdos&quot;.
+                </p>
+              )}
             </form>
           </div>
         </div>
@@ -200,7 +319,13 @@ function DocumentCard({
 
 function SubjectSelect({ subjects }: { subjects: { id: string; name: string }[] }) {
   return (
-    <select name="subjectCatalogId" required defaultValue="" className={fieldClass} aria-label="Matéria">
+    <select
+      name="subjectCatalogId"
+      required
+      defaultValue=""
+      className={fieldClass}
+      aria-label="Matéria"
+    >
       <option value="" disabled>
         Matéria…
       </option>

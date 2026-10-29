@@ -4,10 +4,12 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { completeWithAI } from '@/lib/ai/provider';
+import { completeWithAI, type AIAttachment } from '@/lib/ai/provider';
 import { checkAiQuota } from '@/lib/ai/quota';
 import { getChatMessages, type ChatMessage } from './queries';
 import { maybeCreateFromChat } from './chat-create';
+import { checkChatFile, loadDocsMentioned } from './chat-material';
+import { docsContextBlock } from '../lib/doc-refs';
 import { buildTutorSystemPrompt, parseTutorMode, type TutorMode } from '../tutor';
 import { reportError } from '@/features/observability/server/actions';
 
@@ -253,13 +255,27 @@ export type ChatSendResult =
 
 const chatSendSchema = z.object({
   sessionId: z.string().uuid().or(z.literal('')),
-  content: z.string().trim().min(1, 'Escreva algo antes de enviar.').max(2000),
+  content: z.string().trim().max(2000),
   mode: z.string().optional(),
 });
 
-export async function sendChat(input: { sessionId: string; content: string; mode?: string }): Promise<ChatSendResult> {
-  const parsed = chatSendSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? 'Revise a mensagem.' };
+/** `formData`: sessionId, content, mode e (opcional) file — PDF ou imagem anexado. */
+export async function sendChat(formData: FormData): Promise<ChatSendResult> {
+  const parsed = chatSendSchema.safeParse({
+    sessionId: formData.get('sessionId') ?? '',
+    content: formData.get('content') ?? '',
+    mode: formData.get('mode') ?? undefined,
+  });
+  if (!parsed.success) return { ok: false, message: 'Revise a mensagem.' };
+
+  const rawFile = formData.get('file');
+  const file = rawFile instanceof File && rawFile.size > 0 ? rawFile : null;
+  if (file) {
+    const check = checkChatFile(file);
+    if (!check.ok) return { ok: false, message: check.message };
+  }
+  const content = parsed.data.content || (file ? 'Explique este arquivo.' : '');
+  if (!content) return { ok: false, message: 'Escreva algo antes de enviar.' };
 
   const supabase = await createClient();
   const {
@@ -267,10 +283,10 @@ export async function sendChat(input: { sessionId: string; content: string; mode
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: 'Sessão expirada.' };
 
-  const { content } = parsed.data;
   const userAt = new Date();
   let sessionId = parsed.data.sessionId;
   const isNewSession = !sessionId;
+  const stored = file ? `📎 ${file.name}\n${content}` : content;
 
   if (isNewSession) {
     const { data: created, error } = await supabase
@@ -282,28 +298,36 @@ export async function sendChat(input: { sessionId: string; content: string; mode
     sessionId = created.id;
   }
 
-  const [quota, history, studentContext, journey] = await Promise.all([
-    checkAiQuota(supabase, 'nexa_ia'),
+  const [quota, history, studentContext, journey, docs] = await Promise.all([
+    checkAiQuota(supabase, file ? 'material' : 'nexa_ia'),
     isNewSession ? Promise.resolve([] as ChatMessage[]) : getChatMessages(sessionId),
     buildStudentContext(user.id),
     readJourney(user.id),
+    loadDocsMentioned(supabase, content),
   ]);
 
   let reply: string;
-  const created = quota.ok ? await maybeCreateFromChat(supabase, content) : null;
+  const created = quota.ok ? await maybeCreateFromChat(supabase, content, { userId: user.id, file }) : null;
   if (created) {
     reply = created;
   } else if (!quota.ok) {
     reply = quota.message;
   } else {
     const mode = parseTutorMode(parsed.data.mode);
+    const attachment: AIAttachment | undefined = file
+      ? { mimeType: file.type, data: Buffer.from(await file.arrayBuffer()).toString('base64') }
+      : undefined;
+    const library = docsContextBlock(docs);
     const result = await completeWithAI(
       [
-        { role: 'system' as const, content: buildTutorSystemPrompt({ mode, journey, studentContext }) },
+        {
+          role: 'system' as const,
+          content: [buildTutorSystemPrompt({ mode, journey, studentContext }), library].filter(Boolean).join('\n\n'),
+        },
         ...history.map((m) => ({ role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const), content: m.content })),
-        { role: 'user' as const, content },
+        { role: 'user' as const, content, ...(attachment ? { attachments: [attachment] } : {}) },
       ],
-      { maxTokens: 1024, temperature: 0.6, timeoutMs: 25_000 },
+      { maxTokens: 1024, temperature: 0.6, timeoutMs: 40_000 },
     );
     if (result.ok) {
       reply = result.text;
@@ -311,6 +335,8 @@ export async function sendChat(input: { sessionId: string; content: string; mode
       reply = 'NexaAI ainda não está conectada a um provedor de inteligência artificial.';
     } else if (result.reason === 'content_filter') {
       reply = 'Não posso responder isso. Bora voltar para as matérias?';
+    } else if (result.reason === 'unsupported') {
+      reply = 'Para ler imagens e PDFs eu preciso do Gemini, que está fora do ar agora. Tente de novo em instantes.';
     } else {
       void reportError({
         origin: 'server',
@@ -326,7 +352,7 @@ export async function sendChat(input: { sessionId: string; content: string; mode
     supabase
       .from('ai_chat_messages')
       .insert([
-        { session_id: sessionId, role: 'user', content, created_at: userAt.toISOString() },
+        { session_id: sessionId, role: 'user', content: stored, created_at: userAt.toISOString() },
         { session_id: sessionId, role: 'assistant', content: reply, created_at: assistantAt.toISOString() },
       ])
       .select('id, role, content, created_at'),

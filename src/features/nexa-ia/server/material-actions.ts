@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { completeWithAI, type AIAttachment } from '@/lib/ai/provider';
+import { completeWithAI } from '@/lib/ai/provider';
+import { aiMessage, readUploadedFile } from './material-ingest';
 import { checkAiQuota } from '@/lib/ai/quota';
 import { parseSimuladoCode } from '@/features/admin/lib/simulado-import';
 import { stripCodeFence, toCreatorQuestionsPayload } from '@/features/community/lib/creator-prompt';
@@ -12,7 +13,6 @@ import {
   buildMaterialQuizPrompt,
   buildMaterialSummaryMessages,
   classifyUpload,
-  TRANSCRIBE_INSTRUCTION,
   titleFromFilename,
   validateUploads,
 } from '../lib/material';
@@ -30,60 +30,12 @@ export type MaterialState =
   | { status: 'error'; message: string }
   | { status: 'ok'; message: string };
 
-function aiMessage(reason: string): string {
-  switch (reason) {
-    case 'missing_api_key':
-      return 'A IA não está configurada no servidor. Avise um administrador.';
-    case 'content_filter':
-      return 'O conteúdo esbarrou no filtro da IA. Tente outro trecho.';
-    case 'unsupported':
-      return 'Ler imagens e PDFs escaneados precisa do Gemini, que está indisponível agora. Tente colar o texto.';
-    default:
-      return 'Não consegui agora — tente de novo em instantes.';
-  }
-}
-
 async function me() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return { supabase, user };
-}
-
-/** Transcreve imagem ou PDF sem texto com o Gemini. */
-async function transcribe(file: File): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
-  const attachment: AIAttachment = {
-    mimeType: file.type,
-    data: Buffer.from(await file.arrayBuffer()).toString('base64'),
-  };
-  const r = await completeWithAI(
-    [{ role: 'user', content: TRANSCRIBE_INSTRUCTION, attachments: [attachment] }],
-    { maxTokens: 8192, temperature: 0, timeoutMs: 60_000 },
-  );
-  return r.ok ? { ok: true, text: r.text.trim() } : { ok: false, message: aiMessage(r.reason) };
-}
-
-async function readFile(file: File): Promise<{ ok: true; text: string; pages: number | null } | { ok: false; message: string }> {
-  const kind = classifyUpload(file.type);
-  if (kind === 'text') return { ok: true, text: (await file.text()).trim(), pages: null };
-
-  if (kind === 'pdf') {
-    try {
-      const { extractPdf } = await import('@/features/admin/server/pdf');
-      const pdf = await extractPdf(Buffer.from(await file.arrayBuffer()));
-      if (pdf.text.length >= MIN_TEXT * 5) return { ok: true, text: pdf.text, pages: pdf.pageCount };
-      // PDF escaneado (só imagem): a IA lê.
-      const t = await transcribe(file);
-      return t.ok ? { ok: true, text: t.text, pages: pdf.pageCount } : t;
-    } catch {
-      const t = await transcribe(file);
-      return t.ok ? { ok: true, text: t.text, pages: null } : t;
-    }
-  }
-
-  const t = await transcribe(file);
-  return t.ok ? { ok: true, text: t.text, pages: null } : t;
 }
 
 export async function addStudyDocuments(_prev: MaterialState, formData: FormData): Promise<MaterialState> {
@@ -120,7 +72,7 @@ export async function addStudyDocuments(_prev: MaterialState, formData: FormData
         break;
       }
     }
-    const r = await readFile(file);
+    const r = await readUploadedFile(file);
     if (!r.ok) {
       problems.push(`"${file.name}": ${r.message}`);
       continue;
@@ -158,6 +110,15 @@ export async function addStudyDocuments(_prev: MaterialState, formData: FormData
   revalidatePath('/nexa-ia');
   const base = rows.length === 1 ? 'Material adicionado.' : `${rows.length} materiais adicionados.`;
   return { status: 'ok', message: problems.length ? `${base} Mas: ${problems.join(' ')}` : base };
+}
+
+export async function renameStudyDocument(id: string, title: string): Promise<{ ok: boolean }> {
+  const parsed = z.object({ id: z.string().uuid(), title: z.string().trim().min(2).max(160) }).safeParse({ id, title });
+  if (!parsed.success) return { ok: false };
+  const { supabase } = await me();
+  const { error } = await supabase.from('study_documents').update({ title: parsed.data.title }).eq('id', parsed.data.id);
+  revalidatePath('/nexa-ia');
+  return { ok: !error };
 }
 
 export async function deleteStudyDocument(formData: FormData): Promise<void> {

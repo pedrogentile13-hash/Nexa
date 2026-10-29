@@ -6,8 +6,9 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { History, Loader2, Paperclip, Plus, Send, Sparkles, X } from 'lucide-react';
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
+import { sendChat } from '../server/actions';
 import { composerKeyAction, insertNewline } from '../lib/composer-keys';
-import { widgetHistory, widgetOpenSession, widgetSend } from '../server/widget-actions';
+import { widgetHistory, widgetOpenSession } from '../server/widget-actions';
 import type { ChatMessage, ChatSessionSummary } from '../server/queries';
 
 /**
@@ -63,10 +64,10 @@ export function NexaWidget() {
     setFile(null);
     setError(null);
     startTransition(async () => {
-      const r = await widgetSend(fd);
+      const r = await sendChat(fd);
       if (r.ok) {
         setSessionId(r.sessionId);
-        setMessages(r.messages);
+        setMessages((m) => [...m, r.assistant]);
       } else {
         setMessages((m) => m.filter((x) => x.id !== optimistic.id));
         setText(optimistic.content);
