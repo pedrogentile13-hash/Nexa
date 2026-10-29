@@ -10,7 +10,7 @@
 -- já rodou uma versão anterior, adiciona só o que falta e deixa o resto como
 -- está. Nenhum dado seu é apagado — nem notas, nem rotina, nem conteúdo.
 --
--- Cria as 80 tabelas, as políticas de RLS, as 2 views, as funções e o
+-- Cria as 81 tabelas, as políticas de RLS, as 2 views, as funções e o
 -- conteúdo inicial (matérias, conquistas e a biblioteca de estudo).
 --
 -- DEPOIS DE RODAR, para virar administrador do painel /admin, rode também:
@@ -16953,6 +16953,27 @@ as $$
 $$;
 
 grant execute on function public.review_queue(uuid) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 20261003001800_senhas_da_escola.sql
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ============================================================================
+-- Nexa — Senha das contas da escola, guardada CIFRADA para a coordenação rever
+--
+-- A coordenação/direção precisa rever a senha de um aluno para repassá-la. O
+-- servidor cifra a senha (AES-256-GCM, chave só no servidor) e guarda aqui. A
+-- tabela tem RLS ligada e NENHUMA policy: nem o aluno nem a coordenação leem
+-- direto; só o servidor, com a chave de serviço, depois de checar a permissão.
+-- ============================================================================
+create table if not exists public.school_account_secrets (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  secret text not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.school_account_secrets enable row level security;
+revoke all on public.school_account_secrets from anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────
 -- seed.sql

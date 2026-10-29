@@ -1227,6 +1227,15 @@ as $$
 $$;
 grant execute on function public.review_queue(uuid) to authenticated;
 
+-- ===== 20261003001800_senhas_da_escola =====
+create table if not exists public.school_account_secrets (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  secret text not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.school_account_secrets enable row level security;
+revoke all on public.school_account_secrets from anon, authenticated;
+
 -- ===== cadastro do Anglo (logo e cores) =====
 do $$
 declare

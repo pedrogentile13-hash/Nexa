@@ -4,7 +4,6 @@ import { NexaWidget } from '@/features/nexa-ia/components/nexa-widget';
 import { InstallPrompt } from '@/features/install/components/install-prompt';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { isFeatureEnabled } from '@/lib/feature-flags';
-import { listMyTeachers } from '@/features/school-chat/server/queries';
 import { unreadAnnouncementsCount } from '@/features/announcements/server/queries';
 import { SHELL_COLUMNS, readWithFallback, type ProfileReader } from '@/lib/supabase/profile-read';
 import type { Journey } from '@/types/database.types';
@@ -55,8 +54,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
   const isTeacher = profile?.role === 'teacher_admin';
   const communityEnabled = user ? await isFeatureEnabled('community_enabled') : false;
-  // Chat da escola: só aparece para quem tem professores ligados à própria turma.
-  const chatEnabled = user ? (await listMyTeachers()).length > 0 : false;
   // Mural: aparece para quem pertence a uma escola. `readWithFallback` é por
   // coluna conhecida; aqui basta uma leitura simples do vínculo.
   const [unreadAnnouncements, schoolRow] = user
@@ -66,6 +63,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ])
     : [0, null];
   const announcementsEnabled = Boolean(schoolRow?.data?.school_id);
+  // "Professores" (chat da escola) aparece para todo aluno vinculado a uma escola; a tela explica se ainda não há professor na turma.
+  const chatEnabled = announcementsEnabled;
   const vestibularEnabled = user ? await isFeatureEnabled('vestibular_enabled') : false;
   // A jornada escolhida na criação da conta decide qual das duas plataformas
   // é a "casa" desta pessoa — e portanto qual navegação abre por padrão.

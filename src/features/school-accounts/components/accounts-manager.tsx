@@ -1,13 +1,14 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { Check, Copy, KeyRound, Plus, UserRound } from 'lucide-react';
+import { useActionState, useState, useTransition } from 'react';
+import { Check, Copy, Eye, EyeOff, KeyRound, Loader2, Plus, UserRound } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Field, Select, SubmitButton } from '@/features/admin/components/form-parts';
 import type { AdminClass } from '@/features/admin/server/queries';
 import {
   createSchoolAccount,
   resetSchoolAccountPassword,
+  revealSchoolPassword,
   type AccountState,
   type IssuedCredentials,
 } from '../server/actions';
@@ -95,6 +96,7 @@ export function AccountsManager({
                       {isGlobal && a.schoolName ? ` · ${a.schoolName}` : ''}
                     </p>
                   </div>
+                  <RevealPassword userId={a.id} name={a.fullName ?? a.login} />
                   <form action={resetAction}>
                     <input type="hidden" name="userId" value={a.id} />
                     <button
@@ -246,5 +248,52 @@ function CredentialsCard({ credentials }: { credentials: IssuedCredentials }) {
         {copied ? 'Copiado' : 'Copiar tudo'}
       </button>
     </section>
+  );
+}
+
+/** O olhinho: mostra a senha da conta (cifrada no banco) para a coordenação repassar. */
+function RevealPassword({ userId, name }: { userId: string; name: string }) {
+  const [shown, setShown] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function toggle() {
+    if (shown) {
+      setShown(null);
+      return;
+    }
+    setMessage(null);
+    start(async () => {
+      const r = await revealSchoolPassword(userId);
+      if (r.ok) setShown(r.password);
+      else setMessage(r.message);
+    });
+  }
+
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <div className="flex items-center gap-1">
+        {shown && (
+          <button
+            type="button"
+            onClick={() => void navigator.clipboard?.writeText(shown)}
+            title="Copiar a senha"
+            className="bg-surface-2 rounded-md px-2 py-1 font-mono text-sm select-all"
+          >
+            {shown}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={pending}
+          aria-label={shown ? `Ocultar a senha de ${name}` : `Ver a senha de ${name}`}
+          className="text-muted hover:bg-surface-2 hover:text-text grid size-11 place-items-center rounded-md disabled:opacity-60"
+        >
+          {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : shown ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+        </button>
+      </div>
+      {message && <p className="text-warning max-w-56 text-right text-xs">{message}</p>}
+    </div>
   );
 }

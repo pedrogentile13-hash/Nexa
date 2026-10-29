@@ -1090,6 +1090,8 @@ export type StudyDocumentRow = {
   created_at: string;
 };
 
+export type SchoolAccountSecretRow = { user_id: string; secret: string; updated_at: string };
+
 export type PublicationStatus = 'pending' | 'approved' | 'rejected';
 
 export type PublicationRequestRow = {
@@ -1505,6 +1507,7 @@ export type Database = {
       ai_chat_sessions: Table<AiChatSessionRow>;
       ai_chat_messages: Table<AiChatMessageRow>;
       study_documents: Table<StudyDocumentRow>;
+      school_account_secrets: Table<SchoolAccountSecretRow>;
       publication_requests: Table<PublicationRequestRow>;
       notifications: Table<NotificationRow>;
       push_subscriptions: Table<PushSubscriptionRow>;

@@ -27,7 +27,7 @@ export default async function SchoolAccountsPage() {
     <>
       <AdminHeader
         title="Contas da escola"
-        description="Crie o login e a senha de cada aluno e professor. A senha é aleatória e aparece uma única vez; quem perder pede uma nova aqui."
+        description="Crie o login e a senha de cada aluno e professor. A senha é aleatória. Toque no olho para ver e repassar a senha, ou em Nova senha para trocá-la."
       />
       <div className="p-5">
         <AccountsManager accounts={accounts} classes={classes} schools={schools} isGlobal={identity.isGlobal}

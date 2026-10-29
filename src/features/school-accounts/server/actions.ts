@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin, resolveSchoolId } from '@/features/admin/server/guard';
 import { generatePassword, isValidLogin, loginToEmail, normalizeLogin } from '../lib/credentials';
 import { parseAccountsCsv } from '../lib/csv';
+import { openPassword, passwordSecret, sealPassword } from '../lib/secret';
 
 /**
  * Contas criadas pela escola (login + senha, sem e-mail).
@@ -58,6 +59,18 @@ async function schoolHost(schoolId: string): Promise<string | null> {
 }
 
 type AdminClient = NonNullable<ReturnType<typeof createAdminClient>>;
+
+/**
+ * Guarda a senha CIFRADA para a coordenação poder revê-la. Falha em silêncio:
+ * a conta já foi criada, e sem a tabela (SQL pendente) só o "ver senha" deixa de funcionar.
+ */
+async function storePassword(admin: AdminClient, userId: string, password: string): Promise<void> {
+  const secret = passwordSecret();
+  if (!secret) return;
+  await admin
+    .from('school_account_secrets')
+    .upsert({ user_id: userId, secret: sealPassword(password, secret), updated_at: new Date().toISOString() });
+}
 type AccountRole = 'student' | 'teacher_admin' | 'school_coordinator' | 'school_director';
 
 /**
@@ -124,6 +137,7 @@ async function createOne(input: {
     };
   }
 
+  await storePassword(admin, created.user.id, password);
   return { ok: true, password };
 }
 
@@ -226,6 +240,7 @@ export async function resetSchoolAccountPassword(_prev: AccountState, formData: 
   const password = generatePassword();
   const { error } = await admin.auth.admin.updateUserById(target.id, { password });
   if (error) return fail('Não consegui trocar a senha agora. Tente de novo.');
+  await storePassword(admin, target.id, password);
 
   return {
     status: 'issued',
@@ -236,6 +251,42 @@ export async function resetSchoolAccountPassword(_prev: AccountState, formData: 
       address: `https://${host}`,
     },
   };
+}
+
+export type RevealState = { ok: true; password: string } | { ok: false; message: string };
+
+/**
+ * Mostra a senha de uma conta criada pela escola, para a coordenação repassá-la.
+ * Direção/coordenação/admin só veem senha de aluno e professor da PRÓPRIA escola
+ * (a plataforma vê todas). A senha de coordenação/direção só a plataforma vê.
+ */
+export async function revealSchoolPassword(userId: string): Promise<RevealState> {
+  const identity = await requireAdmin();
+  const id = z.string().uuid().safeParse(userId);
+  if (!id.success) return { ok: false, message: 'Conta inválida.' };
+
+  const supabase = await createClient();
+  const { data: target } = await supabase
+    .from('profiles')
+    .select('id, school_id, role, school_login')
+    .eq('id', id.data)
+    .maybeSingle();
+  if (!target || !target.school_login || !target.school_id) return { ok: false, message: 'Esta conta não foi criada pela escola.' };
+  if (!identity.isGlobal && target.school_id !== identity.schoolId) return { ok: false, message: 'Esta conta é de outra escola.' };
+  if (target.role !== 'student' && target.role !== 'teacher_admin' && !identity.isGlobal) {
+    return { ok: false, message: 'Só a administração geral vê a senha da coordenação e da direção.' };
+  }
+
+  const admin = createAdminClient();
+  const secret = passwordSecret();
+  if (!admin || !secret) return { ok: false, message: MISSING_KEY };
+
+  const { data, error } = await admin.from('school_account_secrets').select('secret').eq('user_id', target.id).maybeSingle();
+  if (error) return { ok: false, message: 'Aplique o SQL das senhas da escola no Supabase para poder ver senhas.' };
+  if (!data) return { ok: false, message: 'Esta senha foi criada antes de existir o "ver senha". Gere uma nova senha para ela.' };
+
+  const password = openPassword(data.secret, secret);
+  return password ? { ok: true, password } : { ok: false, message: 'Não consegui abrir esta senha. Gere uma nova.' };
 }
 
 // ------------------------------------------------------------- planilha --
