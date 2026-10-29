@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   BookOpen,
@@ -176,11 +175,6 @@ export function BottomNav({
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const moreActive = moreItems.some((item) => isActive(item.href));
 
-  function openNexa() {
-    if (pathname.startsWith('/nexa-ia')) return;
-    window.dispatchEvent(new Event('nexa:open-chat'));
-  }
-
   const renderItem = ({ href, label, Icon }: NavItem) => {
     const active = isActive(href);
     return (
@@ -309,31 +303,17 @@ export function BottomNav({
           {fixedItems.slice(0, 2).map(renderItem)}
 
           <li className="flex flex-1 justify-center">
-            <button
-              type="button"
-              onClick={openNexa}
-              aria-label="Abrir a NexaAI"
+            <Link
+              href="/nexa-ia"
+              aria-label="NexaAI: conversar e criar conteúdo"
+              aria-current={isActive('/nexa-ia') ? 'page' : undefined}
               className="-mt-6 flex flex-col items-center gap-1"
             >
-              <span className="bg-brand ring-surface relative grid size-[58px] place-items-center rounded-full shadow-lg ring-4 transition-transform active:scale-95">
-                <Image
-                  src="/brand/nexa-ai.webp"
-                  alt=""
-                  width={44}
-                  height={44}
-                  className="size-11 rounded-full object-cover"
-                />
-                <span
-                  aria-hidden
-                  className="bg-surface text-brand absolute -top-0.5 -right-0.5 grid size-5 place-items-center rounded-full shadow"
-                >
-                  <Sparkles className="size-3" />
-                </span>
+              <span className="bg-brand text-brand-fg ring-surface grid size-[58px] place-items-center rounded-full shadow-lg ring-4 transition-transform active:scale-95">
+                <Sparkles className="size-7" aria-hidden strokeWidth={2} />
               </span>
-              <span className="text-brand-text text-[10.5px] leading-none font-semibold">
-                NexaAI
-              </span>
-            </button>
+              <span className="text-brand-text text-[10.5px] leading-none font-semibold">NexaAI</span>
+            </Link>
           </li>
 
           {fixedItems.slice(2).map(renderItem)}
