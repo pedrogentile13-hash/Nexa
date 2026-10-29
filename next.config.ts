@@ -1,6 +1,46 @@
 import type { NextConfig } from 'next';
 
+/**
+ * Cabeçalhos de segurança, em todas as páginas.
+ *
+ * O que vale desde já: ninguém embute o Nexa em outro site (clickjacking), o
+ * navegador não "adivinha" tipos de arquivo, só HTTPS, e câmera/microfone/GPS ficam
+ * desligados. A política de conteúdo (CSP) tem duas partes: a parte segura é
+ * OBRIGATÓRIA; a parte que restringe scripts e conexões vai em modo "só relatar"
+ * (aparece no console do navegador, não bloqueia) até a escola validar o app sem
+ * nenhuma violação — aí é só trocar para obrigatória.
+ */
+const supabaseHost = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+const isDev = process.env.NODE_ENV !== 'production';
+
+const strictCsp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' data: blob: https://${supabaseHost || '*.supabase.co'}`,
+  `media-src 'self' blob: https://${supabaseHost || '*.supabase.co'}`,
+  "font-src 'self' data:",
+  `connect-src 'self' https://${supabaseHost || '*.supabase.co'} wss://${supabaseHost || '*.supabase.co'}`,
+  "frame-src 'self' blob: about:",
+  "worker-src 'self' blob:",
+].join('; ');
+
+const securityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+  // Obrigatório: não segura nada que o app use hoje.
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
+  // Só relata: mostra no console o que a política completa bloquearia.
+  { key: 'Content-Security-Policy-Report-Only', value: strictCsp },
+];
+
 const nextConfig: NextConfig = {
+  async headers() {
+    return [{ source: '/:path*', headers: securityHeaders }];
+  },
   reactStrictMode: true,
   typedRoutes: true,
   experimental: {

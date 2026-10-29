@@ -4,6 +4,7 @@ import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { clientIp, loginThrottle } from '@/lib/security/throttle';
 import { getTenant } from '@/lib/tenant/server';
 import { safeNext } from '../lib/safe-next';
 import { safeOrigin } from '../lib/safe-origin';
@@ -159,6 +160,12 @@ async function enterWithPassword(formData: FormData): Promise<AuthFormState> {
     );
   }
 
+  const throttleKey = `email:${clientIp(await headers())}:${parsed.data.email.toLowerCase()}`;
+  const gate = loginThrottle.hit(throttleKey);
+  if (!gate.allowed) {
+    return invalid(`Muitas tentativas. Espere ${Math.ceil(gate.retryAfterSec / 60)} min e tente de novo.`, 'signin');
+  }
+
   const supabase = await createClient();
   const next = safeNext(parsed.data.next);
 
@@ -174,6 +181,7 @@ async function enterWithPassword(formData: FormData): Promise<AuthFormState> {
 
   if (error) return invalid(authErrorMessage(error), 'signin');
 
+  loginThrottle.reset(throttleKey);
   redirect(next as Route);
 }
 

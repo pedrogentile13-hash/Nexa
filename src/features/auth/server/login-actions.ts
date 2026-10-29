@@ -2,7 +2,9 @@
 
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { clientIp, loginThrottle } from '@/lib/security/throttle';
 import { getTenant } from '@/lib/tenant/server';
 import { cleanTypedLogin, isValidLogin, loginToEmail } from '@/features/school-accounts/lib/credentials';
 import { safeNext } from '../lib/safe-next';
@@ -35,6 +37,11 @@ export async function signInWithLogin(_prev: AuthFormState, formData: FormData):
   if (!login || !password) return fail('Digite o login e a senha.');
   if (!isValidLogin(login)) return fail(WRONG);
 
+  // Freio: 8 tentativas por login e aparelho a cada 10 minutos (adivinhar senha em fila não passa).
+  const throttleKey = `school:${clientIp(await headers())}:${tenant.host}:${login}`;
+  const gate = loginThrottle.hit(throttleKey);
+  if (!gate.allowed) return fail(`Muitas tentativas. Espere ${Math.ceil(gate.retryAfterSec / 60)} min e tente de novo.`);
+
   const supabase = await createClient();
 
   let error;
@@ -62,5 +69,6 @@ export async function signInWithLogin(_prev: AuthFormState, formData: FormData):
     return fail(WRONG);
   }
 
+  loginThrottle.reset(throttleKey);
   redirect(next as Route);
 }

@@ -13,6 +13,14 @@ export const dynamic = 'force-dynamic';
  * nome/cores públicos que a tela de entrada já exibiria.
  */
 export async function GET(request: Request) {
+  // Diagnóstico de configuração: só o administrador geral vê (para os outros, a página "não existe").
+  const gate = await createClient();
+  const {
+    data: { user },
+  } = await gate.auth.getUser();
+  const isAdmin = user ? (await gate.rpc('is_admin')).data === true : false;
+  if (!isAdmin) return new NextResponse('Not found', { status: 404 });
+
   const host = request.headers.get('host');
   const forwarded = request.headers.get('x-forwarded-host');
   const rootDomain = process.env.TENANT_ROOT_DOMAIN;
