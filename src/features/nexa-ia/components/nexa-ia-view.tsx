@@ -2,11 +2,19 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { ArrowUp, BookOpen, ChevronDown, ClipboardList, Paperclip, Sparkles, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ArrowUp,
+  BookOpen,
+  ChevronDown,
+  ClipboardList,
+  Paperclip,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
-import { sendChat } from '../server/actions';
+import { streamChat } from '../lib/stream-client';
 import type { ChatMessage } from '../server/queries';
 import { composerKeyAction, insertNewline } from '../lib/composer-keys';
 import { DEFAULT_TUTOR_MODE, TUTOR_MODES, TUTOR_MODE_LABELS, type TutorMode } from '../tutor';
@@ -36,8 +44,8 @@ export function NexaIaView({
   const [mode, setMode] = useState<TutorMode>(DEFAULT_TUTOR_MODE);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [typingId, setTypingId] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [streamText, setStreamText] = useState('');
+  const [pending, setPending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const empty = messages.length === 0 && !pending;
@@ -48,14 +56,14 @@ export function NexaIaView({
     if ((activeSessionId ?? '') !== sessionId) {
       setSessionId(activeSessionId ?? '');
       setMessages(initialMessages);
-      setTypingId(null);
+      setStreamText('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
-  }, [messages.length, pending]);
+  }, [messages.length, pending, streamText.length]);
 
   function grow(el: HTMLTextAreaElement) {
     el.style.height = 'auto';
@@ -88,29 +96,32 @@ export function NexaIaView({
     setFile(null);
     setError(null);
 
-    startTransition(async () => {
+    setPending(true);
+    setStreamText('');
+    void (async () => {
       const fd = new FormData();
       fd.set('sessionId', sessionId);
       fd.set('content', content);
       fd.set('mode', mode);
       if (sentFile) fd.set('file', sentFile);
-      const r = await sendChat(fd);
-      if (!r.ok) {
+      const r = await streamChat(fd, (x) => setStreamText((t) => t + x));
+      setPending(false);
+      if (r.t === 'error') {
+        setStreamText('');
         setMessages((m) => m.filter((x) => x.id !== optimistic.id));
         el.value = content;
         grow(el);
-        setFile(sentFile);
         setFile(sentFile);
         setError(r.message);
         return;
       }
       setSessionId(r.sessionId);
-      setTypingId(r.assistant.id);
       setMessages((m) => [...m, r.assistant]);
+      setStreamText('');
       // Conversa nova: leva o endereço para ela e atualiza a lista "Recentes".
       if (r.isNewSession) router.replace(`/nexa-ia?sessao=${r.sessionId}`, { scroll: false });
       else router.refresh();
-    });
+    })();
   }
 
   return (
@@ -137,20 +148,27 @@ export function NexaIaView({
                       className="mt-0.5 size-7 shrink-0 object-contain"
                     />
                     <div className="min-w-0 text-[15px] leading-relaxed">
-                      {message.id === typingId ? (
-                        <Typewriter
-                          text={message.content}
-                          onTick={() => bottomRef.current?.scrollIntoView({ block: 'end' })}
-                        />
-                      ) : (
-                        <Markdown source={message.content} />
-                      )}
+                      <Markdown source={message.content} />
                     </div>
                   </div>
                 )}
               </div>
             ))}
-            {pending && (
+            {pending && streamText && (
+              <div className="flex gap-3">
+                <Image
+                  src="/brand/nexi.webp"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="mt-0.5 size-7 shrink-0 object-contain"
+                />
+                <div className="min-w-0 text-[15px] leading-relaxed">
+                  <Markdown source={streamText} />
+                </div>
+              </div>
+            )}
+            {pending && !streamText && (
               <div className="flex gap-3" role="status" aria-label="A NexaAI está pensando">
                 <Image
                   src="/brand/nexi.webp"
@@ -197,13 +215,21 @@ export function NexaIaView({
         {file && (
           <p className="bg-brand-soft text-brand-text mb-2 flex items-center justify-between gap-2 rounded-2xl px-3.5 py-2 text-sm">
             <span className="min-w-0 truncate">📎 {file.name}</span>
-            <button type="button" onClick={() => setFile(null)} aria-label="Remover anexo" className="shrink-0">
+            <button
+              type="button"
+              onClick={() => setFile(null)}
+              aria-label="Remover anexo"
+              className="shrink-0"
+            >
               <X className="size-4" aria-hidden />
             </button>
           </p>
         )}
         <div className="border-border bg-surface flex items-end gap-2 rounded-[28px] border px-3 py-2.5 shadow-sm">
-          <label className="text-muted hover:text-text grid size-9 shrink-0 cursor-pointer place-items-center rounded-full" title="Anexar PDF ou imagem">
+          <label
+            className="text-muted hover:text-text grid size-9 shrink-0 cursor-pointer place-items-center rounded-full"
+            title="Anexar PDF ou imagem"
+          >
             <Paperclip className="size-5" aria-hidden />
             <span className="sr-only">Anexar PDF ou imagem</span>
             <input
@@ -289,22 +315,4 @@ export function NexaIaView({
       </div>
     </div>
   );
-}
-
-/** A resposta aparece aos poucos (por palavras), como num assistente de verdade. Textos longos entram inteiros. */
-function Typewriter({ text, onTick }: { text: string; onTick: () => void }) {
-  const words = text.split(/(\s+)/);
-  const [count, setCount] = useState(text.length > 1800 ? words.length : 0);
-
-  useEffect(() => {
-    if (count >= words.length) return;
-    const step = Math.max(2, Math.ceil(words.length / 90));
-    const id = window.setTimeout(() => {
-      setCount((c) => Math.min(words.length, c + step));
-      onTick();
-    }, 18);
-    return () => window.clearTimeout(id);
-  }, [count, words.length, onTick]);
-
-  return <Markdown source={words.slice(0, count).join('')} />;
 }

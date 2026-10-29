@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FallbackProvider, GeminiProvider, GroqProvider, geminiEndpoint, getAIProvider, type AIProvider } from './provider';
+import { FallbackProvider, GeminiProvider, GroqProvider, geminiEndpoint, getAIProvider, streamWithAI, type AIProvider } from './provider';
 
 describe('GeminiProvider', () => {
   beforeEach(() => {
@@ -247,5 +247,56 @@ describe('anexos (imagem/PDF)', () => {
     ]);
     expect(r).toMatchObject({ ok: false, reason: 'http_error' });
     expect(secondary.complete).not.toHaveBeenCalled();
+  });
+});
+
+describe('streamWithAI', () => {
+  beforeEach(() => {
+    vi.stubEnv('GEMINI_API_KEY', 'chave-de-teste');
+    vi.stubEnv('GEMINI_MODEL', 'gemini-2.5-flash-lite');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  function sse(lines: string[]) {
+    const encoder = new TextEncoder();
+    return new ReadableStream<Uint8Array>({
+      start(c) {
+        for (const l of lines) c.enqueue(encoder.encode(l));
+        c.close();
+      },
+    });
+  }
+  const chunk = (text: string) => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`;
+
+  it('entrega o texto aos pedaços (mesmo com a linha cortada no meio) e junta no final', async () => {
+    const whole = chunk('Olá, ');
+    const cut = Math.floor(whole.length / 2);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, body: sse([whole.slice(0, cut), whole.slice(cut) + chunk('mundo!')]) }));
+    const deltas: string[] = [];
+    const r = await streamWithAI([{ role: 'user', content: 'oi' }], {}, (d) => deltas.push(d));
+    expect(deltas).toEqual(['Olá, ', 'mundo!']);
+    expect(r).toEqual({ ok: true, text: 'Olá, mundo!' });
+    expect(vi.mocked(fetch).mock.calls[0]![0]).toContain(':streamGenerateContent?alt=sse');
+  });
+
+  it('se o streaming falha antes do primeiro pedaço, cai na resposta inteira', async () => {
+    const fn = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => 'x', body: null })
+      .mockResolvedValue({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'inteira' }] } }] }) });
+    vi.stubGlobal('fetch', fn);
+    const deltas: string[] = [];
+    const r = await streamWithAI([{ role: 'user', content: 'oi' }], {}, (d) => deltas.push(d));
+    expect(r).toEqual({ ok: true, text: 'inteira' });
+    expect(deltas).toEqual([]);
+  });
+
+  it('sem chave do Gemini não tenta transmitir', async () => {
+    vi.stubEnv('GEMINI_API_KEY', '');
+    const r = await streamWithAI([{ role: 'user', content: 'oi' }], {}, () => undefined);
+    expect(r.ok).toBe(false);
   });
 });

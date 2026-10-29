@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { History, Loader2, Paperclip, Plus, Send, Sparkles, X } from 'lucide-react';
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
-import { sendChat } from '../server/actions';
+import { streamChat } from '../lib/stream-client';
 import { composerKeyAction, insertNewline } from '../lib/composer-keys';
 import { widgetHistory, widgetOpenSession } from '../server/widget-actions';
 import type { ChatMessage, ChatSessionSummary } from '../server/queries';
@@ -27,6 +27,8 @@ export function NexaWidget() {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [sending, setSending] = useState(false);
+  const [streamText, setStreamText] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
 
   // O botão central da barra inferior (celular) abre o mesmo chat.
@@ -41,14 +43,14 @@ export function NexaWidget() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' });
-  }, [messages, pending, open, view]);
+  }, [messages, pending, sending, streamText.length, open, view]);
 
   if (pathname.startsWith('/nexa-ia')) return null;
   // O balão fica em todas as telas (menos na NexaAI e dentro do simulado); o botão roxo da barra leva à página da NexaAI.
   const showBubble = !/^\/estudar\/[^/]+\/(simulado|quiz)/.test(pathname);
 
   function send() {
-    if (pending || (!text.trim() && !file)) return;
+    if (sending || pending || (!text.trim() && !file)) return;
     const fd = new FormData();
     fd.set('sessionId', sessionId);
     fd.set('content', text);
@@ -63,9 +65,13 @@ export function NexaWidget() {
     setText('');
     setFile(null);
     setError(null);
-    startTransition(async () => {
-      const r = await sendChat(fd);
-      if (r.ok) {
+    setSending(true);
+    setStreamText('');
+    void (async () => {
+      const r = await streamChat(fd, (x) => setStreamText((t) => t + x));
+      setSending(false);
+      setStreamText('');
+      if (r.t === 'done') {
         setSessionId(r.sessionId);
         setMessages((m) => [...m, r.assistant]);
       } else {
@@ -73,7 +79,7 @@ export function NexaWidget() {
         setText(optimistic.content);
         setError(r.message);
       }
-    });
+    })();
   }
 
   function showHistory() {
@@ -183,7 +189,14 @@ export function NexaWidget() {
                   </div>
                 </div>
               ))}
-              {pending && (
+              {sending && streamText && (
+                <div className="flex justify-start">
+                  <div className="bg-surface-2 max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm">
+                    <Markdown source={streamText} />
+                  </div>
+                </div>
+              )}
+              {(pending || (sending && !streamText)) && (
                 <Loader2 className="text-muted size-4 animate-spin" aria-label="Pensando" />
               )}
               <div ref={endRef} />
@@ -242,7 +255,7 @@ export function NexaWidget() {
                 <button
                   type="button"
                   onClick={send}
-                  disabled={pending}
+                  disabled={pending || sending}
                   aria-label="Enviar"
                   className="bg-brand text-brand-fg grid size-10 shrink-0 place-items-center rounded-full disabled:opacity-50"
                 >
@@ -260,7 +273,7 @@ export function NexaWidget() {
           onClick={() => setOpen((o) => !o)}
           aria-label={open ? 'Fechar a NexaAI' : 'Abrir a NexaAI'}
           aria-expanded={open}
-          className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 size-12 rounded-full bg-surface shadow-lg ring-1 ring-border transition-transform hover:scale-105 active:scale-95 md:right-6 md:bottom-6 md:size-14"
+          className="bg-surface ring-border fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 size-12 rounded-full shadow-lg ring-1 transition-transform hover:scale-105 active:scale-95 md:right-6 md:bottom-6 md:size-14"
         >
           <Image
             src="/brand/nexi.webp"

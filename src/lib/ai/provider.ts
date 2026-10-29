@@ -163,6 +163,35 @@ export function geminiModels(): string[] {
   return list.length ? list : ['gemini-3.5-flash-lite'];
 }
 
+/** Corpo do pedido ao Gemini (igual para resposta inteira e para streaming). */
+function buildGeminiBody(model: string, messages: AIMessage[], options: AICompletionOptions): string {
+  const thinkingDisabled = /2\.5-flash/.test(model);
+  const { maxTokens = 1024, temperature = 0.7 } = options;
+  const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+  const contents = messages
+    .filter((m) => m.role !== 'system')
+    .map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [
+        // Os arquivos vão ANTES do texto: o Gemini lê melhor "documento, depois pergunta".
+        ...(m.attachments ?? []).map((a) => ({ inlineData: { mimeType: a.mimeType, data: a.data } })),
+        { text: m.content },
+      ],
+    }));
+
+  return JSON.stringify({
+    ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+    contents,
+    generationConfig: {
+      // Modelos que "pensam" gastam parte deste teto antes de escrever; no 2.5 flash o raciocínio
+      // é zerado, nos outros sobra folga (um parâmetro desconhecido seria erro 400).
+      maxOutputTokens: thinkingDisabled ? maxTokens : maxTokens + THINKING_HEADROOM,
+      temperature,
+      ...(thinkingDisabled ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+    },
+  });
+}
+
 export class GeminiProvider implements AIProvider {
   /**
    * @param retryDelaysMs pausas entre tentativas no MESMO modelo. Parametrizável
@@ -232,24 +261,9 @@ export class GeminiProvider implements AIProvider {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return { ok: false, reason: 'missing_api_key' };
 
-    const thinkingDisabled = /2\.5-flash/.test(model);
-    const { maxTokens = 1024, temperature = 0.7, timeoutMs = 30_000 } = options;
+    const { timeoutMs = 30_000 } = options;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-    // O Gemini não tem papel "system" dentro de `contents`: a instrução vai em
-    // `systemInstruction`, e o papel do modelo se chama "model", não "assistant".
-    const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-    const contents = messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [
-          // Os arquivos vão ANTES do texto: o Gemini lê melhor "documento, depois pergunta".
-          ...(m.attachments ?? []).map((a) => ({ inlineData: { mimeType: a.mimeType, data: a.data } })),
-          { text: m.content },
-        ],
-      }));
 
     try {
       const response = await fetch(geminiEndpoint(model), {
@@ -259,25 +273,7 @@ export class GeminiProvider implements AIProvider {
             // Cabeçalho e não `?key=`: chave na URL acaba em log de proxy e de CDN.
             'x-goog-api-key': apiKey,
           },
-          body: JSON.stringify({
-            ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-            contents,
-            generationConfig: {
-              // Modelos que "pensam" gastam parte deste teto antes de escrever.
-              // No 2.5 flash dá pra zerar o raciocínio (abaixo); nos outros o
-              // parâmetro muda de nome entre versões e mandar um desconhecido é
-              // erro 400, então em vez disso sobra folga: sem ela, um teto de
-              // 1024 pode ser consumido inteiro pensando e voltar texto vazio.
-              maxOutputTokens: thinkingDisabled ? maxTokens : maxTokens + THINKING_HEADROOM,
-              temperature,
-              // Os modelos 2.5 "flash" gastam parte de `maxOutputTokens` pensando
-              // antes de responder; com 1024 de teto isso pode consumir tudo e
-              // devolver texto VAZIO — que o app mostra como "não consegui
-              // pensar". Para tirar dúvida de estudante não compensa pensar
-              // longo, então o orçamento de raciocínio é zerado onde é aceito.
-              ...(thinkingDisabled ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-            },
-          }),
+          body: buildGeminiBody(model, messages, options),
           signal: controller.signal,
         });
 
@@ -358,4 +354,85 @@ export async function completeWithAI(
   options?: AICompletionOptions,
 ): Promise<AICompletionResult> {
   return getAIProvider().complete(messages, options);
+}
+
+/**
+ * Resposta que chega AOS POUCOS: o texto vai saindo para `onDelta` enquanto o Gemini escreve,
+ * e o aluno vê a primeira palavra em meio segundo em vez de esperar a resposta inteira.
+ * Só o Gemini transmite; sem ele (ou se algo falhar antes do primeiro pedaço) cai na resposta
+ * inteira de sempre, que já tem as tentativas e a troca de modelo.
+ */
+export async function streamWithAI(
+  messages: AIMessage[],
+  options: AICompletionOptions,
+  onDelta: (text: string) => void,
+): Promise<AICompletionResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || process.env.AI_PROVIDER === 'groq') return completeWithAI(messages, options);
+
+  const model = geminiModels()[0];
+  if (!model) return completeWithAI(messages, options);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 30_000);
+  let full = '';
+
+  try {
+    const response = await fetch(`${geminiEndpoint(model).replace(':generateContent', ':streamGenerateContent')}?alt=sse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: buildGeminiBody(model, messages, options),
+      signal: controller.signal,
+    });
+    if (!response.ok || !response.body) {
+      clearTimeout(timeout);
+      return completeWithAI(messages, options);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let blocked = false;
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        try {
+          const chunk = JSON.parse(line.slice(5).trim()) as {
+            candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+            promptFeedback?: { blockReason?: string };
+          };
+          const candidate = chunk.candidates?.[0];
+          const text = (candidate?.content?.parts ?? []).map((p) => p.text ?? '').join('');
+          if (text) {
+            full += text;
+            onDelta(text);
+          }
+          if (chunk.promptFeedback?.blockReason || candidate?.finishReason === 'SAFETY' || candidate?.finishReason === 'PROHIBITED_CONTENT') {
+            blocked = true;
+          }
+        } catch {
+          // pedaço quebrado no meio: o próximo completa
+        }
+      }
+    }
+
+    if (full.trim()) return { ok: true, text: full.trim() };
+    clearTimeout(timeout);
+    if (blocked) return { ok: false, reason: 'content_filter' };
+    return completeWithAI(messages, options);
+  } catch (err) {
+    clearTimeout(timeout);
+    // Já escreveu algo: entrega o que chegou; senão tenta o caminho inteiro de sempre.
+    if (full.trim()) return { ok: true, text: full.trim() };
+    console.error('[ai/provider] streaming falhou, usando resposta inteira', err);
+    return completeWithAI(messages, options);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
