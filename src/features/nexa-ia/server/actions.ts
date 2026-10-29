@@ -1,0 +1,186 @@
+'use server';
+
+import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
+import { completeWithAI } from '@/lib/ai/provider';
+import { checkAiQuota } from '@/lib/ai/quota';
+import { getChatMessages } from './queries';
+import { maybeCreateFromChat } from './chat-create';
+import { buildStudentContext, readJourney, runChat, titleFrom, type ChatSendResult } from './chat-core';
+import { buildTutorSystemPrompt, parseTutorMode, type TutorMode } from '../tutor';
+import { reportError } from '@/features/observability/server/actions';
+
+/**
+ * Resposta da NexaAI.
+ *
+ * Groq é o provedor (troca do Gemini da ADR-039 — chave gratuita, inferência
+ * rápida, API compatível com o formato "chat completions" da OpenAI), por
+ * trás de `completeWithAI` (`src/lib/ai/provider.ts` — mesma chamada usada
+ * pelo "Gerar simulado com IA" e pela NexaAI de admin/professor). A chave é
+ * opcional em tempo de execução (nunca em `src/lib/env.ts`, que falha o build
+ * inteiro se faltar algo) — sem `GROQ_API_KEY`, cai no texto fixo de sempre em
+ * vez de derrubar a NexaAI inteira. O mesmo vale para qualquer erro da
+ * chamada (rede, filtro de conteúdo, resposta vazia): a conversa do aluno já
+ * está salva de qualquer forma, então uma falha aqui vira uma mensagem
+ * educada, nunca uma tela quebrada.
+ */
+
+async function replyTo(sessionId: string, userId: string, mode: TutorMode): Promise<string> {
+  const [studentContext, journey] = await Promise.all([buildStudentContext(userId), readJourney(userId)]);
+  const systemContent = buildTutorSystemPrompt({ mode, journey, studentContext });
+
+  // Histórico da MESMA sessão vira contexto — sem isso, cada mensagem seria
+  // uma conversa nova pra IA, e "e sobre o segundo item?" não faria sentido.
+  // A mensagem do usuário que motivou esta resposta já foi gravada antes de
+  // chegar aqui (ver `sendMessage`), então já está incluída neste histórico —
+  // não é acrescentada de novo.
+  const history = await getChatMessages(sessionId);
+  const messages = [
+    { role: 'system' as const, content: systemContent },
+    ...history.map((m) => ({
+      role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+      content: m.content,
+    })),
+  ];
+
+  const result = await completeWithAI(messages, { maxTokens: 1024, temperature: 0.6, timeoutMs: 25_000 });
+  if (result.ok) return result.text;
+
+  switch (result.reason) {
+    case 'missing_api_key':
+      return 'NexaAI ainda não está conectada a um provedor de inteligência artificial — assim que estiver, esta resposta vai ser gerada de verdade. Sua pergunta já ficou salva aqui.';
+    case 'content_filter':
+      // Caso mais comum de vir vazio — a pergunta esbarrou no filtro de conteúdo do próprio provedor.
+      return 'Não posso responder isso. Bora voltar para as matérias?';
+    default: {
+      // O aluno vê só "não consegui pensar", mas a CAUSA vai pra /admin/erros.
+      // Antes ela só existia no log do servidor, que quase ninguém abre — e foi
+      // assim que uma chave de formato errado ficou parecendo "a IA está
+      // lenta". Aqui o admin lê "http_error 403" e sabe o que consertar.
+      await reportError({
+        origin: 'server',
+        message: `NexaAI falhou: ${result.reason}${'status' in result ? ` (HTTP ${result.status})` : ''}${'detail' in result && result.detail ? ` — ${result.detail}` : ''}`,
+        pathname: '/nexa-ia',
+      });
+      return 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
+    }
+  }
+}
+
+/** Sessão vazia, sem mensagem — usada pelo botão "Nova conversa" da lista. */
+export async function createChatSession(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from('ai_chat_sessions')
+    .insert({ user_id: user.id })
+    .select('id')
+    .single();
+  if (error) return;
+
+  redirect(`/nexa-ia?sessao=${data.id}`);
+}
+
+/**
+ * Renomear/excluir sessão — RLS de `ai_chat_sessions` (`for all ... using
+ * (user_id = auth.uid())`) já restringe as duas à própria sessão, sem
+ * precisar repetir o filtro aqui. Excluir cascade-apaga as mensagens
+ * (`ai_chat_messages.session_id ... on delete cascade`).
+ */
+export async function renameChatSession(sessionId: string, title: string): Promise<void> {
+  const trimmed = title.trim().slice(0, 120);
+  if (!trimmed) return;
+
+  const supabase = await createClient();
+  await supabase.from('ai_chat_sessions').update({ title: trimmed }).eq('id', sessionId);
+  revalidatePath('/nexa-ia');
+}
+
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  const supabase = await createClient();
+  await supabase.from('ai_chat_sessions').delete().eq('id', sessionId);
+  revalidatePath('/nexa-ia');
+}
+
+const sendMessageSchema = z.object({
+  // Vazio = ainda não existe conversa selecionada; cria uma na hora.
+  sessionId: z.string().uuid().or(z.literal('')),
+  content: z.string().trim().min(1, 'Escreva algo antes de enviar.').max(2000),
+  mode: z.string().optional(),
+});
+
+export type SendMessageState =
+  | { status: 'idle' }
+  | { status: 'sent' }
+  | { status: 'error'; message: string };
+
+export async function sendMessage(
+  _prev: SendMessageState,
+  formData: FormData,
+): Promise<SendMessageState> {
+  const parsed = sendMessageSchema.safeParse({
+    sessionId: formData.get('sessionId') ?? '',
+    content: formData.get('content'),
+    mode: formData.get('mode') ?? undefined,
+  });
+  if (!parsed.success) {
+    return { status: 'error', message: parsed.error.issues[0]?.message ?? 'Revise a mensagem.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'error', message: 'Sessão expirada.' };
+
+  const { content } = parsed.data;
+  let sessionId = parsed.data.sessionId;
+  let isNewSession = false;
+
+  if (!sessionId) {
+    const { data: created, error } = await supabase
+      .from('ai_chat_sessions')
+      .insert({ user_id: user.id, title: titleFrom(content) })
+      .select('id')
+      .single();
+    if (error || !created) return { status: 'error', message: 'Não consegui iniciar a conversa.' };
+    sessionId = created.id;
+    isNewSession = true;
+  }
+
+  const { error: userError } = await supabase
+    .from('ai_chat_messages')
+    .insert({ session_id: sessionId, role: 'user', content });
+  if (userError) return { status: 'error', message: 'Não consegui enviar sua mensagem.' };
+
+  // Limite diário: passou dele, a conversa continua salva, mas a resposta é o
+  // aviso (e a IA não é chamada, que é o que custa).
+  const quota = await checkAiQuota(supabase, 'nexa_ia');
+  // Pedido de criação ("crie um simulado de 3 questões sobre…"): a NexaAI cria e responde com o link.
+  const created = quota.ok ? await maybeCreateFromChat(supabase, content) : null;
+  const reply = created ?? (quota.ok ? await replyTo(sessionId, user.id, parseTutorMode(parsed.data.mode)) : quota.message);
+
+  await supabase.from('ai_chat_messages').insert({ session_id: sessionId, role: 'assistant', content: reply });
+
+  if (!isNewSession) {
+    await supabase
+      .from('ai_chat_sessions')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', sessionId);
+  }
+
+  revalidatePath('/nexa-ia');
+  if (isNewSession) redirect(`/nexa-ia?sessao=${sessionId}`);
+  return { status: 'sent' };
+}
+
+/** Envio sem streaming (reserva): o chat normal usa `/api/nexa-ia/stream`. */
+export async function sendChat(formData: FormData): Promise<ChatSendResult> {
+  return runChat(formData);
+}

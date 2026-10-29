@@ -2,18 +2,64 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
 import type { Database } from '@/types/database.types';
+import { encodeTenant, resolveTenant, TENANT_HEADER, type TenantRpcClient } from '@/lib/tenant/resolve';
+import { ONBOARDING_COLUMNS, readWithFallback, type ProfileReader } from './profile-read';
 
-/** Routes reachable without a session. */
-const PUBLIC_PREFIXES = ['/login', '/auth', '/manifest.webmanifest', '/icon', '/apple-icon'];
+/** Reachable without a session. */
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/recuperar-senha',
+  // `/redefinir-senha` roda COM sessão (a de recuperação, criada pelo link do
+  // e-mail), mas fica aqui porque o aluno que chega nela ainda não passou pelo
+  // onboarding em muitos casos — e a regra de onboarding o mandaria para
+  // /bem-vindo antes de ele conseguir trocar a senha.
+  '/redefinir-senha',
+  '/auth',
+  '/manifest.webmanifest',
+  '/icon',
+  '/apple-icon',
+  // Lidas por qualquer um, com ou sem conta — inclusive por quem ainda está
+  // decidindo se cria uma, no link do rodapé do cadastro.
+  '/politica-de-privacidade',
+  '/termos-de-uso',
+  '/escola-nao-encontrada',
+  '/api/tenant-check',
+];
+
+const ONBOARDING_PATH = '/bem-vindo';
+const ONBOARDED_COOKIE = 'nx_ob';
+const STAFF_HOME_PATH = '/escola';
+
+function isStaffRole(role: string | null | undefined): boolean {
+  return role === 'teacher_admin' || role === 'school_admin';
+}
+const HOME_PATH = '/hoje';
+const VESTIBULAR_HOME_PATH = '/vestibular';
 
 /**
- * Refreshes the Supabase session on every request and gates the app routes.
+ * O painel não passa pelo onboarding.
  *
- * Two rules, both enforced here so no screen has to remember them:
- *   • no session → /login
- *   • session but onboarding not finished → /bem-vindo
+ * Onboarding monta a vida acadêmica de um ALUNO — matérias, bimestres, metas.
+ * Um administrador que só publica conteúdo não tem nada disso, e exigir que ele
+ * invente um boletim para chegar ao painel seria pedir dado falso. Quem pode
+ * entrar é decidido em `/admin/layout.tsx`, com o papel do perfil.
+ */
+const ADMIN_PREFIX = '/admin';
+
+function isPublic(pathname: string): boolean {
+  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+/**
+ * Refreshes the Supabase session on every document request and gates the app.
  *
- * The second one is why the app never has to render an empty dashboard.
+ * Three rules, enforced here so no screen has to remember them:
+ *   • no session            → /login (remembering where they were going)
+ *   • onboarding pending    → /bem-vindo
+ *   • already in, hits /login → /hoje
+ *
+ * The second rule is why the app never renders an empty dashboard: a student
+ * cannot reach a data screen before there is data to show.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -39,32 +85,160 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Escola pelo endereço (anglomorumbi.nexastudy.com.br). O cabeçalho interno
+  // é SEMPRE apagado primeiro: ele só pode vir daqui, nunca do cliente — senão
+  // qualquer um mandaria `x-nexa-tenant` e se passaria por outra escola.
+  // Falha aberta: sem `TENANT_ROOT_DOMAIN`, ou com qualquer erro, é o Nexa de sempre.
+  request.headers.delete(TENANT_HEADER);
+  // `response` já foi criada acima com os cabeçalhos ORIGINAIS: sem recriá-la, o
+  // cabeçalho forjado seguia adiante mesmo depois do delete (o teste pegou isto).
+  response = NextResponse.next({ request });
+  const tenant = await resolveTenant(
+    request.headers,
+    supabase as unknown as TenantRpcClient,
+    { rootDomain: process.env.TENANT_ROOT_DOMAIN, proxySecret: process.env.TENANT_PROXY_SECRET },
+  );
+  if (tenant.kind === 'found') {
+    // Sem recuperação de senha por e-mail no endereço da escola: quem perde a
+    // senha pede uma nova à coordenação.
+    if (
+      request.nextUrl.pathname.startsWith('/recuperar-senha') ||
+      request.nextUrl.pathname.startsWith('/redefinir-senha')
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
+    request.headers.set(TENANT_HEADER, encodeTenant(tenant.tenant));
+    response = NextResponse.next({ request });
+  } else if (tenant.kind === 'unknown' && !request.nextUrl.pathname.startsWith('/escola-nao-encontrada')) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/escola-nao-encontrada';
+    url.search = '';
+    return NextResponse.rewrite(url);
+  }
 
-  const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  // getUser() validates the JWT with Supabase. getSession() would read it from a
+  // cookie the client can edit, which is not a basis for an access decision.
+  //
+  // O try/catch cobre o Supabase inalcançável — rede caída, projeto pausado,
+  // URL errada. Sem ele o middleware lança e o comportamento do app inteiro
+  // passa a depender de como o runtime trata um middleware que explodiu, o que
+  // não é uma decisão de produto e muda entre versões. Sem sessão verificável,
+  // a resposta correta é a mesma de sempre: manda para o login.
+  let user: { id: string } | null = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch {
+    user = null;
+  }
 
-  if (!user && !isPublic) {
+  const { pathname, search } = request.nextUrl;
+
+  if (!user) {
+    if (isPublic(pathname)) return response;
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    url.searchParams.set('next', pathname);
+    url.search = '';
+    url.searchParams.set('next', `${pathname}${search}`);
     return NextResponse.redirect(url);
   }
 
-  if (user && !isPublic && pathname !== '/bem-vindo') {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('onboarded_at')
-      .eq('id', user.id)
-      .maybeSingle();
+  // Signed in. One profile read decides between onboarding e o app; é a
+  // única consulta que o middleware faz, e é uma busca por chave primária.
+  //
+  // Em try/catch pelo mesmo motivo do getUser() acima: uma falha transitória
+  // aqui não pode derrubar o middleware inteiro (sem `error.tsx` possível
+  // neste nível) — o app inteiro ficaria inacessível por causa de uma
+  // consulta que nem decide autenticação, só onboarding. Sem perfil,
+  // `onboarded` cai para `false`, que na pior hipótese manda um aluno já
+  // onboarded de volta para /bem-vindo — recuperável com um clique, bem
+  // menos grave que uma página em branco.
+  //
+  // O `select` pede `journey`, que é coluna nova. ENQUANTO a migração não
+  // roda no banco, o PostgREST responde 42703 ("column does not exist") — e
+  // `supabase-js` NÃO lança nessa situação, devolve `{data: null, error}`.
+  // Sem o retry abaixo, `profile` virava null, `onboarded` virava false, e o
+  // middleware mandava TODO MUNDO pro /bem-vindo, que por sua vez devolvia
+  // pro /hoje: loop de redirecionamento, app inteiro inacessível.
+  //
+  // Deploy e migração nunca acontecem no mesmo instante, então este portão —
+  // que roda em toda requisição — não pode assumir que o banco já mudou. Em
+  // regime normal é uma consulta só; a segunda só existe na janela em que a
+  // coluna ainda não chegou.
+  // A resiliência mora em `readWithFallback`, que tem teste próprio: foi a
+  // falta dele que deixou passar o laço de redirecionamento quando o código
+  // pediu `journey` antes da migração rodar.
+  // Cache curto do "já fez o onboarding" (10 min, só neste navegador): sem ele, TODA
+  // navegação pagava uma ida ao banco só para reaprender o que já se sabe. O valor
+  // leva o id do usuário, então a sessão de outra pessoa nunca o reaproveita.
+  const cached = request.cookies.get(ONBOARDED_COOKIE)?.value ?? '';
+  const [cachedUser, cachedJourney, cachedRole] = cached.split(':');
+  const fromCache = cachedUser === user.id && cachedJourney && ['school', 'vestibular', 'both'].includes(cachedJourney) && Boolean(cachedRole);
 
-    if (!profile?.onboarded_at) {
+  const profile = (fromCache
+    ? { onboarded_at: 'cache', journey: cachedJourney, role: cachedRole }
+    : await readWithFallback(supabase as unknown as ProfileReader, user.id, ONBOARDING_COLUMNS.wanted, ONBOARDING_COLUMNS.guaranteed, {
+        onboarded_at: null,
+        journey: 'school',
+        role: 'student',
+      })) as { onboarded_at: string | null; journey: string | null; role: string | null } | null;
+
+  if (!fromCache && (profile?.onboarded_at || isStaffRole(profile?.role))) {
+    response.cookies.set(ONBOARDED_COOKIE, `${user.id}:${profile?.journey ?? 'school'}:${profile?.role ?? 'student'}`, {
+      maxAge: 600,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+  }
+
+  const onboarded = Boolean(profile?.onboarded_at);
+  // Quem escolheu a jornada do vestibular tem OUTRA casa. Mandar essa pessoa
+  // pra /hoje depois do login seria abrir o app numa tela sobre lição de casa
+  // e bimestre — exatamente o que a escolha dela dizia não querer.
+  // 'both' continua em /hoje: quem está nos dois tem a escola como base e
+  // troca de plataforma pelo menu do logo quando quiser.
+  const home = profile?.journey === 'vestibular' ? VESTIBULAR_HOME_PATH : HOME_PATH;
+
+  if (pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)) return response;
+
+  // Professor, coordenação e direção não passam pelo onboarding de aluno: a casa deles é o portal da escola.
+  if (isStaffRole(profile?.role)) {
+    if (pathname === '/login' || pathname === ONBOARDING_PATH || pathname === HOME_PATH) {
       const url = request.nextUrl.clone();
-      url.pathname = '/bem-vindo';
+      url.pathname = STAFF_HOME_PATH;
+      url.search = '';
       return NextResponse.redirect(url);
     }
+    return response;
+  }
+
+  if (!onboarded && pathname !== ONBOARDING_PATH) {
+    const url = request.nextUrl.clone();
+    url.pathname = ONBOARDING_PATH;
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
+  if (onboarded && (pathname === '/login' || pathname === ONBOARDING_PATH)) {
+    const url = request.nextUrl.clone();
+    url.pathname = home;
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
+  // `/hoje` é a casa da escola. Um vestibulando puro que caia nela (link
+  // antigo, atalho salvo, a raiz do site) vai pra casa DELE — a tela existe e
+  // funciona, mas não é sobre a vida dele.
+  if (onboarded && profile?.journey === 'vestibular' && pathname === HOME_PATH) {
+    const url = request.nextUrl.clone();
+    url.pathname = VESTIBULAR_HOME_PATH;
+    url.search = '';
+    return NextResponse.redirect(url);
   }
 
   return response;
