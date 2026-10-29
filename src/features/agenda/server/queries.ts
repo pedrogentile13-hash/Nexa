@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server';
  * `kind = 'prova'`, sem nota) e sessões de estudo.
  */
 
-export type AgendaKind = 'task' | 'study';
+export type AgendaKind = 'task' | 'study' | 'event';
 
 export interface AgendaEvent {
   id: string;
@@ -46,7 +46,7 @@ export async function getUserToday(userId: string): Promise<string> {
 export async function getAgenda(from: string, to: string, today: string): Promise<AgendaRange> {
   const supabase = await createClient();
 
-  const [tasksRes, sessionsRes] = await Promise.all([
+  const [tasksRes, sessionsRes, eventsRes] = await Promise.all([
     supabase
       .from('tasks')
       .select('id, title, due_date, kind, completed_at, subject_id, subjects(name, color)')
@@ -59,6 +59,8 @@ export async function getAgenda(from: string, to: string, today: string): Promis
       .gte('local_date', from)
       .lte('local_date', to)
       .not('ended_at', 'is', null),
+    // Eventos da escola (mural). Antes do SQL rodar a função não existe: vira lista vazia.
+    supabase.rpc('list_school_events', { p_from: from, p_to: to }),
   ]);
 
   const events: AgendaEvent[] = [];
@@ -75,6 +77,20 @@ export async function getAgenda(from: string, to: string, today: string): Promis
       subjectName: subject?.name ?? null,
       subjectColor: subject?.color ?? 'slate',
       isDone: row.completed_at !== null,
+    });
+  }
+
+  for (const ev of eventsRes.error ? [] : (eventsRes.data ?? [])) {
+    events.push({
+      id: `e-${ev.id}`,
+      kind: 'event',
+      taskKind: null,
+      title: ev.title,
+      date: ev.event_date,
+      subjectId: null,
+      subjectName: ev.school_wide ? 'Toda a escola' : `Turma ${ev.class_name ?? ''}`.trim(),
+      subjectColor: 'amber',
+      isDone: false,
     });
   }
 

@@ -15,10 +15,12 @@ export function SchoolPanel({
   schoolName,
   overview: o,
   teachers,
+  pendingPublications = 0,
 }: {
   schoolName: string | null;
   overview: SchoolOverview;
   teachers: TeacherRow[];
+  pendingPublications?: number;
 }) {
   const activePct = o.students > 0 ? Math.round((o.activeLast7Days / o.students) * 100) : 0;
 
@@ -39,6 +41,13 @@ export function SchoolPanel({
     alerts.push({
       text: `${o.studentsWithoutClass} ${o.studentsWithoutClass === 1 ? 'aluno está' : 'alunos estão'} sem turma.`,
       href: '/admin/contas' as Route,
+    });
+  }
+
+  if (pendingPublications > 0) {
+    alerts.push({
+      text: `${pendingPublications} ${pendingPublications === 1 ? 'conteúdo de aluno espera' : 'conteúdos de alunos esperam'} sua autorização para publicar.`,
+      href: '/admin/publicacoes' as Route,
     });
   }
 

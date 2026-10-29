@@ -11,6 +11,7 @@ import {
   Loader2,
   ListTodo,
   Plus,
+  School,
   Timer,
   X,
 } from 'lucide-react';
@@ -46,11 +47,13 @@ import type { AgendaEvent } from '../server/queries';
 
 function eventIcon(event: AgendaEvent): typeof ClipboardList {
   if (event.kind === 'study') return Timer;
+  if (event.kind === 'event') return School;
   return event.taskKind === 'prova' ? ClipboardList : ListTodo;
 }
 
 function eventLabel(event: AgendaEvent): string {
   if (event.kind === 'study') return 'Estudo';
+  if (event.kind === 'event') return 'Evento da escola';
   return event.taskKind === 'prova' ? 'Prova' : 'Tarefa';
 }
 

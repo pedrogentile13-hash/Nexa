@@ -492,6 +492,7 @@ export type SchoolAnnouncementRow = {
   body: string;
   pinned: boolean;
   expires_at: string | null;
+  event_date: string | null;
   created_at: string;
 };
 
@@ -1705,6 +1706,11 @@ export type Database = {
       create_announcement: {
         Args: { p_title: string; p_body: string; p_class_id?: string | null; p_pinned?: boolean; p_expires_at?: string | null };
         Returns: { announcement_id: string; notified_user_ids: string[] }[];
+      };
+      set_announcement_event_date: { Args: { p_id: string; p_date: string | null }; Returns: void };
+      list_school_events: {
+        Args: { p_from: string; p_to: string };
+        Returns: { id: string; title: string; body: string; event_date: string; class_name: string | null; school_wide: boolean }[];
       };
       mark_announcement_read: { Args: { p_id: string }; Returns: void };
       list_announcements: {

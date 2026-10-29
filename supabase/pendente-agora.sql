@@ -960,6 +960,35 @@ end;
 $$;
 grant execute on function public.update_ai_resource_visibility(uuid, text, uuid) to authenticated;
 
+-- ===== 20261003001400_eventos_no_calendario =====
+alter table public.school_announcements add column if not exists event_date date;
+create index if not exists school_announcements_event_idx
+  on public.school_announcements (school_id, event_date) where event_date is not null;
+create or replace function public.set_announcement_event_date(p_id uuid, p_date date)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.can_manage_announcement(p_id, auth.uid()) then
+    raise exception 'não autorizado' using errcode = '42501';
+  end if;
+  update public.school_announcements set event_date = p_date where id = p_id;
+end;
+$$;
+grant execute on function public.set_announcement_event_date(uuid, date) to authenticated;
+create or replace function public.list_school_events(p_from date, p_to date)
+returns table (id uuid, title text, body text, event_date date, class_name text, school_wide boolean)
+language sql stable security definer set search_path = public as $$
+  select a.id, a.title, left(a.body, 300), a.event_date, c.name, a.class_id is null
+  from public.school_announcements a
+  left join public.classes c on c.id = a.class_id
+  where a.event_date between p_from and p_to
+    and (a.expires_at is null or a.expires_at > now() or a.event_date >= current_date)
+    and public.can_view_announcement(a.id, auth.uid())
+  order by a.event_date, a.title
+  limit 200;
+$$;
+grant execute on function public.list_school_events(date, date) to authenticated;
+
 -- ===== cadastro do Anglo (logo e cores) =====
 do $$
 declare

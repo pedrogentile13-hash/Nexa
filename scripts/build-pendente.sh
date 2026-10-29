@@ -14,7 +14,7 @@ FILES=(
   20261003000900_mural
   20261003001000_redacao
   20261003001100_selo_escola
-  20261003001200_admin_restrito 20261003001300_nexaia_material
+  20261003001200_admin_restrito 20261003001300_nexaia_material 20261003001400_eventos_no_calendario
 )
 strip() { grep -vE '^\s*--' "$1" | grep -vE '^\s*$' | sed 's/[[:space:]]*$//'; }
 {

@@ -6,6 +6,7 @@ import { getAdminOverview } from '@/features/admin/server/queries';
 import { requireAdmin } from '@/features/admin/server/guard';
 import { SchoolPanel } from '@/features/school-panel/school-panel';
 import { getSchoolOverview } from '@/features/school-panel/queries';
+import { listPublicationRequests } from '@/features/nexa-ia/server/material-queries';
 import { RESOURCE_KINDS, kindPlural } from '@/features/admin/lib/labels';
 import { Button } from '@/components/ui/button';
 import { RESOURCE_KIND_COLOR, RESOURCE_KIND_ICON } from '@/lib/design/resource-kind';
@@ -19,6 +20,7 @@ export default async function AdminHomePage() {
   const overview = await getAdminOverview();
   // Direção e coordenação veem, no topo, a escola de relance (a plataforma não: ela não é de uma escola).
   const school = !identity.isGlobal && identity.schoolId ? await getSchoolOverview(identity.schoolId) : null;
+  const pendingPublications = school ? (await listPublicationRequests('pending')).length : 0;
 
   const totalPublished = overview.publishedByKind.reduce((sum, k) => sum + k.count, 0);
 
@@ -39,7 +41,7 @@ export default async function AdminHomePage() {
 
       <div className="space-y-6 p-5">
         {school && (
-          <SchoolPanel schoolName={identity.schoolName} overview={school.overview} teachers={school.teachers} />
+          <SchoolPanel schoolName={identity.schoolName} overview={school.overview} teachers={school.teachers} pendingPublications={pendingPublications} />
         )}
 
         {/* Rascunho vem primeiro de propósito: é a única linha aqui que pede

@@ -18,6 +18,7 @@ const publishSchema = z.object({
   classId: z.string().uuid().optional(),
   pinned: z.boolean(),
   days: z.coerce.number().int().min(1).max(365).optional(),
+  eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export async function publishAnnouncement(_prev: PublishState, formData: FormData): Promise<PublishState> {
@@ -27,6 +28,7 @@ export async function publishAnnouncement(_prev: PublishState, formData: FormDat
     classId: formData.get('classId') || undefined,
     pinned: formData.get('pinned') === 'on',
     days: formData.get('days') || undefined,
+    eventDate: formData.get('eventDate') || undefined,
   });
   if (!parsed.success) return { status: 'error', message: parsed.error.issues[0]?.message ?? 'Revise os campos.' };
 
@@ -54,6 +56,10 @@ export async function publishAnnouncement(_prev: PublishState, formData: FormDat
   }
 
   const row = data?.[0];
+  // Data do evento: o aviso já existe; se o SQL do calendário ainda não rodou, só a data deixa de salvar.
+  if (parsed.data.eventDate && row?.announcement_id) {
+    await supabase.rpc('set_announcement_event_date', { p_id: row.announcement_id, p_date: parsed.data.eventDate });
+  }
   const users = row?.notified_user_ids ?? [];
   if (users.length > 0) {
     // Best-effort: o aviso já está publicado; falha de push não desfaz isso.
@@ -65,6 +71,7 @@ export async function publishAnnouncement(_prev: PublishState, formData: FormDat
   }
 
   revalidatePath('/avisos');
+  revalidatePath('/agenda');
   revalidatePath('/admin/mural');
   revalidatePath('/professor/mural');
   return { status: 'published', notified: users.length };

@@ -112,6 +112,11 @@ export function AnnouncementsManager({
             />
           </div>
 
+          <div>
+            <Label htmlFor="mural-event">É um evento? Data (aparece na agenda dos alunos)</Label>
+            <Input id="mural-event" name="eventDate" type="date" />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="mural-days">Some depois de (dias)</Label>
