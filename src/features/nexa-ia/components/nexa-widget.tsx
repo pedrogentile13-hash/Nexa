@@ -263,7 +263,7 @@ export function NexaWidget() {
           className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 size-12 rounded-full bg-surface shadow-lg ring-1 ring-border transition-transform hover:scale-105 active:scale-95 md:right-6 md:bottom-6 md:size-14"
         >
           <Image
-            src="/brand/nexa-ai.webp"
+            src="/brand/nexi.webp"
             alt=""
             width={56}
             height={56}

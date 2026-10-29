@@ -130,7 +130,7 @@ export function NexaIaView({
                 ) : (
                   <div className="flex max-w-full gap-3">
                     <Image
-                      src="/brand/nexa-ai.webp"
+                      src="/brand/nexi.webp"
                       alt=""
                       width={28}
                       height={28}
@@ -153,7 +153,7 @@ export function NexaIaView({
             {pending && (
               <div className="flex gap-3" role="status" aria-label="A NexaAI está pensando">
                 <Image
-                  src="/brand/nexa-ai.webp"
+                  src="/brand/nexi.webp"
                   alt=""
                   width={28}
                   height={28}
@@ -178,7 +178,7 @@ export function NexaIaView({
       {empty && (
         <div className="mb-6 flex flex-col items-center gap-3 px-4 text-center">
           <Image
-            src="/brand/nexa-ai.webp"
+            src="/brand/nexi.webp"
             alt=""
             width={56}
             height={56}
