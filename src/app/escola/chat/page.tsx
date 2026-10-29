@@ -1,4 +1,4 @@
-import { PageTitle, Panel } from '@/features/escola/components/ui';
+import { PageTitle } from '@/features/escola/components/ui';
 import { requireStaff } from '@/features/escola/server/guard';
 import { FaqManager } from '@/features/school-chat/components/faq-manager';
 import { listMyFaq, listPendingQuestions } from '@/features/school-chat/server/queries';
@@ -16,9 +16,7 @@ export default async function ChatDaTurmaPage() {
   return (
     <>
       <PageTitle title="Chat da turma" subtitle="Cadastre as respostas que seus alunos mais pedem. O assistente só usa o que você escrever aqui — e o que ele não souber chega para você responder." />
-      <Panel>
-        <FaqManager faqs={faqs} pending={pending} classes={teacherClassOptions(assignments)} />
-      </Panel>
+      <FaqManager faqs={faqs} pending={pending} classes={teacherClassOptions(assignments)} />
     </>
   );
 }

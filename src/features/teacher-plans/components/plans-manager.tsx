@@ -46,7 +46,7 @@ export function PlansManager({
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       <div className="order-2 space-y-3 lg:order-1">
         {plans.length === 0 ? (
-          <div className="border-border bg-surface rounded-lg border p-8 text-center">
+          <div className="border-border bg-surface rounded-3xl border p-10 shadow-sm text-center">
             <ClipboardList className="text-muted mx-auto mb-3 size-8" aria-hidden />
             <p className="text-sm font-medium">Nenhum planejamento ainda</p>
             <p className="text-muted mt-1 text-sm">
@@ -73,8 +73,8 @@ function NewPlanForm() {
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="border-border bg-surface space-y-3 rounded-lg border p-4">
-      <h2 className="text-sm font-semibold">Novo planejamento</h2>
+    <form ref={formRef} action={action} className="border-border bg-surface space-y-3 rounded-3xl border p-5 shadow-sm lg:sticky lg:top-6">
+      <h2 className="text-base font-semibold tracking-tight">Novo planejamento</h2>
       <div>
         <Label htmlFor="plan-title">Título</Label>
         <Input id="plan-title" name="title" required maxLength={160} placeholder="2º bimestre — Revolução Francesa" />
@@ -89,7 +89,7 @@ function NewPlanForm() {
           maxLength={20000}
           rows={10}
           placeholder={'Cole aqui os tópicos, textos-base e o que você pretende cobrar.\n\nEx.: Causas — crise financeira, desigualdade entre os três estados, iluminismo. Fases — assembleia, convenção, diretório…'}
-          className="border-border bg-bg text-text focus-visible:ring-brand w-full rounded-md border p-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          className="border-border bg-bg text-text focus-visible:ring-brand w-full rounded-2xl border p-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
         />
         <p className="text-subtle mt-1 text-xs">Até 20.000 caracteres. Quanto mais fiel ao que você ensina, melhor sai o material.</p>
       </div>
@@ -122,10 +122,10 @@ function PlanCard({ plan, subjects }: { plan: PlanSummary; subjects: { id: strin
   }
 
   return (
-    <article className="border-border bg-surface rounded-lg border p-4">
+    <article className="border-border bg-surface rounded-3xl border p-5 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold">{plan.title}</h3>
+          <h3 className="text-base font-semibold tracking-tight">{plan.title}</h3>
           <p className="text-muted mt-1 line-clamp-3 text-sm whitespace-pre-wrap">{plan.content}</p>
           <p className="text-subtle mt-1 text-xs">{plan.content.length.toLocaleString('pt-BR')} caracteres</p>
         </div>
@@ -134,7 +134,7 @@ function PlanCard({ plan, subjects }: { plan: PlanSummary; subjects: { id: strin
           <button
             type="submit"
             aria-label={`Excluir ${plan.title}`}
-            className="text-muted hover:bg-danger-soft hover:text-danger grid size-11 place-items-center rounded-md"
+            className="text-muted hover:bg-danger-soft hover:text-danger grid size-11 place-items-center rounded-full"
           >
             <Trash2 className="size-4" aria-hidden />
           </button>
@@ -190,7 +190,7 @@ function SummaryDraft({
 
   if (state.status === 'saved') {
     return (
-      <div className="bg-success-soft text-success mt-3 rounded-lg px-4 py-3 text-sm">
+      <div className="bg-success-soft text-success mt-3 rounded-2xl px-4 py-3 text-sm">
         Rascunho salvo. Revise e publique em{' '}
         <Link href={'/professor/conteudo' as Route} className="font-semibold underline">
           Conteúdo
@@ -201,7 +201,7 @@ function SummaryDraft({
   }
 
   return (
-    <form action={action} className="border-border mt-3 space-y-3 rounded-lg border p-3">
+    <form action={action} className="bg-surface-2 mt-3 space-y-3 rounded-2xl p-4">
       <input type="hidden" name="kind" value="resumo" />
       <input type="hidden" name="contentFormat" value="markdown" />
       <input type="hidden" name="difficulty" value="medio" />
@@ -219,7 +219,7 @@ function SummaryDraft({
           name="subjectId"
           required
           defaultValue=""
-          className="border-border bg-bg text-text focus-visible:ring-brand h-11 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          className="border-border bg-bg text-text focus-visible:ring-brand h-11 w-full rounded-full border px-4 text-sm focus-visible:ring-2 focus-visible:outline-none"
         >
           <option value="" disabled>
             Escolha a matéria
@@ -239,7 +239,7 @@ function SummaryDraft({
           required
           rows={14}
           defaultValue={initial}
-          className="border-border bg-bg text-text focus-visible:ring-brand w-full rounded-md border p-3 font-mono text-xs focus-visible:ring-2 focus-visible:outline-none"
+          className="border-border bg-bg text-text focus-visible:ring-brand w-full rounded-2xl border p-3 font-mono text-xs focus-visible:ring-2 focus-visible:outline-none"
         />
       </div>
 

@@ -1,4 +1,4 @@
-import { PageTitle, Panel } from '@/features/escola/components/ui';
+import { PageTitle } from '@/features/escola/components/ui';
 import { requireStaff } from '@/features/escola/server/guard';
 import { requireContentManager } from '@/features/admin/server/guard';
 import { getResourceFormOptions } from '@/features/admin/server/queries';
@@ -16,9 +16,7 @@ export default async function PlanejamentoPage() {
   return (
     <>
       <PageTitle title="Planejamento" subtitle="Guarde o que você vai ensinar. A IA cria resumo e simulado só a partir disso — tudo sai como rascunho para você revisar." />
-      <Panel>
-        <PlansManager plans={plans} subjects={options.subjects.map((s) => ({ id: s.id, name: s.name }))} />
-      </Panel>
+      <PlansManager plans={plans} subjects={options.subjects.map((s) => ({ id: s.id, name: s.name }))} />
     </>
   );
 }

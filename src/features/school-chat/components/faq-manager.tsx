@@ -50,9 +50,9 @@ export function FaqManager({
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
+        <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
           <Inbox className="size-4" aria-hidden />
-          Perguntas esperando você {pending.length > 0 && <span className="bg-danger text-white rounded-full px-2 py-0.5 text-xs">{pending.length}</span>}
+          Perguntas esperando você {pending.length > 0 && <span className="bg-danger rounded-full px-2.5 py-0.5 text-xs text-white">{pending.length}</span>}
         </h2>
         {pending.length === 0 ? (
           <p className="text-muted mt-2 text-sm">Nenhuma pergunta sem resposta. O bot está dando conta. 🎉</p>
@@ -69,7 +69,7 @@ export function FaqManager({
 
       <section className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="order-2 lg:order-1">
-          <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
             <BookOpenCheck className="size-4" aria-hidden />
             Sua base de respostas ({faqs.length})
           </h2>
@@ -78,7 +78,7 @@ export function FaqManager({
               Comece pelas dúvidas que você mais ouve: prazo de entrega, o que cai na prova, onde está o material.
             </p>
           ) : (
-            <ul className="border-border bg-surface divide-border mt-3 divide-y overflow-hidden rounded-lg border">
+            <ul className="border-border bg-surface divide-border mt-3 divide-y overflow-hidden rounded-3xl border shadow-sm">
               {faqs.map((f) => (
                 <li key={f.id} className="flex items-start gap-3 px-4 py-3">
                   <div className={`min-w-0 flex-1 ${f.active ? '' : 'opacity-50'}`}>
@@ -96,7 +96,7 @@ export function FaqManager({
                       type="submit"
                       aria-label={f.active ? 'Desligar resposta' : 'Ligar resposta'}
                       title={f.active ? 'Desligar (o bot para de usar)' : 'Ligar'}
-                      className="text-muted hover:bg-surface-2 grid size-11 place-items-center rounded-md"
+                      className="text-muted hover:bg-surface-2 grid size-11 place-items-center rounded-full"
                     >
                       <Power className="size-4" aria-hidden />
                     </button>
@@ -106,7 +106,7 @@ export function FaqManager({
                     <button
                       type="submit"
                       aria-label="Excluir resposta"
-                      className="text-muted hover:bg-danger-soft hover:text-danger grid size-11 place-items-center rounded-md"
+                      className="text-muted hover:bg-danger-soft hover:text-danger grid size-11 place-items-center rounded-full"
                     >
                       <Trash2 className="size-4" aria-hidden />
                     </button>
@@ -134,8 +134,8 @@ function NewFaqForm({ classes }: { classes: { id: string; name: string }[] }) {
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="border-border bg-surface space-y-3 rounded-lg border p-4">
-      <h2 className="text-sm font-semibold">Nova resposta</h2>
+    <form ref={formRef} action={action} className="border-border bg-surface space-y-3 rounded-3xl border p-5 shadow-sm lg:sticky lg:top-6">
+      <h2 className="text-base font-semibold tracking-tight">Nova resposta</h2>
       <div>
         <Label htmlFor="faq-question">Pergunta</Label>
         <Input id="faq-question" name="question" required maxLength={300} placeholder="Quando é a entrega do trabalho?" />
@@ -149,7 +149,7 @@ function NewFaqForm({ classes }: { classes: { id: string; name: string }[] }) {
           maxLength={2000}
           rows={4}
           placeholder="A entrega é dia 12, pela plataforma, até 23h59."
-          className="border-border bg-bg text-text focus-visible:ring-brand w-full rounded-md border p-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          className="border-border bg-bg text-text focus-visible:ring-brand w-full rounded-2xl border p-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
         />
       </div>
       <div>
@@ -162,7 +162,7 @@ function NewFaqForm({ classes }: { classes: { id: string; name: string }[] }) {
           id="faq-class"
           name="classId"
           defaultValue=""
-          className="border-border bg-bg text-text focus-visible:ring-brand h-11 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          className="border-border bg-bg text-text focus-visible:ring-brand h-11 w-full rounded-full border px-4 text-sm focus-visible:ring-2 focus-visible:outline-none"
         >
           <option value="">Todas as minhas turmas</option>
           {classes.map((c) => (
@@ -192,11 +192,11 @@ function PendingCard({ question }: { question: PendingQuestion }) {
   const [state, action] = useActionState(replyToPending, INITIAL);
 
   if (state.status === 'saved') {
-    return <p className="bg-success-soft text-success rounded-lg px-4 py-3 text-sm">Resposta enviada para {question.studentName}.</p>;
+    return <p className="bg-success-soft text-success rounded-2xl px-4 py-3 text-sm">Resposta enviada para {question.studentName}.</p>;
   }
 
   return (
-    <form action={action} className="border-border bg-surface space-y-2 rounded-lg border p-4">
+    <form action={action} className="border-border bg-surface space-y-2 rounded-3xl border p-5 shadow-sm">
       <input type="hidden" name="messageId" value={question.messageId} />
       <p className="text-subtle text-xs">
         {question.studentName} · {dateFmt.format(new Date(question.askedAt))}
@@ -209,7 +209,7 @@ function PendingCard({ question }: { question: PendingQuestion }) {
         maxLength={2000}
         placeholder="Sua resposta…"
         aria-label={`Responder a ${question.studentName}`}
-        className="border-border bg-bg text-text focus-visible:ring-brand w-full rounded-md border p-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+        className="border-border bg-bg text-text focus-visible:ring-brand w-full rounded-2xl border p-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
       />
       <label className="text-muted flex items-center gap-2 text-xs">
         <input type="checkbox" name="saveAsFaq" className="size-4" />
