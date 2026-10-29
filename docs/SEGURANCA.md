@@ -12,6 +12,7 @@ Documento de apoio à apresentação. O que o app faz hoje, o que falta confirma
 
 **Dados (Supabase)**
 - **Todas as tabelas têm RLS** (cada pessoa só lê o que é dela ou do que a regra permite). Conferido por teste.
+- **XP e notificações não podem ser forjados:** dar XP, avisar outra pessoa e ler a fila de revisão ou os tipos de erro de OUTRO aluno estavam abertos a qualquer aluno logado; agora só o próprio app (com tetos) e quem tem permissão sobre o aluno.
 - Funções do banco **só executam para quem está logado**; visitante sem login só descobre a qual escola um endereço pertence.
 - Direção, coordenação e professores **não leem** os resumos e simulados que um aluno criou com a IA. Só o dono; para a escola ver, a coordenação aprova a publicação.
 - Material de estudo do aluno (PDFs, fotos, textos) é **privado do aluno**.
