@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
 import { checkAiQuota } from '@/lib/ai/quota';
-import { getChatMessages } from './queries';
+import { getChatMessages, type ChatMessage } from './queries';
 import { maybeCreateFromChat } from './chat-create';
 import { buildTutorSystemPrompt, parseTutorMode, type TutorMode } from '../tutor';
 import { reportError } from '@/features/observability/server/actions';
@@ -238,4 +238,111 @@ export async function sendMessage(
   revalidatePath('/nexa-ia');
   if (isNewSession) redirect(`/nexa-ia?sessao=${sessionId}`);
   return { status: 'sent' };
+}
+
+// --------------------------------------------------------------------------
+// Envio rápido (usado pela tela de chat): devolve as duas mensagens em vez de
+// recarregar a página, para o chat mostrar a pergunta NA HORA e só esperar a
+// resposta. Os passos independentes (cota, contexto do aluno, histórico) rodam
+// juntos, e as duas mensagens são gravadas numa ida só ao banco.
+// --------------------------------------------------------------------------
+
+export type ChatSendResult =
+  | { ok: true; sessionId: string; isNewSession: boolean; assistant: ChatMessage }
+  | { ok: false; message: string };
+
+const chatSendSchema = z.object({
+  sessionId: z.string().uuid().or(z.literal('')),
+  content: z.string().trim().min(1, 'Escreva algo antes de enviar.').max(2000),
+  mode: z.string().optional(),
+});
+
+export async function sendChat(input: { sessionId: string; content: string; mode?: string }): Promise<ChatSendResult> {
+  const parsed = chatSendSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? 'Revise a mensagem.' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: 'Sessão expirada.' };
+
+  const { content } = parsed.data;
+  const userAt = new Date();
+  let sessionId = parsed.data.sessionId;
+  const isNewSession = !sessionId;
+
+  if (isNewSession) {
+    const { data: created, error } = await supabase
+      .from('ai_chat_sessions')
+      .insert({ user_id: user.id, title: titleFrom(content) })
+      .select('id')
+      .single();
+    if (error || !created) return { ok: false, message: 'Não consegui iniciar a conversa.' };
+    sessionId = created.id;
+  }
+
+  const [quota, history, studentContext, journey] = await Promise.all([
+    checkAiQuota(supabase, 'nexa_ia'),
+    isNewSession ? Promise.resolve([] as ChatMessage[]) : getChatMessages(sessionId),
+    buildStudentContext(user.id),
+    readJourney(user.id),
+  ]);
+
+  let reply: string;
+  const created = quota.ok ? await maybeCreateFromChat(supabase, content) : null;
+  if (created) {
+    reply = created;
+  } else if (!quota.ok) {
+    reply = quota.message;
+  } else {
+    const mode = parseTutorMode(parsed.data.mode);
+    const result = await completeWithAI(
+      [
+        { role: 'system' as const, content: buildTutorSystemPrompt({ mode, journey, studentContext }) },
+        ...history.map((m) => ({ role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const), content: m.content })),
+        { role: 'user' as const, content },
+      ],
+      { maxTokens: 1024, temperature: 0.6, timeoutMs: 25_000 },
+    );
+    if (result.ok) {
+      reply = result.text;
+    } else if (result.reason === 'missing_api_key') {
+      reply = 'NexaAI ainda não está conectada a um provedor de inteligência artificial.';
+    } else if (result.reason === 'content_filter') {
+      reply = 'Não posso responder isso. Bora voltar para as matérias?';
+    } else {
+      void reportError({
+        origin: 'server',
+        message: `NexaAI falhou: ${result.reason}${'status' in result ? ` (HTTP ${result.status})` : ''}${'detail' in result && result.detail ? ` — ${result.detail}` : ''}`,
+        pathname: '/nexa-ia',
+      });
+      reply = 'Não consegui pensar numa resposta agora — tenta de novo em instantes.';
+    }
+  }
+
+  const assistantAt = new Date(Math.max(Date.now(), userAt.getTime() + 1));
+  const [{ data: rows }] = await Promise.all([
+    supabase
+      .from('ai_chat_messages')
+      .insert([
+        { session_id: sessionId, role: 'user', content, created_at: userAt.toISOString() },
+        { session_id: sessionId, role: 'assistant', content: reply, created_at: assistantAt.toISOString() },
+      ])
+      .select('id, role, content, created_at'),
+    supabase.from('ai_chat_sessions').update({ updated_at: assistantAt.toISOString() }).eq('id', sessionId),
+  ]);
+
+  const saved = rows?.find((r) => r.role === 'assistant');
+  return {
+    ok: true,
+    sessionId,
+    isNewSession,
+    assistant: {
+      id: saved?.id ?? `a-${assistantAt.getTime()}`,
+      role: 'assistant',
+      content: reply,
+      createdAt: saved?.created_at ?? assistantAt.toISOString(),
+    },
+  };
 }

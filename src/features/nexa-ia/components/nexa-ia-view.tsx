@@ -1,17 +1,15 @@
 'use client';
 
 import Image from 'next/image';
-import { useActionState, useEffect, useRef, useState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { ArrowUp, BookOpen, ChevronDown, ClipboardList, Loader2, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { ArrowUp, BookOpen, ChevronDown, ClipboardList, Sparkles } from 'lucide-react';
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
-import { sendMessage, type SendMessageState } from '../server/actions';
+import { sendChat } from '../server/actions';
 import type { ChatMessage } from '../server/queries';
 import { composerKeyAction, insertNewline } from '../lib/composer-keys';
 import { DEFAULT_TUTOR_MODE, TUTOR_MODES, TUTOR_MODE_LABELS, type TutorMode } from '../tutor';
-
-const INITIAL: SendMessageState = { status: 'idle' };
 
 const QUICK_PROMPTS = [
   { icon: BookOpen, text: 'Explique um assunto que eu não entendi' },
@@ -25,24 +23,38 @@ const QUICK_PROMPTS = [
  * Enter envia no computador; Command/Ctrl/Shift+Enter pulam linha; no celular o
  * Enter pula linha e o envio é pelo botão.
  */
-export function NexaIaView({ activeSessionId, messages }: { activeSessionId: string | null; messages: ChatMessage[] }) {
-  const [state, formAction] = useActionState(sendMessage, INITIAL);
+export function NexaIaView({
+  activeSessionId,
+  messages: initialMessages,
+}: {
+  activeSessionId: string | null;
+  messages: ChatMessage[];
+}) {
+  const router = useRouter();
+  const [messages, setMessages] = useState(initialMessages);
+  const [sessionId, setSessionId] = useState(activeSessionId ?? '');
   const [mode, setMode] = useState<TutorMode>(DEFAULT_TUTOR_MODE);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [typingId, setTypingId] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const empty = messages.length === 0;
+  const empty = messages.length === 0 && !pending;
 
+  // Outra conversa escolhida na barra lateral: troca o conteúdo. Se o id novo é o da
+  // conversa que acabamos de criar aqui, não mexe (o estado local já está certo).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' });
-  }, [messages.length]);
-
-  useEffect(() => {
-    if (state.status === 'sent' && inputRef.current) {
-      inputRef.current.value = '';
-      inputRef.current.style.height = 'auto';
+    if ((activeSessionId ?? '') !== sessionId) {
+      setSessionId(activeSessionId ?? '');
+      setMessages(initialMessages);
+      setTypingId(null);
     }
-  }, [state]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  }, [messages.length, pending]);
 
   function grow(el: HTMLTextAreaElement) {
     el.style.height = 'auto';
@@ -56,27 +68,98 @@ export function NexaIaView({ activeSessionId, messages }: { activeSessionId: str
     inputRef.current.focus();
   }
 
+  function submit() {
+    const el = inputRef.current;
+    const content = el?.value.trim() ?? '';
+    if (!el || !content || pending) return;
+
+    // A pergunta aparece AGORA; a caixa esvazia; a resposta chega depois.
+    const optimistic: ChatMessage = {
+      id: `tmp-${Date.now()}`,
+      role: 'user',
+      content,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((m) => [...m, optimistic]);
+    el.value = '';
+    el.style.height = 'auto';
+    setError(null);
+
+    startTransition(async () => {
+      const r = await sendChat({ sessionId, content, mode });
+      if (!r.ok) {
+        setMessages((m) => m.filter((x) => x.id !== optimistic.id));
+        el.value = content;
+        grow(el);
+        setError(r.message);
+        return;
+      }
+      setSessionId(r.sessionId);
+      setTypingId(r.assistant.id);
+      setMessages((m) => [...m, r.assistant]);
+      // Conversa nova: leva o endereço para ela e atualiza a lista "Recentes".
+      if (r.isNewSession) router.replace(`/nexa-ia?sessao=${r.sessionId}`, { scroll: false });
+      else router.refresh();
+    });
+  }
+
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', empty && 'justify-center')}>
       {!empty && (
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6">
             {messages.map((message) => (
-              <div key={message.id} className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>
+              <div
+                key={message.id}
+                className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}
+              >
                 {message.role === 'user' ? (
                   <div className="bg-surface-2 max-w-[85%] rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap">
                     {message.content}
                   </div>
                 ) : (
                   <div className="flex max-w-full gap-3">
-                    <Image src="/brand/nexa-ai.webp" alt="" width={28} height={28} className="mt-0.5 size-7 shrink-0 object-contain" />
+                    <Image
+                      src="/brand/nexa-ai.webp"
+                      alt=""
+                      width={28}
+                      height={28}
+                      className="mt-0.5 size-7 shrink-0 object-contain"
+                    />
                     <div className="min-w-0 text-[15px] leading-relaxed">
-                      <Markdown source={message.content} />
+                      {message.id === typingId ? (
+                        <Typewriter
+                          text={message.content}
+                          onTick={() => bottomRef.current?.scrollIntoView({ block: 'end' })}
+                        />
+                      ) : (
+                        <Markdown source={message.content} />
+                      )}
                     </div>
                   </div>
                 )}
               </div>
             ))}
+            {pending && (
+              <div className="flex gap-3" role="status" aria-label="A NexaAI está pensando">
+                <Image
+                  src="/brand/nexa-ai.webp"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="mt-0.5 size-7 shrink-0 object-contain"
+                />
+                <div className="flex items-center gap-1 py-3" aria-hidden>
+                  {[0, 150, 300].map((delay) => (
+                    <span
+                      key={delay}
+                      className="bg-subtle size-2 animate-bounce rounded-full"
+                      style={{ animationDelay: `${delay}ms` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
             <div ref={bottomRef} />
           </div>
         </div>
@@ -84,25 +167,27 @@ export function NexaIaView({ activeSessionId, messages }: { activeSessionId: str
 
       {empty && (
         <div className="mb-6 flex flex-col items-center gap-3 px-4 text-center">
-          <Image src="/brand/nexa-ai.webp" alt="" width={56} height={56} className="size-16 object-contain" />
+          <Image
+            src="/brand/nexa-ai.webp"
+            alt=""
+            width={56}
+            height={56}
+            className="size-16 object-contain"
+          />
           <h2 className="text-2xl font-semibold tracking-tight">Como posso ajudar?</h2>
         </div>
       )}
 
-      <form ref={formRef} action={formAction} className="mx-auto w-full max-w-3xl px-4 pb-3">
-        <input type="hidden" name="sessionId" value={activeSessionId ?? ''} />
-        <input type="hidden" name="mode" value={mode} />
-        {state.status === 'error' && (
+      <div className="mx-auto w-full max-w-3xl px-4 pb-3">
+        {error && (
           <p role="alert" className="text-danger mb-2 px-2 text-sm">
-            {state.message}
+            {error}
           </p>
         )}
         <div className="border-border bg-surface flex items-end gap-2 rounded-[28px] border px-4 py-2.5 shadow-sm">
           <textarea
             ref={inputRef}
-            name="content"
             rows={1}
-            required
             maxLength={2000}
             placeholder="Pergunte à NexaAI"
             aria-label="Mensagem para a NexaAI"
@@ -110,12 +195,18 @@ export function NexaIaView({ activeSessionId, messages }: { activeSessionId: str
             onKeyDown={(e) => {
               const isTouch = window.matchMedia('(pointer: coarse)').matches;
               const action = composerKeyAction(
-                { key: e.key, metaKey: e.metaKey, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing },
+                {
+                  key: e.key,
+                  metaKey: e.metaKey,
+                  ctrlKey: e.ctrlKey,
+                  shiftKey: e.shiftKey,
+                  isComposing: e.nativeEvent.isComposing,
+                },
                 isTouch,
               );
               if (action === 'send') {
                 e.preventDefault();
-                if (e.currentTarget.value.trim()) formRef.current?.requestSubmit();
+                submit();
               } else if (action === 'newline' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 insertNewline(e.currentTarget);
@@ -138,7 +229,15 @@ export function NexaIaView({ activeSessionId, messages }: { activeSessionId: str
             </select>
             <ChevronDown aria-hidden className="pointer-events-none absolute right-2 size-3.5" />
           </label>
-          <SendButton />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={pending}
+            aria-label="Enviar"
+            className="bg-brand text-brand-fg grid size-9 shrink-0 place-items-center rounded-full transition-opacity disabled:opacity-50"
+          >
+            <ArrowUp className="size-5" aria-hidden strokeWidth={2.4} />
+          </button>
         </div>
 
         {empty && (
@@ -156,21 +255,25 @@ export function NexaIaView({ activeSessionId, messages }: { activeSessionId: str
             ))}
           </div>
         )}
-      </form>
+      </div>
     </div>
   );
 }
 
-function SendButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      aria-label="Enviar"
-      className="bg-brand text-brand-fg grid size-9 shrink-0 place-items-center rounded-full transition-opacity disabled:opacity-60"
-    >
-      {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <ArrowUp className="size-5" aria-hidden strokeWidth={2.4} />}
-    </button>
-  );
+/** A resposta aparece aos poucos (por palavras), como num assistente de verdade. Textos longos entram inteiros. */
+function Typewriter({ text, onTick }: { text: string; onTick: () => void }) {
+  const words = text.split(/(\s+)/);
+  const [count, setCount] = useState(text.length > 1800 ? words.length : 0);
+
+  useEffect(() => {
+    if (count >= words.length) return;
+    const step = Math.max(2, Math.ceil(words.length / 90));
+    const id = window.setTimeout(() => {
+      setCount((c) => Math.min(words.length, c + step));
+      onTick();
+    }, 18);
+    return () => window.clearTimeout(id);
+  }, [count, words.length, onTick]);
+
+  return <Markdown source={words.slice(0, count).join('')} />;
 }

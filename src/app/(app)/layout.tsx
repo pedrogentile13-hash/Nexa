@@ -3,7 +3,7 @@ import { SideNav } from '@/components/layout/side-nav';
 import { NexaWidget } from '@/features/nexa-ia/components/nexa-widget';
 import { InstallPrompt } from '@/features/install/components/install-prompt';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { getFeatureFlags } from '@/lib/feature-flags';
 import { unreadAnnouncementsCount } from '@/features/announcements/server/queries';
 import { SHELL_COLUMNS, readWithFallback, type ProfileReader } from '@/lib/supabase/profile-read';
 import type { Journey } from '@/types/database.types';
@@ -37,35 +37,35 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // de admin — a navegação inteira degradaria por causa de um campo que é só
   // preferência de tela.
   // `readWithFallback` tem teste próprio — ver `profile-read.test.ts`.
-  const profile = user
-    ? ((await readWithFallback(supabase as unknown as ProfileReader, user.id, SHELL_COLUMNS.wanted, SHELL_COLUMNS.guaranteed, {
-        full_name: null,
-        avatar_url: null,
-        role: 'student',
-        journey: 'school',
-      })) as {
-        full_name: string | null;
-        avatar_url: string | null;
-        role: string;
-        journey: Journey;
-      } | null)
-    : null;
-
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
-  const isTeacher = profile?.role === 'teacher_admin';
-  const communityEnabled = user ? await isFeatureEnabled('community_enabled') : false;
-  // Mural: aparece para quem pertence a uma escola. `readWithFallback` é por
-  // coluna conhecida; aqui basta uma leitura simples do vínculo.
-  const [unreadAnnouncements, schoolRow] = user
+  // Tudo em paralelo: eram cinco idas ao banco em fila (perfil, duas flags,
+  // avisos, escola), e cada ida custa uma viagem de rede em TODA navegação.
+  const [profileRaw, flags, unreadAnnouncements, schoolRow] = user
     ? await Promise.all([
+        readWithFallback(supabase as unknown as ProfileReader, user.id, SHELL_COLUMNS.wanted, SHELL_COLUMNS.guaranteed, {
+          full_name: null,
+          avatar_url: null,
+          role: 'student',
+          journey: 'school',
+        }),
+        getFeatureFlags(),
         unreadAnnouncementsCount(),
         supabase.from('profiles').select('school_id').eq('id', user.id).maybeSingle(),
       ])
-    : [0, null];
+    : [null, null, 0, null];
+  const profile = profileRaw as {
+    full_name: string | null;
+    avatar_url: string | null;
+    role: string;
+    journey: Journey;
+  } | null;
+
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
+  const isTeacher = profile?.role === 'teacher_admin';
+  const communityEnabled = flags?.community_enabled ?? false;
+  const vestibularEnabled = flags?.vestibular_enabled ?? false;
   const announcementsEnabled = Boolean(schoolRow?.data?.school_id);
   // "Professores" (chat da escola) aparece para todo aluno vinculado a uma escola; a tela explica se ainda não há professor na turma.
   const chatEnabled = announcementsEnabled;
-  const vestibularEnabled = user ? await isFeatureEnabled('vestibular_enabled') : false;
   // A jornada escolhida na criação da conta decide qual das duas plataformas
   // é a "casa" desta pessoa — e portanto qual navegação abre por padrão.
   const journey = profile?.journey ?? 'school';

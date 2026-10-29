@@ -27,6 +27,7 @@ const PUBLIC_PREFIXES = [
 ];
 
 const ONBOARDING_PATH = '/bem-vindo';
+const ONBOARDED_COOKIE = 'nx_ob';
 const HOME_PATH = '/hoje';
 const VESTIBULAR_HOME_PATH = '/vestibular';
 
@@ -165,10 +166,29 @@ export async function updateSession(request: NextRequest) {
   // A resiliência mora em `readWithFallback`, que tem teste próprio: foi a
   // falta dele que deixou passar o laço de redirecionamento quando o código
   // pediu `journey` antes da migração rodar.
-  const profile = (await readWithFallback(supabase as unknown as ProfileReader, user.id, ONBOARDING_COLUMNS.wanted, ONBOARDING_COLUMNS.guaranteed, {
-    onboarded_at: null,
-    journey: 'school',
-  })) as { onboarded_at: string | null; journey: string | null } | null;
+  // Cache curto do "já fez o onboarding" (10 min, só neste navegador): sem ele, TODA
+  // navegação pagava uma ida ao banco só para reaprender o que já se sabe. O valor
+  // leva o id do usuário, então a sessão de outra pessoa nunca o reaproveita.
+  const cached = request.cookies.get(ONBOARDED_COOKIE)?.value ?? '';
+  const [cachedUser, cachedJourney] = cached.split(':');
+  const fromCache = cachedUser === user.id && cachedJourney && ['school', 'vestibular', 'both'].includes(cachedJourney);
+
+  const profile = (fromCache
+    ? { onboarded_at: 'cache', journey: cachedJourney }
+    : await readWithFallback(supabase as unknown as ProfileReader, user.id, ONBOARDING_COLUMNS.wanted, ONBOARDING_COLUMNS.guaranteed, {
+        onboarded_at: null,
+        journey: 'school',
+      })) as { onboarded_at: string | null; journey: string | null } | null;
+
+  if (!fromCache && profile?.onboarded_at) {
+    response.cookies.set(ONBOARDED_COOKIE, `${user.id}:${profile.journey ?? 'school'}`, {
+      maxAge: 600,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+  }
 
   const onboarded = Boolean(profile?.onboarded_at);
   // Quem escolheu a jornada do vestibular tem OUTRA casa. Mandar essa pessoa
