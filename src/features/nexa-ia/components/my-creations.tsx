@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Clock, Lock, School, XCircle } from 'lucide-react';
 import { requestPublicationAction } from '../server/material-actions';
+import { DeleteCreationButton } from './delete-creation-button';
 import type { MyCreation } from '../server/material-queries';
 
 /**
@@ -28,7 +29,10 @@ export function MyCreations({ items, hasSchool }: { items: MyCreation[]; hasScho
                   {c.kind === 'quiz' ? `Simulado · ${c.questionCount} questões` : 'Resumo'} · {c.subjectName}
                 </p>
               </div>
-              <Status published={published} pending={pub?.status === 'pending'} />
+              <div className="flex shrink-0 items-center gap-1">
+                <Status published={published} pending={pub?.status === 'pending'} />
+                <DeleteCreationButton resourceId={c.id} title={c.title} />
+              </div>
             </div>
 
             {pub?.status === 'rejected' && (

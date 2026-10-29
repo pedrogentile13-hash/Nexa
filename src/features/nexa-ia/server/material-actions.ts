@@ -268,6 +268,16 @@ export async function requestPublicationAction(formData: FormData): Promise<void
   revalidatePath('/nexa-ia');
 }
 
+/** Apaga um conteúdo criado pela IA (só o dono, ou o admin). Apaga também as questões e os pedidos de publicação dele. */
+export async function deleteMyCreation(formData: FormData): Promise<void> {
+  const resourceId = String(formData.get('resourceId') ?? '');
+  if (!z.string().uuid().safeParse(resourceId).success) return;
+  const { supabase } = await me();
+  await supabase.rpc('delete_ai_resource', { p_resource_id: resourceId });
+  revalidatePath('/nexa-ia');
+  revalidatePath('/estudar');
+}
+
 export async function decidePublicationAction(formData: FormData): Promise<void> {
   const requestId = String(formData.get('requestId') ?? '');
   const approve = formData.get('decision') === 'approve';
