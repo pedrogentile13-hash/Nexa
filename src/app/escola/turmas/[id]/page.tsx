@@ -5,17 +5,21 @@ import { Empty, Metric, PageTitle, Panel } from '@/features/escola/components/ui
 import { StudentRow } from '@/features/escola/components/student-row';
 import { requireStaff } from '@/features/escola/server/guard';
 import { listClassCards, listRoster } from '@/features/escola/server/queries';
+import { ClassSettings } from '@/features/escola/components/class-forms';
+import { isLeader } from '@/features/escola/lib/access';
+import { createClient } from '@/lib/supabase/server';
 
 export const metadata = { title: 'Turma' };
 export const dynamic = 'force-dynamic';
 
 export default async function TurmaPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireStaff('/escola/turmas');
+  const staff = await requireStaff('/escola/turmas');
   const { id } = await params;
   const [classes, roster] = await Promise.all([listClassCards(), listRoster(id)]);
   const klass = classes.find((c) => c.id === id);
   if (!klass) notFound();
 
+  const { data: classRow } = await (await createClient()).from('classes').select('grade').eq('id', id).maybeSingle();
   const minutes = roster.reduce((sum, s) => sum + s.weekMinutes, 0);
 
   return (
@@ -32,6 +36,12 @@ export default async function TurmaPage({ params }: { params: Promise<{ id: stri
           </Link>
         }
       />
+
+      {isLeader(staff.role) && (
+        <div className="mb-6">
+          <ClassSettings id={id} name={klass.name} grade={(classRow as { grade?: string | null } | null)?.grade ?? null} students={klass.students} />
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Metric label="Alunos" value={klass.students} />

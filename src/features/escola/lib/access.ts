@@ -20,7 +20,7 @@ export function staffRoleOf(profile: { role: string | null; school_title?: strin
   return null;
 }
 
-export type NavIcon = 'home' | 'classes' | 'students' | 'megaphone' | 'teachers' | 'plan' | 'chat' | 'inbox' | 'accounts' | 'eye' | 'library';
+export type NavIcon = 'home' | 'classes' | 'students' | 'megaphone' | 'teachers' | 'plan' | 'chat' | 'inbox' | 'accounts' | 'eye' | 'library' | 'sparkles';
 
 export interface NavEntry {
   href: string;
@@ -43,6 +43,7 @@ export const NAV: NavEntry[] = [
   { href: '/escola/planejamento', label: 'Planejamento', icon: 'plan', roles: ['teacher'] },
   { href: '/escola/chat', label: 'Chat da turma', icon: 'chat', roles: ['teacher'] },
   { href: '/escola/conteudo', label: 'Conteúdo', icon: 'library', roles: ['teacher', 'coordination', 'direction'] },
+  { href: '/escola/ia', label: 'NexaAI', icon: 'sparkles', roles: ALL },
   { href: '/escola/visao-aluno', label: 'Visão do aluno', icon: 'eye', roles: ALL },
 ];
 

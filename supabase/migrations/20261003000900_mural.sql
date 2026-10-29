@@ -170,6 +170,9 @@ $$;
 
 grant execute on function public.mark_announcement_read(uuid) to authenticated;
 
+-- (reaplicar por cima de um banco já atualizado: a versão nova devolve mais colunas)
+drop function if exists public.list_announcements(integer);
+
 create or replace function public.list_announcements(p_limit integer default 50)
 returns table (
   id uuid,

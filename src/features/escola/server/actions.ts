@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isLeader } from '../lib/access';
@@ -18,14 +19,18 @@ async function leader() {
   return staff;
 }
 
+const GRADE = z.enum(['6', '7', '8', '9', '1em', '2em', '3em']);
+
 export async function createClass(_prev: EscolaState, formData: FormData): Promise<EscolaState> {
   const staff = await leader();
   if (!staff) return fail('Só coordenação e direção criam turmas.');
   const name = z.string().trim().min(1, 'Dê um nome à turma.').max(40).safeParse(formData.get('name'));
   if (!name.success) return fail(name.error.issues[0]?.message ?? 'Nome inválido.');
 
+  const grade = GRADE.safeParse(formData.get('grade'));
   const supabase = await createClient();
-  const { error } = await supabase.from('classes').insert({ school_id: staff.schoolId!, name: name.data, created_by: staff.userId });
+  // Sem ano escolhido, o banco deduz do nome ("9º C" → 9º ano).
+  const { error } = await supabase.from('classes').insert({ school_id: staff.schoolId!, name: name.data, created_by: staff.userId, ...(grade.success ? { grade: grade.data } : {}) });
   if (error) return fail(error.code === '23505' ? 'Já existe uma turma com esse nome.' : 'Não consegui criar a turma.');
   revalidatePath('/escola/turmas');
   revalidatePath('/escola');
@@ -83,4 +88,28 @@ export async function setStudentClass(formData: FormData): Promise<void> {
   revalidatePath('/escola/alunos');
   revalidatePath('/escola/turmas');
   revalidatePath('/escola');
+}
+
+export async function setClassGrade(formData: FormData): Promise<void> {
+  const staff = await leader();
+  const id = z.string().uuid().safeParse(formData.get('id'));
+  const raw = String(formData.get('grade') ?? '');
+  const grade = raw ? GRADE.safeParse(raw) : null;
+  if (!staff || !id.success || (grade && !grade.success)) return;
+  const supabase = await createClient();
+  await supabase.from('classes').update({ grade: grade?.data ?? null }).eq('id', id.data).eq('school_id', staff.schoolId!);
+  revalidatePath(`/escola/turmas/${id.data}`);
+}
+
+/** Apaga a turma. Os alunos ficam sem turma (continuam na escola); avisos e atribuições da turma saem junto. */
+export async function deleteClass(formData: FormData): Promise<void> {
+  const staff = await leader();
+  const id = z.string().uuid().safeParse(formData.get('id'));
+  if (!staff || !id.success) return;
+  const supabase = await createClient();
+  await supabase.from('classes').delete().eq('id', id.data).eq('school_id', staff.schoolId!);
+  revalidatePath('/escola/turmas');
+  revalidatePath('/escola/alunos');
+  revalidatePath('/escola');
+  redirect('/escola/turmas');
 }

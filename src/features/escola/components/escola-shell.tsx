@@ -17,6 +17,7 @@ import {
   Megaphone,
   Menu,
   MessageCircle,
+  Sparkles,
   Users,
   X,
 } from 'lucide-react';
@@ -40,6 +41,7 @@ const ICONS: Record<NavIcon, typeof Home> = {
   accounts: KeyRound,
   eye: Eye,
   library: Library,
+  sparkles: Sparkles,
 };
 
 function isActive(pathname: string, href: string): boolean {
@@ -68,8 +70,10 @@ export function EscolaShell({
 }) {
   const pathname = usePathname();
   const [more, setMore] = useState(false);
-  const dock = nav.slice(0, 4);
-  const rest = nav.slice(4);
+  // Atalhos fixos do celular: o que se usa todo dia, com a IA sempre à mão.
+  const DOCK = ['/escola', '/escola/turmas', '/escola/comunicar', '/escola/ia'];
+  const dock = DOCK.map((h) => nav.find((n) => n.href === h)).filter((n): n is NavEntry => !!n);
+  const rest = nav.filter((n) => !dock.includes(n));
   const restActive = rest.some((n) => isActive(pathname, n.href));
   const name = fullName ?? 'Você';
 

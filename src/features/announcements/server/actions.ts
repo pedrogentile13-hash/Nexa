@@ -19,18 +19,27 @@ const publishSchema = z.object({
   pinned: z.boolean(),
   days: z.coerce.number().int().min(1).max(365).optional(),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  grades: z.array(z.enum(['6', '7', '8', '9', '1em', '2em', '3em'])).max(7).optional(),
+  studentIds: z.array(z.string().uuid()).max(500).optional(),
 });
 
 export async function publishAnnouncement(_prev: PublishState, formData: FormData): Promise<PublishState> {
+  // Formulários antigos (mural do admin e do professor) não mandam `audience`: turma escolhida = turma.
+  const audience = String(formData.get('audience') ?? (formData.get('classId') ? 'class' : 'school'));
   const parsed = publishSchema.safeParse({
     title: formData.get('title'),
     body: formData.get('body'),
-    classId: formData.get('classId') || undefined,
     pinned: formData.get('pinned') === 'on',
     days: formData.get('days') || undefined,
     eventDate: formData.get('eventDate') || undefined,
+    // `audience` diz qual dos campos vale; os outros ficam de fora (o formulário pode ter sobras escondidas).
+    classId: audience === 'class' ? formData.get('classId') || undefined : undefined,
+    grades: audience === 'grades' ? formData.getAll('grades').map(String) : undefined,
+    studentIds: audience === 'students' ? formData.getAll('studentIds').map(String) : undefined,
   });
   if (!parsed.success) return { status: 'error', message: parsed.error.issues[0]?.message ?? 'Revise os campos.' };
+  if (audience === 'grades' && !parsed.data.grades?.length) return { status: 'error', message: 'Escolha ao menos um ano.' };
+  if (audience === 'students' && !parsed.data.studentIds?.length) return { status: 'error', message: 'Escolha ao menos um aluno.' };
 
   const supabase = await createClient();
   const expiresAt = parsed.data.days ? new Date(Date.now() + parsed.data.days * 86_400_000).toISOString() : null;
@@ -41,6 +50,8 @@ export async function publishAnnouncement(_prev: PublishState, formData: FormDat
     p_class_id: parsed.data.classId ?? null,
     p_pinned: parsed.data.pinned,
     p_expires_at: expiresAt,
+    p_grades: parsed.data.grades ?? null,
+    p_student_ids: parsed.data.studentIds ?? null,
   });
 
   if (error) {

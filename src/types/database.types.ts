@@ -1157,6 +1157,8 @@ export type ClassRow = {
   id: string;
   school_id: string;
   name: string;
+  /** '6'…'9', '1em'…'3em' ou nulo; vem do nome da turma e pode ser ajustado. */
+  grade: string | null;
   created_by: string | null;
   created_at: string;
 };
@@ -1714,7 +1716,7 @@ export type Database = {
       };
       can_create_any_event: { Args: { p_user_id?: string }; Returns: boolean };
       create_announcement: {
-        Args: { p_title: string; p_body: string; p_class_id?: string | null; p_pinned?: boolean; p_expires_at?: string | null };
+        Args: { p_title: string; p_body: string; p_class_id?: string | null; p_pinned?: boolean; p_expires_at?: string | null; p_grades?: string[] | null; p_student_ids?: string[] | null };
         Returns: { announcement_id: string; notified_user_ids: string[] }[];
       };
       set_announcement_event_date: { Args: { p_id: string; p_date: string | null }; Returns: void };
@@ -1727,7 +1729,7 @@ export type Database = {
         Args: { p_limit?: number };
         Returns: {
           id: string; title: string; body: string; author_name: string; class_name: string | null; pinned: boolean;
-          created_at: string; is_read: boolean; can_manage: boolean; read_count: number | null; audience_size: number | null;
+          created_at: string; is_read: boolean; can_manage: boolean; read_count: number | null; audience_size: number | null; audience_label: string;
         }[];
       };
       announcement_readers: {

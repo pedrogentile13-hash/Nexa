@@ -174,7 +174,7 @@ function ManagedRow({ a }: { a: Announcement }) {
             {a.title}
           </h3>
           <p className="text-subtle text-xs">
-            {a.className ? `Turma ${a.className}` : 'Toda a escola'} · {fmt.format(new Date(a.createdAt))}
+            {a.audienceLabel} · {fmt.format(new Date(a.createdAt))}
           </p>
           <p className="text-muted mt-1.5 line-clamp-2 text-sm whitespace-pre-wrap">{a.body}</p>
         </div>

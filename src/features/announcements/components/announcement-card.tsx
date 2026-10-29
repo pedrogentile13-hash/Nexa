@@ -36,7 +36,7 @@ export function AnnouncementCard({ a }: { a: Announcement }) {
         <div className="min-w-0 flex-1">
           <h2 className="text-base leading-snug font-semibold">{a.title}</h2>
           <p className="text-subtle mt-0.5 text-xs">
-            {a.authorName} · {a.className ? `Turma ${a.className}` : 'Toda a escola'} · {fmt.format(new Date(a.createdAt))}
+            {a.authorName} · {a.audienceLabel} · {fmt.format(new Date(a.createdAt))}
           </p>
         </div>
         {!read && <span className="bg-brand text-brand-fg shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold">Novo</span>}

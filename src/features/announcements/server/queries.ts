@@ -12,6 +12,8 @@ export interface Announcement {
   canManage: boolean;
   readCount: number | null;
   audienceSize: number | null;
+  /** "Toda a escola", "Turma 9A", "Fundamental II (6º ao 9º)", "3 alunos"… */
+  audienceLabel: string;
 }
 
 /** Antes do SQL do mural rodar, a função não existe: devolve vazio em vez de quebrar a tela. */
@@ -31,6 +33,7 @@ export async function listAnnouncements(limit = 50): Promise<Announcement[]> {
     canManage: a.can_manage,
     readCount: a.read_count,
     audienceSize: a.audience_size,
+    audienceLabel: a.audience_label ?? (a.class_name ? `Turma ${a.class_name}` : 'Toda a escola'),
   }));
 }
 
