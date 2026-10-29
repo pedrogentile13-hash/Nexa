@@ -70,7 +70,7 @@ const SECONDARY_ITEMS: NavItem[] = [
 /** Só aparece para quem tem `role` admin/school_admin — ver `(app)/layout.tsx`. */
 const ADMIN_ITEM: NavItem = { href: '/admin', label: 'Admin', Icon: Shield };
 /** Só aparece para quem tem `role` teacher_admin — ver `(app)/layout.tsx`. */
-const TEACHER_ITEM: NavItem = { href: '/professor', label: 'Professor', Icon: Users2 };
+const TEACHER_ITEM: NavItem = { href: '/escola', label: 'Portal da escola', Icon: Users2 };
 /** Só aparece com a feature flag `community_enabled` ligada — ver `(app)/layout.tsx`. */
 const COMMUNITY_ITEM: NavItem = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper };
 const CHAT_ITEM: NavItem = { href: '/chat', label: 'Professores', Icon: MessageCircle };

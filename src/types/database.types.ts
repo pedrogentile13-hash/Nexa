@@ -1863,6 +1863,19 @@ export type Database = {
         Returns: void;
       };
       delete_ai_resource: { Args: { p_resource_id: string }; Returns: void };
+      staff_classes_overview: {
+        Args: { p_school_id?: string | null };
+        Returns: { class_id: string; class_name: string; student_count: number; active_7d: number; never_active: number; avg_xp: number; teachers: string }[];
+      };
+      staff_roster: {
+        Args: { p_class_id?: string | null; p_search?: string | null };
+        Returns: {
+          user_id: string; full_name: string; avatar_url: string | null; class_id: string; class_name: string; school_login: string | null;
+          xp: number; level: number; current_streak: number; last_active: string | null; week_minutes: number;
+        }[];
+      };
+      staff_unassigned_students: { Args: Record<string, never>; Returns: { user_id: string; full_name: string; school_login: string | null }[] };
+      staff_set_student_class: { Args: { p_user_id: string; p_class_id?: string | null }; Returns: void };
       move_person_school: { Args: { p_user_id: string; p_school_id?: string | null }; Returns: void };
       request_publication: { Args: { p_resource_id: string; p_note?: string | null }; Returns: string };
       list_publication_requests: { Args: { p_status?: string | null }; Returns: PublicationRequestListRow[] };

@@ -64,7 +64,7 @@ const ACCOUNT_ITEMS = [
 ] as const;
 
 const ADMIN_ITEM = { href: '/admin', label: 'Admin', Icon: Shield } as const;
-const TEACHER_ITEM = { href: '/professor', label: 'Professor', Icon: Users2 } as const;
+const TEACHER_ITEM = { href: '/escola', label: 'Portal da escola', Icon: Users2 } as const;
 const COMMUNITY_ITEM = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper } as const;
 const CHAT_ITEM = { href: '/chat', label: 'Professores', Icon: MessageCircle } as const;
 const ANNOUNCEMENTS_ITEM = { href: '/avisos', label: 'Avisos', Icon: Megaphone } as const;

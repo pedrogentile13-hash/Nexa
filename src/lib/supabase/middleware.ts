@@ -28,6 +28,11 @@ const PUBLIC_PREFIXES = [
 
 const ONBOARDING_PATH = '/bem-vindo';
 const ONBOARDED_COOKIE = 'nx_ob';
+const STAFF_HOME_PATH = '/escola';
+
+function isStaffRole(role: string | null | undefined): boolean {
+  return role === 'teacher_admin' || role === 'school_admin';
+}
 const HOME_PATH = '/hoje';
 const VESTIBULAR_HOME_PATH = '/vestibular';
 
@@ -170,18 +175,19 @@ export async function updateSession(request: NextRequest) {
   // navegação pagava uma ida ao banco só para reaprender o que já se sabe. O valor
   // leva o id do usuário, então a sessão de outra pessoa nunca o reaproveita.
   const cached = request.cookies.get(ONBOARDED_COOKIE)?.value ?? '';
-  const [cachedUser, cachedJourney] = cached.split(':');
-  const fromCache = cachedUser === user.id && cachedJourney && ['school', 'vestibular', 'both'].includes(cachedJourney);
+  const [cachedUser, cachedJourney, cachedRole] = cached.split(':');
+  const fromCache = cachedUser === user.id && cachedJourney && ['school', 'vestibular', 'both'].includes(cachedJourney) && Boolean(cachedRole);
 
   const profile = (fromCache
-    ? { onboarded_at: 'cache', journey: cachedJourney }
+    ? { onboarded_at: 'cache', journey: cachedJourney, role: cachedRole }
     : await readWithFallback(supabase as unknown as ProfileReader, user.id, ONBOARDING_COLUMNS.wanted, ONBOARDING_COLUMNS.guaranteed, {
         onboarded_at: null,
         journey: 'school',
-      })) as { onboarded_at: string | null; journey: string | null } | null;
+        role: 'student',
+      })) as { onboarded_at: string | null; journey: string | null; role: string | null } | null;
 
-  if (!fromCache && profile?.onboarded_at) {
-    response.cookies.set(ONBOARDED_COOKIE, `${user.id}:${profile.journey ?? 'school'}`, {
+  if (!fromCache && (profile?.onboarded_at || isStaffRole(profile?.role))) {
+    response.cookies.set(ONBOARDED_COOKIE, `${user.id}:${profile?.journey ?? 'school'}:${profile?.role ?? 'student'}`, {
       maxAge: 600,
       httpOnly: true,
       sameSite: 'lax',
@@ -199,6 +205,17 @@ export async function updateSession(request: NextRequest) {
   const home = profile?.journey === 'vestibular' ? VESTIBULAR_HOME_PATH : HOME_PATH;
 
   if (pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)) return response;
+
+  // Professor, coordenação e direção não passam pelo onboarding de aluno: a casa deles é o portal da escola.
+  if (isStaffRole(profile?.role)) {
+    if (pathname === '/login' || pathname === ONBOARDING_PATH || pathname === HOME_PATH) {
+      const url = request.nextUrl.clone();
+      url.pathname = STAFF_HOME_PATH;
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
+    return response;
+  }
 
   if (!onboarded && pathname !== ONBOARDING_PATH) {
     const url = request.nextUrl.clone();

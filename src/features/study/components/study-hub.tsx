@@ -175,12 +175,30 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
                 </li>
               );
             })}
+            {origin !== 'meus' && data.tracks.length > 0 && (
+              <li className="min-w-0">
+                <Link
+                  href="/trilhas"
+                  className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
+                >
+                  <span aria-hidden className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-lg">
+                    <RouteIcon className="size-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">Trilhas</span>
+                    <span className="text-muted text-xs tabular-nums">
+                      {data.tracks.length} {data.tracks.length === 1 ? 'trilha' : 'trilhas'}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            )}
           </ul>
         </section>
       )}
 
       {/* ----------------------------------------------------- trilhas -- */}
-      {!kindFilter && !bimestreFilter && origin !== 'meus' && data.tracks.length > 0 && (
+      {!kindFilter && origin !== 'meus' && data.tracks.length > 0 && (
         <section>
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Trilhas por matéria

@@ -67,7 +67,7 @@ export async function readWithFallback<T extends Record<string, unknown>>(
   }
 }
 
-export const ONBOARDING_COLUMNS = { wanted: 'onboarded_at, journey', guaranteed: 'onboarded_at' };
+export const ONBOARDING_COLUMNS = { wanted: 'onboarded_at, journey, role', guaranteed: 'onboarded_at, role' };
 
 export const SHELL_COLUMNS = {
   wanted: 'full_name, avatar_url, role, journey',

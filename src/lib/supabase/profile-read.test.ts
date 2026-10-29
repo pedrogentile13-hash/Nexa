@@ -36,7 +36,7 @@ const DEFAULTS = { onboarded_at: null, journey: 'school' };
 describe('readWithFallback', () => {
   it('usa uma consulta só quando o banco tem as colunas', async () => {
     const { client, calls } = fakeClient({
-      'onboarded_at, journey': { data: { onboarded_at: '2026-01-01', journey: 'vestibular' }, error: null },
+      'onboarded_at, journey, role': { data: { onboarded_at: '2026-01-01', journey: 'vestibular' }, error: null },
     });
 
     const result = await readWithFallback(
@@ -44,14 +44,14 @@ describe('readWithFallback', () => {
     );
 
     expect(result).toMatchObject({ onboarded_at: '2026-01-01', journey: 'vestibular' });
-    expect(calls).toEqual(['onboarded_at, journey']);
+    expect(calls).toEqual(['onboarded_at, journey, role']);
   });
 
   it('cai pro conjunto garantido quando a coluna nova não existe', async () => {
     // Este é o cenário do incidente: 42703, retornado e NÃO lançado.
     const { client, calls } = fakeClient({
-      'onboarded_at, journey': { data: null, error: { code: '42703' } },
-      onboarded_at: { data: { onboarded_at: '2026-01-01' }, error: null },
+      'onboarded_at, journey, role': { data: null, error: { code: '42703' } },
+      'onboarded_at, role': { data: { onboarded_at: '2026-01-01' }, error: null },
     });
 
     const result = await readWithFallback(
@@ -59,13 +59,13 @@ describe('readWithFallback', () => {
     );
 
     expect(result).toMatchObject({ onboarded_at: '2026-01-01', journey: 'school' });
-    expect(calls).toEqual(['onboarded_at, journey', 'onboarded_at']);
+    expect(calls).toEqual(['onboarded_at, journey, role', 'onboarded_at, role']);
   });
 
   it('NÃO perde onboarded_at quando a coluna nova falta — é o que causava o laço', async () => {
     const { client } = fakeClient({
-      'onboarded_at, journey': { data: null, error: { code: '42703' } },
-      onboarded_at: { data: { onboarded_at: '2026-01-01' }, error: null },
+      'onboarded_at, journey, role': { data: null, error: { code: '42703' } },
+      'onboarded_at, role': { data: { onboarded_at: '2026-01-01' }, error: null },
     });
 
     const result = await readWithFallback(
@@ -77,7 +77,7 @@ describe('readWithFallback', () => {
 
   it('devolve null quando o usuário não tem perfil, sem tentar o fallback', async () => {
     const { client, calls } = fakeClient({
-      'onboarded_at, journey': { data: null, error: null },
+      'onboarded_at, journey, role': { data: null, error: null },
     });
 
     const result = await readWithFallback(
@@ -85,7 +85,7 @@ describe('readWithFallback', () => {
     );
 
     expect(result).toBeNull();
-    expect(calls).toEqual(['onboarded_at, journey']);
+    expect(calls).toEqual(['onboarded_at, journey, role']);
   });
 
   it('devolve null quando até o conjunto garantido falha', async () => {
