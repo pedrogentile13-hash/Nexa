@@ -20,6 +20,7 @@ export async function listSchoolClasses(schoolId: string): Promise<ClassOption[]
     .from('classes')
     .select('id, name')
     .eq('school_id', schoolId)
+    .is('closed_at', null)
     .order('name');
 
   return data ?? [];

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import {
+  CalendarDays,
   ClipboardList,
   Eye,
   GraduationCap,
@@ -42,6 +43,7 @@ const ICONS: Record<NavIcon, typeof Home> = {
   eye: Eye,
   library: Library,
   sparkles: Sparkles,
+  calendar: CalendarDays,
 };
 
 function isActive(pathname: string, href: string): boolean {

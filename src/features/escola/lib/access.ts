@@ -20,7 +20,7 @@ export function staffRoleOf(profile: { role: string | null; school_title?: strin
   return null;
 }
 
-export type NavIcon = 'home' | 'classes' | 'students' | 'megaphone' | 'teachers' | 'plan' | 'chat' | 'inbox' | 'accounts' | 'eye' | 'library' | 'sparkles';
+export type NavIcon = 'home' | 'classes' | 'students' | 'megaphone' | 'teachers' | 'plan' | 'chat' | 'inbox' | 'accounts' | 'eye' | 'library' | 'sparkles' | 'calendar';
 
 export interface NavEntry {
   href: string;
@@ -37,6 +37,7 @@ export const NAV: NavEntry[] = [
   { href: '/escola/turmas', label: 'Turmas', icon: 'classes', roles: ALL },
   { href: '/escola/alunos', label: 'Alunos', icon: 'students', roles: ALL },
   { href: '/escola/comunicar', label: 'Comunicar', icon: 'megaphone', roles: ALL },
+  { href: '/escola/anos', label: 'Ano letivo', icon: 'calendar', roles: LEADERS },
   { href: '/escola/professores', label: 'Professores', icon: 'teachers', roles: LEADERS },
   { href: '/escola/publicacoes', label: 'Publicações', icon: 'inbox', roles: LEADERS },
   { href: '/escola/contas', label: 'Contas', icon: 'accounts', roles: LEADERS },

@@ -1159,6 +1159,8 @@ export type ClassRow = {
   name: string;
   /** '6'…'9', '1em'…'3em' ou nulo; vem do nome da turma e pode ser ajustado. */
   grade: string | null;
+  school_year_id: string | null;
+  closed_at: string | null;
   created_by: string | null;
   created_at: string;
 };
@@ -1876,6 +1878,19 @@ export type Database = {
           xp: number; level: number; current_streak: number; last_active: string | null; week_minutes: number;
         }[];
       };
+      school_years_overview: {
+        Args: Record<string, never>;
+        Returns: { year_id: string; year: number; status: string; classes: number; students: number; results: number }[];
+      };
+      prepare_school_year: { Args: { p_year: number }; Returns: string };
+      year_plan_overview: { Args: { p_year_id: string }; Returns: Json };
+      year_history: { Args: { p_year_id: string }; Returns: Json };
+      plan_save_class: { Args: { p_year_id: string; p_class_id: string | null; p_name: string; p_grade: string | null }; Returns: string };
+      plan_delete_class: { Args: { p_year_id: string; p_class_id: string }; Returns: void };
+      plan_move_student: { Args: { p_year_id: string; p_student_id: string; p_plan_class_id: string | null }; Returns: void };
+      plan_remove_assignment: { Args: { p_year_id: string; p_assignment_id: string }; Returns: void };
+      cancel_school_year_plan: { Args: { p_year_id: string }; Returns: void };
+      activate_school_year: { Args: { p_year_id: string }; Returns: Json };
       staff_unassigned_students: { Args: Record<string, never>; Returns: { user_id: string; full_name: string; school_login: string | null }[] };
       staff_set_student_class: { Args: { p_user_id: string; p_class_id?: string | null }; Returns: void };
       move_person_school: { Args: { p_user_id: string; p_school_id?: string | null }; Returns: void };

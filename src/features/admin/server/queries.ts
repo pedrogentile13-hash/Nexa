@@ -596,7 +596,7 @@ export interface AdminClassOption {
 /** Todas as turmas de todas as escolas — só pro admin geral (escolhe a escola no próprio formulário). */
 export async function listAllClasses(): Promise<AdminClassOption[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from('classes').select('id, name, schools(name)').order('name');
+  const { data } = await supabase.from('classes').select('id, name, schools(name)').is('closed_at', null).order('name');
 
   return (data ?? []).map((row) => {
     const school = row.schools as unknown as { name: string } | null;
@@ -616,7 +616,7 @@ export interface AdminClass {
 export async function listClasses(): Promise<AdminClass[]> {
   const supabase = await createClient();
   const [{ data }, { data: studentCounts }] = await Promise.all([
-    supabase.from('classes').select('id, name, school_id, schools(name)').order('name'),
+    supabase.from('classes').select('id, name, school_id, schools(name)').is('closed_at', null).order('name'),
     supabase.from('profiles').select('class_id').eq('role', 'student').not('class_id', 'is', null),
   ]);
 

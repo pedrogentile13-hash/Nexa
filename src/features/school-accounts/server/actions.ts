@@ -343,7 +343,7 @@ export async function importSchoolAccounts(_prev: ImportState, formData: FormDat
   if (!admin) return err(MISSING_KEY);
 
   const supabase = await createClient();
-  const { data: classRows } = await supabase.from('classes').select('id, name').eq('school_id', schoolId);
+  const { data: classRows } = await supabase.from('classes').select('id, name').eq('school_id', schoolId).is('closed_at', null);
   const fold = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '');
   const classByName = new Map((classRows ?? []).map((c) => [fold(c.name), c.id]));
 

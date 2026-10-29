@@ -6,6 +6,7 @@ import { NewClassForm } from '@/features/escola/components/class-forms';
 import { isLeader } from '@/features/escola/lib/access';
 import { requireStaff } from '@/features/escola/server/guard';
 import { listClassCards } from '@/features/escola/server/queries';
+import { currentYearNumber } from '@/features/escola/server/years';
 
 export const metadata = { title: 'Turmas' };
 export const dynamic = 'force-dynamic';
@@ -14,12 +15,13 @@ export default async function TurmasPage() {
   const staff = await requireStaff('/escola/turmas');
   const classes = await listClassCards();
   const leader = isLeader(staff.role);
+  const year = leader ? await currentYearNumber() : null;
 
   return (
     <>
       <PageTitle
-        title={leader ? 'Turmas' : 'Minhas turmas'}
-        subtitle={leader ? 'Cada turma com quem estudou na semana e quem leciona.' : 'As turmas em que você leciona.'}
+        title={leader ? `Turmas${year ? ` · ${year}` : ''}` : 'Minhas turmas'}
+        subtitle={leader ? 'Cada turma com quem estudou na semana e quem leciona. Nova virada de ano? Veja Ano letivo.' : 'As turmas em que você leciona.'}
         action={leader && staff.schoolId ? <NewClassForm /> : undefined}
       />
 

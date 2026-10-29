@@ -66,11 +66,12 @@ export const getTeacherAssignments = cache(
     const supabase = await createClient();
     const { data } = await supabase
       .from('teacher_assignments')
-      .select('id, subject_catalog_id, class_id, subject_catalog(name), classes(name)')
+      .select('id, subject_catalog_id, class_id, subject_catalog(name), classes(name, closed_at)')
       .eq('teacher_id', teacherId)
       .order('created_at');
 
-    return (data ?? []).map((row) => {
+    // Turma de ano encerrado é história: o professor não a vê mais no dia a dia.
+    return (data ?? []).filter((row) => !(row.classes as unknown as { closed_at: string | null } | null)?.closed_at).map((row) => {
       const subject = row.subject_catalog as unknown as { name: string } | null;
       const klass = row.classes as unknown as { name: string } | null;
       return {
