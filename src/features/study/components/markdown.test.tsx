@@ -79,3 +79,12 @@ describe('Markdown · formatação', () => {
     expect(render('\n\n')).toBe('');
   });
 });
+
+describe('Markdown · links', () => {
+  it('só vira link o que aponta para uma página do próprio app', () => {
+    expect(render('[Abrir](/estudar/abc)')).toContain('href="/estudar/abc"');
+    for (const bad of ['[x](https://evil.com)', '[x](//evil.com)', '[x](javascript:alert(1))']) {
+      expect(render(bad)).not.toContain('<a');
+    }
+  });
+});

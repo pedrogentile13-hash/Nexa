@@ -259,14 +259,14 @@ export function NexaWidget() {
           onClick={() => setOpen((o) => !o)}
           aria-label={open ? 'Fechar a NexaAI' : 'Abrir a NexaAI'}
           aria-expanded={open}
-          className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 size-12 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 md:right-6 md:bottom-6 md:size-14"
+          className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 size-12 rounded-full bg-surface shadow-lg ring-1 ring-border transition-transform hover:scale-105 active:scale-95 md:right-6 md:bottom-6 md:size-14"
         >
           <Image
             src="/brand/nexa-ai.webp"
             alt=""
             width={56}
             height={56}
-            className="size-full rounded-full object-cover"
+            className="size-full object-contain p-1"
           />
           <span
             aria-hidden

@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import Link from 'next/link';
 
 /**
  * Markdown mínimo, renderizado como elementos React.
@@ -17,7 +18,8 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   // Uma varredura só, com alternativas na mesma expressão: parsers em camadas
   // (negrito e depois itálico) tropeçam em `**texto*` e produzem marcação solta.
-  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  // Link só para caminho DO PRÓPRIO app (começa com /): nada de http:, javascript: ou outro site.
+  const pattern = /(\[[^\]]+\]\(\/(?!\/)[^)\s]*\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let index = 0;
@@ -27,7 +29,15 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     const token = match[0];
     const key = `${keyPrefix}-${index++}`;
 
-    if (token.startsWith('**')) {
+    if (token.startsWith('[')) {
+      const split = token.indexOf('](');
+      const href = token.slice(split + 2, -1);
+      nodes.push(
+        <Link key={key} href={href as '/'} className="text-brand-text font-semibold underline underline-offset-2">
+          {token.slice(1, split)}
+        </Link>,
+      );
+    } else if (token.startsWith('**')) {
       nodes.push(
         <strong key={key} className="font-semibold">
           {token.slice(2, -2)}

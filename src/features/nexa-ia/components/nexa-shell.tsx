@@ -100,8 +100,8 @@ function Sidebar({
 
   return (
     <>
-      <div className="pt-safe flex items-center justify-between px-4 pt-4 pb-2">
-        <p className="text-lg font-semibold tracking-tight">NexaAI</p>
+      <div className="flex items-center justify-between px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-3">
+        <p className="text-xl font-semibold tracking-tight">NexaAI</p>
         <button type="button" onClick={onNavigate} aria-label="Fechar" className="text-muted hover:bg-surface-2 grid size-9 place-items-center rounded-full lg:hidden">
           <X className="size-5" aria-hidden />
         </button>

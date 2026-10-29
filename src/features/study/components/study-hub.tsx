@@ -27,6 +27,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
   const params = useSearchParams();
   const subjectFilter = params.get('materia');
   const bimestreFilter = params.get('bimestre');
+  const origin = params.get('origem') ?? 'todos';
 
   function setParam(key: string, value: string | null) {
     const next = new URLSearchParams(params.toString());
@@ -43,6 +44,31 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-8 md:px-6 md:pt-6 lg:px-8">
+      {/* ------------------------------------------------------- origem -- */}
+      <div role="tablist" aria-label="De onde vem o conteúdo" className="bg-surface-2 grid grid-cols-3 gap-1 rounded-2xl p-1 md:max-w-xl">
+        {(
+          [
+            ['todos', 'Tudo'],
+            ['plataforma', 'Da plataforma'],
+            ['meus', 'Meus conteúdos'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={origin === value}
+            onClick={() => setParam('origem', value === 'todos' ? null : value)}
+            className={cn(
+              'h-10 min-w-0 truncate rounded-xl px-2 text-sm font-medium transition-colors',
+              origin === value ? 'bg-surface text-brand-text shadow-sm' : 'text-muted',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* ------------------------------------------------------ filtros -- */}
       {/* Menus suspensos, não fileiras de botões rolando para o lado: com 10+
           matérias a fileira escondia metade das opções. */}
@@ -153,7 +179,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
       )}
 
       {/* ----------------------------------------------------- trilhas -- */}
-      {!kindFilter && !bimestreFilter && data.tracks.length > 0 && (
+      {!kindFilter && !bimestreFilter && origin !== 'meus' && data.tracks.length > 0 && (
         <section>
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Trilhas por matéria
@@ -214,7 +240,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
 
         {visible.length === 0 ? (
           <EmptyLibrary
-            filtered={Boolean(subjectFilter || kindFilter || bimestreFilter)}
+            filtered={Boolean(subjectFilter || kindFilter || bimestreFilter || origin !== 'todos')}
             kind={kindFilter}
           />
         ) : (
@@ -245,7 +271,12 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
                     </span>
 
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{item.title}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="min-w-0 truncate text-sm font-semibold">{item.title}</span>
+                        {item.mine && (
+                          <span className="bg-brand-soft text-brand-text shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold">Meu</span>
+                        )}
+                      </span>
                       <span className="text-muted block truncate text-xs">
                         {[
                           item.subjectName,

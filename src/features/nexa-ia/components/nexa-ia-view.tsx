@@ -69,7 +69,7 @@ export function NexaIaView({ activeSessionId, messages }: { activeSessionId: str
                   </div>
                 ) : (
                   <div className="flex max-w-full gap-3">
-                    <Image src="/brand/nexa-ai.webp" alt="" width={28} height={28} className="mt-0.5 size-7 shrink-0 rounded-full" />
+                    <Image src="/brand/nexa-ai.webp" alt="" width={28} height={28} className="mt-0.5 size-7 shrink-0 object-contain" />
                     <div className="min-w-0 text-[15px] leading-relaxed">
                       <Markdown source={message.content} />
                     </div>
@@ -84,7 +84,7 @@ export function NexaIaView({ activeSessionId, messages }: { activeSessionId: str
 
       {empty && (
         <div className="mb-6 flex flex-col items-center gap-3 px-4 text-center">
-          <Image src="/brand/nexa-ai.webp" alt="" width={56} height={56} className="size-14 rounded-full" />
+          <Image src="/brand/nexa-ai.webp" alt="" width={56} height={56} className="size-16 object-contain" />
           <h2 className="text-2xl font-semibold tracking-tight">Como posso ajudar?</h2>
         </div>
       )}

@@ -35,16 +35,34 @@ export default async function NexaIaPage({
     <NexaShell sessions={sessions} activeSessionId={activeSessionId} tab={tab}>
       {tab === 'conversar' && <NexaIaView activeSessionId={activeSessionId} messages={messages} />}
       {tab === 'material' && (
-        <div className="flex-1 overflow-y-auto px-4 py-6">
+        <PageScroll
+          title="Material de estudo"
+          subtitle="Envie um PDF, foto ou texto. A NexaAI lê, tira dúvidas e cria resumo e simulado só com o que está no seu material."
+        >
           <MaterialTab />
-        </div>
+        </PageScroll>
       )}
       {tab === 'conteudos' && (
-        <div className="flex-1 overflow-y-auto px-4 py-6">
+        <PageScroll
+          title="Meus conteúdos"
+          subtitle="Resumos e simulados que a NexaAI criou para você. Só você vê, até a escola aprovar a publicação."
+        >
           <CreationsTab userId={user.id} />
-        </div>
+        </PageScroll>
       )}
     </NexaShell>
+  );
+}
+
+function PageScroll({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto w-full max-w-3xl px-4 pt-8 pb-10 md:pt-14">
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="text-muted mt-1.5 mb-6 text-sm">{subtitle}</p>
+        {children}
+      </div>
+    </div>
   );
 }
 

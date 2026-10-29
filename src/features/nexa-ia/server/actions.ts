@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
 import { checkAiQuota } from '@/lib/ai/quota';
 import { getChatMessages } from './queries';
+import { maybeCreateFromChat } from './chat-create';
 import { buildTutorSystemPrompt, parseTutorMode, type TutorMode } from '../tutor';
 import { reportError } from '@/features/observability/server/actions';
 
@@ -221,7 +222,9 @@ export async function sendMessage(
   // Limite diário: passou dele, a conversa continua salva, mas a resposta é o
   // aviso (e a IA não é chamada, que é o que custa).
   const quota = await checkAiQuota(supabase, 'nexa_ia');
-  const reply = quota.ok ? await replyTo(sessionId, user.id, parseTutorMode(parsed.data.mode)) : quota.message;
+  // Pedido de criação ("crie um simulado de 3 questões sobre…"): a NexaAI cria e responde com o link.
+  const created = quota.ok ? await maybeCreateFromChat(supabase, content) : null;
+  const reply = created ?? (quota.ok ? await replyTo(sessionId, user.id, parseTutorMode(parsed.data.mode)) : quota.message);
 
   await supabase.from('ai_chat_messages').insert({ session_id: sessionId, role: 'assistant', content: reply });
 

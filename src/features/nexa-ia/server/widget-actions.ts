@@ -6,6 +6,7 @@ import { completeWithAI, type AIAttachment } from '@/lib/ai/provider';
 import { checkAiQuota } from '@/lib/ai/quota';
 import { buildTutorSystemPrompt } from '../tutor';
 import { classifyUpload, MAX_FILE_BYTES } from '../lib/material';
+import { maybeCreateFromChat } from './chat-create';
 import { getChatMessages, getChatSessions, type ChatMessage, type ChatSessionSummary } from './queries';
 
 /**
@@ -80,7 +81,10 @@ export async function widgetSend(formData: FormData): Promise<WidgetReply> {
 
   const quota = await checkAiQuota(supabase, attachment ? 'material' : 'nexa_ia');
   let reply: string;
-  if (!quota.ok) {
+  const created = quota.ok && !attachment ? await maybeCreateFromChat(supabase, content) : null;
+  if (created) {
+    reply = created;
+  } else if (!quota.ok) {
     reply = quota.message;
   } else {
     const history = await getChatMessages(sessionId);

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import type { Difficulty, ResourceKind } from '@/types/database.types';
 import type { EvaluationCriterion, ExamAsset, ExamMode, ExamSection, ExamSettings } from '@/types/simulado';
 
@@ -30,7 +30,11 @@ export interface LibraryItem {
   progressPercent: number;
   /** 1 a 4, ou `null` quando o recurso não é amarrado a um bimestre específico. */
   bimestre: number | null;
+  /** Criado pelo próprio aluno com a IA (a Biblioteca separa "meus conteúdos" do acervo da plataforma). */
+  mine: boolean;
 }
+
+export type LibraryOrigin = 'todos' | 'plataforma' | 'meus';
 
 export interface StudyHubData {
   items: LibraryItem[];
@@ -53,10 +57,12 @@ const EMPTY_COUNTS: Record<ResourceKind, number> = {
 export async function getStudyHub(
   subjectFilter?: string,
   bimestreFilter?: number,
+  origin: LibraryOrigin = 'todos',
 ): Promise<StudyHubData> {
   const supabase = await createClient();
+  const user = await getCurrentUser();
 
-  const [libraryRes, progressRes, lessonsRes, tracksRes, mySubjectsRes] = await Promise.all([
+  const [libraryRes, progressRes, lessonsRes, tracksRes, mySubjectsRes, myCreationsRes] = await Promise.all([
     supabase
       .from('v_resource_library')
       .select('*')
@@ -71,7 +77,12 @@ export async function getStudyHub(
     supabase.from('tracks').select('id, title, subject_catalog(name)').eq('is_published', true),
     // As matérias do aluno decidem a ORDEM do acervo: o que ele cursa vem antes.
     supabase.from('subjects').select('catalog_id').is('archived_at', null),
+    // O que a IA criou para ESTE aluno (a RLS já esconde o dos outros).
+    user
+      ? supabase.from('resources').select('id').eq('ai_generated', true).eq('created_by', user.id)
+      : Promise.resolve({ data: [] as { id: string }[] }),
   ]);
+  const myCreations = new Set((myCreationsRes.data ?? []).map((r) => r.id));
 
   const progressByResource = new Map((progressRes.data ?? []).map((p) => [p.resource_id, p]));
 
@@ -79,7 +90,7 @@ export async function getStudyHub(
     (mySubjectsRes.data ?? []).map((s) => s.catalog_id).filter((id): id is string => Boolean(id)),
   );
 
-  const all: LibraryItem[] = (libraryRes.data ?? []).map((r) => ({
+  const allItems: LibraryItem[] = (libraryRes.data ?? []).map((r) => ({
     id: r.id,
     kind: r.kind,
     title: r.title,
@@ -96,10 +107,13 @@ export async function getStudyHub(
     questionCount: Number(r.question_count ?? 0),
     progressPercent: Number(progressByResource.get(r.id)?.progress_percent ?? 0),
     bimestre: r.bimestre,
+    mine: myCreations.has(r.id),
   }));
 
   // Matéria que o aluno cursa primeiro; dentro disso, a ordem do catálogo.
-  all.sort((a, b) => Number(mine.has(b.subjectId)) - Number(mine.has(a.subjectId)));
+  allItems.sort((a, b) => Number(mine.has(b.subjectId)) - Number(mine.has(a.subjectId)));
+
+  const all = origin === 'meus' ? allItems.filter((i) => i.mine) : origin === 'plataforma' ? allItems.filter((i) => !i.mine) : allItems;
 
   const countsByKind = { ...EMPTY_COUNTS };
   const subjectMap = new Map<string, { id: string; name: string; color: string }>();
