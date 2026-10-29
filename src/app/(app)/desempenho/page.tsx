@@ -29,9 +29,9 @@ import { levelProgressPercent } from '@/features/performance/lib/level';
 import {
   getPerformance,
   type ScoreEvolutionPoint,
-  type TopicMastery,
 } from '@/features/performance/server/queries';
 import { getCurrentUser } from '@/lib/supabase/server';
+import { MasteryPanel } from '@/features/performance/components/mastery-panel';
 import { cn } from '@/lib/utils';
 
 // `recharts` é pesado e só entra no bundle desta página — `dynamic()` corta o
@@ -53,24 +53,6 @@ const SubjectScoresChart = loadChart(() =>
 );
 
 const PASSING_GRADE = 6;
-
-const STATUS_DOT: Record<TopicMastery['status'], string> = {
-  dominado: 'bg-success',
-  desenvolvimento: 'bg-warning',
-  revisar: 'bg-danger',
-};
-
-/** Agrupa mantendo a ordem de chegada — como `topicMastery` já vem pior
- * primeiro, a matéria mais fraca também abre o mapa de domínio. */
-function groupMasteryBySubject(topics: TopicMastery[]): [string, TopicMastery[]][] {
-  const map = new Map<string, TopicMastery[]>();
-  for (const topic of topics) {
-    const list = map.get(topic.subjectName);
-    if (list) list.push(topic);
-    else map.set(topic.subjectName, [topic]);
-  }
-  return [...map.entries()];
-}
 
 /** Diferença entre as duas últimas semanas com nota avaliativa — não entre
  * bimestres, que não existem mais para efeito de nota. */
@@ -156,7 +138,6 @@ export default async function PerformancePage() {
   const worstTopic = data.topicMastery.find(
     (topic) => topic.status === 'revisar' && topic.totalCount >= 2,
   );
-  const masteryBySubject = groupMasteryBySubject(data.topicMastery);
 
   const totalQuizzes = data.subjectScores.reduce((sum, s) => sum + s.quizzesDone, 0);
   const totalSimulados = data.subjectScores.reduce((sum, s) => sum + s.simuladosDone, 0);
@@ -358,35 +339,23 @@ export default async function PerformancePage() {
         {/* O domínio por assunto: de onde a recomendação acima veio, e onde
             olhar mesmo sem nenhum assunto crítico o bastante pra virar
             recomendação. */}
-        {masteryBySubject.length > 0 && (
+        {data.topicMastery.length > 0 && (
           <Card className="min-w-0 lg:col-span-2">
             <CardHeader>
               <CardTitle>Mapa de domínio</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {masteryBySubject.map(([subjectName, topics]) => (
-                <div key={subjectName}>
-                  <p className="text-muted mb-1.5 text-xs font-semibold tracking-wide uppercase">
-                    {subjectName}
-                  </p>
-                  <ul className="divide-border divide-y">
-                    {topics.map((topic) => (
-                      <li key={topic.topicId ?? topic.topicName} className="flex items-center gap-3 py-2">
-                        <span
-                          aria-hidden
-                          className={cn('size-2.5 shrink-0 rounded-full', STATUS_DOT[topic.status])}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                          {topic.topicName}
-                        </span>
-                        <span className="text-muted shrink-0 text-xs tabular-nums">
-                          {topic.correctCount}/{topic.totalCount}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+            <CardContent>
+              <MasteryPanel
+                grouped
+                rows={data.topicMastery.map((t) => ({
+                  name: t.topicName,
+                  group: t.subjectName,
+                  correct: t.correctCount,
+                  total: t.totalCount,
+                  percent: t.masteryPercent,
+                  status: t.status,
+                }))}
+              />
             </CardContent>
           </Card>
         )}
@@ -400,22 +369,17 @@ export default async function PerformancePage() {
               <CardTitle>Domínio por habilidade</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <ul className="divide-border divide-y">
-                {data.skillMastery.map((skill) => (
-                  <li key={skill.skill} className="flex items-center gap-3 py-2">
-                    <span
-                      aria-hidden
-                      className={cn('size-2.5 shrink-0 rounded-full', STATUS_DOT[skill.status])}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                      {skill.skill}
-                    </span>
-                    <span className="text-muted shrink-0 text-xs tabular-nums">
-                      {skill.correctCount}/{skill.totalCount}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <MasteryPanel
+                grouped={false}
+                rows={data.skillMastery.map((k) => ({
+                  name: k.skill,
+                  group: 'Habilidades',
+                  correct: k.correctCount,
+                  total: k.totalCount,
+                  percent: k.masteryPercent,
+                  status: k.status,
+                }))}
+              />
 
               {data.commonErrorTypes.length > 0 && (
                 <div className="border-border border-t pt-3">
