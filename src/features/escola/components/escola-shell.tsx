@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { StaffChat } from '@/features/staff-ia/components/staff-chat';
 import { CoMark } from '@/components/layout/school-brand';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { signOut } from '@/features/auth/server/actions';
@@ -134,6 +135,7 @@ export function EscolaShell({
         </header>
 
         <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-10">{children}</main>
+        <StaffChat />
       </div>
 
       {/* Barra de atalhos (celular) */}

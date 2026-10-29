@@ -38,7 +38,7 @@ async function callGroq(userPrompt: string, maxTokens = 700): Promise<{ text: st
       { role: 'system', content: SYSTEM_INSTRUCTION },
       { role: 'user', content: userPrompt },
     ],
-    { maxTokens, temperature: 0.7, timeoutMs: 30_000 },
+    { maxTokens, temperature: 0.7, timeoutMs: 30_000, audience: 'staff' },
   );
 
   if (result.ok) return { text: result.text };

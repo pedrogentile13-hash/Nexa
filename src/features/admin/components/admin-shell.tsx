@@ -6,6 +6,7 @@ import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import { BarChart3, Bot, Flag, GraduationCap, Layers, LayoutDashboard, Library, Megaphone, Menu, School, Settings, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { StaffChat } from '@/features/staff-ia/components/staff-chat';
 import { activeSection, sectionsFor, tabMatches, type IconKey } from '../lib/sections';
 import type { AdminScope } from '../lib/scope';
 import { CoMark } from '@/components/layout/school-brand';
@@ -151,6 +152,7 @@ export function AdminShell({
 
         <SectionTabs scope={scope} />
         <main className="min-w-0 md:[&>div]:px-8">{children}</main>
+        <StaffChat />
       </div>
 
       {/* Atalhos (celular) */}

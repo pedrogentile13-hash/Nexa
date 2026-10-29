@@ -52,7 +52,7 @@ export async function generateExamDraft(
       },
       { role: 'user', content: buildExamPrompt(parsed.data, includeEssay) },
     ],
-    { maxTokens: 4096, temperature: 0.7, timeoutMs: 45_000 },
+    { maxTokens: 4096, temperature: 0.7, timeoutMs: 45_000, audience: 'staff' },
   );
 
   if (!result.ok) {

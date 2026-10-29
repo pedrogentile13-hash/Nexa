@@ -77,6 +77,7 @@ export async function generatePlanSummary(planId: string): Promise<SummaryResult
     maxTokens: 2048,
     temperature: 0.4,
     timeoutMs: 40_000,
+    audience: 'staff',
   });
   if (!result.ok) {
     return {

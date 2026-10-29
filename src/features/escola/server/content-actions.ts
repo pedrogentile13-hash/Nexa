@@ -51,7 +51,7 @@ export async function draftSummary(_prev: DraftState<{ markdown: string }>, form
       { role: 'system', content: 'Você escreve resumos de estudo claros e objetivos em português do Brasil, em Markdown.' },
       { role: 'user', content: buildCreatorSummaryPrompt(subject, { subjectCatalogId: parsed.data.subjectId, topic: parsed.data.topic }) },
     ],
-    { maxTokens: 1800, temperature: 0.6, timeoutMs: 40_000 },
+    { maxTokens: 1800, temperature: 0.6, timeoutMs: 40_000, audience: 'staff' },
   );
   if (!result.ok) return { status: 'error', message: aiMessage(result.reason) };
   return { status: 'ok', markdown: stripCodeFence(result.text) };

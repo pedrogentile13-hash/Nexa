@@ -16,6 +16,7 @@ export const AI_DAILY_LIMITS = {
   essay: 5, // correções de redação
   hint: 40, // dicas de IA dentro do simulado
   material: 20, // perguntas/leitura de material (PDF, imagem) do aluno
+  staff_ia: 150, // chat da NexaAI nos painéis da equipe
 } as const;
 
 export type AiFeature = keyof typeof AI_DAILY_LIMITS;
@@ -27,6 +28,7 @@ const LABEL: Record<AiFeature, string> = {
   essay: 'correções de redação de hoje',
   hint: 'dicas de hoje',
   material: 'leituras de material de hoje',
+  staff_ia: 'perguntas à NexaAI do painel de hoje',
 };
 
 interface QuotaClient {

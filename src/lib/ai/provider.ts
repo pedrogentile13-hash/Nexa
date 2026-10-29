@@ -14,6 +14,8 @@
  * (aluno vs. admin/professor) e já tinha textos próprios antes desta extração.
  */
 
+import { cleanReply, makeStreamGuard, screenInput, withScope, type AIAudience } from './guardrails';
+
 /**
  * Arquivo enviado junto da mensagem do usuário (imagem ou PDF), em base64.
  * Só o Gemini lê isto; vai direto na requisição e NÃO é guardado por aqui.
@@ -34,6 +36,8 @@ export interface AICompletionOptions {
   maxTokens?: number;
   temperature?: number;
   timeoutMs?: number;
+  /** Quem está do outro lado: define a trava de escopo. Padrão: aluno. */
+  audience?: AIAudience;
 }
 
 export type AICompletionResult =
@@ -349,11 +353,25 @@ export function getAIProvider(): AIProvider {
   return new GroqProvider();
 }
 
+/** A pergunta do usuário que está por vir, para o filtro de entrada. */
+function lastUserText(messages: AIMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) if (messages[i]!.role === 'user') return messages[i]!.content;
+  return '';
+}
+
+/**
+ * Toda chamada de IA do projeto passa por aqui, então a trava de escopo (`guardrails.ts`)
+ * vale para todos os recursos de uma vez: entrada filtrada, regras no prompt e saída limpa.
+ */
 export async function completeWithAI(
   messages: AIMessage[],
   options?: AICompletionOptions,
 ): Promise<AICompletionResult> {
-  return getAIProvider().complete(messages, options);
+  const audience = options?.audience ?? 'student';
+  const refusal = screenInput(lastUserText(messages), audience);
+  if (refusal) return { ok: true, text: refusal };
+  const result = await getAIProvider().complete(withScope(messages, audience), options);
+  return result.ok ? { ok: true, text: cleanReply(result.text, audience) } : result;
 }
 
 /**
@@ -367,6 +385,11 @@ export async function streamWithAI(
   options: AICompletionOptions,
   onDelta: (text: string) => void,
 ): Promise<AICompletionResult> {
+  const audience = options.audience ?? 'student';
+  const refusal = screenInput(lastUserText(messages), audience);
+  if (refusal) return { ok: true, text: refusal };
+  messages = withScope(messages, audience);
+  const guard = makeStreamGuard(onDelta);
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || process.env.AI_PROVIDER === 'groq') return completeWithAI(messages, options);
 
@@ -411,7 +434,7 @@ export async function streamWithAI(
           const text = (candidate?.content?.parts ?? []).map((p) => p.text ?? '').join('');
           if (text) {
             full += text;
-            onDelta(text);
+            guard.push(text);
           }
           if (chunk.promptFeedback?.blockReason || candidate?.finishReason === 'SAFETY' || candidate?.finishReason === 'PROHIBITED_CONTENT') {
             blocked = true;
@@ -422,14 +445,20 @@ export async function streamWithAI(
       }
     }
 
-    if (full.trim()) return { ok: true, text: full.trim() };
+    if (full.trim()) {
+      guard.end();
+      return { ok: true, text: cleanReply(full.trim(), audience) };
+    }
     clearTimeout(timeout);
     if (blocked) return { ok: false, reason: 'content_filter' };
     return completeWithAI(messages, options);
   } catch (err) {
     clearTimeout(timeout);
     // Já escreveu algo: entrega o que chegou; senão tenta o caminho inteiro de sempre.
-    if (full.trim()) return { ok: true, text: full.trim() };
+    if (full.trim()) {
+      guard.end();
+      return { ok: true, text: cleanReply(full.trim(), audience) };
+    }
     console.error('[ai/provider] streaming falhou, usando resposta inteira', err);
     return completeWithAI(messages, options);
   } finally {

@@ -1,3 +1,4 @@
+import { StaffChat } from '@/features/staff-ia/components/staff-chat';
 import type { Metadata } from 'next';
 import { TeacherShell } from '@/features/teacher/components/teacher-shell';
 import { requireTeacher } from '@/features/teacher/server/guard';
@@ -17,6 +18,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
       avatarUrl={identity.avatarUrl}
     >
       {children}
+      <StaffChat />
     </TeacherShell>
   );
 }
