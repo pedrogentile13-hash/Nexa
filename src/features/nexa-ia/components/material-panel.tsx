@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { FileText, ImageIcon, Loader2, Sparkles, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,13 @@ export function MaterialPanel({
 }) {
   const [state, action] = useActionState(addStudyDocuments, IDLE_MATERIAL);
   const formRef = useRef<HTMLFormElement>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  useEffect(() => {
+    if (state.status === 'ok') {
+      formRef.current?.reset();
+      setPicked([]);
+    }
+  }, [state]);
   const [open, setOpen] = useState<string | null>(documents[0]?.id ?? null);
 
   return (
@@ -55,20 +62,21 @@ export function MaterialPanel({
         </p>
         <form
           ref={formRef}
-          action={async (fd) => {
-            await action(fd);
-          }}
+          action={action}
           className="mt-3 space-y-3"
         >
           <label className="border-border hover:border-brand flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-5 text-sm">
             <Upload className="size-4" aria-hidden />
-            <span>PDF, imagem ou texto (até 3 arquivos, 6 MB cada)</span>
+            <span className="min-w-0 truncate">
+              {picked.length > 0 ? `✓ ${picked.join(', ')}` : 'Toque para escolher PDF, imagem ou texto (até 3 arquivos, 6 MB cada)'}
+            </span>
             <input
               type="file"
               name="files"
               multiple
               accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,text/plain,text/markdown"
               className="sr-only"
+              onChange={(e) => setPicked(Array.from(e.target.files ?? []).map((f) => f.name))}
             />
           </label>
           <input name="title" placeholder="Título (se for colar um texto)" maxLength={160} className={fieldClass} />

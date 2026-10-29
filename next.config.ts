@@ -4,8 +4,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   typedRoutes: true,
   experimental: {
-    // Keeps Server Action payloads small; grade edits are tiny objects.
-    serverActions: { bodySizeLimit: '1mb' },
+    // Notas são objetos minúsculos, mas o material de estudo do aluno (PDF/imagem,
+    // até 12 MB no total) também sobe por Server Action — com 1 MB o envio falhava.
+    serverActions: { bodySizeLimit: '14mb' },
   },
   // Thumbnails e imagens de conteúdo vêm do bucket público do Supabase
   // Storage — sem isto, `next/image` recusa a URL (hostname não configurado)
@@ -22,6 +23,10 @@ const nextConfig: NextConfig = {
   // e todo processamento de PDF quebra em produção (funciona local, onde
   // `node_modules` está inteiro no disco). Isto força a inclusão manual.
   outputFileTracingIncludes: {
+    '/nexa-ia/**': [
+      './node_modules/@napi-rs/canvas/**',
+      './node_modules/@napi-rs/canvas-linux-x64-gnu/**',
+    ],
     '/admin/conteudo/**': [
       './node_modules/@napi-rs/canvas/**',
       './node_modules/@napi-rs/canvas-linux-x64-gnu/**',
