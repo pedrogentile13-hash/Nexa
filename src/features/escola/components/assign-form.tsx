@@ -24,7 +24,7 @@ export function AssignForm({
 
   return (
     <form ref={ref} action={action} className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col gap-2">
         <select name="teacherId" required defaultValue="" aria-label="Professor" className={select}>
           <option value="" disabled>Professor…</option>
           {teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}

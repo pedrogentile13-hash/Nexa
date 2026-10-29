@@ -82,7 +82,7 @@ export function EscolaShell({
         <div className="flex items-center gap-3">
           <CoMark className="size-11" />
           <div className="min-w-0">
-            <p className="truncate text-base leading-tight font-semibold">{schoolName ?? 'Nexa Escola'}</p>
+            <p className="line-clamp-2 text-base leading-tight font-semibold">{schoolName ?? 'Nexa Escola'}</p>
             <p className="text-xs opacity-80">{STAFF_ROLE_LABEL[role]}</p>
           </div>
         </div>

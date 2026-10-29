@@ -50,14 +50,14 @@ export function ContasPanel({ accounts, classes, canCreateStaff }: { accounts: S
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <section className="bg-surface border-border rounded-3xl border p-5 shadow-sm md:p-6">
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <div className="bg-surface-2 flex gap-1 rounded-full p-1">
+            <div className="bg-surface-2 flex max-w-full gap-1 overflow-x-auto rounded-full p-1">
               {TABS.map((t) => (
                 <button key={t.key} type="button" onClick={() => setTab(t.key)} className={cn('rounded-full px-4 py-1.5 text-sm font-medium', tab === t.key ? 'bg-surface text-brand-text shadow-sm' : 'text-muted')}>
                   {t.label}
                 </button>
               ))}
             </div>
-            <label className="relative min-w-0 flex-1 sm:max-w-56">
+            <label className="relative w-full min-w-0 sm:w-auto sm:flex-1 sm:max-w-56">
               <span className="sr-only">Buscar</span>
               <Search className="text-subtle pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2" aria-hidden />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar" className="border-border bg-surface-2 h-10 w-full rounded-full border pr-3 pl-9 text-sm outline-none" />
