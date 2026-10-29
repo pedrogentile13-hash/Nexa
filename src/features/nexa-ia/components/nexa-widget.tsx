@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { History, Loader2, Paperclip, Plus, Send, Sparkles, X } from 'lucide-react';
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
+import { composerKeyAction, insertNewline } from '../lib/composer-keys';
 import { widgetHistory, widgetOpenSession, widgetSend } from '../server/widget-actions';
 import type { ChatMessage, ChatSessionSummary } from '../server/queries';
 
@@ -214,9 +215,22 @@ export function NexaWidget() {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    const action = composerKeyAction(
+                      {
+                        key: e.key,
+                        metaKey: e.metaKey,
+                        ctrlKey: e.ctrlKey,
+                        shiftKey: e.shiftKey,
+                        isComposing: e.nativeEvent.isComposing,
+                      },
+                      window.matchMedia('(pointer: coarse)').matches,
+                    );
+                    if (action === 'send') {
                       e.preventDefault();
                       send();
+                    } else if (action === 'newline' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      insertNewline(e.currentTarget);
                     }
                   }}
                   rows={1}

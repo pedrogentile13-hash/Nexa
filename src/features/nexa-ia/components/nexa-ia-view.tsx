@@ -1,38 +1,15 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
+import Image from 'next/image';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import {
-  BookOpen,
-  Check,
-  ChevronsLeft,
-  ChevronsRight,
-  ClipboardList,
-  Loader2,
-  MessageSquarePlus,
-  Pencil,
-  Send,
-  Sparkles,
-  Trash2,
-  X,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { ArrowUp, BookOpen, ChevronDown, ClipboardList, Loader2, Sparkles } from 'lucide-react';
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
-import {
-  createChatSession,
-  deleteChatSession,
-  renameChatSession,
-  sendMessage,
-  type SendMessageState,
-} from '../server/actions';
-import type { ChatMessage, ChatSessionSummary } from '../server/queries';
+import { sendMessage, type SendMessageState } from '../server/actions';
+import type { ChatMessage } from '../server/queries';
+import { composerKeyAction, insertNewline } from '../lib/composer-keys';
 import { DEFAULT_TUTOR_MODE, TUTOR_MODES, TUTOR_MODE_LABELS, type TutorMode } from '../tutor';
-
-const SIDEBAR_COLLAPSED_KEY = 'nexaai:sidebar-collapsed';
 
 const INITIAL: SendMessageState = { status: 'idle' };
 
@@ -43,350 +20,142 @@ const QUICK_PROMPTS = [
 ];
 
 /**
- * NexaAI — estrutura pronta, sem provedor de IA ligado.
- *
- * Sessões e mensagens são reais e persistem; só a resposta é fixa (ver
- * `sendMessage`/`replyTo` no server). O layout já é o definitivo — trocar
- * `replyTo` por uma chamada de LLM de verdade não muda nada aqui.
+ * Chat da NexaAI, no estilo de um assistente simples: conversa no meio, caixa
+ * de mensagem arredondada embaixo (no meio da tela quando ainda não há conversa).
+ * Enter envia no computador; Command/Ctrl/Shift+Enter pulam linha; no celular o
+ * Enter pula linha e o envio é pelo botão.
  */
-export function NexaIaView({
-  sessions,
-  activeSessionId,
-  messages,
-}: {
-  sessions: ChatSessionSummary[];
-  activeSessionId: string | null;
-  messages: ChatMessage[];
-}) {
-  // Só lido depois de montar — o valor real mora no navegador de cada um, e
-  // usá-lo já no primeiro render divergiria do HTML gerado no servidor.
-  const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    try {
-      setCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1');
-    } catch {
-      // Aba anônima/site data bloqueado — segue expandido, comportamento de sempre.
-    }
-  }, []);
-
-  function toggleCollapsed() {
-    setCollapsed((current) => {
-      const next = !current;
-      try {
-        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0');
-      } catch {
-        // Preferência não persiste, mas o toggle desta sessão continua funcionando.
-      }
-      return next;
-    });
-  }
-
-  return (
-    <div
-      className={cn(
-        'lg:grid lg:items-start lg:gap-6',
-        collapsed ? 'lg:grid-cols-[56px_minmax(0,1fr)]' : 'lg:grid-cols-[260px_minmax(0,1fr)]',
-      )}
-    >
-      <SessionsSidebar
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        collapsed={collapsed}
-        onToggleCollapsed={toggleCollapsed}
-      />
-      <ChatPanel activeSessionId={activeSessionId} messages={messages} />
-    </div>
-  );
-}
-
-function SessionsSidebar({
-  sessions,
-  activeSessionId,
-  collapsed,
-  onToggleCollapsed,
-}: {
-  sessions: ChatSessionSummary[];
-  activeSessionId: string | null;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
-}) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
-
-  function startRename(session: ChatSessionSummary) {
-    setEditingId(session.id);
-    setEditValue(session.title);
-  }
-
-  function commitRename(sessionId: string) {
-    const title = editValue.trim();
-    setEditingId(null);
-    if (!title) return;
-    startTransition(async () => {
-      await renameChatSession(sessionId, title);
-    });
-  }
-
-  function handleDelete(session: ChatSessionSummary) {
-    if (!window.confirm(`Excluir a conversa "${session.title}"? Isso não pode ser desfeito.`)) return;
-    startTransition(async () => {
-      await deleteChatSession(session.id);
-      if (session.id === activeSessionId) router.push('/nexa-ia');
-    });
-  }
-
-  return (
-    <aside className="mb-4 lg:mb-0">
-      {/* Recolhida (só desktop — no celular a lista sempre aparece, é uma
-          fila horizontal compacta, não ocupa espaço vertical de sobra). */}
-      {collapsed && (
-        <div className="hidden lg:flex lg:flex-col lg:items-center lg:gap-2">
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label="Expandir lista de conversas"
-            title="Expandir lista de conversas"
-            className="text-muted hover:bg-surface-2 hover:text-text grid size-10 place-items-center rounded-full"
-          >
-            <ChevronsRight className="size-4" aria-hidden />
-          </button>
-          <form action={createChatSession}>
-            <button
-              type="submit"
-              aria-label="Nova conversa"
-              title="Nova conversa"
-              className="bg-surface-2 hover:bg-border-strong/30 text-text grid size-10 place-items-center rounded-full"
-            >
-              <MessageSquarePlus className="size-4" aria-hidden />
-            </button>
-          </form>
-        </div>
-      )}
-
-      <div className={collapsed ? 'lg:hidden' : ''}>
-        <div className="mb-3 flex items-center gap-2">
-          <form action={createChatSession} className="min-w-0 flex-1">
-            <Button type="submit" variant="secondary" className="w-full">
-              <MessageSquarePlus aria-hidden />
-              Nova conversa
-            </Button>
-          </form>
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label="Reduzir a barra de conversas"
-            title="Reduzir a barra"
-            className="text-muted hover:bg-surface-2 hover:text-text hidden shrink-0 rounded-full p-2 lg:grid lg:place-items-center"
-          >
-            <ChevronsLeft className="size-4" aria-hidden />
-          </button>
-        </div>
-
-        {sessions.length > 0 && (
-          <>
-            <h2 className="text-muted mb-2 hidden text-xs font-semibold tracking-wide uppercase lg:block">
-              Últimos chats
-            </h2>
-            <ul className="flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0">
-              {sessions.map((session) => (
-                <li key={session.id} className="shrink-0 lg:shrink">
-                  {editingId === session.id ? (
-                    <div className="bg-surface-2 flex items-center gap-1 rounded-lg px-2 py-1">
-                      <input
-                        autoFocus
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitRename(session.id);
-                          if (e.key === 'Escape') setEditingId(null);
-                        }}
-                        maxLength={120}
-                        className="text-text min-w-0 flex-1 bg-transparent text-sm outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => commitRename(session.id)}
-                        aria-label="Salvar nome"
-                        className="text-success shrink-0"
-                      >
-                        <Check className="size-4" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        aria-label="Cancelar"
-                        className="text-subtle shrink-0"
-                      >
-                        <X className="size-4" aria-hidden />
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      className={cn(
-                        'group/item flex items-center gap-0.5 rounded-lg',
-                        session.id === activeSessionId
-                          ? 'bg-brand-soft'
-                          : 'bg-surface-2 lg:bg-transparent lg:hover:bg-surface-2',
-                      )}
-                    >
-                      <Link
-                        href={`/nexa-ia?sessao=${session.id}`}
-                        className={cn(
-                          'block min-w-0 flex-1 truncate rounded-lg px-3 py-2 text-sm transition-colors',
-                          'max-w-[220px] lg:max-w-none',
-                          session.id === activeSessionId
-                            ? 'text-brand-text font-medium'
-                            : 'text-muted hover:text-text',
-                        )}
-                      >
-                        {session.title}
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => startRename(session)}
-                        aria-label={`Renomear "${session.title}"`}
-                        className="text-subtle hover:bg-border-strong/20 hover:text-text hidden shrink-0 rounded-full p-1.5 lg:block lg:opacity-0 lg:group-hover/item:opacity-100"
-                      >
-                        <Pencil className="size-3.5" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(session)}
-                        aria-label={`Excluir "${session.title}"`}
-                        className="text-subtle hover:bg-danger-soft hover:text-danger mr-0.5 hidden shrink-0 rounded-full p-1.5 lg:block lg:opacity-0 lg:group-hover/item:opacity-100"
-                      >
-                        <Trash2 className="size-3.5" aria-hidden />
-                      </button>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function ChatPanel({
-  activeSessionId,
-  messages,
-}: {
-  activeSessionId: string | null;
-  messages: ChatMessage[];
-}) {
+export function NexaIaView({ activeSessionId, messages }: { activeSessionId: string | null; messages: ChatMessage[] }) {
   const [state, formAction] = useActionState(sendMessage, INITIAL);
   const [mode, setMode] = useState<TutorMode>(DEFAULT_TUTOR_MODE);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const empty = messages.length === 0;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [messages.length]);
 
   useEffect(() => {
-    if (state.status === 'sent' && inputRef.current) inputRef.current.value = '';
+    if (state.status === 'sent' && inputRef.current) {
+      inputRef.current.value = '';
+      inputRef.current.style.height = 'auto';
+    }
   }, [state]);
 
+  function grow(el: HTMLTextAreaElement) {
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }
+
   function fillPrompt(text: string) {
-    if (inputRef.current) {
-      inputRef.current.value = text;
-      inputRef.current.focus();
-    }
+    if (!inputRef.current) return;
+    inputRef.current.value = text;
+    grow(inputRef.current);
+    inputRef.current.focus();
   }
 
   return (
-    <div className="flex min-h-[60vh] flex-col">
-      <div className="flex-1 space-y-3 pb-4">
-        {messages.length === 0 ? (
-          <div className="border-border bg-surface rounded-2xl border p-6 text-center">
-            <span className="bg-brand-soft text-brand-text mx-auto grid size-12 place-items-center rounded-full">
-              <Sparkles className="size-6" aria-hidden />
-            </span>
-            <h2 className="mt-3 text-base font-semibold">Como posso ajudar?</h2>
-            <p className="text-muted mt-1 text-sm">
-              Escolha como quer estudar e pergunte sobre qualquer conteúdo — a NexaAI conhece suas
-              notas e os assuntos que você mais precisa revisar.
-            </p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
-              {QUICK_PROMPTS.map((prompt) => (
-                <button
-                  key={prompt.text}
-                  type="button"
-                  onClick={() => fillPrompt(prompt.text)}
-                  className="border-border bg-bg hover:bg-surface-2 flex flex-col items-center gap-2 rounded-xl border p-3 text-left transition-colors"
-                >
-                  <prompt.icon className="text-brand size-5" aria-hidden />
-                  <span className="text-xs leading-snug">{prompt.text}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}
-            >
-              <div
-                className={cn(
-                  'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
-                  message.role === 'user'
-                    ? 'bg-brand text-brand-fg rounded-br-sm whitespace-pre-wrap'
-                    : 'bg-surface-2 text-text rounded-bl-sm',
+    <div className={cn('flex min-h-0 flex-1 flex-col', empty && 'justify-center')}>
+      {!empty && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6">
+            {messages.map((message) => (
+              <div key={message.id} className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>
+                {message.role === 'user' ? (
+                  <div className="bg-surface-2 max-w-[85%] rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap">
+                    {message.content}
+                  </div>
+                ) : (
+                  <div className="flex max-w-full gap-3">
+                    <Image src="/brand/nexa-ai.webp" alt="" width={28} height={28} className="mt-0.5 size-7 shrink-0 rounded-full" />
+                    <div className="min-w-0 text-[15px] leading-relaxed">
+                      <Markdown source={message.content} />
+                    </div>
+                  </div>
                 )}
-              >
-                {message.role === 'assistant' ? <Markdown source={message.content} /> : message.content}
               </div>
-            </div>
-          ))
-        )}
-        <div ref={bottomRef} />
-      </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+        </div>
+      )}
 
-      <form action={formAction} className="border-border bg-bg/90 sticky bottom-0 border-t pt-3 pb-safe">
+      {empty && (
+        <div className="mb-6 flex flex-col items-center gap-3 px-4 text-center">
+          <Image src="/brand/nexa-ai.webp" alt="" width={56} height={56} className="size-14 rounded-full" />
+          <h2 className="text-2xl font-semibold tracking-tight">Como posso ajudar?</h2>
+        </div>
+      )}
+
+      <form ref={formRef} action={formAction} className="mx-auto w-full max-w-3xl px-4 pb-3">
         <input type="hidden" name="sessionId" value={activeSessionId ?? ''} />
         <input type="hidden" name="mode" value={mode} />
-        <div role="radiogroup" aria-label="Modo do tutor" className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
-          {TUTOR_MODES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              role="radio"
-              aria-checked={mode === m}
-              title={TUTOR_MODE_LABELS[m].hint}
-              onClick={() => setMode(m)}
-              className={cn(
-                'shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                mode === m
-                  ? 'border-brand bg-brand-soft text-brand-text'
-                  : 'border-border bg-bg text-muted hover:bg-surface-2',
-              )}
-            >
-              {TUTOR_MODE_LABELS[m].label}
-            </button>
-          ))}
-        </div>
         {state.status === 'error' && (
-          <p role="alert" className="text-danger mb-2 text-sm">
+          <p role="alert" className="text-danger mb-2 px-2 text-sm">
             {state.message}
           </p>
         )}
-        <div className="flex items-center gap-2">
-          <Input
+        <div className="border-border bg-surface flex items-end gap-2 rounded-[28px] border px-4 py-2.5 shadow-sm">
+          <textarea
             ref={inputRef}
             name="content"
-            placeholder="Pergunte alguma coisa…"
-            autoComplete="off"
+            rows={1}
             required
             maxLength={2000}
+            placeholder="Pergunte à NexaAI"
+            aria-label="Mensagem para a NexaAI"
+            onInput={(e) => grow(e.currentTarget)}
+            onKeyDown={(e) => {
+              const isTouch = window.matchMedia('(pointer: coarse)').matches;
+              const action = composerKeyAction(
+                { key: e.key, metaKey: e.metaKey, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing },
+                isTouch,
+              );
+              if (action === 'send') {
+                e.preventDefault();
+                if (e.currentTarget.value.trim()) formRef.current?.requestSubmit();
+              } else if (action === 'newline' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                insertNewline(e.currentTarget);
+              }
+            }}
+            className="placeholder:text-subtle max-h-[200px] min-h-7 min-w-0 flex-1 resize-none bg-transparent py-1 text-[15px] leading-relaxed outline-none"
           />
+          <label className="text-muted relative flex h-9 shrink-0 items-center gap-1 rounded-full px-2 text-sm font-medium">
+            <span className="sr-only">Modo do tutor</span>
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as TutorMode)}
+              className="hover:text-text cursor-pointer appearance-none bg-transparent pr-5 outline-none"
+            >
+              {TUTOR_MODES.map((m) => (
+                <option key={m} value={m}>
+                  {TUTOR_MODE_LABELS[m].label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown aria-hidden className="pointer-events-none absolute right-2 size-3.5" />
+          </label>
           <SendButton />
         </div>
+
+        {empty && (
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {QUICK_PROMPTS.map((p) => (
+              <button
+                key={p.text}
+                type="button"
+                onClick={() => fillPrompt(p.text)}
+                className="border-border text-muted hover:bg-surface-2 hover:text-text flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm transition-colors"
+              >
+                <p.icon className="text-brand size-4" aria-hidden />
+                {p.text}
+              </button>
+            ))}
+          </div>
+        )}
       </form>
     </div>
   );
@@ -395,9 +164,13 @@ function ChatPanel({
 function SendButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="shrink-0">
-      {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
-      <span className="sr-only">Enviar</span>
-    </Button>
+    <button
+      type="submit"
+      disabled={pending}
+      aria-label="Enviar"
+      className="bg-brand text-brand-fg grid size-9 shrink-0 place-items-center rounded-full transition-opacity disabled:opacity-60"
+    >
+      {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <ArrowUp className="size-5" aria-hidden strokeWidth={2.4} />}
+    </button>
   );
 }
