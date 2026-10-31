@@ -15,7 +15,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 // Só quando o AdSense está configurado: libera os endereços do Google Ads (script, imagem, quadro e conexão).
 const ads = true;
-const adScripts = ads ? ' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://www.googletagservices.com https://adservice.google.com' : '';
+const adScripts = ads ? ' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://www.googletagservices.com https://adservice.google.com https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com' : '';
 
 const strictCsp = [
   "default-src 'self'",

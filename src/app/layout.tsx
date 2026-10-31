@@ -4,7 +4,7 @@ import './globals.css';
 import { headers } from 'next/headers';
 import { AppSplash } from '@/components/layout/app-splash';
 import { SchoolBrandProvider } from '@/components/layout/school-brand';
-import { ADSENSE_CLIENT, ADSENSE_SCRIPT } from '@/features/ads/lib/config';
+import { ADSENSE_CLIENT, ADSENSE_SCRIPT, GA_INIT, GA_SCRIPT } from '@/features/ads/lib/config';
 import { decodeTenant, tenantCss, TENANT_HEADER } from '@/lib/tenant/resolve';
 
 const inter = Inter({
@@ -94,6 +94,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <>
             <meta name="google-adsense-account" content={ADSENSE_CLIENT} />
             <script async src={ADSENSE_SCRIPT} crossOrigin="anonymous" />
+            {/* Google Analytics: mesma regra do AdSense — fora das escolas. */}
+            <script async src={GA_SCRIPT} />
+            <script dangerouslySetInnerHTML={{ __html: GA_INIT }} />
           </>
         )}
       </head>
