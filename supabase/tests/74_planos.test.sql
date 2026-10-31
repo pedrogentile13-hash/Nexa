@@ -7,7 +7,7 @@ insert into auth.users (id, email, raw_user_meta_data) values
   (:'ESC','e-pl@nexa.test','{"full_name":"Aluno da escola"}'),(:'PAGO','p-pl@nexa.test','{"full_name":"Pagante"}'),
   (:'LIVRE','l-pl@nexa.test','{"full_name":"Gratuito"}'),(:'VELHO','v-pl@nexa.test','{"full_name":"Venceu"}');
 insert into public.schools (id,name,city,state,is_verified) values ('af6e5e5e-0000-0000-0000-000000000001','Escola PL','SP','SP',true);
-update public.profiles set school_id='af6e5e5e-0000-0000-0000-000000000001' where id=:'ESC';
+update public.profiles set school_id='af6e5e5e-0000-0000-0000-000000000001', school_login='aluno.pl' where id=:'ESC';
 insert into public.subscriptions (user_id, stripe_subscription_id, plan, status, current_period_end) values
   (:'ESC','sub_escola','pro','active', now() + interval '20 days'),
   (:'PAGO','sub_pago','plus','active', now() + interval '20 days'),

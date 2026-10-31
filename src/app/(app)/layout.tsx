@@ -66,7 +66,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isTeacher = profile?.role === 'teacher_admin';
   const communityEnabled = flags?.community_enabled ?? false;
   const vestibularEnabled = flags?.vestibular_enabled ?? false;
-  const announcementsEnabled = Boolean(schoolRow?.data?.school_id);
+  // "Escola" aqui é a do Nexa Escolas (conta gerenciada pela escola). Quem só escolheu uma escola no Perfil continua no Nexa padrão.
+  const announcementsEnabled = Boolean(schoolRow?.data?.school_id) && plan?.plan === 'school';
   // "Professores" (chat da escola) aparece para todo aluno vinculado a uma escola; a tela explica se ainda não há professor na turma.
   const chatEnabled = announcementsEnabled;
   // A jornada escolhida na criação da conta decide qual das duas plataformas
