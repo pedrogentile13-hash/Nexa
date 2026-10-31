@@ -26,19 +26,19 @@ const OPTIONS: {
   {
     value: 'school',
     title: 'Nexa Estudos',
-    description: 'Matérias, lições, provas e notas da escola.',
+    description: 'Matérias, lições, resumos, simulados e notas da escola.',
     Icon: GraduationCap,
   },
   {
     value: 'vestibular',
     title: 'Nexa Vestibular',
-    description: 'Plano de estudo, banco de questões, central de erros e redação.',
+    description: 'Plano de estudo, banco de questões, central de erros e redação ENEM.',
     Icon: Target,
   },
   {
     value: 'both',
-    title: 'As duas',
-    description: 'Abro na escola e troco pro vestibular pelo menu do logo.',
+    title: 'Os dois',
+    description: 'Abro na escola e troco para o vestibular pelo menu do logo.',
     Icon: Layers,
   },
 ];
@@ -89,7 +89,7 @@ export function JourneyPicker({ current }: { current: Journey }) {
               disabled={pending}
               onClick={() => pick(option)}
               className={cn(
-                'flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition-colors',
+                'flex w-full items-start gap-3 rounded-3xl border p-4 text-left transition-all',
                 'disabled:opacity-60',
                 active ? 'border-brand bg-brand-soft' : 'border-border hover:bg-surface-2',
               )}
@@ -97,11 +97,11 @@ export function JourneyPicker({ current }: { current: Journey }) {
               <span
                 aria-hidden
                 className={cn(
-                  'grid size-9 shrink-0 place-items-center rounded-xl',
+                  'grid size-11 shrink-0 place-items-center rounded-2xl',
                   active ? 'bg-brand text-brand-fg' : 'bg-surface-2 text-muted',
                 )}
               >
-                <Icon className="size-[18px]" />
+                <Icon className="size-5" />
               </span>
               <span className="min-w-0 flex-1">
                 <span

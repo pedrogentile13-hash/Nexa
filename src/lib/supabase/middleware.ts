@@ -24,6 +24,8 @@ const PUBLIC_PREFIXES = [
   '/termos-de-uso',
   '/escola-nao-encontrada',
   '/api/tenant-check',
+  // O Google lê este arquivo sem conta para confirmar quem pode vender anúncios no site.
+  '/ads.txt',
   // Quem chama é o Stripe, sem login: a proteção é a assinatura do corpo.
   '/api/stripe/webhook',
 ];

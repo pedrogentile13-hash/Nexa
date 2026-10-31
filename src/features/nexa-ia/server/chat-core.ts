@@ -124,7 +124,10 @@ export async function runChat(formData: FormData, onDelta?: (text: string) => vo
     sessionId = created.id;
   }
 
-  const [quota, history, studentContext, journey, docs] = await Promise.all([
+  // A plataforma onde a pessoa está agora (Vestibular ou Estudos) manda no tom da tutora; sem ela, vale a jornada do perfil.
+  const platform = formData.get('platform');
+
+  const [quota, history, studentContext, storedJourney, docs] = await Promise.all([
     checkPlanQuota(supabase, file ? 'material' : 'nexa_ia'),
     isNewSession ? Promise.resolve([] as ChatMessage[]) : getChatMessages(sessionId),
     buildStudentContext(user.id),
@@ -132,6 +135,7 @@ export async function runChat(formData: FormData, onDelta?: (text: string) => vo
     loadDocsMentioned(supabase, content),
   ]);
 
+  const journey = platform === 'vestibular' ? 'vestibular' : storedJourney;
   let reply: string;
   const created = quota.ok ? await maybeCreateFromChat(supabase, content, { userId: user.id, file }) : null;
   if (created) {

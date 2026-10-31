@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlatformSwitcher, resolveActivePlatform } from './platform-switcher';
+import { useRememberedPlatform } from './platform-context';
 import type { Journey } from '@/types/database.types';
 
 /**
@@ -157,6 +158,7 @@ export function SideNav({
   journey?: Journey;
 } = {}) {
   const pathname = usePathname();
+  const remembered = useRememberedPlatform();
   const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
   const firstName = name?.trim()?.split(/\s+/)[0] ?? null;
 
@@ -165,7 +167,7 @@ export function SideNav({
   // outra plataforma. É o que faz um vestibulando ver a navegação dele
   // também em Revisões e Biblioteca, que são telas compartilhadas.
   const inVestibular =
-    Boolean(vestibularEnabled) && resolveActivePlatform(pathname, journey) === 'vestibular';
+    Boolean(vestibularEnabled) && resolveActivePlatform(pathname, journey, remembered) === 'vestibular';
 
   const primaryItems = inVestibular
     ? [...VESTIBULAR_PRIMARY_ITEMS, ...(communityEnabled ? [COMMUNITY_ITEM] : [])]

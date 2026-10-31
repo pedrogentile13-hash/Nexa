@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
 import { checkPlanQuota } from '@/features/billing/server/quota';
 import { reportError } from '@/features/observability/server/actions';
+import { checkChatFile } from '@/features/nexa-ia/server/chat-material';
+import { readUploadedFile } from '@/features/nexa-ia/server/material-ingest';
 import { buildEssayMessages, countWords, MAX_WORDS, MIN_WORDS, parseEssayFeedback, type EssayFeedback } from '../lib/essay';
 
 export type EssayState =
@@ -88,4 +90,34 @@ export async function deleteEssay(formData: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.from('essay_corrections').delete().eq('id', id.data);
   revalidatePath('/vestibular/redacao');
+}
+
+export type TranscribeState = { ok: true; text: string; words: number } | { ok: false; message: string };
+
+/**
+ * Lê uma foto (PNG, JPG, WebP) ou PDF da redação — inclusive escrita à mão — e devolve o TEXTO.
+ * O texto volta para a caixa da redação para o aluno conferir antes de corrigir: erro de leitura
+ * vira erro de nota, então ele nunca é corrigido às cegas.
+ */
+export async function transcribeEssayFile(formData: FormData): Promise<TranscribeState> {
+  const file = formData.get('file');
+  if (!(file instanceof File) || file.size === 0) return { ok: false, message: 'Escolha uma foto ou PDF da redação.' };
+  const check = checkChatFile(file);
+  if (!check.ok) return { ok: false, message: check.message };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: 'Sessão expirada.' };
+
+  const quota = await checkPlanQuota(supabase, 'material');
+  if (!quota.ok) return { ok: false, message: quota.message };
+
+  const read = await readUploadedFile(file);
+  if (!read.ok) return { ok: false, message: read.message };
+  const text = read.text.trim();
+  const words = countWords(text);
+  if (words < 10) return { ok: false, message: 'Não consegui ler texto nesta imagem. Tente uma foto mais nítida, com boa luz e a folha inteira.' };
+  return { ok: true, text, words };
 }

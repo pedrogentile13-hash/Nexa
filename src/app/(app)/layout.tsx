@@ -2,6 +2,8 @@ import { BottomNav } from '@/components/layout/bottom-nav';
 import { SideNav } from '@/components/layout/side-nav';
 import { NexaWidget } from '@/features/nexa-ia/components/nexa-widget';
 import { InstallPrompt } from '@/features/install/components/install-prompt';
+import { cookies } from 'next/headers';
+import { PlatformProvider, PLATFORM_COOKIE } from '@/components/layout/platform-context';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { getFeatureFlags } from '@/lib/feature-flags';
 import { AdBanner } from '@/features/ads/components/ad-banner';
@@ -43,12 +45,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // avisos, escola), e cada ida custa uma viagem de rede em TODA navegação.
   const [profileRaw, flags, unreadAnnouncements, schoolRow, plan] = user
     ? await Promise.all([
-        readWithFallback(supabase as unknown as ProfileReader, user.id, SHELL_COLUMNS.wanted, SHELL_COLUMNS.guaranteed, {
-          full_name: null,
-          avatar_url: null,
-          role: 'student',
-          journey: 'school',
-        }),
+        readWithFallback(
+          supabase as unknown as ProfileReader,
+          user.id,
+          SHELL_COLUMNS.wanted,
+          SHELL_COLUMNS.guaranteed,
+          {
+            full_name: null,
+            avatar_url: null,
+            role: 'student',
+            journey: 'school',
+          },
+        ),
         getFeatureFlags(),
         unreadAnnouncementsCount(),
         supabase.from('profiles').select('school_id').eq('id', user.id).maybeSingle(),
@@ -73,47 +81,52 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // A jornada escolhida na criação da conta decide qual das duas plataformas
   // é a "casa" desta pessoa — e portanto qual navegação abre por padrão.
   const journey = profile?.journey ?? 'school';
+  const savedPlatform = (await cookies()).get(PLATFORM_COOKIE)?.value;
+  const initialPlatform =
+    savedPlatform === 'vestibular' || savedPlatform === 'school' ? savedPlatform : null;
 
   return (
-    <div className="flex min-h-dvh">
-      <SideNav
-        name={profile?.full_name ?? null}
-        avatarUrl={profile?.avatar_url ?? null}
-        isAdmin={isAdmin}
-        isTeacher={isTeacher}
-        billingEnabled={plan?.billingVisible ?? false}
-        schoolAccount={plan?.plan === 'school'}
-        communityEnabled={communityEnabled}
-        chatEnabled={chatEnabled}
-        announcementsEnabled={announcementsEnabled}
-        unreadAnnouncements={unreadAnnouncements}
-        vestibularEnabled={vestibularEnabled}
-        journey={journey}
-      />
-      <div className="min-w-0 flex-1">
-        {/* pb-nav reserva a altura da barra + o indicador de home do iPhone. */}
-        <div className="pb-nav md:pb-8">
-          {children}
-          {/* Anúncio só no Nexa padrão gratuito; Escolas, Plus e Pro nunca veem. */}
-          {plan?.adsEnabled && <AdBanner />}
+    <PlatformProvider initial={initialPlatform}>
+      <div className="flex min-h-dvh">
+        <SideNav
+          name={profile?.full_name ?? null}
+          avatarUrl={profile?.avatar_url ?? null}
+          isAdmin={isAdmin}
+          isTeacher={isTeacher}
+          billingEnabled={plan?.billingVisible ?? false}
+          schoolAccount={plan?.plan === 'school'}
+          communityEnabled={communityEnabled}
+          chatEnabled={chatEnabled}
+          announcementsEnabled={announcementsEnabled}
+          unreadAnnouncements={unreadAnnouncements}
+          vestibularEnabled={vestibularEnabled}
+          journey={journey}
+        />
+        <div className="min-w-0 flex-1">
+          {/* pb-nav reserva a altura da barra + o indicador de home do iPhone. */}
+          <div className="pb-nav md:pb-8">
+            {children}
+            {/* Anúncio só no Nexa padrão gratuito; Escolas, Plus e Pro nunca veem. */}
+            {plan?.adsEnabled && <AdBanner />}
+          </div>
         </div>
-      </div>
-      <BottomNav
-        isAdmin={isAdmin}
-        isTeacher={isTeacher}
-        billingEnabled={plan?.billingVisible ?? false}
-        communityEnabled={communityEnabled}
-        chatEnabled={chatEnabled}
-        announcementsEnabled={announcementsEnabled}
-        unreadAnnouncements={unreadAnnouncements}
-        vestibularEnabled={vestibularEnabled}
-        journey={journey}
-      />
-      {/* Fica no shell, não em uma tela: o convite deve alcançar quem já está
+        <BottomNav
+          isAdmin={isAdmin}
+          isTeacher={isTeacher}
+          billingEnabled={plan?.billingVisible ?? false}
+          communityEnabled={communityEnabled}
+          chatEnabled={chatEnabled}
+          announcementsEnabled={announcementsEnabled}
+          unreadAnnouncements={unreadAnnouncements}
+          vestibularEnabled={vestibularEnabled}
+          journey={journey}
+        />
+        {/* Fica no shell, não em uma tela: o convite deve alcançar quem já está
           usando o app, e não depender de o aluno passar por uma página
           específica. Ele mesmo decide se aparece. */}
-      <InstallPrompt />
-      <NexaWidget />
-    </div>
+        <InstallPrompt />
+        <NexaWidget />
+      </div>
+    </PlatformProvider>
   );
 }

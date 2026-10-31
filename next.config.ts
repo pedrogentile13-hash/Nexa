@@ -14,7 +14,7 @@ const supabaseHost = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/^http
 const isDev = process.env.NODE_ENV !== 'production';
 
 // Só quando o AdSense está configurado: libera os endereços do Google Ads (script, imagem, quadro e conexão).
-const ads = Boolean(process.env.NEXT_PUBLIC_ADSENSE_CLIENT);
+const ads = true;
 const adScripts = ads ? ' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://www.googletagservices.com https://adservice.google.com' : '';
 
 const strictCsp = [

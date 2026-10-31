@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
+import { useRememberedPlatform } from '@/components/layout/platform-context';
 import { streamChat } from '../lib/stream-client';
 import type { ChatMessage } from '../server/queries';
 import { composerKeyAction, insertNewline } from '../lib/composer-keys';
@@ -39,6 +40,7 @@ export function NexaIaView({
   messages: ChatMessage[];
 }) {
   const router = useRouter();
+  const platform = useRememberedPlatform();
   const [messages, setMessages] = useState(initialMessages);
   const [sessionId, setSessionId] = useState(activeSessionId ?? '');
   const [mode, setMode] = useState<TutorMode>(DEFAULT_TUTOR_MODE);
@@ -103,6 +105,7 @@ export function NexaIaView({
       fd.set('sessionId', sessionId);
       fd.set('content', content);
       fd.set('mode', mode);
+      fd.set('platform', platform ?? '');
       if (sentFile) fd.set('file', sentFile);
       const r = await streamChat(fd, (x) => setStreamText((t) => t + x));
       setPending(false);

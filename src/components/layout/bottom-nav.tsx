@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { resolveActivePlatform } from './platform-switcher';
+import { useRememberedPlatform } from './platform-context';
 import type { Journey } from '@/types/database.types';
 
 /**
@@ -125,10 +126,11 @@ export function BottomNav({
   journey?: Journey;
 }) {
   const pathname = usePathname();
+  const remembered = useRememberedPlatform();
   // Mesma regra da `SideNav`: a jornada decide o menu padrão, a URL só manda
   // quando a pessoa entra na outra plataforma.
   const inVestibular =
-    vestibularEnabled && resolveActivePlatform(pathname, journey) === 'vestibular';
+    vestibularEnabled && resolveActivePlatform(pathname, journey, remembered) === 'vestibular';
 
   const fixedItems = inVestibular ? VESTIBULAR_FIXED_ITEMS : FIXED_ITEMS;
   const sections: { title: string; items: readonly NavItem[] }[] = inVestibular

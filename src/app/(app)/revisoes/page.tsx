@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { PLATFORM_COOKIE } from '@/components/layout/platform-context';
 import { AppHeader } from '@/components/layout/app-header';
 import { RevisoesView } from '@/features/revisoes/components/revisoes-view';
 import { getReviewQueue } from '@/features/revisoes/server/queries';
@@ -17,14 +19,20 @@ export default async function RevisoesPage() {
   if (!user) redirect('/login');
 
   const supabase = await createClient();
+  const saved = (await cookies()).get(PLATFORM_COOKIE)?.value;
+  let platform: 'school' | 'vestibular' = saved === 'vestibular' ? 'vestibular' : 'school';
+  if (!saved) {
+    const { data: p } = await supabase.from('profiles').select('journey').eq('id', user.id).maybeSingle();
+    if (p?.journey === 'vestibular') platform = 'vestibular';
+  }
   const [items, { data: stats }] = await Promise.all([
-    getReviewQueue(user.id),
+    getReviewQueue(user.id, platform),
     supabase.from('user_stats').select('current_streak').eq('user_id', user.id).maybeSingle(),
   ]);
 
   return (
     <>
-      <AppHeader title="Revisões" subtitle="Fixe o que você já estudou" />
+      <AppHeader title="Revisões" subtitle={platform === 'vestibular' ? 'Questões e conteúdos do vestibular para fixar' : 'Fixe o que você já estudou'} />
       <RevisoesView items={items} currentStreak={stats?.current_streak ?? 0} />
     </>
   );

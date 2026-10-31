@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AdsenseSiteScript } from '@/features/ads/components/adsense-site-script';
 import type { Route } from 'next';
 import { ArrowLeft, GraduationCap } from 'lucide-react';
 
@@ -56,6 +57,7 @@ export function AuthShell({
       <div className="flex flex-1 flex-col justify-center px-5 pt-6 pb-8 lg:px-16">
         <div className="mx-auto w-full max-w-sm">{children}</div>
       </div>
+      <AdsenseSiteScript />
     </main>
   );
 }

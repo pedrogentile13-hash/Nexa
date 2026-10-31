@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { History, Loader2, Paperclip, Plus, Send, Sparkles, X } from 'lucide-react';
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
+import { useRememberedPlatform } from '@/components/layout/platform-context';
 import { streamChat } from '../lib/stream-client';
 import { composerKeyAction, insertNewline } from '../lib/composer-keys';
 import { widgetHistory, widgetOpenSession } from '../server/widget-actions';
@@ -18,6 +19,7 @@ import type { ChatMessage, ChatSessionSummary } from '../server/queries';
  */
 export function NexaWidget() {
   const pathname = usePathname();
+  const platform = useRememberedPlatform();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'chat' | 'history'>('chat');
   const [sessionId, setSessionId] = useState('');
@@ -54,6 +56,7 @@ export function NexaWidget() {
     const fd = new FormData();
     fd.set('sessionId', sessionId);
     fd.set('content', text);
+    fd.set('platform', platform ?? '');
     if (file) fd.set('file', file);
     const optimistic: ChatMessage = {
       id: `tmp-${Date.now()}`,

@@ -34,11 +34,25 @@ export interface ReviewItem {
   resourceKind: ResourceKind | null;
 }
 
-export async function getReviewQueue(userId: string): Promise<ReviewItem[]> {
+/**
+ * `platform`: o Vestibular tem a própria fila (só o que veio de conteúdo do vestibular); o Estudos mostra o resto.
+ * Sem informação do contexto dos itens, não filtra (nunca esconde revisão por engano).
+ */
+export async function getReviewQueue(userId: string, platform: 'school' | 'vestibular' = 'school'): Promise<ReviewItem[]> {
   const supabase = await createClient();
-  const { data } = await supabase.rpc('review_queue', { p_user_id: userId });
+  const { data: all } = await supabase.rpc('review_queue', { p_user_id: userId });
 
-  return (data ?? []).map((row) => ({
+  let data = all ?? [];
+  const ids = [...new Set(data.map((r) => r.resource_id))];
+  if (ids.length > 0) {
+    const { data: contexts, error } = await supabase.from('resources').select('id, context').in('id', ids);
+    if (!error && contexts) {
+      const vestibular = new Set(contexts.filter((c) => c.context === 'vestibular').map((c) => c.id));
+      data = data.filter((r) => (platform === 'vestibular' ? vestibular.has(r.resource_id) : !vestibular.has(r.resource_id)));
+    }
+  }
+
+  return data.map((row) => ({
     kind: row.kind as ReviewKind,
     bucket: row.bucket as ReviewBucket,
     questionId: row.question_id,

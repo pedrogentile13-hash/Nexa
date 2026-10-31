@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, GraduationCap, Layers, Target } from 'lucide-react';
+import { ArrowRight, Check, GraduationCap, Layers, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SchoolOnboardingFlow } from './school-onboarding';
 import { VestibularOnboardingFlow } from './vestibular-onboarding';
@@ -36,26 +36,36 @@ interface Props {
 const OPTIONS: {
   value: Journey;
   title: string;
-  description: string;
+  tagline: string;
+  points: string[];
+  gradient: string;
   Icon: typeof GraduationCap;
+  badge?: string;
 }[] = [
   {
     value: 'school',
     title: 'Nexa Estudos',
-    description: 'Estou na escola. Quero organizar matérias, lições, provas e notas.',
+    tagline: 'Para quem está na escola',
+    points: ['Matérias, lições e notas em um só lugar', 'Resumos, simulados e revisões', 'NexaAI para tirar dúvidas'],
+    gradient: 'from-violet-600 via-indigo-600 to-blue-600',
     Icon: GraduationCap,
   },
   {
     value: 'vestibular',
     title: 'Nexa Vestibular',
-    description: 'Estou me preparando pra prestar. Quero plano de estudo, questões e redação.',
+    tagline: 'Para quem vai prestar prova',
+    points: ['Plano de estudo até a data da prova', 'Banco de questões e central de erros', 'Correção de redação no modelo ENEM'],
+    gradient: 'from-teal-600 via-cyan-600 to-sky-600',
     Icon: Target,
   },
   {
     value: 'both',
     title: 'Os dois',
-    description: 'Estou no ensino médio e já me preparando pro vestibular.',
+    tagline: 'Escola agora, vestibular logo ali',
+    points: ['Alterne entre os dois pelo logo', 'Tudo que você faz fica guardado', 'Ideal para o Ensino Médio'],
+    gradient: 'from-fuchsia-600 via-violet-600 to-teal-600',
     Icon: Layers,
+    badge: 'Ensino Médio',
   },
 ];
 
@@ -93,52 +103,53 @@ export function OnboardingFlow({
   }
 
   return (
-    <div className="pt-safe pb-safe bg-surface-2/40 flex min-h-dvh flex-col justify-center px-5">
+    <div className="pt-safe pb-safe from-brand-soft/60 via-bg to-bg flex min-h-dvh flex-col bg-gradient-to-b">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="mx-auto w-full max-w-md space-y-6 py-8"
+        className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-5 py-10"
       >
-        <div className="space-y-2 text-center">
-          <div
-            aria-hidden
-            className="bg-brand-soft mx-auto grid size-16 place-items-center rounded-3xl"
-          >
-            <GraduationCap className="text-brand-text size-8" />
-          </div>
-          <h1 className="text-2xl leading-tight font-bold">Qual é o seu momento?</h1>
-          <p className="text-muted text-sm leading-snug">
-            Isso muda o Nexa inteiro — as telas, o que ele pergunta e o que ele te mostra todo
-            dia. Você pode trocar depois, no seu perfil.
+        <div className="mb-8 text-center md:mb-10">
+          <p className="text-brand-text mb-2 text-sm font-semibold tracking-wide">Bem-vindo ao Nexa</p>
+          <h1 className="text-3xl leading-tight font-bold tracking-tight md:text-4xl">Como você quer estudar?</h1>
+          <p className="text-muted mx-auto mt-3 max-w-md text-sm leading-relaxed md:text-base">
+            Escolha o Nexa que combina com o seu momento. Você pode trocar quando quiser, no perfil — nada do que você fizer é perdido.
           </p>
         </div>
 
-        <div className="space-y-3">
-          {OPTIONS.map(({ value, title, description, Icon }) => (
+        <div className="grid gap-4 md:grid-cols-3">
+          {OPTIONS.map(({ value, title, tagline, points, gradient, Icon, badge }) => (
             <button
               key={value}
               type="button"
               onClick={() => setJourney(value)}
-              className={cn(
-                'border-border bg-surface hover:border-brand/40 hover:bg-brand-soft/40',
-                'group flex w-full items-center gap-4 rounded-[20px] border p-4 text-left transition-colors',
-              )}
+              className="bg-surface border-border group relative flex flex-col overflow-hidden rounded-[28px] border text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-brand focus-visible:ring-2 focus-visible:outline-none"
             >
-              <span
-                aria-hidden
-                className="bg-surface-2 group-hover:bg-brand-soft grid size-12 shrink-0 place-items-center rounded-2xl transition-colors"
-              >
-                <Icon className="text-muted group-hover:text-brand-text size-6 transition-colors" />
+              <span className={cn('relative flex items-center gap-4 bg-gradient-to-br px-5 py-5 text-white md:flex-col md:items-start md:gap-6 md:py-7', gradient)}>
+                <span aria-hidden className="absolute -top-8 -right-8 size-28 rounded-full bg-white/10" />
+                <span aria-hidden className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-white/20 backdrop-blur">
+                  <Icon className="size-6" />
+                </span>
+                <span className="relative min-w-0">
+                  <span className="block text-xl font-semibold tracking-tight">{title}</span>
+                  <span className="block text-sm opacity-90">{tagline}</span>
+                </span>
+                {badge && <span className="absolute top-4 right-4 rounded-full bg-white/25 px-2.5 py-1 text-[11px] font-semibold backdrop-blur">{badge}</span>}
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-base font-semibold">{title}</span>
-                <span className="text-muted block text-sm leading-snug">{description}</span>
+              <span className="flex flex-1 flex-col gap-4 p-5">
+                <ul className="text-muted space-y-2 text-sm">
+                  {points.map((p) => (
+                    <li key={p} className="flex items-start gap-2">
+                      <Check className="text-success mt-0.5 size-4 shrink-0" aria-hidden />
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+                <span className="bg-brand-soft text-brand-text group-hover:bg-brand group-hover:text-brand-fg mt-auto inline-flex h-11 items-center justify-center gap-2 rounded-full text-sm font-semibold transition-colors">
+                  Escolher <ArrowRight className="size-4" aria-hidden />
+                </span>
               </span>
-              <ArrowRight
-                className="text-subtle group-hover:text-brand-text size-5 shrink-0 transition-colors"
-                aria-hidden
-              />
             </button>
           ))}
         </div>

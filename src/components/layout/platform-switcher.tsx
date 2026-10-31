@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { Check, ChevronDown, GraduationCap, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Journey } from '@/types/database.types';
+import { platformFromPath, useRememberedPlatform, type Platform } from './platform-context';
 
 /**
  * O seletor de plataforma, ancorado no logo.
@@ -70,7 +71,8 @@ export function PlatformSwitcher({
   );
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const active = resolveActivePlatform(pathname, journey);
+  const remembered = useRememberedPlatform();
+  const active = resolveActivePlatform(pathname, journey, remembered);
 
   // Fecha ao clicar fora e no Esc. Sem isso, o menu fica aberto por trás de
   // uma navegação e reaparece na próxima tela.
@@ -223,10 +225,13 @@ export function PlatformSwitcher({
 export function resolveActivePlatform(
   pathname: string,
   journey: Journey,
-): 'school' | 'vestibular' {
-  if (pathname.startsWith('/vestibular')) return 'vestibular';
-  if (journey === 'vestibular') return 'vestibular';
-  return 'school';
+  remembered: Platform | null = null,
+): Platform {
+  // O endereço manda quando ele pertence a uma plataforma só; nas telas compartilhadas vale a última visitada.
+  const fromPath = platformFromPath(pathname);
+  if (fromPath) return fromPath;
+  if (remembered) return remembered;
+  return journey === 'vestibular' ? 'vestibular' : 'school';
 }
 
 function Logo() {

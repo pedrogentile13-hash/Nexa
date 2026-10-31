@@ -1,12 +1,12 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
+import { useActionState, useMemo, useRef, useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Loader2, PenLine, Sparkles, Trash2, TrendingUp } from 'lucide-react';
+import { Camera, Loader2, PenLine, Sparkles, Trash2, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { correctEssay, deleteEssay, type EssayState } from '../server/actions';
+import { correctEssay, deleteEssay, transcribeEssayFile, type EssayState } from '../server/actions';
 import { countWords, MAX_WORDS, MIN_WORDS, weakestCompetency, type EssayFeedback } from '../lib/essay';
 import type { EssayHistoryItem } from '../server/queries';
 
@@ -37,6 +37,27 @@ export function EssayCorrector({ history }: { history: EssayHistoryItem[] }) {
   const [state, action] = useActionState(correctEssay, INITIAL);
   const [text, setText] = useState('');
   const [opened, setOpened] = useState<EssayHistoryItem | null>(null);
+  const [reading, startReading] = useTransition();
+  const [readNote, setReadNote] = useState<{ ok: boolean; message: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function readFile(file: File | undefined) {
+    if (!file) return;
+    setReadNote(null);
+    const fd = new FormData();
+    fd.set('file', file);
+    startReading(async () => {
+      const r = await transcribeEssayFile(fd);
+      if (fileRef.current) fileRef.current.value = '';
+      if (r.ok) {
+        setText(r.text);
+        setOpened(null);
+        setReadNote({ ok: true, message: `Li ${r.words} palavras. Confira o texto abaixo e corrija o que a leitura errou antes de pedir a correção.` });
+      } else {
+        setReadNote({ ok: false, message: r.message });
+      }
+    });
+  }
 
   const words = useMemo(() => countWords(text), [text]);
   const weakest = weakestCompetency(history.map((h) => ({ scores: h.scores })));
@@ -56,6 +77,24 @@ export function EssayCorrector({ history }: { history: EssayHistoryItem[] }) {
           <Input id="essay-theme" name="theme" required maxLength={300} placeholder="Os desafios da educação inclusiva no Brasil" />
         </div>
         <div>
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,application/pdf" className="sr-only" id="essay-file" onChange={(e) => readFile(e.target.files?.[0])} />
+          <label
+            htmlFor="essay-file"
+            className={cn('border-border bg-surface-2 hover:border-brand/50 mb-3 flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed p-4', reading && 'pointer-events-none opacity-70')}
+          >
+            <span className="bg-brand-soft text-brand-text grid size-11 shrink-0 place-items-center rounded-2xl">
+              {reading ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Camera className="size-5" aria-hidden />}
+            </span>
+            <span className="min-w-0 text-sm">
+              <span className="block font-semibold">{reading ? 'Lendo sua redação…' : 'Enviar foto ou PDF da redação'}</span>
+              <span className="text-muted block text-xs">PNG, JPG, WebP ou PDF, até 6 MB. Serve para redação escrita à mão.</span>
+            </span>
+          </label>
+          {readNote && (
+            <p role={readNote.ok ? 'status' : 'alert'} className={cn('mb-3 rounded-xl px-3 py-2 text-sm', readNote.ok ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger')}>
+              {readNote.message}
+            </p>
+          )}
           <div className="flex items-baseline justify-between">
             <Label htmlFor="essay-text">Sua redação</Label>
             <span

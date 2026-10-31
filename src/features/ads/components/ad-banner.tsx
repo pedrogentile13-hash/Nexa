@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import { adAllowed, adsPersonalized } from '../lib/placement';
+import { ADSENSE_CLIENT as CLIENT, ADSENSE_SCRIPT, ADSENSE_SLOT as SLOT } from '../lib/config';
 
 declare global {
   interface Window {
@@ -11,8 +12,6 @@ declare global {
   }
 }
 
-const CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT; // ca-pub-XXXXXXXXXXXXXXXX
-const SLOT = process.env.NEXT_PUBLIC_ADSENSE_SLOT_BANNER;
 
 /**
  * Banner do AdSense, só no Nexa padrão gratuito (o layout só o monta quando `adsEnabled`).
@@ -40,7 +39,7 @@ export function AdBanner() {
   return (
     <aside aria-label="Publicidade" className="mx-auto w-full max-w-3xl px-4 pb-6">
       <p className="text-subtle mb-1 text-center text-[10px] tracking-wide uppercase">Publicidade</p>
-      <Script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${CLIENT}`} crossOrigin="anonymous" strategy="afterInteractive" />
+      <Script async src={ADSENSE_SCRIPT} crossOrigin="anonymous" strategy="afterInteractive" />
       {/* Key por rota: o AdSense preenche cada <ins> uma única vez. */}
       <ins key={pathname} className="adsbygoogle block min-h-[60px]" style={{ display: 'block' }} data-ad-client={CLIENT} data-ad-slot={SLOT} data-ad-format="auto" data-full-width-responsive="true" />
     </aside>
