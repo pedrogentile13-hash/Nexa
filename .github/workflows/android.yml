@@ -47,7 +47,7 @@ jobs:
       - name: Gerar APK de teste
         if: inputs.acao == 'apk-teste'
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon -PversionCode=${{ github.run_number }}
 
       - name: Guardar o APK de teste
         if: inputs.acao == 'apk-teste'

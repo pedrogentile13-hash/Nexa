@@ -43,3 +43,5 @@ coverage/
 *.keystore
 android/keystore.properties
 android/local.properties
+# Exceção: a chave de TESTE pública do APK de depuração (sem valor de segurança) fica no repositório
+!android/app/debug.keystore

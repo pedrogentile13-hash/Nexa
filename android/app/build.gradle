@@ -24,6 +24,14 @@ android {
         }
     }
     signingConfigs {
+        // Chave de TESTE fixa (pública, só para APK de teste): assim cada APK novo instala por cima do anterior.
+        // O app da loja usa a chave `release` abaixo, que nunca fica no repositório.
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
         release {
             if (keystorePath) {
                 storeFile file(keystorePath)
