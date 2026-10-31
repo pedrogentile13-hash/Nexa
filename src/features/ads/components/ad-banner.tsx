@@ -1,0 +1,48 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+import Script from 'next/script';
+import { usePathname } from 'next/navigation';
+import { adAllowed, adsPersonalized } from '../lib/placement';
+
+declare global {
+  interface Window {
+    adsbygoogle?: Record<string, unknown>[] & { requestNonPersonalizedAds?: number };
+  }
+}
+
+const CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT; // ca-pub-XXXXXXXXXXXXXXXX
+const SLOT = process.env.NEXT_PUBLIC_ADSENSE_SLOT_BANNER;
+
+/**
+ * Banner do AdSense, só no Nexa padrão gratuito (o layout só o monta quando `adsEnabled`).
+ * Sem `NEXT_PUBLIC_ADSENSE_CLIENT` e o bloco de anúncio configurados, não renderiza nada.
+ * No aplicativo instalado (APK) o anúncio é o AdMob, que é nativo — ver `docs/MONETIZACAO.md`.
+ */
+export function AdBanner() {
+  const pathname = usePathname();
+  const pushed = useRef(false);
+  const show = Boolean(CLIENT && SLOT) && adAllowed(pathname);
+
+  useEffect(() => {
+    if (!show || pushed.current) return;
+    pushed.current = true;
+    try {
+      window.adsbygoogle = window.adsbygoogle || [];
+      if (!adsPersonalized()) window.adsbygoogle.requestNonPersonalizedAds = 1;
+      window.adsbygoogle.push({});
+    } catch {
+      // anúncio é opcional: nunca derruba a tela
+    }
+  }, [show]);
+
+  if (!show) return null;
+  return (
+    <aside aria-label="Publicidade" className="mx-auto w-full max-w-3xl px-4 pb-6">
+      <p className="text-subtle mb-1 text-center text-[10px] tracking-wide uppercase">Publicidade</p>
+      <Script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${CLIENT}`} crossOrigin="anonymous" strategy="afterInteractive" />
+      {/* Key por rota: o AdSense preenche cada <ins> uma única vez. */}
+      <ins key={pathname} className="adsbygoogle block min-h-[60px]" style={{ display: 'block' }} data-ad-client={CLIENT} data-ad-slot={SLOT} data-ad-format="auto" data-full-width-responsive="true" />
+    </aside>
+  );
+}

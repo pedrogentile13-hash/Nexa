@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI, streamWithAI, type AIAttachment } from '@/lib/ai/provider';
-import { checkAiQuota } from '@/lib/ai/quota';
+import { checkPlanQuota } from '@/features/billing/server/quota';
 import { reportError } from '@/features/observability/server/actions';
 import { getChatMessages, type ChatMessage } from './queries';
 import { maybeCreateFromChat } from './chat-create';
@@ -125,7 +125,7 @@ export async function runChat(formData: FormData, onDelta?: (text: string) => vo
   }
 
   const [quota, history, studentContext, journey, docs] = await Promise.all([
-    checkAiQuota(supabase, file ? 'material' : 'nexa_ia'),
+    checkPlanQuota(supabase, file ? 'material' : 'nexa_ia'),
     isNewSession ? Promise.resolve([] as ChatMessage[]) : getChatMessages(sessionId),
     buildStudentContext(user.id),
     readJourney(user.id),

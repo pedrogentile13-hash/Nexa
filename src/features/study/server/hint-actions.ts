@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
-import { checkAiQuota } from '@/lib/ai/quota';
+import { checkPlanQuota } from '@/features/billing/server/quota';
 import { buildHintMessages, HINT_XP_COST, leaksAnswer, MAX_HINT_LEVEL } from '../lib/hint-prompt';
 
 export type HintResult = { ok: true; hint: string; xpCost: number } | { ok: false; message: string };
@@ -43,7 +43,7 @@ export async function getQuestionHint(resourceId: string, questionId: string, le
   const q = questions?.find((x) => x.question_id === parsed.data.questionId);
   if (!q) return { ok: false, message: 'Não encontrei esta questão.' };
 
-  const quota = await checkAiQuota(supabase, 'hint');
+  const quota = await checkPlanQuota(supabase, 'hint');
   if (!quota.ok) return { ok: false, message: quota.message };
 
   const result = await completeWithAI(

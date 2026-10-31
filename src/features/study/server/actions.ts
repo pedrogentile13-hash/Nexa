@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
-import { checkAiQuota } from '@/lib/ai/quota';
+import { checkPlanQuota } from '@/features/billing/server/quota';
 import { reportError } from '@/features/observability/server/actions';
 import {
   buildExplainMessages,
@@ -338,7 +338,7 @@ export async function explainPassage(
     .maybeSingle();
   if (!data) return { ok: false, message: 'Não encontrei este resumo.' };
 
-  const quota = await checkAiQuota(supabase, 'explain');
+  const quota = await checkPlanQuota(supabase, 'explain');
   if (!quota.ok) return { ok: false, message: quota.message };
 
   const result = await completeWithAI(

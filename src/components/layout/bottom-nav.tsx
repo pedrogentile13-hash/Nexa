@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   GraduationCap,
+  Crown,
   Home,
   Megaphone,
   Menu,
@@ -63,6 +64,7 @@ const ACCOUNT_ITEMS = [
   { href: '/perfil', label: 'Perfil', Icon: User },
 ] as const;
 
+const PRO_ITEM = { href: '/pro', label: 'Nexa Pro', Icon: Crown } as const;
 const ADMIN_ITEM = { href: '/admin', label: 'Admin', Icon: Shield } as const;
 const TEACHER_ITEM = { href: '/escola', label: 'Portal da escola', Icon: Users2 } as const;
 const COMMUNITY_ITEM = { href: '/comunidade', label: 'Comunidade', Icon: Newspaper } as const;
@@ -102,6 +104,7 @@ type NavItem = { href: string; label: string; Icon: typeof Home };
 export function BottomNav({
   isAdmin = false,
   isTeacher = false,
+  billingEnabled = false,
   communityEnabled = false,
   chatEnabled = false,
   announcementsEnabled = false,
@@ -111,6 +114,7 @@ export function BottomNav({
 }: {
   isAdmin?: boolean;
   isTeacher?: boolean;
+  billingEnabled?: boolean;
   communityEnabled?: boolean;
   /** O aluno tem professores ligados à turma dele (chat da escola). */
   chatEnabled?: boolean;
@@ -142,6 +146,7 @@ export function BottomNav({
             SCHOOL_ITEM,
             ...(communityEnabled ? [COMMUNITY_ITEM] : []),
             ...VESTIBULAR_MORE_ITEMS.filter((i) => i.href === '/ranking' || i.href === '/perfil'),
+            ...(billingEnabled ? [PRO_ITEM] : []),
           ],
         },
       ]
@@ -162,6 +167,7 @@ export function BottomNav({
             ...ACCOUNT_ITEMS,
             ...(isAdmin ? [ADMIN_ITEM] : []),
             ...(isTeacher ? [TEACHER_ITEM] : []),
+            ...(billingEnabled ? [PRO_ITEM] : []),
           ],
         },
       ].filter((sec) => sec.items.length > 0);

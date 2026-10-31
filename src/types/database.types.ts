@@ -1134,6 +1134,19 @@ export type NotificationRow = {
   created_at: string;
 };
 
+export type BillingCustomerRow = { user_id: string; stripe_customer_id: string; created_at: string };
+export type SubscriptionRow = {
+  user_id: string;
+  stripe_subscription_id: string;
+  plan: 'plus' | 'pro';
+  billing_interval: 'month' | 'year' | null;
+  status: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  updated_at: string;
+};
+export type StripeEventRow = { id: string; type: string; received_at: string };
+
 export type PushSubscriptionRow = {
   id: string;
   user_id: string;
@@ -1517,6 +1530,9 @@ export type Database = {
       publication_requests: Table<PublicationRequestRow>;
       notifications: Table<NotificationRow>;
       push_subscriptions: Table<PushSubscriptionRow>;
+      billing_customers: Table<BillingCustomerRow>;
+      subscriptions: Table<SubscriptionRow>;
+      stripe_events: Table<StripeEventRow>;
       teacher_assignments: Table<TeacherAssignmentRow>;
       classes: Table<ClassRow>;
       writing_tasks: Table<WritingTaskRow>;
@@ -1877,6 +1893,10 @@ export type Database = {
           user_id: string; full_name: string; avatar_url: string | null; class_id: string; class_name: string; school_login: string | null;
           xp: number; level: number; current_streak: number; last_active: string | null; week_minutes: number;
         }[];
+      };
+      my_plan: {
+        Args: Record<string, never>;
+        Returns: { plan: string; status: string | null; current_period_end: string | null; cancel_at_period_end: boolean; interval_name: string | null }[];
       };
       school_years_overview: {
         Args: Record<string, never>;

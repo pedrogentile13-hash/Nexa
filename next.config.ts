@@ -13,15 +13,19 @@ import type { NextConfig } from 'next';
 const supabaseHost = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
 const isDev = process.env.NODE_ENV !== 'production';
 
+// Só quando o AdSense está configurado: libera os endereços do Google Ads (script, imagem, quadro e conexão).
+const ads = Boolean(process.env.NEXT_PUBLIC_ADSENSE_CLIENT);
+const adScripts = ads ? ' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://www.googletagservices.com https://adservice.google.com' : '';
+
 const strictCsp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${adScripts}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: https://${supabaseHost || '*.supabase.co'}`,
+  `img-src 'self' data: blob: https://${supabaseHost || '*.supabase.co'}${ads ? ' https:' : ''}`,
   `media-src 'self' blob: https://${supabaseHost || '*.supabase.co'}`,
   "font-src 'self' data:",
-  `connect-src 'self' https://${supabaseHost || '*.supabase.co'} wss://${supabaseHost || '*.supabase.co'}`,
-  "frame-src 'self' blob: about:",
+  `connect-src 'self' https://${supabaseHost || '*.supabase.co'} wss://${supabaseHost || '*.supabase.co'}${adScripts}`,
+  `frame-src 'self' blob: about:${adScripts}`,
   "worker-src 'self' blob:",
 ].join('; ');
 

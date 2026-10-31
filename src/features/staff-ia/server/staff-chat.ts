@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { streamWithAI } from '@/lib/ai/provider';
-import { checkAiQuota } from '@/lib/ai/quota';
+import { checkPlanQuota } from '@/features/billing/server/quota';
 import { getStaffIdentity } from '@/features/escola/server/guard';
 import { STAFF_ROLE_LABEL } from '@/features/escola/lib/access';
 
@@ -30,7 +30,7 @@ export async function runStaffChat(body: unknown, onDelta: (text: string) => voi
   if (!staff) return { ok: false, message: 'Sessão expirada.' };
 
   const supabase = await createClient();
-  const quota = await checkAiQuota(supabase, 'staff_ia');
+  const quota = await checkPlanQuota(supabase, 'staff_ia');
   if (!quota.ok) return { ok: false, message: quota.message };
 
   const who = `${STAFF_ROLE_LABEL[staff.role]}${staff.schoolName ? ` · ${staff.schoolName}` : ''}`;

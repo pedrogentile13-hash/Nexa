@@ -4,6 +4,8 @@ import { NexaWidget } from '@/features/nexa-ia/components/nexa-widget';
 import { InstallPrompt } from '@/features/install/components/install-prompt';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { getFeatureFlags } from '@/lib/feature-flags';
+import { AdBanner } from '@/features/ads/components/ad-banner';
+import { getPlanInfo } from '@/features/billing/server/entitlements';
 import { unreadAnnouncementsCount } from '@/features/announcements/server/queries';
 import { SHELL_COLUMNS, readWithFallback, type ProfileReader } from '@/lib/supabase/profile-read';
 import type { Journey } from '@/types/database.types';
@@ -39,7 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // `readWithFallback` tem teste próprio — ver `profile-read.test.ts`.
   // Tudo em paralelo: eram cinco idas ao banco em fila (perfil, duas flags,
   // avisos, escola), e cada ida custa uma viagem de rede em TODA navegação.
-  const [profileRaw, flags, unreadAnnouncements, schoolRow] = user
+  const [profileRaw, flags, unreadAnnouncements, schoolRow, plan] = user
     ? await Promise.all([
         readWithFallback(supabase as unknown as ProfileReader, user.id, SHELL_COLUMNS.wanted, SHELL_COLUMNS.guaranteed, {
           full_name: null,
@@ -50,8 +52,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         getFeatureFlags(),
         unreadAnnouncementsCount(),
         supabase.from('profiles').select('school_id').eq('id', user.id).maybeSingle(),
+        getPlanInfo(),
       ])
-    : [null, null, 0, null];
+    : [null, null, 0, null, null];
   const profile = profileRaw as {
     full_name: string | null;
     avatar_url: string | null;
@@ -77,6 +80,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         avatarUrl={profile?.avatar_url ?? null}
         isAdmin={isAdmin}
         isTeacher={isTeacher}
+        billingEnabled={plan?.billingVisible ?? false}
         communityEnabled={communityEnabled}
         chatEnabled={chatEnabled}
         announcementsEnabled={announcementsEnabled}
@@ -86,11 +90,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       />
       <div className="min-w-0 flex-1">
         {/* pb-nav reserva a altura da barra + o indicador de home do iPhone. */}
-        <div className="pb-nav md:pb-8">{children}</div>
+        <div className="pb-nav md:pb-8">
+          {children}
+          {/* Anúncio só no Nexa padrão gratuito; Escolas, Plus e Pro nunca veem. */}
+          {plan?.adsEnabled && <AdBanner />}
+        </div>
       </div>
       <BottomNav
         isAdmin={isAdmin}
         isTeacher={isTeacher}
+        billingEnabled={plan?.billingVisible ?? false}
         communityEnabled={communityEnabled}
         chatEnabled={chatEnabled}
         announcementsEnabled={announcementsEnabled}

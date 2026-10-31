@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   GraduationCap,
+  Crown,
   Home,
   Newspaper,
   Route as RouteIcon,
@@ -68,6 +69,8 @@ const SECONDARY_ITEMS: NavItem[] = [
 ];
 
 /** Só aparece para quem tem `role` admin/school_admin — ver `(app)/layout.tsx`. */
+/** Só no Nexa padrão (fora das escolas) — ver `(app)/layout.tsx`. */
+const PRO_ITEM: NavItem = { href: '/pro', label: 'Nexa Pro', Icon: Crown };
 const ADMIN_ITEM: NavItem = { href: '/admin', label: 'Admin', Icon: Shield };
 /** Só aparece para quem tem `role` teacher_admin — ver `(app)/layout.tsx`. */
 const TEACHER_ITEM: NavItem = { href: '/escola', label: 'Portal da escola', Icon: Users2 };
@@ -128,6 +131,7 @@ export function SideNav({
   avatarUrl,
   isAdmin,
   isTeacher,
+  billingEnabled,
   communityEnabled,
   chatEnabled,
   announcementsEnabled,
@@ -139,6 +143,8 @@ export function SideNav({
   avatarUrl?: string | null;
   isAdmin?: boolean;
   isTeacher?: boolean;
+  /** Nexa padrão: mostra a tela de planos. Nexa Escolas não tem. */
+  billingEnabled?: boolean;
   communityEnabled?: boolean;
   /** O aluno tem professores ligados à turma dele (chat da escola). */
   chatEnabled?: boolean;
@@ -168,11 +174,12 @@ export function SideNav({
         ...(communityEnabled ? [COMMUNITY_ITEM] : []),
       ];
   const secondaryItems = inVestibular
-    ? VESTIBULAR_SECONDARY_ITEMS
+    ? [...VESTIBULAR_SECONDARY_ITEMS, ...(billingEnabled ? [PRO_ITEM] : [])]
     : [
         ...SECONDARY_ITEMS,
         ...(isAdmin ? [ADMIN_ITEM] : []),
         ...(isTeacher ? [TEACHER_ITEM] : []),
+        ...(billingEnabled ? [PRO_ITEM] : []),
       ];
 
   return (

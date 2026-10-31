@@ -1,5 +1,5 @@
 import { completeWithAI } from '@/lib/ai/provider';
-import { checkAiQuota } from '@/lib/ai/quota';
+import { checkPlanQuota } from '@/features/billing/server/quota';
 import { parseSimuladoCode } from '@/features/admin/lib/simulado-import';
 import {
   buildCreatorQuizPrompt,
@@ -38,7 +38,7 @@ export async function maybeCreateFromChat(
   if (opts.file) {
     const check = checkChatFile(opts.file);
     if (!check.ok) return check.message;
-    const quotaFile = await checkAiQuota(supabase, 'material');
+    const quotaFile = await checkPlanQuota(supabase, 'material');
     if (!quotaFile.ok) return quotaFile.message;
     const result = await saveChatFileToLibrary(supabase, opts.userId, opts.file, check.kind);
     if (!result.ok) return result.message;
@@ -53,7 +53,7 @@ export async function maybeCreateFromChat(
   const subjects = subjectRows ?? [];
   if (subjects.length === 0) return null;
 
-  const quota = await checkAiQuota(supabase, 'creator');
+  const quota = await checkPlanQuota(supabase, 'creator');
   if (!quota.ok) return quota.message;
 
   const extraction = await completeWithAI(

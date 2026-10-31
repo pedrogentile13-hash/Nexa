@@ -5,7 +5,9 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
 import { aiMessage, readUploadedFile } from './material-ingest';
-import { checkAiQuota } from '@/lib/ai/quota';
+import { checkPlanQuota } from '@/features/billing/server/quota';
+import { getPlanInfo } from '@/features/billing/server/entitlements';
+import { upgradeHint } from '@/features/billing/lib/plans';
 import { parseSimuladoCode } from '@/features/admin/lib/simulado-import';
 import { stripCodeFence, toCreatorQuestionsPayload } from '@/features/community/lib/creator-prompt';
 import {
@@ -22,7 +24,6 @@ import {
  * arquivo). Tudo que a IA cria daqui nasce privado, na Biblioteca do aluno.
  */
 
-const MAX_DOCUMENTS = 30;
 const MIN_TEXT = 20;
 
 export type MaterialState =
@@ -55,8 +56,11 @@ export async function addStudyDocuments(_prev: MaterialState, formData: FormData
   }
 
   const { count } = await supabase.from('study_documents').select('id', { count: 'exact', head: true });
-  if ((count ?? 0) + files.length + (pasted ? 1 : 0) > MAX_DOCUMENTS) {
-    return { status: 'error', message: `Você já tem muitos materiais (máx. ${MAX_DOCUMENTS}). Apague algum para adicionar.` };
+  // O teto da Biblioteca depende do plano (escola: 30; grátis: 10; Plus: 60; Pro: 300).
+  const plan = await getPlanInfo();
+  const maxDocuments = plan.limits.libraryDocs;
+  if ((count ?? 0) + files.length + (pasted ? 1 : 0) > maxDocuments) {
+    return { status: 'error', message: `Você já tem muitos materiais (máx. ${maxDocuments}). Apague algum para adicionar.${upgradeHint(plan.plan)}` };
   }
 
   const rows: { user_id: string; title: string; source_kind: 'pdf' | 'image' | 'text'; content: string; pages: number | null }[] = [];
@@ -66,7 +70,7 @@ export async function addStudyDocuments(_prev: MaterialState, formData: FormData
     const kind = classifyUpload(file.type)!;
     // Imagem e PDF escaneado gastam a IA: contam na cota.
     if (kind !== 'text') {
-      const quota = await checkAiQuota(supabase, 'material');
+      const quota = await checkPlanQuota(supabase, 'material');
       if (!quota.ok) {
         problems.push(quota.message);
         break;
@@ -154,7 +158,7 @@ export async function askAboutDocument(_prev: AskState, formData: FormData): Pro
   const ctx = await loadDoc(parsed.data.documentId);
   if (!ctx) return { status: 'error', message: 'Material não encontrado.' };
 
-  const quota = await checkAiQuota(ctx.supabase, 'material');
+  const quota = await checkPlanQuota(ctx.supabase, 'material');
   if (!quota.ok) return { status: 'error', message: quota.message };
 
   const r = await completeWithAI(buildMaterialQuestionMessages(ctx.doc.title, ctx.doc.content, parsed.data.question), {
@@ -190,7 +194,7 @@ export async function createSummaryFromDocument(_prev: CreateFromDocState, formD
   if (!ctx) return { status: 'error', message: 'Material não encontrado.' };
   if (!(await subjectName(ctx.supabase, parsed.data.subjectCatalogId))) return { status: 'error', message: 'Matéria inválida.' };
 
-  const quota = await checkAiQuota(ctx.supabase, 'creator');
+  const quota = await checkPlanQuota(ctx.supabase, 'creator');
   if (!quota.ok) return { status: 'error', message: quota.message };
 
   const r = await completeWithAI(buildMaterialSummaryMessages(ctx.doc.title, ctx.doc.content), {
@@ -223,7 +227,7 @@ export async function createQuizFromDocument(_prev: CreateFromDocState, formData
   const subject = await subjectName(ctx.supabase, parsed.data.subjectCatalogId);
   if (!subject) return { status: 'error', message: 'Matéria inválida.' };
 
-  const quota = await checkAiQuota(ctx.supabase, 'creator');
+  const quota = await checkPlanQuota(ctx.supabase, 'creator');
   if (!quota.ok) return { status: 'error', message: quota.message };
 
   const r = await completeWithAI(

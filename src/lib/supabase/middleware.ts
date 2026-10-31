@@ -24,6 +24,8 @@ const PUBLIC_PREFIXES = [
   '/termos-de-uso',
   '/escola-nao-encontrada',
   '/api/tenant-check',
+  // Quem chama é o Stripe, sem login: a proteção é a assinatura do corpo.
+  '/api/stripe/webhook',
 ];
 
 const ONBOARDING_PATH = '/bem-vindo';

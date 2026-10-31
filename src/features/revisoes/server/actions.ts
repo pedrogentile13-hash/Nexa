@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
-import { checkAiQuota } from '@/lib/ai/quota';
+import { checkPlanQuota } from '@/features/billing/server/quota';
 import { reportError } from '@/features/observability/server/actions';
 import { buildErrorExplanationMessages } from '../lib/error-prompt';
 import { getReviewQueue } from './queries';
@@ -77,7 +77,7 @@ export async function explainMyError(questionId: string): Promise<ErrorExplanati
   const item = (await getReviewQueue(user.id)).find((i) => i.kind === 'erro' && i.questionId === id.data);
   if (!item || !item.statement) return { ok: false, message: 'Não encontrei este erro na sua fila.' };
 
-  const quota = await checkAiQuota(supabase, 'explain');
+  const quota = await checkPlanQuota(supabase, 'explain');
   if (!quota.ok) return { ok: false, message: quota.message };
 
   const result = await completeWithAI(
