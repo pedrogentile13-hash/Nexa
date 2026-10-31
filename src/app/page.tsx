@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { BookOpenCheck, GraduationCap, ShieldCheck, Sparkles, Target } from 'lucide-react';
+import { CookiePreferencesButton } from '@/features/analytics/components/cookie-banner';
 import { getCurrentUser } from '@/lib/supabase/server';
 import { getTenant } from '@/lib/tenant/server';
 
@@ -83,6 +84,7 @@ export default async function RootPage() {
         <nav className="text-muted flex justify-center gap-5">
           <Link href="/politica-de-privacidade" className="hover:text-text underline-offset-2 hover:underline">Política de privacidade</Link>
           <Link href="/termos-de-uso" className="hover:text-text underline-offset-2 hover:underline">Termos de uso</Link>
+          <CookiePreferencesButton className="hover:text-text underline-offset-2 hover:underline" />
         </nav>
         <p className="text-subtle mt-3">© {new Date().getFullYear()} Nexa Study</p>
       </footer>

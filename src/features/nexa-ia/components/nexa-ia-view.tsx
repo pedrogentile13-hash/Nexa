@@ -15,6 +15,7 @@ import {
 import { Markdown } from '@/features/study/components/markdown';
 import { cn } from '@/lib/utils';
 import { useRememberedPlatform } from '@/components/layout/platform-context';
+import { track } from '@/features/analytics/lib/track';
 import { streamChat } from '../lib/stream-client';
 import type { ChatMessage } from '../server/queries';
 import { composerKeyAction, insertNewline } from '../lib/composer-keys';
@@ -106,6 +107,7 @@ export function NexaIaView({
       fd.set('content', content);
       fd.set('mode', mode);
       fd.set('platform', platform ?? '');
+      track({ name: 'nexa_ia_message', platform: platform ?? 'unknown' });
       if (sentFile) fd.set('file', sentFile);
       const r = await streamChat(fd, (x) => setStreamText((t) => t + x));
       setPending(false);

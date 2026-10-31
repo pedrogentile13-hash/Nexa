@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Check, GraduationCap, Layers, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { track } from '@/features/analytics/lib/track';
 import { SchoolOnboardingFlow } from './school-onboarding';
 import { VestibularOnboardingFlow } from './vestibular-onboarding';
 import type { Journey } from '../schemas';
@@ -123,7 +124,10 @@ export function OnboardingFlow({
             <button
               key={value}
               type="button"
-              onClick={() => setJourney(value)}
+              onClick={() => {
+                track({ name: 'journey_chosen', journey: value });
+                setJourney(value);
+              }}
               className="bg-surface border-border group relative flex flex-col overflow-hidden rounded-[28px] border text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-brand focus-visible:ring-2 focus-visible:outline-none"
             >
               <span className={cn('relative flex items-center gap-4 bg-gradient-to-br px-5 py-5 text-white md:flex-col md:items-start md:gap-6 md:py-7', gradient)}>

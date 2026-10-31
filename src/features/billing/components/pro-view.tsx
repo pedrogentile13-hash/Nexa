@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Loader2, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { track } from '@/features/analytics/lib/track';
 import { AI_DAILY_LIMITS } from '@/lib/ai/quota';
 import { PLAN_LABEL, PLAN_LIMITS, PLAN_PRICES, formatBRL, yearlyFreeMonths, type BillingInterval, type PaidPlan, type Plan } from '../lib/plans';
 
@@ -52,6 +53,11 @@ export function ProView({ plan, periodEnd, cancelAtPeriodEnd, paymentsReady, ban
       // sem sessionStorage: segue como navegador
     }
   }, []);
+
+  useEffect(() => {
+    track({ name: 'pro_view', plan });
+    if (banner === 'ok') track({ name: 'pro_checkout_success' });
+  }, [plan, banner]);
 
   async function run(key: string, path: string, body?: unknown) {
     setBusy(key);
@@ -124,7 +130,10 @@ export function ProView({ plan, periodEnd, cancelAtPeriodEnd, paymentsReady, ban
                 <button
                   type="button"
                   disabled={busy !== null || !paymentsReady || paid}
-                  onClick={() => run(p, '/api/billing/checkout', { plan: p, interval })}
+                  onClick={() => {
+                    track({ name: 'pro_checkout_start', plan: p, interval });
+                    void run(p, '/api/billing/checkout', { plan: p, interval });
+                  }}
                   className="bg-brand text-brand-fg mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-full text-sm font-semibold disabled:opacity-50"
                 >
                   {busy === p && <Loader2 className="size-4 animate-spin" aria-hidden />}

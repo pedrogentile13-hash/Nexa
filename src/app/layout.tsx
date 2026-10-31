@@ -4,7 +4,8 @@ import './globals.css';
 import { headers } from 'next/headers';
 import { AppSplash } from '@/components/layout/app-splash';
 import { SchoolBrandProvider } from '@/components/layout/school-brand';
-import { ADSENSE_CLIENT, ADSENSE_SCRIPT, GA_INIT, GA_SCRIPT } from '@/features/ads/lib/config';
+import { ADSENSE_CLIENT, ADSENSE_SCRIPT, GA_INIT } from '@/features/ads/lib/config';
+import { CookieBanner } from '@/features/analytics/components/cookie-banner';
 import { decodeTenant, tenantCss, TENANT_HEADER } from '@/lib/tenant/resolve';
 
 const inter = Inter({
@@ -92,11 +93,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         */}
         {!tenant && (
           <>
+            {/* Primeiro o Consent Mode (tudo negado), depois o AdSense, que lê esse estado ao carregar. */}
+            {/* Google Analytics: só depois do consentimento (script em `GA_INIT`), e fora das escolas. */}
+            <script dangerouslySetInnerHTML={{ __html: GA_INIT }} />
             <meta name="google-adsense-account" content={ADSENSE_CLIENT} />
             <script async src={ADSENSE_SCRIPT} crossOrigin="anonymous" />
-            {/* Google Analytics: mesma regra do AdSense — fora das escolas. */}
-            <script async src={GA_SCRIPT} />
-            <script dangerouslySetInnerHTML={{ __html: GA_INIT }} />
           </>
         )}
       </head>
@@ -104,6 +105,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <SchoolBrandProvider value={tenant ? { name: tenant.name, logoUrl: tenant.logoUrl } : null}>
           <AppSplash />
           {children}
+          {/* Sem aviso de cookies no endereço de uma escola: lá não há medição nem anúncio. */}
+          {!tenant && <CookieBanner />}
         </SchoolBrandProvider>
       </body>
     </html>

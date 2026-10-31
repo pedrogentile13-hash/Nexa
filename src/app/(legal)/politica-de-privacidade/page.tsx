@@ -70,6 +70,15 @@ const SECTIONS: LegalSection[] = [
     ],
   },
   {
+    heading: '7.1 Cookies, medição e publicidade',
+    paragraphs: [
+      'No Nexa padrão (fora do ambiente de uma escola), usamos cookies necessários para o app funcionar, como manter você conectado e lembrar suas escolhas de tela. Eles não dependem de consentimento.',
+      'Com a sua permissão, também usamos o Google Analytics para medir como o app é usado (por exemplo, quais telas são mais visitadas) e o Google AdSense para exibir anúncios no plano gratuito. Os anúncios são não personalizados. Não enviamos seu nome, e-mail ou o que você digita para essas ferramentas.',
+      'Você escolhe no aviso de cookies que aparece no primeiro acesso e pode mudar a escolha a qualquer momento em "Preferências de cookies", na página inicial. Menores de 18 anos devem contar com a ajuda de um responsável para essa escolha.',
+      'Nos ambientes de escolas, não há medição por Google Analytics nem anúncios. As assinaturas pagas do plano Plus e Pro são processadas por um provedor de pagamento externo, e os dados do cartão não passam pelo Nexa.',
+    ],
+  },
+  {
     heading: '8. Compartilhamento de informações',
     paragraphs: [
       'O Nexa Study não vende dados pessoais dos estudantes.',

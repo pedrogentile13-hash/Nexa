@@ -6,6 +6,7 @@ import { Camera, Loader2, PenLine, Sparkles, Trash2, TrendingUp } from 'lucide-r
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { track } from '@/features/analytics/lib/track';
 import { correctEssay, deleteEssay, transcribeEssayFile, type EssayState } from '../server/actions';
 import { countWords, MAX_WORDS, MIN_WORDS, weakestCompetency, type EssayFeedback } from '../lib/essay';
 import type { EssayHistoryItem } from '../server/queries';
@@ -50,6 +51,7 @@ export function EssayCorrector({ history }: { history: EssayHistoryItem[] }) {
       const r = await transcribeEssayFile(fd);
       if (fileRef.current) fileRef.current.value = '';
       if (r.ok) {
+        track({ name: 'essay_file_read' });
         setText(r.text);
         setOpened(null);
         setReadNote({ ok: true, message: `Li ${r.words} palavras. Confira o texto abaixo e corrija o que a leitura errou antes de pedir a correção.` });
