@@ -3,6 +3,7 @@ import { Flame, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getNavContext } from '@/lib/supabase/server';
 import { PlatformSwitcher } from './platform-switcher';
+import { getPlanInfo } from '@/features/billing/server/entitlements';
 import { HeaderSearchToggle } from './header-search-toggle';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 
@@ -36,6 +37,7 @@ export async function AppHeader({
   // Leitura deduplicada por requisição (`cache()`): o shell já pediu a mesma
   // coisa pra montar a navegação, então isto não custa um round-trip novo.
   const { journey, vestibularEnabled } = await getNavContext();
+  const schoolAccount = (await getPlanInfo()).plan === 'school';
 
   return (
     <header className="pt-safe bg-bg/85 sticky top-0 z-30 backdrop-blur-lg">
@@ -48,6 +50,7 @@ export async function AppHeader({
         <PlatformSwitcher
           journey={journey}
           vestibularEnabled={vestibularEnabled}
+          schoolAccount={schoolAccount}
           variant="mark"
           className="shrink-0"
         />

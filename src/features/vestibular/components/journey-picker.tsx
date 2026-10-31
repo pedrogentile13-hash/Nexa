@@ -25,7 +25,7 @@ const OPTIONS: {
 }[] = [
   {
     value: 'school',
-    title: 'Nexa Escolas',
+    title: 'Nexa Estudos',
     description: 'Matérias, lições, provas e notas da escola.',
     Icon: GraduationCap,
   },

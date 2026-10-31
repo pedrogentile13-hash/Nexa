@@ -28,6 +28,8 @@ import type { Journey } from '@/types/database.types';
 export interface PlatformSwitcherProps {
   journey?: Journey;
   vestibularEnabled?: boolean;
+  /** Conta do Nexa Escolas (gerenciada pela escola). Quem não é dela usa o "Nexa Estudos". */
+  schoolAccount?: boolean;
   /** `full` mostra a marca escrita (sidebar); `mark` só o símbolo (celular). */
   variant?: 'full' | 'mark';
   className?: string;
@@ -55,11 +57,17 @@ const PLATFORMS = [
 export function PlatformSwitcher({
   journey = 'school',
   vestibularEnabled = false,
+  schoolAccount = false,
   variant = 'full',
   className,
 }: PlatformSwitcherProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const platforms = PLATFORMS.map((p) =>
+    p.key === 'school' && !schoolAccount
+      ? { ...p, name: 'Nexa Estudos', tagline: 'Resumos, simulados, revisões e IA', wordmark: 'ESTUDOS' }
+      : p,
+  );
   const rootRef = useRef<HTMLDivElement>(null);
 
   const active = resolveActivePlatform(pathname, journey);
@@ -88,7 +96,7 @@ export function PlatformSwitcher({
     setOpen(false);
   }, [pathname]);
 
-  const current = PLATFORMS.find((p) => p.key === active) ?? PLATFORMS[0]!;
+  const current = platforms.find((p) => p.key === active) ?? platforms[0]!;
 
   if (!vestibularEnabled) {
     return (
@@ -146,7 +154,7 @@ export function PlatformSwitcher({
             variant === 'full' ? 'left-0' : 'left-0',
           )}
         >
-          {PLATFORMS.map(({ key, name, tagline, href, Icon }) => {
+          {platforms.map(({ key, name, tagline, href, Icon }) => {
             const isCurrent = key === active;
             return (
               <Link

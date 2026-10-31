@@ -132,6 +132,7 @@ export function SideNav({
   isAdmin,
   isTeacher,
   billingEnabled,
+  schoolAccount,
   communityEnabled,
   chatEnabled,
   announcementsEnabled,
@@ -145,6 +146,7 @@ export function SideNav({
   isTeacher?: boolean;
   /** Nexa padrão: mostra a tela de planos. Nexa Escolas não tem. */
   billingEnabled?: boolean;
+  schoolAccount?: boolean;
   communityEnabled?: boolean;
   /** O aluno tem professores ligados à turma dele (chat da escola). */
   chatEnabled?: boolean;
@@ -191,6 +193,7 @@ export function SideNav({
         <PlatformSwitcher
           journey={journey}
           vestibularEnabled={vestibularEnabled}
+          schoolAccount={schoolAccount}
           variant="full"
           className="mb-3"
         />

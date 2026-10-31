@@ -82,6 +82,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isAdmin={isAdmin}
         isTeacher={isTeacher}
         billingEnabled={plan?.billingVisible ?? false}
+        schoolAccount={plan?.plan === 'school'}
         communityEnabled={communityEnabled}
         chatEnabled={chatEnabled}
         announcementsEnabled={announcementsEnabled}

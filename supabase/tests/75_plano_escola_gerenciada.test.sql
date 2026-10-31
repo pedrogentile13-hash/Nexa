@@ -14,14 +14,14 @@ update public.profiles set school_id='bb6e5e5e-0000-0000-0000-000000000001' wher
 update public.profiles set school_id='bb6e5e5e-0000-0000-0000-000000000001', school_login='conta.pg' where id=:'LOGIN';
 update public.profiles set role='teacher_admin', school_id='bb6e5e5e-0000-0000-0000-000000000001' where id=:'PROF';
 update public.profiles set school_id='bb6e5e5e-0000-0000-0000-000000000002' where id=:'DOM';
-update public.profiles set role='admin', school_id='bb6e5e5e-0000-0000-0000-000000000001' where id=:'ADM';
+update public.profiles set role='admin', school_id='bb6e5e5e-0000-0000-0000-000000000002' where id=:'ADM';
 
 do $$ begin
   assert not public.is_managed_school_member('ba5e5e5e-0000-0000-0000-000000000001'), 'quem só escolheu a escola no Perfil não é do Nexa Escolas';
   assert public.is_managed_school_member('ba5e5e5e-0000-0000-0000-000000000002'), 'conta criada pela escola é do Nexa Escolas';
   assert public.is_managed_school_member('ba5e5e5e-0000-0000-0000-000000000003'), 'professor é do Nexa Escolas';
   assert public.is_managed_school_member('ba5e5e5e-0000-0000-0000-000000000004'), 'escola com endereço próprio é Nexa Escolas';
-  assert not public.is_managed_school_member('ba5e5e5e-0000-0000-0000-000000000005'), 'admin da plataforma com escola no perfil continua padrão';
+  assert not public.is_managed_school_member('ba5e5e5e-0000-0000-0000-000000000005'), 'admin da plataforma, mesmo em escola com endereço, continua padrão';
 end $$;
 
 set "request.jwt.claim.sub"='ba5e5e5e-0000-0000-0000-000000000001'; set role authenticated;
