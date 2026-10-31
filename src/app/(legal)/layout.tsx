@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { AdsenseSiteScript } from '@/features/ads/components/adsense-site-script';
 
 /**
  * Moldura das páginas legais (Política de Privacidade, Termos de Uso).
@@ -22,7 +21,6 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         </div>
       </header>
       {children}
-      <AdsenseSiteScript />
     </div>
   );
 }

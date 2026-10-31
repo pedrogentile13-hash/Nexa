@@ -4,6 +4,7 @@ import './globals.css';
 import { headers } from 'next/headers';
 import { AppSplash } from '@/components/layout/app-splash';
 import { SchoolBrandProvider } from '@/components/layout/school-brand';
+import { ADSENSE_CLIENT, ADSENSE_SCRIPT } from '@/features/ads/lib/config';
 import { decodeTenant, tenantCss, TENANT_HEADER } from '@/lib/tenant/resolve';
 
 const inter = Inter({
@@ -85,16 +86,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: themeScript(Boolean(tenant)) }} />
         {tenantStyle && <style dangerouslySetInnerHTML={{ __html: tenantStyle }} />}
         {/*
-          Google AdSense — precisa estar no HTML bruto que o servidor manda na
-          primeira resposta, não injetado via JS depois de hidratar (é isso
-          que `next/script` com `afterInteractive` faz, e é por isso que o
-          rastreador do AdSense não achava a tag: HTML bruto sem ela).
+          Google AdSense — no HTML bruto da primeira resposta (o rastreador do AdSense não executa JS, então
+          `next/script` não serve) e NUNCA no endereço de uma escola: lá não existe anúncio.
+          O meta `google-adsense-account` é o segundo método de verificação do site.
         */}
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3390934579146373"
-          crossOrigin="anonymous"
-        />
+        {!tenant && (
+          <>
+            <meta name="google-adsense-account" content={ADSENSE_CLIENT} />
+            <script async src={ADSENSE_SCRIPT} crossOrigin="anonymous" />
+          </>
+        )}
       </head>
       <body className="min-h-dvh antialiased">
         <SchoolBrandProvider value={tenant ? { name: tenant.name, logoUrl: tenant.logoUrl } : null}>

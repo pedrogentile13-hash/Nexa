@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import { adAllowed, adsPersonalized } from '../lib/placement';
-import { ADSENSE_CLIENT as CLIENT, ADSENSE_SCRIPT, ADSENSE_SLOT as SLOT } from '../lib/config';
+import { ADSENSE_CLIENT as CLIENT, ADSENSE_SLOT as SLOT } from '../lib/config';
 
 declare global {
   interface Window {
@@ -16,7 +15,7 @@ declare global {
 /**
  * Banner do AdSense, só no Nexa padrão gratuito (o layout só o monta quando `adsEnabled`).
  * Sem `NEXT_PUBLIC_ADSENSE_CLIENT` e o bloco de anúncio configurados, não renderiza nada.
- * No aplicativo instalado (APK) o anúncio é o AdMob, que é nativo — ver `docs/MONETIZACAO.md`.
+ * O script do AdSense já vem no `<head>` do app (layout raiz). No aplicativo instalado (APK) o anúncio é o AdMob, que é nativo — ver `docs/MONETIZACAO.md`.
  */
 export function AdBanner() {
   const pathname = usePathname();
@@ -39,7 +38,6 @@ export function AdBanner() {
   return (
     <aside aria-label="Publicidade" className="mx-auto w-full max-w-3xl px-4 pb-6">
       <p className="text-subtle mb-1 text-center text-[10px] tracking-wide uppercase">Publicidade</p>
-      <Script async src={ADSENSE_SCRIPT} crossOrigin="anonymous" strategy="afterInteractive" />
       {/* Key por rota: o AdSense preenche cada <ins> uma única vez. */}
       <ins key={pathname} className="adsbygoogle block min-h-[60px]" style={{ display: 'block' }} data-ad-client={CLIENT} data-ad-slot={SLOT} data-ad-format="auto" data-full-width-responsive="true" />
     </aside>

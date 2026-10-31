@@ -51,6 +51,8 @@ const VESTIBULAR_HOME_PATH = '/vestibular';
 const ADMIN_PREFIX = '/admin';
 
 function isPublic(pathname: string): boolean {
+  // A página inicial é pública (quem já entrou é levado ao app por ela mesma).
+  if (pathname === '/') return true;
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
