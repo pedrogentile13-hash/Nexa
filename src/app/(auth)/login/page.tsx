@@ -5,6 +5,7 @@ import { SchoolLoginForm } from '@/features/auth/components/school-login-form';
 import { safeNext } from '@/features/auth/lib/safe-next';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ForceLightTheme } from '@/components/force-light-theme';
+import Link from 'next/link';
 import { headers } from 'next/headers';
 import { decodeTenant, TENANT_HEADER } from '@/lib/tenant/resolve';
 
@@ -159,6 +160,15 @@ export default async function LoginPage({
               {/* eslint-disable-next-line @next/next/no-img-element -- selo pequeno da escola */}
               <img src={tenant.badgeUrl} alt="Selo da escola" className="h-20 w-auto object-contain" />
             </div>
+          )}
+
+          {!tenant && (
+            <p className="text-muted mt-6 text-center text-sm">
+              Estuda numa escola que usa o Nexa?{' '}
+              <Link href="/entrar-pela-escola" className="text-brand-text font-semibold underline-offset-2 hover:underline">
+                Entrar pela escola
+              </Link>
+            </p>
           )}
 
           {tenant ? (

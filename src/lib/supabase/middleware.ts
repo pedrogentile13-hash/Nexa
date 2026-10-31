@@ -8,6 +8,7 @@ import { ONBOARDING_COLUMNS, readWithFallback, type ProfileReader } from './prof
 /** Reachable without a session. */
 const PUBLIC_PREFIXES = [
   '/login',
+  '/entrar-pela-escola',
   '/recuperar-senha',
   // `/redefinir-senha` roda COM sessão (a de recuperação, criada pelo link do
   // e-mail), mas fica aqui porque o aluno que chega nela ainda não passou pelo
@@ -26,6 +27,7 @@ const PUBLIC_PREFIXES = [
   '/api/tenant-check',
   // O Google lê este arquivo sem conta para confirmar quem pode vender anúncios no site.
   '/ads.txt',
+  '/app-ads.txt',
   // Quem chama é o Stripe, sem login: a proteção é a assinatura do corpo.
   '/api/stripe/webhook',
 ];

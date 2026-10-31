@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { isNativeApp } from '@/lib/native';
 import { adAllowed, adsPersonalized } from '../lib/placement';
 import { ADSENSE_CLIENT as CLIENT, ADSENSE_SLOT as SLOT } from '../lib/config';
 
@@ -20,7 +21,8 @@ declare global {
 export function AdBanner() {
   const pathname = usePathname();
   const pushed = useRef(false);
-  const show = Boolean(CLIENT && SLOT) && adAllowed(pathname);
+  // No app Android o anúncio é o AdMob (o AdSense não é permitido em aplicativos).
+  const show = Boolean(CLIENT && SLOT) && adAllowed(pathname) && !isNativeApp();
 
   useEffect(() => {
     if (!show || pushed.current) return;

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Loader2, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isNativeApp } from '@/lib/native';
 import { track } from '@/features/analytics/lib/track';
 import { AI_DAILY_LIMITS } from '@/lib/ai/quota';
 import { PLAN_LABEL, PLAN_LIMITS, PLAN_PRICES, formatBRL, yearlyFreeMonths, type BillingInterval, type PaidPlan, type Plan } from '../lib/plans';
@@ -47,7 +48,7 @@ export function ProView({ plan, periodEnd, cancelAtPeriodEnd, paymentsReady, ban
   const [inStoreApp, setInStoreApp] = useState(false);
   useEffect(() => {
     try {
-      if (document.referrer.startsWith('android-app://')) sessionStorage.setItem('nx_store_app', '1');
+      if (document.referrer.startsWith('android-app://') || isNativeApp()) sessionStorage.setItem('nx_store_app', '1');
       setInStoreApp(sessionStorage.getItem('nx_store_app') === '1');
     } catch {
       // sem sessionStorage: segue como navegador
