@@ -48,3 +48,7 @@ Precisa do **Android Studio** (traz o Java e o SDK).
 - **AdSense não é permitido em aplicativo**; no app o anúncio é o AdMob.
 - O app precisa de função própria além de "abrir o site" (AdMob, push nativo e cobrança nativa cumprem isso).
 - **Escola:** o app não tem anúncio nem cobrança no ambiente da escola. Mantenha assim.
+
+## Login com Google no app
+O Google não permite login dentro da janela do app. Fluxo: botão → navegador do celular (Chrome Custom Tab) → Google → `https://nexastudy.com.br/auth/app-callback` → link `br.com.nexastudy.app://auth#…` → o app grava a sessão e entra.
+**Configuração obrigatória no Supabase:** Authentication → URL Configuration → *Redirect URLs* → adicionar `https://nexastudy.com.br/auth/app-callback`.

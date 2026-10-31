@@ -15,6 +15,8 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { env } from '@/lib/env';
+import { isNativeApp } from '@/lib/native';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -103,7 +105,27 @@ function GoogleSubmit() {
   );
 }
 
+/** No app Android o Google abre no navegador do celular (ele não permite login dentro da janela do app) e volta pelo link do app. */
+function AppGoogleButton() {
+  async function open() {
+    const { Browser } = await import('@capacitor/browser');
+    const redirectTo = `${window.location.origin}/auth/app-callback`;
+    // Sem `code_challenge`, o Supabase devolve os tokens direto na volta (fluxo implícito) — é o que o app precisa.
+    const url = `${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+    await Browser.open({ url });
+  }
+  return (
+    <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => void open()}>
+      <GoogleIcon />
+      Continuar com Google
+    </Button>
+  );
+}
+
 function GoogleButton({ next }: { next: string }) {
+  const [native, setNative] = useState(false);
+  useEffect(() => setNative(isNativeApp()), []);
+  if (native) return <AppGoogleButton />;
   return (
     <form action={signInWithGoogle}>
       <input type="hidden" name="next" value={next} />

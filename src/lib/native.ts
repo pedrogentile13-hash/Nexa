@@ -10,7 +10,9 @@ declare global {
 
 export function isNativeApp(): boolean {
   try {
-    return typeof window !== 'undefined' && Boolean(window.Capacitor?.isNativePlatform?.());
+    if (typeof window === 'undefined') return false;
+    // O rótulo no User-Agent (ver `capacitor.config.ts`) é o sinal mais firme; a ponte do Capacitor é o reserva.
+    return navigator.userAgent.includes('NexaStudyApp') || Boolean(window.Capacitor?.isNativePlatform?.());
   } catch {
     return false;
   }

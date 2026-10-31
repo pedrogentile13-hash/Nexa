@@ -6,6 +6,7 @@ import { AppSplash } from '@/components/layout/app-splash';
 import { SchoolBrandProvider } from '@/components/layout/school-brand';
 import { ADSENSE_CLIENT, ADSENSE_SCRIPT, GA_INIT } from '@/features/ads/lib/config';
 import { CookieBanner } from '@/features/analytics/components/cookie-banner';
+import { AppAuthBridge } from '@/features/auth/components/app-auth-bridge';
 import { AppIntro } from '@/components/layout/app-intro';
 import { isNativeAppRequest } from '@/lib/native-server';
 import { decodeTenant, tenantCss, TENANT_HEADER } from '@/lib/tenant/resolve';
@@ -113,6 +114,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {!tenant && !nativeApp && <CookieBanner />}
           {/* Abertura animada: só no app Android, uma vez por abertura. */}
           {nativeApp && <AppIntro />}
+          {nativeApp && <AppAuthBridge />}
         </SchoolBrandProvider>
       </body>
     </html>
