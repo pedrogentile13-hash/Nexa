@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { BookOpenCheck, GraduationCap, ShieldCheck, Sparkles, Target } from 'lucide-react';
 import { CookiePreferencesButton } from '@/features/analytics/components/cookie-banner';
 import { getCurrentUser } from '@/lib/supabase/server';
+import { isNativeAppRequest } from '@/lib/native-server';
 import { getTenant } from '@/lib/tenant/server';
 
 export const metadata: Metadata = {
@@ -27,7 +28,8 @@ const FEATURES = [
  */
 export default async function RootPage() {
   if (await getCurrentUser()) redirect('/hoje');
-  if (await getTenant()) redirect('/login');
+  // No app, a porta de entrada é o login — a página de apresentação é do site.
+  if ((await getTenant()) || (await isNativeAppRequest())) redirect('/login');
 
   return (
     <div className="bg-bg min-h-dvh">

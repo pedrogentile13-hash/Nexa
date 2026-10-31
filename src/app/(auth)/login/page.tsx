@@ -3,7 +3,6 @@ import { BarChart3, BookOpen, Sparkles } from 'lucide-react';
 import { LoginForm } from '@/features/auth/components/login-form';
 import { SchoolLoginForm } from '@/features/auth/components/school-login-form';
 import { safeNext } from '@/features/auth/lib/safe-next';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { ForceLightTheme } from '@/components/force-light-theme';
 import Link from 'next/link';
 import { headers } from 'next/headers';
@@ -60,7 +59,7 @@ export default async function LoginPage({
   const tenant = decodeTenant((await headers()).get(TENANT_HEADER));
 
   return (
-    <main className="pb-safe flex min-h-dvh flex-col lg:flex-row">
+    <main className="pb-safe flex h-dvh flex-col overflow-hidden bg-white lg:flex-row">
       {/* Painel de marca. No celular é uma faixa curta com só a logo; no
           desktop ocupa metade da tela e ganha o resto (headline, recursos,
           depoimento) — é o guia de desktop, e faz sentido: numa tela larga
@@ -119,27 +118,27 @@ export default async function LoginPage({
         </div>
       </header>
 
-      <div className="pt-safe flex flex-1 flex-col justify-center px-6 py-10 lg:px-16">
+      <div className="pt-safe flex min-h-0 flex-1 flex-col justify-center overflow-hidden px-6 py-4 lg:px-16 lg:py-10">
         <div className="mx-auto w-full max-w-sm">
           {/* Celular: só a marca, centralizada, sem faixa colorida. */}
-          <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
+          <div className="mb-3 flex flex-col items-center gap-2 lg:hidden">
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve */}
-              <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-14 shrink-0" />
+              <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-12 shrink-0" />
               {tenant?.logoUrl && (
                 // eslint-disable-next-line @next/next/no-img-element -- logo pequeno da escola
                 <img src={tenant.logoUrl} alt={tenant.name} className="size-14 shrink-0 object-contain" />
               )}
             </div>
-            <span className="text-base font-bold tracking-tight">
+            <span className="text-base font-bold tracking-tight [@media(max-height:720px)]:hidden">
               {tenant ? tenant.name : <>NEXA <span className="text-muted font-normal">STUDY</span></>}
             </span>
           </div>
 
-          <h2 className="text-center text-2xl font-semibold tracking-tight lg:text-left">
+          <h2 className="text-center text-2xl font-semibold tracking-tight [@media(max-height:720px)]:mb-3 [@media(max-height:720px)]:text-xl lg:text-left">
             {tenant ? 'Entrar' : 'Bem-vindo de volta'}
           </h2>
-          <p className="text-muted mt-1.5 mb-6 text-center text-sm lg:text-left">
+          <p className="text-muted mt-1 mb-4 text-center text-sm [@media(max-height:720px)]:hidden lg:text-left">
             {tenant
               ? 'Use o login e a senha que a escola entregou.'
               : 'Continue de onde parou.'}
@@ -156,14 +155,14 @@ export default async function LoginPage({
               dele ANTES de entrar, e o único outro lugar onde ela existe é o
               Perfil — atrás justamente desta tela. */}
           {tenant?.badgeUrl && (
-            <div className="mt-8 flex justify-center">
+            <div className="mt-4 flex justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element -- selo pequeno da escola */}
-              <img src={tenant.badgeUrl} alt="Selo da escola" className="h-20 w-auto object-contain" />
+              <img src={tenant.badgeUrl} alt="Selo da escola" className="h-14 w-auto object-contain" />
             </div>
           )}
 
           {!tenant && (
-            <p className="text-muted mt-6 text-center text-sm">
+            <p className="text-muted mt-4 text-center text-sm">
               Estuda numa escola que usa o Nexa?{' '}
               <Link href="/entrar-pela-escola" className="text-brand-text font-semibold underline-offset-2 hover:underline">
                 Entrar pela escola
@@ -171,13 +170,8 @@ export default async function LoginPage({
             </p>
           )}
 
-          {tenant ? (
-            <ForceLightTheme />
-          ) : (
-            <div className="mt-10 flex justify-center">
-              <ThemeToggle />
-            </div>
-          )}
+          {/* O login é sempre claro, em qualquer lugar (site, app e escolas): por isso não há troca de tema aqui. */}
+          <ForceLightTheme />
         </div>
       </div>
     </main>

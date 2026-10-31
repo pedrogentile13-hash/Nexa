@@ -25,6 +25,8 @@ const config: CapacitorConfig = {
     allowNavigation: [root, `*.${root}`],
   },
   android: {
+    // O servidor reconhece o app por este rótulo no User-Agent (abre direto no login, sem aviso de cookies, com a abertura animada).
+    appendUserAgent: 'NexaStudyApp',
     allowMixedContent: false,
     // Em produção a janela não pode ser inspecionada por fora.
     webContentsDebuggingEnabled: false,

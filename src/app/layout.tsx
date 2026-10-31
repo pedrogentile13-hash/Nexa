@@ -6,6 +6,8 @@ import { AppSplash } from '@/components/layout/app-splash';
 import { SchoolBrandProvider } from '@/components/layout/school-brand';
 import { ADSENSE_CLIENT, ADSENSE_SCRIPT, GA_INIT } from '@/features/ads/lib/config';
 import { CookieBanner } from '@/features/analytics/components/cookie-banner';
+import { AppIntro } from '@/components/layout/app-intro';
+import { isNativeAppRequest } from '@/lib/native-server';
 import { decodeTenant, tenantCss, TENANT_HEADER } from '@/lib/tenant/resolve';
 
 const inter = Inter({
@@ -64,7 +66,7 @@ export const viewport: Viewport = {
 const themeScript = (lockLogin: boolean) => `
 (function () {
   try {
-    // No endereço de uma escola a tela de login é sempre clara (pedido da escola).
+    // A tela de login é sempre clara (combina melhor; vale para escolas, site e app).
     if (${lockLogin} && location.pathname === '/login') return;
     var stored = localStorage.getItem('nexa-theme');
     var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -80,18 +82,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // e logo aparecem nas telas que os usam.
   const tenant = decodeTenant((await headers()).get(TENANT_HEADER));
   const tenantStyle = tenantCss(tenant);
+  const nativeApp = await isNativeAppRequest();
 
   return (
     <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript(Boolean(tenant)) }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript(true) }} />
         {tenantStyle && <style dangerouslySetInnerHTML={{ __html: tenantStyle }} />}
         {/*
           Google AdSense — no HTML bruto da primeira resposta (o rastreador do AdSense não executa JS, então
           `next/script` não serve) e NUNCA no endereço de uma escola: lá não existe anúncio.
           O meta `google-adsense-account` é o segundo método de verificação do site.
         */}
-        {!tenant && (
+        {/* No app Android não há AdSense nem Analytics da web (lá o anúncio é o AdMob). */}
+        {!tenant && !nativeApp && (
           <>
             {/* Primeiro o Consent Mode (tudo negado), depois o AdSense, que lê esse estado ao carregar. */}
             {/* Google Analytics: só depois do consentimento (script em `GA_INIT`), e fora das escolas. */}
@@ -106,7 +110,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <AppSplash />
           {children}
           {/* Sem aviso de cookies no endereço de uma escola: lá não há medição nem anúncio. */}
-          {!tenant && <CookieBanner />}
+          {!tenant && !nativeApp && <CookieBanner />}
+          {/* Abertura animada: só no app Android, uma vez por abertura. */}
+          {nativeApp && <AppIntro />}
         </SchoolBrandProvider>
       </body>
     </html>

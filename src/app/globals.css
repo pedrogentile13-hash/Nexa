@@ -456,3 +456,100 @@
     visibility: hidden;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Abertura animada do app Android (`AppIntro`). Sai sozinha por CSS (2,6 s).
+ * ------------------------------------------------------------------------- */
+#nexa-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(160deg, #6d28d9 0%, #4f46e5 45%, #0e7490 100%);
+  animation: nexa-intro-out 0.5s ease 2.1s forwards;
+}
+.nexa-intro-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.nexa-intro-logo {
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  border-radius: 36px;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  animation: nexa-intro-pop 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) 0.1s both;
+}
+.nexa-intro-word {
+  margin-top: 22px;
+  display: flex;
+  gap: 4px;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.nexa-intro-word span {
+  animation: nexa-intro-rise 0.5s ease both;
+}
+.nexa-intro-sub {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5em;
+  opacity: 0.85;
+  animation: nexa-intro-fade 0.5s ease 0.95s both;
+}
+.nexa-intro-tag {
+  margin-top: 28px;
+  font-size: 15px;
+  opacity: 0.9;
+  animation: nexa-intro-fade 0.6s ease 1.25s both;
+}
+.nexa-intro-orb {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.nexa-intro-orb-a {
+  width: 340px;
+  height: 340px;
+  top: -110px;
+  right: -120px;
+  animation: nexa-intro-drift 2.6s ease-in-out both;
+}
+.nexa-intro-orb-b {
+  width: 280px;
+  height: 280px;
+  bottom: -100px;
+  left: -90px;
+  animation: nexa-intro-drift 2.6s ease-in-out 0.2s both reverse;
+}
+@keyframes nexa-intro-pop {
+  from { opacity: 0; transform: scale(0.4) rotate(-12deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes nexa-intro-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes nexa-intro-fade {
+  from { opacity: 0; }
+  to { opacity: 0.9; }
+}
+@keyframes nexa-intro-drift {
+  from { transform: translate(0, 0) scale(0.9); }
+  to { transform: translate(-24px, 18px) scale(1.08); }
+}
+@keyframes nexa-intro-out {
+  to { opacity: 0; visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #nexa-intro { animation-delay: 0.8s; }
+  .nexa-intro-logo, .nexa-intro-word span, .nexa-intro-sub, .nexa-intro-tag, .nexa-intro-orb { animation: none; }
+}
