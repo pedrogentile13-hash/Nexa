@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+// Chave de assinatura: vem do ambiente (GitHub) ou de android/keystore.properties (seu computador). Nunca vai para o repositório.
+def keystoreProps = new Properties()
+def keystoreFile = rootProject.file("keystore.properties")
+if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProps.load(it) }
+def keystorePath = System.getenv("NEXA_KEYSTORE_FILE") ?: keystoreProps['storeFile']
+
 android {
     namespace = "br.com.nexastudy.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,7 +13,8 @@ android {
         applicationId "br.com.nexastudy.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // Em build de loja o número de versão sobe sozinho (-PversionCode=N); a Play exige um número maior a cada envio.
+        versionCode (project.hasProperty('versionCode') ? project.property('versionCode').toInteger() : 1)
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -16,8 +23,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystorePath) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("NEXA_KEYSTORE_PASSWORD") ?: keystoreProps['storePassword']
+                keyAlias System.getenv("NEXA_KEY_ALIAS") ?: keystoreProps['keyAlias'] ?: 'nexa'
+                keyPassword System.getenv("NEXA_KEYSTORE_PASSWORD") ?: keystoreProps['keyPassword'] ?: keystoreProps['storePassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keystorePath) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

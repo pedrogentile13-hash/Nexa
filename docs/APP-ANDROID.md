@@ -15,7 +15,13 @@ Pacote: `br.com.nexastudy.app` (não muda depois de publicar). Android mínimo 7
 2. **Google Play Billing** para assinar dentro do app (RevenueCat recomendado: junta Play + Stripe e avisa o Nexa pelo webhook).
 3. **Push nativo** (hoje o push é web-push, que não vale no app).
 
-## Gerar o app (no seu computador)
+## Jeito mais fácil: gerar na nuvem (sem Android Studio)
+O GitHub constrói o app para você. Tudo pelo site ou pelo app do GitHub, sem instalar nada:
+1. **Teste rápido no seu celular:** Actions → *App Android* → Run workflow → ação **apk-teste** → espere uns 8–15 min → abra a execução → baixe o artefato **nexa-apk-de-teste** → instale o `app-debug.apk` no celular (precisa permitir "instalar apps desconhecidos").
+2. **Chave de assinatura (uma única vez):** ação **criar-chave**, digitando uma senha forte no campo (anote!). Baixe o artefato **nexa-chave-de-assinatura**, guarde o `nexa-upload.jks` num lugar seguro (nuvem pessoal + pen drive). Depois, em Settings → Secrets and variables → Actions → New secret, crie `NEXA_KEYSTORE_BASE64` (conteúdo do arquivo `NEXA_KEYSTORE_BASE64.txt`) e `NEXA_KEYSTORE_PASSWORD` (a senha). Por fim **apague a execução** (… → Delete workflow run), para o artefato sumir.
+3. **Arquivo da loja:** ação **aab-loja** → baixe **nexa-aab-para-a-play** (`app-release.aab`). Esse é o arquivo do teste interno na Play. A cada nova execução o número de versão sobe sozinho.
+
+## Gerar o app (no seu computador, alternativa)
 Precisa do **Android Studio** (traz o Java e o SDK).
 1. `npm install` e `npm run app:sync`
 2. `npm run app:open` → abre no Android Studio. Espere o Gradle terminar.
