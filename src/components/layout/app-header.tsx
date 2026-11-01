@@ -38,6 +38,7 @@ export async function AppHeader({
   // coisa pra montar a navegação, então isto não custa um round-trip novo.
   const { journey, vestibularEnabled } = await getNavContext();
   const schoolAccount = (await getPlanInfo()).plan === 'school';
+  // Conta de escola não tem Vestibular: o seletor de plataforma nem aparece.
 
   return (
     <header className="pt-safe bg-bg/85 sticky top-0 z-30 backdrop-blur-lg">
@@ -49,7 +50,7 @@ export async function AppHeader({
             tela onde ela aparece, então é nela que o menu tem que morar. */}
         <PlatformSwitcher
           journey={journey}
-          vestibularEnabled={vestibularEnabled}
+          vestibularEnabled={vestibularEnabled && !schoolAccount}
           schoolAccount={schoolAccount}
           variant="mark"
           className="shrink-0"

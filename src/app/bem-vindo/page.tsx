@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { OnboardingFlow } from '@/features/onboarding/components/onboarding-flow';
 import { getSubjectCatalog } from '@/features/onboarding/server/queries';
 import { CORE_SUBJECT_SLUGS } from '@/features/onboarding/types';
+import { getPlanInfo } from '@/features/billing/server/entitlements';
 import { isFeatureEnabled } from '@/lib/feature-flags';
 import { createClient } from '@/lib/supabase/server';
 import { getTenant } from '@/lib/tenant/server';
@@ -52,7 +53,7 @@ export default async function OnboardingPage() {
       exams={examRows ?? []}
       // No endereço de uma escola a conta é da escola: um caminho só, sem
       // perguntar "qual Nexa" (o Vestibular não faz parte do contrato da escola).
-      vestibularEnabled={vestibularEnabled && !tenant}
+      vestibularEnabled={vestibularEnabled && !tenant && (await getPlanInfo()).plan !== 'school'}
     />
   );
 }

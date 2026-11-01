@@ -13,6 +13,7 @@ import { RARITY_LABEL } from '@/features/ranking/lib/rarity';
 import { listSchoolClasses } from '@/features/classes/server/queries';
 import { getMySocialProfile } from '@/features/community/server/queries';
 import { getMyBirthDate, getMyConsent } from '@/features/privacy/server/queries';
+import { getPlanInfo } from '@/features/billing/server/entitlements';
 import { createClient, getCurrentUser, getNavContext } from '@/lib/supabase/server';
 import type { NotificationSettings } from '@/types/database.types';
 
@@ -30,6 +31,7 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   // Deduplicada por requisição — o shell já leu isto pra montar a navegação.
   const navContext = await getNavContext();
+  const plan = await getPlanInfo();
 
   const [
     { data: profile },
@@ -152,7 +154,7 @@ export default async function ProfilePage() {
           birthDate={birthDate}
           isAdmin={profile?.role === 'admin' || profile?.role === 'school_admin'}
           journey={navContext.journey}
-          vestibularEnabled={navContext.vestibularEnabled}
+          vestibularEnabled={navContext.vestibularEnabled && plan.plan !== 'school'}
         />
 
         {/* Conquistas — resumo só; a lista completa (com raridade e progresso

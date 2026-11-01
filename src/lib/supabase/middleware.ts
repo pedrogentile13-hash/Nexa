@@ -33,7 +33,7 @@ const PUBLIC_PREFIXES = [
 ];
 
 const ONBOARDING_PATH = '/bem-vindo';
-const ONBOARDED_COOKIE = 'nx_ob';
+export const ONBOARDED_COOKIE = 'nx_ob';
 const STAFF_HOME_PATH = '/escola';
 
 function isStaffRole(role: string | null | undefined): boolean {
