@@ -24,6 +24,7 @@ import {
   resendConfirmation,
   signInWithGoogle,
   verifyMagicCode,
+  verifySignupCode,
   type ResendState,
 } from '../server/actions';
 import type { AuthFormState, AuthMode } from '../schemas';
@@ -236,15 +237,8 @@ export function LoginForm({
   }
 
   if (state.status === 'confirm') {
-    return (
-      <Confirmation
-        title="Conta criada"
-        email={state.email}
-        body="Falta só confirmar o e-mail: abra o link que enviamos e depois volte para entrar."
-        hint="Não chegou? Confira o spam — o link vale por uma hora."
-        canResend
-      />
-    );
+    // Criação de conta: o e-mail traz um código de 6 dígitos para digitar aqui (e também o link, se o modelo o incluir).
+    return <CodeForm email={state.email} next={next} resendAction={formAction} variant="signup" />;
   }
 
   const error = state.status === 'error' ? state.message : initialError;
@@ -402,7 +396,7 @@ function ResendButton() {
 }
 
 /**
- * Digitar o código de 8 dígitos que veio junto do link mágico no e-mail.
+ * Digitar o código de 6 dígitos que veio junto do link mágico no e-mail.
  *
  * `resendAction` reaproveita a MESMA Server Action (`authenticate`) do
  * formulário principal — reenviar é literalmente pedir o link mágico de novo
@@ -412,12 +406,14 @@ function CodeForm({
   email,
   next,
   resendAction,
+  variant = 'magic',
 }: {
   email: string;
   next: string;
   resendAction: (formData: FormData) => void;
+  variant?: 'magic' | 'signup';
 }) {
-  const [state, formAction] = useActionState(verifyMagicCode, INITIAL);
+  const [state, formAction] = useActionState(variant === 'signup' ? verifySignupCode : verifyMagicCode, INITIAL);
   const error = state.status === 'error' ? state.message : undefined;
 
   return (
@@ -426,9 +422,9 @@ function CodeForm({
         <div className="bg-success-soft text-success mx-auto mb-4 grid size-14 place-items-center rounded-full">
           <MailCheck className="size-6" aria-hidden />
         </div>
-        <h2 className="text-lg font-semibold">Digite o código</h2>
+        <h2 className="text-lg font-semibold">{variant === 'signup' ? 'Confirme seu e-mail' : 'Digite o código'}</h2>
         <p className="text-muted mx-auto mt-2 max-w-xs text-sm leading-relaxed">
-          Enviamos um código de 8 dígitos para <strong className="text-text">{email}</strong>.
+          Enviamos um código de 6 dígitos para <strong className="text-text">{email}</strong>.{variant === 'signup' ? ' Digite-o abaixo para criar sua conta.' : ''}
         </p>
       </div>
 
@@ -445,7 +441,7 @@ function CodeForm({
             autoComplete="one-time-code"
             pattern="[0-9]*"
             maxLength={8}
-            placeholder="00000000"
+            placeholder="000000"
             required
             autoFocus
             className="text-center text-lg tracking-[0.35em]"
@@ -463,47 +459,22 @@ function CodeForm({
         <CodeSubmit />
       </form>
 
-      <form action={resendAction}>
-        <input type="hidden" name="mode" value="magic" />
-        <input type="hidden" name="email" value={email} />
-        <input type="hidden" name="next" value={next} />
-        <ResendButton />
-      </form>
+      {variant === 'signup' ? (
+        <div className="text-center">
+          <ResendConfirmation email={email} />
+        </div>
+      ) : (
+        <form action={resendAction}>
+          <input type="hidden" name="mode" value="magic" />
+          <input type="hidden" name="email" value={email} />
+          <input type="hidden" name="next" value={next} />
+          <ResendButton />
+        </form>
+      )}
 
       <p className="text-subtle text-center text-xs leading-relaxed">
         Não chegou? Confira o spam. O código vale por alguns minutos.
       </p>
-    </div>
-  );
-}
-
-/** Tela de "pronto, olha o e-mail". Substitui o form inteiro para não convidar a um segundo envio. */
-function Confirmation({
-  title,
-  email,
-  body,
-  hint,
-  canResend = false,
-}: {
-  title: string;
-  email: string;
-  body: string;
-  hint: string;
-  /** Só na criação de conta: é o único caso em que há o que reenviar. */
-  canResend?: boolean;
-}) {
-  return (
-    <div className="text-center">
-      <div className="bg-success-soft text-success mx-auto mb-4 grid size-14 place-items-center rounded-full">
-        <MailCheck className="size-6" aria-hidden />
-      </div>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="text-muted mx-auto mt-2 max-w-xs text-sm leading-relaxed">
-        {body} Enviado para <strong className="text-text">{email}</strong>.
-      </p>
-      <p className="text-subtle mt-4 text-xs leading-relaxed">{hint}</p>
-
-      {canResend && <ResendConfirmation email={email} />}
     </div>
   );
 }
@@ -541,7 +512,7 @@ function ResendButtonInner() {
   return (
     <Button type="submit" variant="outline" size="sm" disabled={pending}>
       {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-      {pending ? 'Reenviando…' : 'Reenviar e-mail'}
+      {pending ? 'Reenviando…' : 'Reenviar código'}
     </Button>
   );
 }

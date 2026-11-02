@@ -189,7 +189,7 @@ async function enterWithPassword(formData: FormData): Promise<AuthFormState> {
  * Envia o link mágico. Nunca revela se o e-mail já tem conta.
  *
  * O mesmo envio (`signInWithOtp`) gera, do lado do Supabase, tanto o link
- * quanto um código de 8 dígitos — qual dos dois aparece no e-mail depende só
+ * quanto um código de 6 dígitos — qual dos dois aparece no e-mail depende só
  * do template configurado no painel. `verifyMagicCode` abaixo confirma o
  * código sem depender de o aluno abrir o e-mail no mesmo aparelho.
  */
@@ -228,7 +228,39 @@ async function sendMagicLink(formData: FormData): Promise<AuthFormState> {
   return { status: 'code', email: parsed.data.email };
 }
 
-/** Confirma o código de 8 dígitos enviado por `sendMagicLink`. */
+/**
+ * Confirma a CRIAÇÃO DA CONTA com o código de 6 dígitos que chega por e-mail.
+ * O código vem do modelo "Confirm signup" do Supabase (`{{ .Token }}`) — o tamanho é o "Email OTP Length" do painel.
+ */
+export async function verifySignupCode(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  if (await getTenant()) return invalid(SCHOOL_ONLY_MESSAGE, 'signup');
+
+  const parsed = verifyCodeSchema.safeParse({
+    email: formData.get('email'),
+    code: formData.get('code'),
+    next: formData.get('next') ?? undefined,
+  });
+  if (!parsed.success) {
+    return invalid(parsed.error.issues[0]?.message ?? 'Confira o código.', 'signup', 'code');
+  }
+
+  const gate = loginThrottle.hit(`signup-code:${parsed.data.email}`);
+  if (!gate.allowed) return invalid(`Muitas tentativas. Espere ${Math.ceil(gate.retryAfterSec / 60)} min e tente de novo.`, 'signup', 'code');
+
+  const supabase = await createClient();
+  let error;
+  try {
+    ({ error } = await supabase.auth.verifyOtp({ email: parsed.data.email, token: parsed.data.code, type: 'signup' }));
+  } catch (err) {
+    error = toAuthErrorLike(err);
+  }
+  if (error) return invalid('Código incorreto ou vencido. Confira ou peça um novo.', 'signup', 'code');
+
+  loginThrottle.reset(`signup-code:${parsed.data.email}`);
+  redirect(safeNext(parsed.data.next) as Route);
+}
+
+/** Confirma o código de 6 dígitos enviado por `sendMagicLink`. */
 export async function verifyMagicCode(
   _prev: AuthFormState,
   formData: FormData,
