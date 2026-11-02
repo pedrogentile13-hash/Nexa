@@ -70,12 +70,14 @@ const SECTIONS: LegalSection[] = [
     ],
   },
   {
-    heading: '7.1 Cookies, medição e publicidade',
+    heading: '7.1 Anúncios, medição e cookies',
     paragraphs: [
-      'No Nexa padrão (fora do ambiente de uma escola), usamos cookies necessários para o app funcionar, como manter você conectado e lembrar suas escolhas de tela. Eles não dependem de consentimento.',
-      'Com a sua permissão, também usamos o Google Analytics para medir como o app é usado (por exemplo, quais telas são mais visitadas) e o Google AdSense para exibir anúncios no plano gratuito. Os anúncios são não personalizados. Não enviamos seu nome, e-mail ou o que você digita para essas ferramentas.',
-      'Você escolhe no aviso de cookies que aparece no primeiro acesso e pode mudar a escolha a qualquer momento em "Preferências de cookies", na página inicial. Menores de 18 anos devem contar com a ajuda de um responsável para essa escolha.',
-      'Nos ambientes de escolas, não há medição por Google Analytics nem anúncios. As assinaturas pagas do plano Plus e Pro são processadas por um provedor de pagamento externo, e os dados do cartão não passam pelo Nexa.',
+      'O Nexa Study é gratuito em seu plano básico e, nesse plano, pode exibir anúncios para ajudar a manter o serviço. Isso vale para o site e, quando disponível, para o aplicativo para Android. Os planos pagos (Nexa Plus e Nexa Pro) não exibem anúncios.',
+      'Nos ambientes de escolas (contas criadas e gerenciadas pela escola) não há anúncios, não há medição por Google Analytics e não há venda de planos.',
+      'Para exibir anúncios usamos serviços do Google: o Google AdSense no site e, no aplicativo, o Google AdMob. Esses serviços podem usar cookies ou identificadores do dispositivo (como o identificador de publicidade) para exibir, limitar a frequência e medir anúncios. Configuramos os anúncios como não personalizados, ou seja, não usamos seus dados de estudo nem seu histórico para escolher anúncios. Você pode redefinir ou apagar o identificador de publicidade nas configurações do seu celular. Mais informações em policies.google.com/technologies/ads.',
+      'Nunca exibimos anúncios durante provas, simulados, revisões, na conversa com a Nexa AI ou na tela de assinatura.',
+      'Também usamos o Google Analytics para medir, de forma agregada, como o app é usado (por exemplo, quais telas são mais visitadas). Não enviamos seu nome, e-mail ou o que você digita ou envia ao Nexa para essas ferramentas.',
+      'Medição e anúncios dependem da sua permissão. Você escolhe no aviso de cookies que aparece no primeiro acesso ao site e pode mudar a escolha a qualquer momento em Preferências de cookies, na página inicial. Menores de 18 anos devem contar com a ajuda de um responsável para essa escolha.',
     ],
   },
   {
@@ -109,6 +111,7 @@ const SECTIONS: LegalSection[] = [
       'Nos termos da legislação aplicável, o titular dos dados poderá possuir direitos relacionados ao tratamento de suas informações.',
       'Isso pode incluir confirmação da existência de tratamento, acesso aos dados, correção de informações incompletas ou incorretas, informações sobre compartilhamento, revogação de consentimento quando aplicável e solicitação de eliminação, anonimização ou portabilidade nas situações previstas em lei.',
       'No caso de crianças e adolescentes, determinados direitos poderão ser exercidos com a participação de seus pais ou responsáveis legais.',
+      'Exclusão de conta: você pode apagar sua conta e os dados associados a ela pelo próprio app, em Perfil, na área de privacidade, ou pedindo por e-mail em contato@nexastudy.com.br. Contas gerenciadas por uma escola também podem ser removidas pela escola.',
       'As solicitações poderão ser submetidas pelos canais oficiais do Nexa Study.',
     ],
   },
@@ -124,6 +127,7 @@ const SECTIONS: LegalSection[] = [
     paragraphs: [
       'Algumas funcionalidades poderão depender de serviços fornecidos por terceiros, como autenticação, infraestrutura em nuvem ou processamento de inteligência artificial.',
       'Esses fornecedores poderão tratar determinadas informações exclusivamente quando necessário para prestar seus serviços e de acordo com os requisitos aplicáveis.',
+      'Entre eles estão: Supabase (banco de dados e autenticação), Hostinger (hospedagem), Google (login com Google, Gemini para recursos de inteligência artificial, AdSense e AdMob para anúncios e Analytics para medição), Stripe (pagamento das assinaturas feitas pelo site) e Google Play (cobrança das assinaturas feitas no aplicativo). Os dados do seu cartão são tratados pelo provedor de pagamento e não passam pelo Nexa Study.',
       'Quando houver transferência internacional de dados, deverão ser observadas as exigências previstas pela legislação brasileira.',
     ],
   },
@@ -147,7 +151,7 @@ const SECTIONS: LegalSection[] = [
     heading: '16. Contato e responsável pelo tratamento',
     paragraphs: [
       'Para dúvidas relacionadas à privacidade ou para exercer direitos relacionados aos dados pessoais, entre em contato pelos canais oficiais:',
-      'Nexa Study — Responsável: Pedro Gentile. CNPJ: não aplicável (projeto pessoal, pessoa física). E-mail de privacidade: pedrogentile13@gmail.com. Encarregado (DPO): não há encarregado formalmente designado no momento; solicitações podem ser direcionadas ao responsável acima.',
+      'Nexa Study — Responsável: Pedro Gentile. CNPJ: não aplicável (projeto pessoal, pessoa física). E-mail de privacidade e suporte: contato@nexastudy.com.br. Encarregado (DPO): não há encarregado formalmente designado no momento; solicitações podem ser direcionadas ao responsável acima.',
     ],
   },
 ];
@@ -156,7 +160,7 @@ export default function PoliticaDePrivacidadePage() {
   return (
     <LegalDocument
       title="Política de Privacidade"
-      lastUpdated="8 de setembro de 2026"
+      lastUpdated="2 de novembro de 2026"
       intro="A sua privacidade é importante para o Nexa Study. Esta Política de Privacidade explica, de forma clara, como informações pessoais podem ser coletadas, utilizadas, armazenadas e protegidas durante o uso da plataforma. Esta política foi elaborada considerando a legislação brasileira aplicável, especialmente a Lei Geral de Proteção de Dados Pessoais - LGPD (Lei nº 13.709/2018)."
       sections={SECTIONS}
       closing="Privacidade faz parte da experiência Nexa: seus dados devem servir para melhorar seu aprendizado, mantendo transparência, segurança e respeito às suas escolhas."
