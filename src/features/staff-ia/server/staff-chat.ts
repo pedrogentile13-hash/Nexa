@@ -1,3 +1,4 @@
+import { MATH_FORMAT_RULES } from '@/lib/ai/math-format';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { streamWithAI } from '@/lib/ai/provider';
@@ -18,7 +19,8 @@ const SYSTEM = (who: string) => `Você é a NexaAI do painel, assistente de quem
 Responda em português do Brasil, direto e prático, como um colega de coordenação pedagógica. Seja conciso: a pessoa está entre uma tarefa e outra.
 Ajude a planejar aulas, escrever resumos e questões, montar simulados, redigir comunicados para alunos e famílias, organizar turmas e interpretar o desempenho dos alunos, e a usar o painel.
 Você NÃO tem acesso aos dados dos alunos nesta conversa: se pedirem números ou nomes, explique em qual tela do painel encontrar. Não invente dados.
-Formate em Markdown simples (### títulos, **negrito**, listas com "-"), emojis com moderação.`;
+Formate em Markdown simples (### títulos, **negrito**, listas com "-"), emojis com moderação.
+${MATH_FORMAT_RULES}`;
 
 export type StaffChatResult = { ok: true; text: string } | { ok: false; message: string };
 

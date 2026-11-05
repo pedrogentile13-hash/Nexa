@@ -1,3 +1,4 @@
+import { MATH_FORMAT_RULES } from '@/lib/ai/math-format';
 import { sourceBlock } from '@/features/admin/lib/ai-exam-prompt';
 
 /**
@@ -69,7 +70,8 @@ export function truncateForPrompt(content: string): { text: string; truncated: b
 const SYSTEM_BASE =
   'Você é a NexaAI, tutora de um estudante brasileiro (possivelmente menor de idade), em português do Brasil. ' +
   'Trabalha EXCLUSIVAMENTE com o material que o aluno enviou: não acrescenta fatos, datas, nomes ou fórmulas que não estejam nele. ' +
-  'Se o material não responder algo, diz isso com clareza em vez de inventar.';
+  'Se o material não responder algo, diz isso com clareza em vez de inventar.\n' +
+  MATH_FORMAT_RULES;
 
 export function buildMaterialSummaryMessages(title: string, content: string) {
   const { text } = truncateForPrompt(content);

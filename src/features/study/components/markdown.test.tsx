@@ -88,3 +88,42 @@ describe('Markdown · links', () => {
     }
   });
 });
+
+describe('Markdown · fórmulas', () => {
+  it('reconhece fórmula entre cifrões e a entrega ao componente de matemática', () => {
+    const html = render('A equação é $x^4 - 13x^2 + 36 = 0$ mesmo.');
+    expect(html).toContain('data-math="pending"');
+    expect(html).toContain('x^4 - 13x^2 + 36 = 0');
+    // os cifrões delimitadores não aparecem no texto
+    expect(html).not.toContain('$x^4');
+  });
+
+  it('fórmula em bloco ($$ ... $$) vira bloco próprio, em uma ou várias linhas', () => {
+    expect(render('$$S = \\{-3, 3\\}$$')).toContain('data-math="pending"');
+    const multi = render('Antes\n$$\n\\sqrt{16} = 4\n$$\nDepois');
+    expect(multi).toContain('\\sqrt{16} = 4');
+    expect(multi).toContain('Depois');
+  });
+
+  it('não confunde dinheiro com fórmula', () => {
+    const html = render('Custa R$ 5 e depois R$ 10.');
+    expect(html).not.toContain('data-math');
+    expect(html).toContain('R$ 5 e depois R$ 10');
+  });
+
+  it('fórmula que nunca fechou continua visível como texto', () => {
+    const html = render('Veja:\n$$ x^2 + 1');
+    expect(html).not.toContain('data-math');
+    expect(html).toContain('x^2 + 1');
+  });
+
+  it('asterisco dentro da fórmula não vira itálico', () => {
+    const html = render('Conta: $2 * 3 * 4$ certo');
+    expect(html).toContain('2 * 3 * 4');
+    expect(html).not.toContain('<em>');
+  });
+
+  it('três traços viram régua horizontal', () => {
+    expect(render('Texto\n\n---\n\nOutro')).toContain('<hr');
+  });
+});

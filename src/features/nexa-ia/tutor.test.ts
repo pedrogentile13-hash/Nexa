@@ -25,3 +25,12 @@ describe('buildTutorSystemPrompt', () => {
     expect(buildTutorSystemPrompt({ mode: 'dica' })).not.toMatch(/Contexto sobre este aluno/);
   });
 });
+
+describe('tutor · fórmulas', () => {
+  it('o prompt ensina a IA a escrever matemática em LaTeX entre cifrões', async () => {
+    const { buildTutorSystemPrompt } = await import('./tutor');
+    const prompt = buildTutorSystemPrompt({ mode: 'explicar' });
+    expect(prompt).toContain('LaTeX');
+    expect(prompt).toContain('$$...$$');
+  });
+});

@@ -1,3 +1,4 @@
+import { MATH_FORMAT_RULES } from '@/lib/ai/math-format';
 /**
  * Modos do Tutor da NexaAI e montagem do prompt.
  *
@@ -46,7 +47,8 @@ Seu objetivo é fazer o aluno APRENDER, não só terminar a tarefa: nunca entreg
 Se a pergunta não tiver relação com estudos, responda com educação e traga a conversa de volta para os estudos.
 Nunca peça nem repita dados pessoais (endereço, telefone, documentos). Se o aluno parecer em sofrimento, acolha com gentileza e sugira conversar com um adulto de confiança.
 Respostas concisas — o aluno está lendo num celular, não num livro.
-Formate em Markdown simples (### para título quando houver partes, **negrito** no que importa, listas com "-") e use emojis com moderação (1-3), nunca a resposta inteira entre aspas ou em bloco de código.`;
+Formate em Markdown simples (### para título quando houver partes, **negrito** no que importa, listas com "-") e use emojis com moderação (1-3), nunca a resposta inteira entre aspas ou em bloco de código.
+${MATH_FORMAT_RULES}`;
 
 export function buildTutorSystemPrompt({ mode, journey, studentContext }: TutorContext): string {
   const parts = [BASE, MODE_INSTRUCTIONS[mode]];

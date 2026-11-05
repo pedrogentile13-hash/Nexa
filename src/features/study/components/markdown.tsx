@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 import Link from 'next/link';
+import { Math } from './math';
 
 /**
  * Markdown mínimo, renderizado como elementos React.
@@ -8,6 +9,9 @@ import Link from 'next/link';
  * mais de um autor — um school_admin não é o mesmo nível de confiança que o
  * administrador geral. Produzindo nós React, não existe caminho pelo qual uma
  * `<script>` escrita no editor vire script executado: ela sai como texto.
+ *
+ * Fórmulas em LaTeX (`$x^2$` no texto, `$$...$$` em linha própria) viram símbolos
+ * de verdade pelo componente `Math` (KaTeX, com `trust: false`).
  *
  * O subconjunto é o que um resumo de verdade usa — títulos, ênfase, listas,
  * citação e código. Tabela e imagem ficaram de fora porque nenhuma das duas
@@ -19,7 +23,11 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   // Uma varredura só, com alternativas na mesma expressão: parsers em camadas
   // (negrito e depois itálico) tropeçam em `**texto*` e produzem marcação solta.
   // Link só para caminho DO PRÓPRIO app (começa com /): nada de http:, javascript: ou outro site.
-  const pattern = /(\[[^\]]+\]\(\/(?!\/)[^)\s]*\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  // Fórmula vem ANTES de ênfase: `$2 * 3$` não pode virar itálico. O cifrão só abre
+  // fórmula se colar no texto ("$x$") e não fecha antes de um dígito — assim
+  // "R$ 5 e R$ 10" continua sendo dinheiro.
+  const pattern =
+    /(\$\$[^$\n]+?\$\$|\$(?=\S)[^$\n]*?\S\$(?!\d)|\\\([^\n]*?\\\)|\[[^\]]+\]\(\/(?!\/)[^)\s]*\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let index = 0;
@@ -29,7 +37,11 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     const token = match[0];
     const key = `${keyPrefix}-${index++}`;
 
-    if (token.startsWith('[')) {
+    if (token.startsWith('$$') || token.startsWith('\\(')) {
+      nodes.push(<Math key={key} tex={token.slice(2, -2).trim()} display={false} />);
+    } else if (token.startsWith('$')) {
+      nodes.push(<Math key={key} tex={token.slice(1, -1).trim()} display={false} />);
+    } else if (token.startsWith('[')) {
       const split = token.indexOf('](');
       const href = token.slice(split + 2, -1);
       nodes.push(
@@ -112,11 +124,52 @@ export function Markdown({ source }: { source: string }) {
     flushQuote();
   }
 
+  // Fórmula em várias linhas ($$ ... $$): junta até o fechamento. Sem fechamento
+  // (resposta ainda chegando), o texto aparece como parágrafo comum.
+  let mathLines: string[] | null = null;
+
+  function pushMathBlock(tex: string) {
+    flushAll();
+    blocks.push(<Math key={`m-${blocks.length}`} tex={tex.trim()} display />);
+  }
+
   for (const raw of lines) {
     const line = raw.trimEnd();
 
-    if (line.trim() === '') {
+    if (mathLines) {
+      const close = line.indexOf('$$');
+      if (close >= 0) {
+        mathLines.push(line.slice(0, close));
+        pushMathBlock(mathLines.join('\n'));
+        mathLines = null;
+      } else {
+        mathLines.push(line);
+      }
+      continue;
+    }
+
+    const trimmed = line.trim();
+
+    if (trimmed === '') {
       flushAll();
+      continue;
+    }
+
+    const oneLineMath = /^\$\$(.+)\$\$$/.exec(trimmed) ?? /^\\\[(.+)\\\]$/.exec(trimmed);
+    if (oneLineMath) {
+      pushMathBlock(oneLineMath[1] ?? '');
+      continue;
+    }
+
+    if (trimmed.startsWith('$$')) {
+      flushAll();
+      mathLines = [trimmed.slice(2)];
+      continue;
+    }
+
+    if (/^([-*_])\1{2,}$/.test(trimmed)) {
+      flushAll();
+      blocks.push(<hr key={`hr-${blocks.length}`} className="border-border my-5" />);
       continue;
     }
 
@@ -171,6 +224,10 @@ export function Markdown({ source }: { source: string }) {
     paragraph.push(line.trim());
   }
 
+  if (mathLines) {
+    // Fórmula que nunca fechou: mostra como texto em vez de sumir com o conteúdo.
+    paragraph.push(`$$${mathLines.join(' ')}`.trim());
+  }
   flushAll();
 
   return <>{blocks}</>;
