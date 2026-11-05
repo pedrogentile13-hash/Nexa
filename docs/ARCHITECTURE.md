@@ -139,11 +139,31 @@ scripts/test-db.sh    # migrations + seed + suíte SQL num banco descartável
 
 ---
 
-## Próximas camadas (Etapas 2–5)
+## Rotas
 
-- `middleware.ts` na raiz, usando `lib/supabase/middleware.ts` (já escrito):
-  sem sessão → `/login`; sem onboarding → `/bem-vindo`.
-- `features/today/lib/ranking.ts` — o score de prioridade da tela Hoje:
-  `urgência × impacto na média × risco`, explicável em uma frase para o aluno.
-- `features/grades/server/actions.ts` — Server Actions de lançamento de nota,
-  com `useOptimistic` sobre o motor de cálculo.
+| Rota                               | Papel                                                    |
+| ---------------------------------- | -------------------------------------------------------- |
+| `/login`                           | magic link + Google; público                             |
+| `/auth/callback` · `/auth/confirm` | troca de código e verificação do link                    |
+| `/bem-vindo`                       | onboarding de 3 passos → `bootstrap_student()`           |
+| `/hoje`                            | a tela âncora: foco, checklist, cronômetro, progresso    |
+| `/disciplinas`                     | médias do período, ordenadas por quem precisa de atenção |
+| `/desempenho`                      | números do período (gráficos na Etapa 5)                 |
+| `/agenda`                          | Etapa 5                                                  |
+| `/perfil`                          | dados, tema, conquistas, sair                            |
+
+O `middleware.ts` na raiz aplica três regras antes de qualquer tela renderizar:
+sem sessão → `/login` (guardando o destino); onboarding pendente → `/bem-vindo`;
+já dentro e batendo em `/login` → `/hoje`. É por isso que o app nunca renderiza
+um dashboard vazio.
+
+---
+
+## Próximas camadas (Etapas 4–5)
+
+- `features/grades/server/actions.ts` — lançamento de nota com `useOptimistic`
+  sobre o motor de cálculo, e a UI do solver "quanto preciso tirar".
+- `features/agenda/` — calendário mensal, semanal e lista, lendo das mesmas
+  tabelas que a Hoje já consome.
+- `features/performance/` — gráficos Recharts sobre `v_term_summary` e o
+  histórico por período.

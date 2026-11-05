@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Nexa Study</string>
+    <string name="title_activity_main">Nexa Study</string>
+    <string name="package_name">br.com.nexastudy.app</string>
+    <string name="custom_url_scheme">br.com.nexastudy.app</string>
+</resources>

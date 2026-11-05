@@ -21,7 +21,7 @@
 -- ============================================================================
 
 -- -------------------------------------------------------- grading_schemes --
-create table public.grading_schemes (
+create table if not exists public.grading_schemes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null check (length(btrim(name)) between 1 and 80),
@@ -41,21 +41,23 @@ create table public.grading_schemes (
   constraint grading_schemes_user_name_uq unique (user_id, name)
 );
 
-create index grading_schemes_user_idx on public.grading_schemes (user_id);
-create unique index grading_schemes_one_default_uq
+create index if not exists grading_schemes_user_idx on public.grading_schemes (user_id);
+create unique index if not exists grading_schemes_one_default_uq
   on public.grading_schemes (user_id) where is_default;
 
+drop trigger if exists grading_schemes_set_updated_at on public.grading_schemes;
 create trigger grading_schemes_set_updated_at before update on public.grading_schemes
   for each row execute function public.set_updated_at();
 
 alter table public.grading_schemes enable row level security;
 
+drop policy if exists grading_schemes_all_own on public.grading_schemes;
 create policy grading_schemes_all_own on public.grading_schemes
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- --------------------------------------------- grading_scheme_categories --
 -- PB 35% · VA 35% · Qualitativa 30% — as data, per the spec.
-create table public.grading_scheme_categories (
+create table if not exists public.grading_scheme_categories (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   scheme_id uuid not null references public.grading_schemes (id) on delete cascade,
@@ -73,20 +75,22 @@ create table public.grading_scheme_categories (
   constraint gsc_scheme_sequence_uq unique (scheme_id, sequence)
 );
 
-create index gsc_scheme_idx on public.grading_scheme_categories (scheme_id, sequence);
-create index gsc_user_idx on public.grading_scheme_categories (user_id);
+create index if not exists gsc_scheme_idx on public.grading_scheme_categories (scheme_id, sequence);
+create index if not exists gsc_user_idx on public.grading_scheme_categories (user_id);
 
+drop trigger if exists gsc_set_updated_at on public.grading_scheme_categories;
 create trigger gsc_set_updated_at before update on public.grading_scheme_categories
   for each row execute function public.set_updated_at();
 
 alter table public.grading_scheme_categories enable row level security;
 
+drop policy if exists gsc_all_own on public.grading_scheme_categories;
 create policy gsc_all_own on public.grading_scheme_categories
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ----------------------------------------------------------- subject_terms --
 -- One row per subject per term: the unit every average is computed over.
-create table public.subject_terms (
+create table if not exists public.subject_terms (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   subject_id uuid not null references public.subjects (id) on delete cascade,
@@ -102,22 +106,24 @@ create table public.subject_terms (
   constraint subject_terms_subject_term_uq unique (subject_id, term_id)
 );
 
-create index subject_terms_user_idx on public.subject_terms (user_id);
-create index subject_terms_term_idx on public.subject_terms (term_id);
-create index subject_terms_subject_idx on public.subject_terms (subject_id);
+create index if not exists subject_terms_user_idx on public.subject_terms (user_id);
+create index if not exists subject_terms_term_idx on public.subject_terms (term_id);
+create index if not exists subject_terms_subject_idx on public.subject_terms (subject_id);
 
+drop trigger if exists subject_terms_set_updated_at on public.subject_terms;
 create trigger subject_terms_set_updated_at before update on public.subject_terms
   for each row execute function public.set_updated_at();
 
 alter table public.subject_terms enable row level security;
 
+drop policy if exists subject_terms_all_own on public.subject_terms;
 create policy subject_terms_all_own on public.subject_terms
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ------------------------------------------------------------- activities --
 -- The spec called this `assessments`; "activity" is what it actually holds —
 -- one graded item (lista, trabalho, prova) inside a category.
-create table public.activities (
+create table if not exists public.activities (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   subject_term_id uuid not null references public.subject_terms (id) on delete cascade,
@@ -141,21 +147,23 @@ create table public.activities (
   constraint activities_no_self_replace check (replaces_activity_id is null or replaces_activity_id <> id)
 );
 
-create index activities_user_idx on public.activities (user_id);
-create index activities_subject_term_idx on public.activities (subject_term_id);
-create index activities_category_idx on public.activities (category_id);
+create index if not exists activities_user_idx on public.activities (user_id);
+create index if not exists activities_subject_term_idx on public.activities (subject_term_id);
+create index if not exists activities_category_idx on public.activities (category_id);
 -- Drives "próximas provas / próximas entregas" on the Hoje screen.
-create index activities_user_due_pending_idx
+create index if not exists activities_user_due_pending_idx
   on public.activities (user_id, due_date)
   where score is null and due_date is not null;
-create index activities_replaces_idx
+create index if not exists activities_replaces_idx
   on public.activities (replaces_activity_id) where replaces_activity_id is not null;
 
+drop trigger if exists activities_set_updated_at on public.activities;
 create trigger activities_set_updated_at before update on public.activities
   for each row execute function public.set_updated_at();
 
 alter table public.activities enable row level security;
 
+drop policy if exists activities_all_own on public.activities;
 create policy activities_all_own on public.activities
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
@@ -199,6 +207,7 @@ begin
 end;
 $$;
 
+drop trigger if exists activities_category_scheme_ck on public.activities;
 create trigger activities_category_scheme_ck
   before insert or update of category_id, subject_term_id on public.activities
   for each row execute function public.assert_activity_category_matches_scheme();

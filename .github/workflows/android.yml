@@ -1,0 +1,104 @@
+name: App Android
+
+# Gera o app Android na nuvem, sem precisar instalar o Android Studio.
+# Como usar (pelo site ou pelo app do GitHub): Actions → "App Android" → Run workflow → escolha a ação.
+#   apk-teste   → gera um APK para instalar direto no seu celular (teste rápido, sem chave).
+#   criar-chave → cria UMA vez a chave de assinatura da Play (guarde nos Secrets; veja docs/APP-ANDROID.md).
+#   aab-loja    → gera o arquivo assinado (.aab) que sobe no Play Console.
+on:
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: 'O que gerar'
+        type: choice
+        required: true
+        options: [apk-teste, criar-chave, aab-loja]
+      senha_da_chave:
+        description: 'Só para "criar-chave": invente uma senha forte (mínimo 8 caracteres) e anote'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Preparar o projeto Android
+        run: npx cap sync android
+
+      # ---------- teste rápido ----------
+      - name: Gerar APK de teste
+        if: inputs.acao == 'apk-teste'
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon -PversionCode=${{ github.run_number }}
+
+      - name: Guardar o APK de teste
+        if: inputs.acao == 'apk-teste'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexa-apk-de-teste
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+      # ---------- chave de assinatura (uma vez só) ----------
+      - name: Criar a chave de assinatura
+        if: inputs.acao == 'criar-chave'
+        env:
+          SENHA: ${{ inputs.senha_da_chave }}
+        run: |
+          if [ "${#SENHA}" -lt 8 ]; then echo "Informe uma senha de pelo menos 8 caracteres em 'senha_da_chave'." ; exit 1; fi
+          keytool -genkeypair -v -storetype PKCS12 -keystore nexa-upload.jks -alias nexa \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$SENHA" -keypass "$SENHA" \
+            -dname "CN=Nexa Study, O=Nexa Study, C=BR"
+          base64 -w0 nexa-upload.jks > NEXA_KEYSTORE_BASE64.txt
+
+      - name: Guardar a chave (baixe, salve nos Secrets e APAGUE esta execução)
+        if: inputs.acao == 'criar-chave'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexa-chave-de-assinatura
+          path: |
+            nexa-upload.jks
+            NEXA_KEYSTORE_BASE64.txt
+          retention-days: 1
+
+      # ---------- arquivo da loja ----------
+      - name: Gerar o .aab assinado
+        if: inputs.acao == 'aab-loja'
+        env:
+          KEYSTORE_B64: ${{ secrets.NEXA_KEYSTORE_BASE64 }}
+          NEXA_KEYSTORE_PASSWORD: ${{ secrets.NEXA_KEYSTORE_PASSWORD }}
+          NEXA_KEY_ALIAS: nexa
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$NEXA_KEYSTORE_PASSWORD" ]; then
+            echo "Faltam os Secrets NEXA_KEYSTORE_BASE64 e NEXA_KEYSTORE_PASSWORD. Rode antes a ação 'criar-chave' (veja docs/APP-ANDROID.md)."; exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/nexa-upload.jks"
+          cd android
+          NEXA_KEYSTORE_FILE="$RUNNER_TEMP/nexa-upload.jks" ./gradlew bundleRelease --no-daemon -PversionCode=${{ github.run_number }}
+
+      - name: Guardar o .aab
+        if: inputs.acao == 'aab-loja'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexa-aab-para-a-play
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 14

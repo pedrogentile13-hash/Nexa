@@ -1,0 +1,191 @@
+-- ============================================================================
+-- Nexa — suíte SQL: leituras administrativas de desempenho (admin_*).
+--
+-- O que esta suíte existe para impedir:
+--   1. admin de uma escola lendo o desempenho de aluno de OUTRA escola
+--   2. aluno lendo o próprio desempenho (ou o de qualquer um) por esta porta
+--   3. admin de escola lendo o agregado de "todas as escolas"
+--   4. o mecanismo em si não funcionar (o admin certo tem que conseguir ler)
+-- ============================================================================
+
+\set ADMIN     '66666666-6666-6666-6666-666666666601'
+\set SCH_ADMIN '66666666-6666-6666-6666-666666666602'
+\set ALUNO_A   '66666666-6666-6666-6666-666666666603'
+\set ALUNO_B   '66666666-6666-6666-6666-666666666604'
+
+insert into auth.users (id, email, raw_user_meta_data)
+values
+  (:'ADMIN', 'admin-reports@nexa.test', '{"full_name": "Admin Geral"}'),
+  (:'SCH_ADMIN', 'schadmin-reports@nexa.test', '{"full_name": "Admin da Escola A"}'),
+  (:'ALUNO_A', 'aluno-a-reports@nexa.test', '{"full_name": "Aluna da Escola A"}'),
+  (:'ALUNO_B', 'aluno-b-reports@nexa.test', '{"full_name": "Aluno da Escola B"}');
+
+insert into public.schools (id, name, city, state, is_verified) values
+  ('77777777-0000-0000-0000-000000000001', 'Escola A (reports fixture)', 'São Paulo', 'SP', true),
+  ('77777777-0000-0000-0000-000000000002', 'Escola B (reports fixture)', 'São Paulo', 'SP', true);
+
+update public.profiles set role = 'admin' where id = :'ADMIN';
+update public.profiles set role = 'school_admin', school_id = '77777777-0000-0000-0000-000000000001'
+  where id = :'SCH_ADMIN';
+update public.profiles set school_id = '77777777-0000-0000-0000-000000000001' where id = :'ALUNO_A';
+update public.profiles set school_id = '77777777-0000-0000-0000-000000000002' where id = :'ALUNO_B';
+
+-- ---------------------------------------------------------- admin geral ----
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666601';
+set role authenticated;
+
+do $$
+begin
+  -- Lê qualquer aluno, de qualquer escola — não deve levantar exceção.
+  perform * from public.admin_subject_scores('66666666-6666-6666-6666-666666666603');
+  perform * from public.admin_subject_scores('66666666-6666-6666-6666-666666666604');
+  perform * from public.admin_user_stats('66666666-6666-6666-6666-666666666604');
+  -- "todas as escolas" (p_school_id null) só é permitido pra admin geral.
+  perform * from public.admin_school_summary(null);
+  perform * from public.admin_school_summary('77777777-0000-0000-0000-000000000001');
+end;
+$$;
+
+reset role;
+
+-- --------------------------------------------------- admin da escola A -----
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666602';
+set role authenticated;
+
+do $$
+begin
+  -- Aluna da própria escola: ok.
+  perform * from public.admin_subject_scores('66666666-6666-6666-6666-666666666603');
+  perform * from public.admin_study_sessions('66666666-6666-6666-6666-666666666603');
+  perform * from public.admin_school_summary('77777777-0000-0000-0000-000000000001');
+
+  -- Aluno de OUTRA escola: tem que recusar.
+  begin
+    perform * from public.admin_subject_scores('66666666-6666-6666-6666-666666666604');
+    assert false, 'admin da escola A conseguiu ler aluno da escola B';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- "Todas as escolas": só admin geral, nunca school_admin.
+  begin
+    perform * from public.admin_school_summary(null);
+    assert false, 'admin de escola conseguiu ler o agregado de todas as escolas';
+  exception when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+reset role;
+
+-- ------------------------------------------------------------- aluno -------
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666603';
+set role authenticated;
+
+do $$
+begin
+  begin
+    perform * from public.admin_subject_scores('66666666-6666-6666-6666-666666666603');
+    assert false, 'aluno conseguiu chamar admin_subject_scores sobre si mesmo';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform * from public.admin_user_stats('66666666-6666-6666-6666-666666666604');
+    assert false, 'aluno conseguiu chamar admin_user_stats sobre outro aluno';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- `profiles`: só a própria linha — este bloco protege contra a regressão
+  -- que existia antes de `profiles_select_admin` (RLS silenciosamente vazia
+  -- pra qualquer papel, não só pra aluno).
+  assert (select count(*) from public.profiles) = 1,
+    'aluno enxergou o perfil de alguém além do próprio';
+end;
+$$;
+
+reset role;
+
+-- ------------------------------------- profiles: quem enxerga quem -------
+-- Regressão do bug em que `profiles` só tinha `profiles_select_own` — um
+-- admin (geral ou de escola) não conseguia ler o PERFIL de ninguém além de
+-- si mesmo, o que quebrava tanto /admin/usuarios quanto o relatório
+-- individual antes mesmo de chegar nas funções admin_*.
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666601';
+set role authenticated;
+
+do $$
+begin
+  assert (select count(*) from public.profiles
+          where id in ('66666666-6666-6666-6666-666666666602',
+                       '66666666-6666-6666-6666-666666666603',
+                       '66666666-6666-6666-6666-666666666604')) = 3,
+    'admin geral não enxergou os três perfis de teste';
+end;
+$$;
+
+reset role;
+
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666602';
+set role authenticated;
+
+do $$
+begin
+  assert (select count(*) from public.profiles
+          where id = '66666666-6666-6666-6666-666666666603') = 1,
+    'admin da escola A não enxergou a aluna da própria escola';
+  assert (select count(*) from public.profiles
+          where id = '66666666-6666-6666-6666-666666666604') = 0,
+    'admin da escola A enxergou aluno de OUTRA escola';
+end;
+$$;
+
+reset role;
+
+-- ------------------------------- profiles: quem consegue ESCREVER --------
+-- Regressão do bug em que `profiles` só tinha `profiles_update_own` — o
+-- admin conseguia LER outros perfis (bloco acima) mas o `update` de
+-- papel/escola de um aluno era recusado em silêncio pela RLS (zero linhas
+-- afetadas, sem erro), e a tela de Usuários parecia "não salvar nada".
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666601'; -- ADMIN
+set role authenticated;
+
+do $$
+begin
+  update public.profiles set school_id = '77777777-0000-0000-0000-000000000002'
+  where id = '66666666-6666-6666-6666-666666666603'; -- ALUNO_A -> escola B
+
+  assert (select school_id from public.profiles
+          where id = '66666666-6666-6666-6666-666666666603')
+       = '77777777-0000-0000-0000-000000000002',
+    'admin geral não conseguiu mudar a escola de uma aluna';
+
+  -- devolve como estava, pra não bagunçar os blocos acima se a suíte rodar
+  -- os testes fora de ordem no futuro.
+  update public.profiles set school_id = '77777777-0000-0000-0000-000000000001'
+  where id = '66666666-6666-6666-6666-666666666603';
+end;
+$$;
+
+reset role;
+
+set "request.jwt.claim.sub" = '66666666-6666-6666-6666-666666666603'; -- ALUNO_A
+set role authenticated;
+
+do $$
+declare
+  v_rows integer;
+begin
+  -- RLS não levanta exceção num update sem permissão — ela só filtra a
+  -- linha do WHERE, e o resultado é zero linhas afetadas, em silêncio
+  -- (o mesmo comportamento que causou o bug original). Por isso o teste
+  -- confere a contagem de linhas, não uma exceção.
+  update public.profiles set full_name = 'sequestrado'
+  where id = '66666666-6666-6666-6666-666666666604'; -- ALUNO_B
+  get diagnostics v_rows = row_count;
+  assert v_rows = 0, 'aluna conseguiu escrever no perfil de outro aluno';
+end;
+$$;
+
+reset role;
+
+select 'ok' as result;
