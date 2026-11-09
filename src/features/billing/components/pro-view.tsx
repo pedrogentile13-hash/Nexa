@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Check, Crown, Loader2, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,7 @@ async function go(path: string, body?: unknown): Promise<string | null> {
 }
 
 export function ProView({ plan, periodEnd, cancelAtPeriodEnd, paymentsReady, banner }: Props) {
+  const router = useRouter();
   const [interval, setInterval] = useState<BillingInterval>('year');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +63,24 @@ export function ProView({ plan, periodEnd, cancelAtPeriodEnd, paymentsReady, ban
     track({ name: 'pro_view', plan });
     if (banner === 'ok') track({ name: 'pro_checkout_success' });
   }, [plan, banner]);
+
+  // Voltou do pagamento e o plano ainda não chegou (webhook atrasado): confere direto no Stripe.
+  useEffect(() => {
+    if (banner !== 'ok' || paid) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch('/api/billing/sync', { method: 'POST' });
+        const j = (await r.json().catch(() => ({}))) as { result?: string };
+        if (alive && r.ok && j.result === 'synced') router.refresh();
+      } catch {
+        // sem rede: a página segue e o webhook ainda pode atualizar
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [banner, paid, router]);
 
   async function run(key: string, path: string, body?: unknown) {
     setBusy(key);

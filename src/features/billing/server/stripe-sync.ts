@@ -69,7 +69,11 @@ async function handle(admin: Admin, event: StripeEvent): Promise<SyncResult> {
     // O dono vem do cliente do Stripe; o metadado só entra se o checkout ainda não gravou o cliente.
     const owner = await userOfCustomer(admin, (object.customer as string | null) ?? null);
     const row = subscriptionRowFrom(object as Parameters<typeof subscriptionRowFrom>[0], priceMapFromEnv(), owner);
-    if (!row) return 'ignored';
+    if (!row) {
+      // Preço fora das variáveis STRIPE_PRICE_* ou dono não encontrado: sem isto o plano não muda e ninguém percebe.
+      console.warn('[stripe] assinatura ignorada (preço desconhecido ou sem dono)', event.id);
+      return 'ignored';
+    }
     // Uma pessoa de escola nunca fica com plano pago (defesa: o checkout já barra, mas o banco é a fronteira).
     const { data: profile } = await admin.from('profiles').select('school_id').eq('id', row.user_id).maybeSingle();
     if (profile?.school_id) return 'ignored';

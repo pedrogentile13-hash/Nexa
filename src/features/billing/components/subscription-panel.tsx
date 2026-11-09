@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, CalendarClock, CreditCard, Crown, ExternalLink, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PLAN_LABEL, formatBRL } from '../lib/plans';
@@ -14,6 +15,7 @@ const INVOICE_STATUS: Record<string, string> = { paid: 'Paga', open: 'Em aberto'
 
 /** Aba "Assinatura" do Perfil: plano, próxima cobrança, faturas, cancelar e trocar cartão. */
 export function SubscriptionPanel({ plan }: { plan: 'free' | 'plus' | 'pro' }) {
+  const router = useRouter();
   const [data, setData] = useState<BillingOverview | null | undefined>(plan === 'free' ? null : undefined);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,17 @@ export function SubscriptionPanel({ plan }: { plan: 'free' | 'plus' | 'pro' }) {
     await load();
   }
 
+  async function syncNow() {
+    setBusy('sync');
+    setError(null);
+    const r = await fetch('/api/billing/sync', { method: 'POST' });
+    const j = (await r.json().catch(() => ({}))) as { result?: string; message?: string };
+    setBusy(null);
+    if (!r.ok) return setError(j.message ?? 'Não consegui conferir agora. Tente de novo.');
+    if (j.result === 'synced') return router.refresh();
+    setError('Não encontrei nenhuma assinatura ativa para este e-mail. Se acabou de pagar, tente de novo em um minuto.');
+  }
+
   if (plan === 'free') {
     return (
       <div className="space-y-3 text-sm">
@@ -69,6 +82,13 @@ export function SubscriptionPanel({ plan }: { plan: 'free' | 'plus' | 'pro' }) {
         <Link href="/pro" className="bg-brand text-brand-fg inline-flex h-11 items-center gap-2 rounded-full px-5 font-semibold">
           <Crown className="size-4" aria-hidden /> Ver planos
         </Link>
+        <div className="border-border border-t pt-3">
+          <p className="text-muted">Já pagou e o plano não apareceu?</p>
+          <button type="button" onClick={syncNow} disabled={busy !== null} className="text-brand-text mt-1 inline-flex items-center gap-1 font-semibold underline">
+            {busy === 'sync' && <Loader2 className="size-3.5 animate-spin" aria-hidden />} Conferir minha assinatura
+          </button>
+        </div>
+        {error && <p role="alert" className="text-danger">{error}</p>}
       </div>
     );
   }
