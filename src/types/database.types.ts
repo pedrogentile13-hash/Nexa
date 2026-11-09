@@ -514,6 +514,21 @@ export type EssayCorrectionRow = {
   c5: number;
   total: number;
   feedback: unknown;
+  theme_id: string | null;
+  created_at: string;
+};
+
+export type EssayThemeRow = {
+  id: string;
+  exam_id: string | null;
+  year: number | null;
+  title: string;
+  context_text: string | null;
+  axis: string | null;
+  kind: 'real' | 'inspirado';
+  source_note: string | null;
+  is_published: boolean;
+  sort_order: number;
   created_at: string;
 };
 
@@ -1571,6 +1586,7 @@ export type Database = {
       teacher_plans: Table<TeacherPlanRow>;
       school_announcements: Table<SchoolAnnouncementRow>;
       essay_corrections: Table<EssayCorrectionRow>;
+      essay_themes: Table<EssayThemeRow>;
       announcement_reads: Table<AnnouncementReadRow>;
     };
     Views: {

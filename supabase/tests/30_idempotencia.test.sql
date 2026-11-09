@@ -22,7 +22,7 @@ begin
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'public' and c.relkind = 'r';
 
-  assert v_tables = 92, format('esperado 92 tabelas depois de reaplicar, achei %s', v_tables);
+  assert v_tables = 93, format('esperado 93 tabelas depois de reaplicar, achei %s', v_tables);
 
   select count(*) into v_policies from pg_policies where schemaname = 'public';
   assert v_policies > 40, format('políticas sumiram na reaplicação: %s', v_policies);

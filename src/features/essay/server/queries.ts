@@ -31,3 +31,38 @@ export async function listEssays(limit = 20): Promise<EssayHistoryItem[]> {
       : null),
   }));
 }
+
+export interface EssayThemeItem {
+  id: string;
+  title: string;
+  kind: 'real' | 'inspirado';
+  year: number | null;
+  examName: string | null;
+  context: string | null;
+  axis: string | null;
+}
+
+/**
+ * Temas publicados. Os reais só aparecem depois de conferidos (a política do
+ * banco esconde os demais). Antes do SQL rodar a tabela não existe: devolve
+ * vazio e a tela cai no "tema livre".
+ */
+export async function listEssayThemes(): Promise<EssayThemeItem[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('essay_themes')
+    .select('id, title, kind, year, context_text, axis, exams(name)')
+    .order('year', { ascending: false, nullsFirst: false })
+    .order('sort_order');
+  if (error || !data) return [];
+
+  return data.map((t) => ({
+    id: t.id,
+    title: t.title,
+    kind: t.kind === 'real' ? 'real' : 'inspirado',
+    year: t.year,
+    examName: (t.exams as unknown as { name: string } | null)?.name ?? null,
+    context: t.context_text,
+    axis: t.axis,
+  }));
+}

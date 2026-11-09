@@ -76,3 +76,54 @@ describe('prompt e utilidades', () => {
     expect(weakestCompetency([])).toBeNull();
   });
 });
+
+describe('parseEssayFeedback · proposta de intervenção e alertas', () => {
+  const withInter = (inter: Record<string, boolean>, c5 = 200) => ({
+    ...good,
+    competencias: good.competencias.map((c) => ({ ...c, nota: c.id === 5 ? c5 : 120 })),
+    intervencao: inter,
+  });
+
+  it('a nota da C5 não passa do que os elementos presentes permitem', () => {
+    // 3 elementos (agente, ação, finalidade) → teto 120, mesmo que a IA dê 200
+    const f = parseEssayFeedback(
+      JSON.stringify(withInter({ agente: true, acao: true, meio: false, finalidade: true, detalhamento: false })),
+      essay,
+    )!;
+    expect(f.competencies[4]!.score).toBe(120);
+    expect(f.intervention).toEqual({ agent: true, action: true, means: false, purpose: true, detail: false });
+  });
+
+  it('sem nenhum elemento a C5 vai a zero; com os 5 mantém a nota', () => {
+    const none = parseEssayFeedback(JSON.stringify(withInter({ agente: false, acao: false, meio: false, finalidade: false, detalhamento: false })), essay)!;
+    expect(none.competencies[4]!.score).toBe(0);
+    const all = parseEssayFeedback(JSON.stringify(withInter({ agente: true, acao: true, meio: true, finalidade: true, detalhamento: true })), essay)!;
+    expect(all.competencies[4]!.score).toBe(200);
+  });
+
+  it('sem o campo de intervenção (correção antiga) nada é alterado', () => {
+    const f = parseEssayFeedback(JSON.stringify(good), essay)!;
+    expect(f.competencies[4]!.score).toBe(120);
+    expect(f.intervention).toBeUndefined();
+  });
+
+  it('repassa alertas e repertório', () => {
+    const f = parseEssayFeedback(JSON.stringify({ ...good, alertas: ['Possível fuga ao tema'], repertorio: 'Cita a Constituição de 1988' }), essay)!;
+    expect(f.alerts).toEqual(['Possível fuga ao tema']);
+    expect(f.repertoire).toContain('Constituição');
+  });
+});
+
+describe('buildEssayMessages · critérios', () => {
+  it('leva a régua do INEP, os 5 elementos da proposta e o contexto do tema', () => {
+    const [, user] = buildEssayMessages('Tema X', 'Texto do aluno com algumas palavras.', 'Contexto curto do tema.');
+    expect(user!.content).toContain('agente (quem)');
+    expect(user!.content).toContain('direitos humanos');
+    expect(user!.content).toContain('Contexto curto do tema.');
+  });
+
+  it('sem contexto, não inclui o bloco', () => {
+    const [, user] = buildEssayMessages('Tema X', 'Texto.', null);
+    expect(user!.content).not.toContain('Contexto do tema');
+  });
+});

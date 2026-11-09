@@ -17,6 +17,7 @@ export type EssayState =
 
 const schema = z.object({
   theme: z.string().trim().min(3, 'Escreva o tema da redação.').max(300),
+  themeId: z.string().uuid().optional(),
   essay: z.string().trim().min(1, 'Cole ou escreva a redação.').max(8000, 'Texto grande demais.'),
 });
 
@@ -28,7 +29,12 @@ const schema = z.object({
  * histórico fica de fora, e a tela avisa.
  */
 export async function correctEssay(_prev: EssayState, formData: FormData): Promise<EssayState> {
-  const parsed = schema.safeParse({ theme: formData.get('theme'), essay: formData.get('essay') });
+  const rawThemeId = formData.get('themeId');
+  const parsed = schema.safeParse({
+    theme: formData.get('theme'),
+    themeId: typeof rawThemeId === 'string' && rawThemeId ? rawThemeId : undefined,
+    essay: formData.get('essay'),
+  });
   if (!parsed.success) return { status: 'error', message: parsed.error.issues[0]?.message ?? 'Revise os campos.' };
 
   const words = countWords(parsed.data.essay);
@@ -44,9 +50,26 @@ export async function correctEssay(_prev: EssayState, formData: FormData): Promi
   const quota = await checkPlanQuota(supabase, 'essay');
   if (!quota.ok) return { status: 'error', message: quota.message };
 
-  const result = await completeWithAI(buildEssayMessages(parsed.data.theme, parsed.data.essay), {
-    maxTokens: 2500,
-    temperature: 0.3,
+  // Tema do banco: usa o título oficial (não o que veio do formulário) e a contextualização.
+  let themeTitle = parsed.data.theme;
+  let themeContext: string | null = null;
+  let themeId: string | null = null;
+  if (parsed.data.themeId) {
+    const { data: theme } = await supabase
+      .from('essay_themes')
+      .select('id, title, context_text')
+      .eq('id', parsed.data.themeId)
+      .maybeSingle();
+    if (theme) {
+      themeTitle = theme.title;
+      themeContext = theme.context_text;
+      themeId = theme.id;
+    }
+  }
+
+  const result = await completeWithAI(buildEssayMessages(themeTitle, parsed.data.essay, themeContext), {
+    maxTokens: 3000,
+    temperature: 0.2,
     timeoutMs: 45_000,
   });
 
@@ -70,7 +93,8 @@ export async function correctEssay(_prev: EssayState, formData: FormData): Promi
   const score = (id: number) => feedback.competencies.find((c) => c.id === id)!.score;
   const { error } = await supabase.from('essay_corrections').insert({
     user_id: user.id,
-    theme: parsed.data.theme,
+    theme: themeTitle,
+    theme_id: themeId,
     essay: parsed.data.essay,
     c1: score(1),
     c2: score(2),
@@ -81,7 +105,7 @@ export async function correctEssay(_prev: EssayState, formData: FormData): Promi
   });
 
   revalidatePath('/vestibular/redacao');
-  return { status: 'done', theme: parsed.data.theme, feedback, saved: !error };
+  return { status: 'done', theme: themeTitle, feedback, saved: !error };
 }
 
 export async function deleteEssay(formData: FormData): Promise<void> {

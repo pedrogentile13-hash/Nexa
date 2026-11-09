@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { EssayCorrector } from '@/features/essay/components/essay-corrector';
-import { listEssays } from '@/features/essay/server/queries';
+import { listEssays, listEssayThemes } from '@/features/essay/server/queries';
 import { isFeatureEnabled } from '@/lib/feature-flags';
 import { getCurrentUser } from '@/lib/supabase/server';
 
@@ -19,13 +19,13 @@ export default async function EssayPage() {
   if (!user) redirect('/login');
   if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
 
-  const history = await listEssays();
+  const [history, themes] = await Promise.all([listEssays(), listEssayThemes()]);
 
   return (
     <>
       <AppHeader title="Redação" subtitle="Correção nas 5 competências do ENEM" />
       <PageMain>
-        <EssayCorrector history={history} />
+        <EssayCorrector history={history} themes={themes} />
       </PageMain>
     </>
   );
