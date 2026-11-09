@@ -24,6 +24,10 @@ describe('subscriptionRowFrom', () => {
     expect(row.plan).toBe('pro');
     expect(row.current_period_end).toBe(new Date(1_700_000_000 * 1000).toISOString());
   });
+  it('o dono vindo do cliente do Stripe vale mais que o metadado', () => {
+    expect(subscriptionRowFrom(base, prices, 'u-do-cliente')!.user_id).toBe('u-do-cliente');
+    expect(subscriptionRowFrom({ ...base, metadata: {} }, prices, 'u-do-cliente')!.user_id).toBe('u-do-cliente');
+  });
   it('ignora preço desconhecido e assinatura sem usuário', () => {
     expect(subscriptionRowFrom({ ...base, items: { data: [{ price: { id: 'price_x' } }] } }, prices)).toBeNull();
     expect(subscriptionRowFrom({ ...base, metadata: {} }, prices)).toBeNull();

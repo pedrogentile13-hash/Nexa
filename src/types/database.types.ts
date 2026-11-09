@@ -549,6 +549,19 @@ export type ExamFileRow = {
   created_at: string;
 };
 
+export type BillingAlertRow = {
+  id: string;
+  user_id: string | null;
+  stripe_customer_id: string | null;
+  kind: 'payment_failed' | 'dispute' | 'refund' | 'fraud_warning';
+  stripe_object_id: string | null;
+  amount_cents: number | null;
+  currency: string | null;
+  detail: string | null;
+  created_at: string;
+  resolved_at: string | null;
+};
+
 export type AiUsageRow = {
   user_id: string;
   day: string;
@@ -1605,6 +1618,7 @@ export type Database = {
       essay_corrections: Table<EssayCorrectionRow>;
       essay_themes: Table<EssayThemeRow>;
       exam_files: Table<ExamFileRow>;
+      billing_alerts: Table<BillingAlertRow>;
       announcement_reads: Table<AnnouncementReadRow>;
     };
     Views: {

@@ -32,7 +32,7 @@ O Stripe é a fonte da verdade; o banco guarda o espelho (escrito só pelo webho
 
 Configuração (uma vez):
 1. Stripe → Products: criar **Nexa Plus** e **Nexa Pro**, cada um com preço mensal e anual (R$ 14,90 / 149,00 e R$ 29,90 / 299,00 — se mudar, ajuste `PLAN_PRICES`). Copiar os 4 IDs `price_...` para as variáveis `STRIPE_PRICE_*`.
-2. Stripe → Developers → Webhooks → endpoint `https://<site>/api/stripe/webhook` com os eventos: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`. Copiar o segredo para `STRIPE_WEBHOOK_SECRET`.
+2. Stripe → Developers → Webhooks → endpoint `https://<site>/api/stripe/webhook` com os eventos: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `charge.dispute.created`, `charge.refunded`, `radar.early_fraud_warning.created` (os quatro últimos viram avisos em `billing_alerts`). Copiar o segredo para `STRIPE_WEBHOOK_SECRET`.
 3. Stripe → Settings → Billing → Customer portal: ativar (troca de cartão, faturas, cancelamento).
 4. Variáveis na Hostinger: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_*`, `SUPABASE_SERVICE_ROLE_KEY`.
 5. Testar com chaves de teste (`sk_test_`) e o cartão `4242 4242 4242 4242` antes de virar para as chaves reais.

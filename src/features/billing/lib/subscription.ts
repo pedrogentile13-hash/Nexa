@@ -47,8 +47,12 @@ export interface SubscriptionRow {
 }
 
 /** `null` quando faltam o usuário ou o preço conhecido: nesse caso não se mexe em nada. */
-export function subscriptionRowFrom(sub: StripeSubscriptionLike, prices: PriceMap): SubscriptionRow | null {
-  const userId = sub.metadata?.user_id;
+/**
+ * `userId` vem do cliente do Stripe (tabela `billing_customers`), que é a fonte confiável do dono da assinatura;
+ * o metadado `user_id` só entra como reserva (o evento da assinatura pode chegar antes do checkout concluído).
+ */
+export function subscriptionRowFrom(sub: StripeSubscriptionLike, prices: PriceMap, userId: string | null = null): SubscriptionRow | null {
+  userId = userId ?? sub.metadata?.user_id ?? null;
   const priceId = sub.items?.data?.[0]?.price?.id;
   if (!userId || !sub.id || !sub.status || !priceId) return null;
   const known = prices[priceId];

@@ -30,6 +30,8 @@ export async function stripeRequest<T = Record<string, unknown>>(method: 'GET' |
       method,
       headers: {
         Authorization: `Bearer ${key}`,
+        // Fixa a versão da API (ex.: 2026-10-28.endive) para o Stripe não mudar o formato sem avisar.
+        ...(process.env.STRIPE_API_VERSION ? { 'Stripe-Version': process.env.STRIPE_API_VERSION } : {}),
         ...(method === 'POST' ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
         ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
       },
