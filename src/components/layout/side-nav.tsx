@@ -103,10 +103,7 @@ const VESTIBULAR_PRIMARY_ITEMS: NavItem[] = [
   { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
 ];
 
-const VESTIBULAR_SECONDARY_ITEMS: NavItem[] = [
-  { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
-  { href: '/ranking', label: 'Ranking', Icon: Trophy },
-];
+const VESTIBULAR_SECONDARY_ITEMS: NavItem[] = [{ href: '/ranking', label: 'Ranking', Icon: Trophy }];
 
 function NavLink({ href, label, Icon, active, badge }: NavItem & { active: boolean }) {
   return (

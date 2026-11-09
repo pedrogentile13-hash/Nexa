@@ -17,7 +17,6 @@ import {
   PenLine,
   Route as RouteIcon,
   RotateCcw,
-  School,
   Shield,
   Sparkles,
   Target,
@@ -75,7 +74,6 @@ const COMMUNITY_ITEM = { href: '/comunidade', label: 'Comunidade', Icon: Newspap
 const CHAT_ITEM = { href: '/chat', label: 'Professores', Icon: MessageCircle } as const;
 const ANNOUNCEMENTS_ITEM = { href: '/avisos', label: 'Avisos', Icon: Megaphone } as const;
 const VESTIBULAR_ITEM = { href: '/vestibular', label: 'Vestibular', Icon: GraduationCap } as const;
-const SCHOOL_ITEM = { href: '/hoje', label: 'Escola', Icon: School } as const;
 
 /**
  * Dentro de `/vestibular/**` os cinco alvos fixos TROCAM (mesma decisão da
@@ -100,7 +98,6 @@ const VESTIBULAR_MORE_ITEMS = [
   { href: '/vestibular/redacao/temas', label: 'Banco de temas', Icon: BookMarked },
   { href: '/revisoes', label: 'Erros e revisões', Icon: RotateCcw },
   { href: '/vestibular/desempenho', label: 'Desempenho', Icon: TrendingUp },
-  { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
   { href: '/ranking', label: 'Ranking', Icon: Trophy },
   { href: '/perfil', label: 'Perfil', Icon: User },
 ] as const;
@@ -146,14 +143,12 @@ export function BottomNav({
         {
           title: 'Vestibular',
           items: VESTIBULAR_MORE_ITEMS.filter(
-            (i) =>
-              i.href.startsWith('/vestibular') || i.href === '/revisoes' || i.href === '/estudar',
+            (i) => i.href.startsWith('/vestibular') || i.href === '/revisoes',
           ),
         },
         {
           title: 'Mais',
           items: [
-            SCHOOL_ITEM,
             ...(communityEnabled ? [COMMUNITY_ITEM] : []),
             ...VESTIBULAR_MORE_ITEMS.filter((i) => i.href === '/ranking' || i.href === '/perfil'),
             ...(billingEnabled ? [PRO_ITEM] : []),

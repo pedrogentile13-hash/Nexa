@@ -22,7 +22,11 @@ export function AnswerSheetCta({ editionId, total, attempts }: { editionId: stri
       <p className="flex items-center gap-2 text-sm font-semibold">
         <ClipboardCheck className="text-brand size-4" aria-hidden /> Fazer a prova e corrigir ({total} questões)
       </p>
-      <p className="text-muted mt-1 text-sm">Faça no caderno oficial e marque no cartão-resposta (ou envie a foto do cartão de papel). O Nexa corrige e mostra seu desempenho por área.</p>
+      <ol className="text-muted mt-2 list-decimal space-y-1 pl-5 text-sm">
+        <li>Abra o <b>caderno</b> abaixo (ou use o PDF impresso) e resolva a prova.</li>
+        <li>Toque em <b>Abrir cartão-resposta</b> e marque as letras (ou envie a foto do cartão de papel).</li>
+        <li>Toque em <b>Corrigir</b>: o Nexa mostra sua pontuação e o desempenho por área.</li>
+      </ol>
       <Link href={`/vestibular/provas/${editionId}/fazer` as Route} className="bg-brand text-brand-fg mt-3 inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold">
         Abrir cartão-resposta
       </Link>

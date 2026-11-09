@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Route } from 'next';
-import { BookOpenCheck, ClipboardList, Download } from 'lucide-react';
+import { BookOpenCheck, ClipboardList, Download, PencilLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pairOf, readerEntries, type ReadableFile } from '../lib/reader';
 import type { ExamFileItem } from '../server/queries';
@@ -63,6 +63,11 @@ export function EditionReader({
           <ExamCover examName={examName} year={year} label={current.label} coverUrl={coverUrl} />
         </Link>
 
+        <Link href={`/vestibular/provas/${editionId}/fazer` as Route} className="bg-brand text-brand-fg flex h-12 items-center justify-center gap-2 rounded-xl text-sm font-semibold">
+          <PencilLine className="size-4" aria-hidden />
+          Marcar respostas e corrigir
+        </Link>
+
         <nav aria-label="Arquivo" className="grid grid-cols-2 gap-2 lg:grid-cols-1">
           {tab(pair.caderno, 'Caderno de questões', ClipboardList)}
           {tab(pair.gabarito, 'Gabarito', BookOpenCheck)}
@@ -110,7 +115,7 @@ export function EditionReader({
           </h2>
           {current.source && <p className="text-muted text-xs">Arquivo oficial · {current.source}</p>}
         </div>
-        <PdfViewer key={current.id} src={fileUrl(current)} downloadHref={fileUrl(current, true)} title={`${current.label} (${current.kind})`} />
+        <PdfViewer key={current.id} src={fileUrl(current)} downloadHref={fileUrl(current, true)} officialUrl={current.url} title={`${current.label} (${current.kind})`} />
       </div>
     </div>
   );

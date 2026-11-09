@@ -16,7 +16,7 @@ const MAX_ZOOM = 3;
  * páginas, e mantê-las todas desenhadas estouraria a memória do celular.
  * O arquivo vem do servidor do Nexa (`/api/provas/arquivo/[id]`).
  */
-export function PdfViewer({ src, downloadHref, title }: { src: string; downloadHref: string; title: string }) {
+export function PdfViewer({ src, downloadHref, title, officialUrl }: { src: string; downloadHref: string; title: string; officialUrl?: string }) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [aspect, setAspect] = useState(1.414);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +68,16 @@ export function PdfViewer({ src, downloadHref, title }: { src: string; downloadH
         setDoc(pdf);
         setProgress(null);
       } catch {
-        if (!cancelled) setError('Não consegui abrir este arquivo aqui. Use o botão Baixar.');
+        if (cancelled) return;
+        // Descobre o motivo: o servidor do Nexa responde com uma mensagem quando o site oficial falha.
+        let reason = '';
+        try {
+          const probe = await fetch(src, { headers: { Range: 'bytes=0-0' }, credentials: 'include' });
+          if (!probe.ok) reason = ((await probe.json().catch(() => ({}))) as { message?: string }).message ?? `Erro ${probe.status}.`;
+        } catch {
+          reason = 'Sem conexão com o servidor.';
+        }
+        if (!cancelled) setError(`Não consegui abrir este arquivo aqui.${reason ? ` ${reason}` : ''}`);
       }
     })();
     return () => {
@@ -142,9 +151,16 @@ export function PdfViewer({ src, downloadHref, title }: { src: string; downloadH
         {error ? (
           <div role="alert" className="bg-danger-soft text-danger mx-auto max-w-md rounded-xl p-4 text-sm">
             <p>{error}</p>
-            <a href={downloadHref} className="mt-2 inline-block font-semibold underline">
-              Baixar o arquivo
-            </a>
+            <div className="mt-3 flex flex-wrap gap-3 font-semibold">
+              {officialUrl && (
+                <a href={officialUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                  Abrir no site oficial
+                </a>
+              )}
+              <a href={downloadHref} className="underline">
+                Baixar o arquivo
+              </a>
+            </div>
           </div>
         ) : !doc ? (
           <div className="text-muted grid h-full place-items-center text-sm" role="status">
