@@ -8,7 +8,7 @@ import { loadStudyStarter, publishStudyStarter, type StudySeedState } from '../s
 const INITIAL: StudySeedState = { status: 'idle' };
 
 /** Conteúdo inicial do Nexa Study: carrega os tópicos e pacotes como rascunho e, depois da revisão, publica. */
-export function StudySeedCard({ drafts, published }: { drafts: number; published: number }) {
+export function StudySeedCard({ drafts, published, topics, packages }: { drafts: number; published: number; topics: number; packages: number }) {
   const [loadState, load, loading] = useActionState(async () => loadStudyStarter(), INITIAL);
   const [publishState, publish, publishing] = useActionState(async () => publishStudyStarter(), INITIAL);
 
@@ -18,7 +18,7 @@ export function StudySeedCard({ drafts, published }: { drafts: number; published
         <BookCheck className="text-brand size-5" aria-hidden /> Conteúdo inicial do Nexa Study
       </h2>
       <p className="text-muted mt-1 text-sm">
-        88 tópicos do 6º ano ao 3º ano do EM (Matemática, Ciências, Biologia, Física e Química) e 16 pacotes prontos (resumo + quiz de 8 questões).
+        {topics} tópicos do 6º ano ao 3º ano do EM (Matemática, Ciências, Biologia, Física e Química) e {packages} pacotes prontos (resumo + quiz de 8 questões).
         Tudo entra como <b>rascunho</b>: revise e depois publique.
       </p>
       <p className="text-subtle mt-2 text-xs">Já no painel: {drafts} rascunhos e {published} publicados do pacote inicial.</p>

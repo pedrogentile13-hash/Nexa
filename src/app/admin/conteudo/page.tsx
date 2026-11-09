@@ -11,7 +11,7 @@ import {
 import { requireAdmin } from '@/features/admin/server/guard';
 import { StudySeedCard } from '@/features/admin/components/study-seed-card';
 import { createClient } from '@/lib/supabase/server';
-import { SEED_TAG } from '@/features/content/seed';
+import { PACOTES, SEED_TAG, TOPICOS } from '@/features/content/seed';
 import { Button } from '@/components/ui/button';
 import type { ResourceKind } from '@/types/database.types';
 
@@ -72,7 +72,7 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
       />
 
       <div className="space-y-4 p-5">
-        <StudySeedCard drafts={seedDrafts} published={seedPublished} />
+        <StudySeedCard drafts={seedDrafts} published={seedPublished} topics={TOPICOS.length} packages={PACOTES.length} />
         <ResourceFilterBar
           subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
           schools={schools.map((s) => ({ id: s.id, name: s.name }))}
