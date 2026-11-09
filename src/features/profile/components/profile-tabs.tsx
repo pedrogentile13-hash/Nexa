@@ -19,14 +19,16 @@ import { ClassPicker } from './class-picker';
 import type { ClassOption } from '@/features/classes/server/queries';
 import { SocialProfileForm } from '@/features/community/components/social-profile-form';
 import { JourneyPicker } from '@/features/vestibular/components/journey-picker';
+import { SubscriptionPanel } from '@/features/billing/components/subscription-panel';
 import { PrivacyPanel } from '@/features/privacy/components/privacy-panel';
 import type { ConsentRecord } from '@/features/privacy/server/queries';
 import type { Journey, SocialVisibility } from '@/types/database.types';
 
-type Tab = 'conta' | 'notificacoes' | 'aparencia' | 'privacidade';
+type Tab = 'conta' | 'assinatura' | 'notificacoes' | 'aparencia' | 'privacidade';
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'conta', label: 'Conta' },
+  { value: 'assinatura', label: 'Assinatura' },
   { value: 'notificacoes', label: 'Notificações' },
   { value: 'aparencia', label: 'Aparência' },
   { value: 'privacidade', label: 'Privacidade' },
@@ -49,6 +51,8 @@ export function ProfileTabs({
   consent,
   birthDate,
   isAdmin,
+  subscriptionPlan = null,
+  initialTab = 'conta',
 }: {
   email?: string | null;
   fullName: string;
@@ -66,8 +70,12 @@ export function ProfileTabs({
   consent: ConsentRecord | null;
   birthDate: string | null;
   isAdmin: boolean;
+  /** Plano do Nexa padrão (a aba Assinatura só existe fora das escolas). */
+  subscriptionPlan?: 'free' | 'plus' | 'pro' | null;
+  initialTab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>('conta');
+  const [tab, setTab] = useState<Tab>(initialTab === 'assinatura' && !subscriptionPlan ? 'conta' : initialTab);
+  const tabs = TABS.filter((t) => t.value !== 'assinatura' || subscriptionPlan);
 
   return (
     <div className="min-w-0 lg:col-span-2">
@@ -76,7 +84,7 @@ export function ProfileTabs({
         value={tab}
         onChange={setTab}
         className="mb-4"
-        options={TABS}
+        options={tabs}
       />
 
       {tab === 'conta' && (
@@ -126,6 +134,17 @@ export function ProfileTabs({
                 visibility={socialProfile.visibility}
               />
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'assinatura' && subscriptionPlan && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Assinatura</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SubscriptionPanel plan={subscriptionPlan} />
           </CardContent>
         </Card>
       )}

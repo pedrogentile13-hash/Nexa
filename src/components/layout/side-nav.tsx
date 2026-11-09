@@ -229,7 +229,7 @@ export function SideNav({
 
         {planBadge && (
           <Link
-            href="/pro"
+            href="/perfil?aba=assinatura"
             aria-label={`Nexa ${planBadge === 'pro' ? 'Pro' : 'Plus'}: gerenciar assinatura`}
             className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
             style={{

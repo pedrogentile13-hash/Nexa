@@ -2,6 +2,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { stripeRequest } from '@/lib/stripe/client';
 import { alertFromEvent } from '../lib/billing-events';
 import { subscriptionRowFrom, priceMapFromEnv } from '../lib/subscription';
+import { subscriptionEmail } from '../lib/subscription-email';
+import { sendEmail } from '@/lib/email/send';
 
 /** Grava no banco o que o Stripe informou. Só o webhook chama (com a chave de serviço). */
 
@@ -58,6 +60,8 @@ async function handle(admin: Admin, event: StripeEvent): Promise<SyncResult> {
       const { error } = await admin.from('billing_customers').upsert({ user_id: userId, stripe_customer_id: customer });
       if (error) throw error;
     }
+    // E-mail de confirmação: depois de gravar, e só uma vez (o evento só é processado uma vez). Nunca derruba o webhook.
+    if (object.mode === 'subscription') await sendConfirmation(object).catch(() => undefined);
     return 'ok';
   }
 
@@ -109,4 +113,32 @@ async function handle(admin: Admin, event: StripeEvent): Promise<SyncResult> {
   }
 
   return 'ignored';
+}
+
+/** Busca a assinatura no Stripe e manda o e-mail de confirmação. Qualquer falha só significa "sem e-mail". */
+async function sendConfirmation(session: Record<string, unknown>): Promise<void> {
+  const details = session.customer_details as { email?: string | null } | null;
+  const to = details?.email ?? (session.customer_email as string | null);
+  const subscriptionId = session.subscription as string | null;
+  if (!to || !subscriptionId) return;
+
+  const sub = await stripeRequest<{
+    current_period_end?: number;
+    items?: { data?: { current_period_end?: number; price?: { id?: string; unit_amount?: number | null } }[] };
+  }>('GET', `subscriptions/${encodeURIComponent(subscriptionId)}`);
+  if (!sub || !sub.ok) return;
+
+  const item = sub.data.items?.data?.[0];
+  const known = item?.price?.id ? priceMapFromEnv()[item.price.id] : undefined;
+  if (!known) return;
+  const end = item?.current_period_end ?? sub.data.current_period_end;
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://nexastudy.com.br';
+  const mail = subscriptionEmail({
+    plan: known.plan,
+    interval: known.interval,
+    amountCents: item?.price?.unit_amount ?? null,
+    nextPaymentAt: typeof end === 'number' ? new Date(end * 1000).toISOString() : null,
+    manageUrl: `${origin}/perfil`,
+  });
+  await sendEmail({ to, ...mail });
 }

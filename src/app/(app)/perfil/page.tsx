@@ -24,7 +24,8 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
+  const { aba } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -139,7 +140,7 @@ export default async function ProfilePage() {
 
         {(plan.plan === 'plus' || plan.plan === 'pro') && (
           <Link
-            href="/pro"
+            href="/perfil?aba=assinatura"
             className="bg-brand-soft text-brand-text flex items-center gap-3 rounded-3xl px-5 py-4 text-sm font-semibold lg:col-span-2"
           >
             <Crown className="size-5 shrink-0" aria-hidden />
@@ -166,6 +167,8 @@ export default async function ProfilePage() {
           isAdmin={profile?.role === 'admin' || profile?.role === 'school_admin'}
           journey={navContext.journey}
           vestibularEnabled={navContext.vestibularEnabled && plan.plan !== 'school'}
+          subscriptionPlan={plan.billingVisible && plan.plan !== 'school' ? plan.plan : null}
+          initialTab={aba === 'assinatura' ? 'assinatura' : 'conta'}
         />
 
         {/* Conquistas — resumo só; a lista completa (com raridade e progresso

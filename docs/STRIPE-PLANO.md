@@ -18,8 +18,8 @@ em https://mcp.stripe.com pela própria pessoa. Quando estiver, rode o planner e
 
 ## Faça no Stripe (sandbox primeiro)
 - Um **Product por plano** (Plus, Pro), cada um com preço mensal e anual em BRL → variáveis `STRIPE_PRICE_*`.
-- Chave **restrita** (`rk_`) no servidor: Checkout Sessions (write), Customers (write), Subscriptions (read),
-  Billing Portal (write), Charges (read), Invoices (write, para Nexa Escolas). Só em `STRIPE_SECRET_KEY` na Hostinger.
+- Chave **restrita** (`rk_`) no servidor: Checkout Sessions (write), Customers (write), Subscriptions (**write**, para cancelar pelo Nexa),
+  Billing Portal (write), Charges (read), Invoices (read; write só para Nexa Escolas). Só em `STRIPE_SECRET_KEY` na Hostinger.
 - Webhook em `https://nexastudy.com.br/api/stripe/webhook` com os 9 eventos de `HANDLED_EVENTS`.
 - Portal: ligar cancelamento, troca de plano e atualização do cartão.
 - Só depois de testar no sandbox, repetir em produção.
@@ -38,3 +38,10 @@ serviço continua a cargo da contabilidade/emissor municipal; confirme com seu c
 ## Segurança
 Nunca cole chaves no chat nem no código. Se quiser que eu chame a API do Stripe, use o formulário seguro de
 credencial da sessão (chave restrita de sandbox).
+
+## E-mail de confirmação e aba Assinatura
+- Ao concluir o checkout, o webhook manda um e-mail do Nexa (plano, valor, próxima cobrança) por SMTP:
+  `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`. Sem elas, não envia (e nada quebra).
+- Perfil → **Assinatura**: plano, próxima cobrança, faturas (link e PDF do Stripe), atualizar cartão (portal),
+  cancelar no fim do período e desfazer o cancelamento.
+- O e-mail do Stripe (recibo) é separado: ligue em Configurações → E-mails → Pagamentos bem-sucedidos, se quiser os dois.
