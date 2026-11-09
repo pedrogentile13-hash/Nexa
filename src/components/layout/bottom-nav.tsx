@@ -111,6 +111,7 @@ export function BottomNav({
   isAdmin = false,
   isTeacher = false,
   billingEnabled = false,
+  planBadge = null,
   communityEnabled = false,
   chatEnabled = false,
   announcementsEnabled = false,
@@ -121,6 +122,8 @@ export function BottomNav({
   isAdmin?: boolean;
   isTeacher?: boolean;
   billingEnabled?: boolean;
+  /** Plano pago (Plus/Pro): aparece como selo no item Perfil do menu "Mais". */
+  planBadge?: 'plus' | 'pro' | null;
   communityEnabled?: boolean;
   /** O aluno tem professores ligados à turma dele (chat da escola). */
   chatEnabled?: boolean;
@@ -278,6 +281,11 @@ export function BottomNav({
                               )}
                             </span>
                             <span className="text-[11px] leading-tight font-medium">{label}</span>
+                            {href === '/perfil' && planBadge && (
+                              <span className="bg-brand text-brand-fg -mt-0.5 rounded-full px-1.5 text-[9px] leading-4 font-bold uppercase">
+                                {planBadge}
+                              </span>
+                            )}
                           </Link>
                         </li>
                       );

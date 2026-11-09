@@ -138,6 +138,7 @@ export function SideNav({
   isAdmin,
   isTeacher,
   billingEnabled,
+  planBadge = null,
   schoolAccount,
   communityEnabled,
   chatEnabled,
@@ -152,6 +153,8 @@ export function SideNav({
   isTeacher?: boolean;
   /** Nexa padrão: mostra a tela de planos. Nexa Escolas não tem. */
   billingEnabled?: boolean;
+  /** Plano pago da pessoa (Plus/Pro): vira um selo ao lado do nome e leva para gerenciar a assinatura. */
+  planBadge?: 'plus' | 'pro' | null;
   schoolAccount?: boolean;
   communityEnabled?: boolean;
   /** O aluno tem professores ligados à turma dele (chat da escola). */
@@ -224,6 +227,24 @@ export function SideNav({
 
         <div className="flex-1" />
 
+        {planBadge && (
+          <Link
+            href="/pro"
+            aria-label={`Nexa ${planBadge === 'pro' ? 'Pro' : 'Plus'}: gerenciar assinatura`}
+            className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
+            style={{
+              background:
+                planBadge === 'pro'
+                  ? 'linear-gradient(135deg, #2a1a5e 0%, #8a5a00 55%, #f5b82e 100%)'
+                  : 'var(--gradient-header)',
+            }}
+          >
+            <Crown className="size-4" aria-hidden />
+            <span className="flex-1">Nexa {planBadge === 'pro' ? 'Pro' : 'Plus'}</span>
+            <span className="text-xs font-medium opacity-90">Gerenciar</span>
+          </Link>
+        )}
+
         <Link
           href="/perfil"
           aria-current={isActive('/perfil') ? 'page' : undefined}
@@ -249,6 +270,9 @@ export function SideNav({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold">{firstName ?? 'Perfil'}</span>
+            {planBadge && (
+              <span className="text-subtle block truncate text-xs">Nexa {planBadge === 'pro' ? 'Pro' : 'Plus'}</span>
+            )}
           </span>
         </Link>
       </div>

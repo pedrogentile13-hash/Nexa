@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Route } from 'next';
 import { BookOpenCheck, ClipboardList, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pairOf, readerEntries, type ReadableFile } from '../lib/reader';
@@ -27,7 +28,7 @@ export function EditionReader({
 }) {
   const pair = pairOf(files, current);
   const entries = readerEntries(files);
-  const read = (f: ReadableFile) => `/vestibular/provas/${editionId}/ler/${f.id}`;
+  const read = (f: ReadableFile) => `/vestibular/provas/${editionId}/ler/${f.id}` as Route;
   const fileUrl = (f: ReadableFile, download = false) => `/api/provas/arquivo/${f.id}${download ? '?download=1' : ''}`;
 
   const tab = (f: ReadableFile | null, label: string, Icon: typeof ClipboardList) => {

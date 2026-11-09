@@ -93,7 +93,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           avatarUrl={profile?.avatar_url ?? null}
           isAdmin={isAdmin}
           isTeacher={isTeacher}
-          billingEnabled={plan?.billingVisible ?? false}
+          billingEnabled={(plan?.billingVisible ?? false) && plan?.plan === 'free'}
+          planBadge={plan?.plan === 'plus' || plan?.plan === 'pro' ? plan.plan : null}
           schoolAccount={plan?.plan === 'school'}
           communityEnabled={communityEnabled}
           chatEnabled={chatEnabled}
@@ -113,7 +114,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <BottomNav
           isAdmin={isAdmin}
           isTeacher={isTeacher}
-          billingEnabled={plan?.billingVisible ?? false}
+          billingEnabled={(plan?.billingVisible ?? false) && plan?.plan === 'free'}
+          planBadge={plan?.plan === 'plus' || plan?.plan === 'pro' ? plan.plan : null}
           communityEnabled={communityEnabled}
           chatEnabled={chatEnabled}
           announcementsEnabled={announcementsEnabled}

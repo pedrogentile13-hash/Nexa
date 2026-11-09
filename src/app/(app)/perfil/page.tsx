@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Award, Clock, Flame, Trophy, Zap } from 'lucide-react';
+import { Award, Clock, Crown, Flame, Trophy, Zap } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { Badge } from '@/components/ui/badge';
@@ -136,6 +136,17 @@ export default async function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+
+        {(plan.plan === 'plus' || plan.plan === 'pro') && (
+          <Link
+            href="/pro"
+            className="bg-brand-soft text-brand-text flex items-center gap-3 rounded-3xl px-5 py-4 text-sm font-semibold lg:col-span-2"
+          >
+            <Crown className="size-5 shrink-0" aria-hidden />
+            <span className="flex-1">Você está no Nexa {plan.plan === 'pro' ? 'Pro' : 'Plus'}</span>
+            <span className="text-xs font-medium underline">Gerenciar assinatura</span>
+          </Link>
+        )}
 
         {/* Conta/Notificações/Aparência/Privacidade -------------------------- */}
         <ProfileTabs
