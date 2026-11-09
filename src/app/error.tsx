@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AutoRetry } from '@/components/auto-retry';
 import { ErrorReporter } from '@/features/observability/components/error-reporter';
 
 /**
@@ -48,6 +49,7 @@ export default function RootError({
           <RotateCw aria-hidden />
           Tentar de novo
         </Button>
+        <AutoRetry reset={reset} />
       </div>
     </main>
     </>

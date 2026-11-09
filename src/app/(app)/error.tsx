@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { AutoRetry } from '@/components/auto-retry';
 import { ErrorReporter } from '@/features/observability/components/error-reporter';
 
 /**
@@ -49,6 +50,7 @@ export default function AppError({
             <Link href="/hoje">Ir para Hoje</Link>
           </Button>
         </div>
+        <AutoRetry reset={reset} />
       </div>
     </main>
     </>
