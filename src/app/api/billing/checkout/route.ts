@@ -36,23 +36,31 @@ export async function POST(request: Request) {
   const existing = admin ? (await admin.from('billing_customers').select('stripe_customer_id').eq('user_id', user.id).maybeSingle()).data : null;
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
 
-  const session = await stripeRequest<{ url?: string }>(
-    'POST',
-    'checkout/sessions',
-    {
-      mode: 'subscription',
-      line_items: [{ price, quantity: 1 }],
-      client_reference_id: user.id,
-      ...(existing?.stripe_customer_id ? { customer: existing.stripe_customer_id } : user.email ? { customer_email: user.email } : {}),
-      subscription_data: { metadata: { user_id: user.id } },
-      metadata: { user_id: user.id },
-      allow_promotion_codes: true,
-      locale: 'pt-BR',
-      success_url: `${origin}/pro?status=ok`,
-      cancel_url: `${origin}/pro?status=cancelado`,
-    },
-    `checkout-${user.id}-${parsed.data.plan}-${parsed.data.interval}-${Math.floor(Date.now() / 60_000)}`,
-  );
+  const open = (customer: string | null, attempt: string) =>
+    stripeRequest<{ url?: string }>(
+      'POST',
+      'checkout/sessions',
+      {
+        mode: 'subscription',
+        line_items: [{ price, quantity: 1 }],
+        client_reference_id: user.id,
+        ...(customer ? { customer } : user.email ? { customer_email: user.email } : {}),
+        subscription_data: { metadata: { user_id: user.id } },
+        metadata: { user_id: user.id },
+        allow_promotion_codes: true,
+        locale: 'pt-BR',
+        success_url: `${origin}/pro?status=ok`,
+        cancel_url: `${origin}/pro?status=cancelado`,
+      },
+      `checkout-${user.id}-${parsed.data.plan}-${parsed.data.interval}-${attempt}-${Math.floor(Date.now() / 60_000)}`,
+    );
+
+  let session = await open(existing?.stripe_customer_id ?? null, 'a');
+  // O cliente guardado não existe mais neste ambiente do Stripe (apagado, ou chave de outro ambiente): esquece e segue com o e-mail.
+  if (session && !session.ok && existing?.stripe_customer_id && /No such customer/i.test(session.message)) {
+    await admin?.from('billing_customers').delete().eq('user_id', user.id);
+    session = await open(null, 'b');
+  }
   if (!session) return json({ message: 'O pagamento ainda não está ligado.' }, 503);
   if (!session.ok || !session.data.url) {
     const reason = session.ok ? 'sem endereço de pagamento' : `${session.status}: ${session.message}`;
