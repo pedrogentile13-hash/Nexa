@@ -54,6 +54,12 @@ export async function POST(request: Request) {
     `checkout-${user.id}-${parsed.data.plan}-${parsed.data.interval}-${Math.floor(Date.now() / 60_000)}`,
   );
   if (!session) return json({ message: 'O pagamento ainda não está ligado.' }, 503);
-  if (!session.ok || !session.data.url) return json({ message: 'Não consegui abrir o pagamento agora. Tente de novo.' }, 502);
+  if (!session.ok || !session.data.url) {
+    const reason = session.ok ? 'sem endereço de pagamento' : `${session.status}: ${session.message}`;
+    console.error('[stripe] checkout falhou', reason);
+    // Em modo teste (chave de teste) mostra o motivo do Stripe, para acertar a configuração; em produção, só a mensagem simples.
+    const test = /^(sk|rk)_test_/.test(process.env.STRIPE_SECRET_KEY ?? '');
+    return json({ message: 'Não consegui abrir o pagamento agora. Tente de novo.', ...(test ? { detail: reason } : {}) }, 502);
+  }
   return json({ url: session.data.url });
 }

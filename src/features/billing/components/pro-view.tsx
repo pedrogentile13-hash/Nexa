@@ -34,12 +34,12 @@ function features(plan: 'free' | PaidPlan): { text: string; on: boolean }[] {
 
 async function go(path: string, body?: unknown): Promise<string | null> {
   const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
-  const j = (await r.json().catch(() => ({}))) as { url?: string; message?: string };
+  const j = (await r.json().catch(() => ({}))) as { url?: string; message?: string; detail?: string };
   if (r.ok && j.url) {
     window.location.href = j.url;
     return null;
   }
-  return j.message ?? 'Não consegui agora. Tente de novo.';
+  return `${j.message ?? 'Não consegui agora. Tente de novo.'}${j.detail ? ` (${j.detail})` : ''}`;
 }
 
 export function ProView({ plan, periodEnd, cancelAtPeriodEnd, paymentsReady, banner }: Props) {
