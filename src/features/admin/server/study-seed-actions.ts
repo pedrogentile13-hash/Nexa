@@ -31,18 +31,15 @@ async function insertAll(
 
 /**
  * Carrega o mapa de tópicos (6º ano ao 3º ano do EM) e os pacotes iniciais (resumo + quiz) COMO RASCUNHO.
- * Destino: o Colégio Anglo Morumbi (se existir) para o admin geral; a própria escola para o admin da escola.
+ * Destino: conteúdo GERAL para o admin geral; a própria escola para o admin da escola.
  * Usa a sessão de quem clicou: as políticas do banco continuam decidindo o que pode ser escrito.
  */
 export async function loadStudyStarter(): Promise<StudySeedState> {
   const identity = await requireAccess('/admin/conteudo');
   const supabase = await createClient();
 
-  let schoolId: string | null = identity.schoolId;
-  if (identity.isGlobal) {
-    const { data: anglo } = await supabase.from('schools').select('id').ilike('name', '%anglo%morumbi%').order('created_at').limit(1).maybeSingle();
-    schoolId = anglo?.id ?? null;
-  }
+  // Admin geral: conteúdo GERAL (todos os alunos veem). Admin de escola: a própria escola.
+  const schoolId: string | null = identity.isGlobal ? null : identity.schoolId;
 
   const seed = buildStudySeed(schoolId);
   const slugs = [...new Set(seed.topics.map((t) => t.subject_slug))];
@@ -69,10 +66,16 @@ export async function loadStudyStarter(): Promise<StudySeedState> {
   const topics = await insertAll(supabase, 'content_topics', newTopics);
   if (topics.error) return fail(`Não consegui carregar: ${topics.error}`);
 
+  // Pacote que já está no painel (mesmo tipo e título, em qualquer escopo) não é carregado de novo.
+  const { data: already } = await supabase.from('resources').select('kind, title').contains('tags', [SEED_TAG]);
+  const have = new Set((already ?? []).map((r) => `${r.kind}/${r.title}`));
+  const freshResources = seed.resources.filter((r) => !have.has(`${r.kind}/${r.title}`));
+  const freshIds = new Set(freshResources.map((r) => r.id));
+
   const resources = await insertAll(
     supabase,
     'resources',
-    seed.resources.map((r) => ({
+    freshResources.map((r) => ({
       id: r.id,
       school_id: r.school_id,
       subject_catalog_id: subjectId.get(r.subject_slug),
@@ -96,14 +99,15 @@ export async function loadStudyStarter(): Promise<StudySeedState> {
   const questions = await insertAll(
     supabase,
     'questions',
-    seed.questions.map((q) => ({ id: q.id, resource_id: q.resource_id, topic_id: topicId.get(q.topic_slug) ?? null, position: q.position, statement: q.statement, explanation: q.explanation, difficulty: q.difficulty })),
+    seed.questions.filter((q) => freshIds.has(q.resource_id)).map((q) => ({ id: q.id, resource_id: q.resource_id, topic_id: topicId.get(q.topic_slug) ?? null, position: q.position, statement: q.statement, explanation: q.explanation, difficulty: q.difficulty })),
   );
   if (questions.error) return fail(`Não consegui carregar: ${questions.error}`);
 
+  const freshQuestionIds = new Set(seed.questions.filter((q) => freshIds.has(q.resource_id)).map((q) => q.id));
   const options = await insertAll(
     supabase,
     'question_options',
-    seed.options.map((o) => ({ id: o.id, question_id: o.question_id, position: o.position, body: o.body, is_correct: o.is_correct })),
+    seed.options.filter((o) => freshQuestionIds.has(o.question_id)).map((o) => ({ id: o.id, question_id: o.question_id, position: o.position, body: o.body, is_correct: o.is_correct })),
   );
   if (options.error) return fail(`Não consegui carregar: ${options.error}`);
 
