@@ -34,6 +34,7 @@ export const ADMIN_SECTIONS: Section[] = [
       { href: '/admin/conteudo', label: 'Conteúdo' },
       { href: '/admin/trilhas', label: 'Trilhas' },
       { href: '/admin/materias', label: 'Matérias' },
+      { href: '/admin/gabaritos', label: 'Gabaritos' },
     ],
   },
   {

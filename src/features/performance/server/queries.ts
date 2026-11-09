@@ -1,3 +1,4 @@
+import type { GradeRow } from '../lib/report-card';
 import { createClient } from '@/lib/supabase/server';
 import { xpToNextLevel } from '../lib/level';
 
@@ -327,4 +328,11 @@ function startOfWeek(iso: string): string {
   const diff = day === 0 ? -6 : 1 - day;
   date.setUTCDate(date.getUTCDate() + diff);
   return date.toISOString().slice(0, 10);
+}
+
+/** Boletim por série (nota por matéria separada pela série do conteúdo). Antes do SQL rodar, volta vazio. */
+export async function getReportCardByGrade(userId: string): Promise<GradeRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('report_card_by_grade', { p_user_id: userId });
+  return error ? [] : ((data ?? []) as GradeRow[]);
 }

@@ -19,7 +19,7 @@ Quem se prepara para ENEM, Fuvest, Unicamp e Unesp precisa de quatro coisas no m
 | Plano de estudo até a prova | ✅ |
 | Gabaritos e cadernos de outros anos, Fuvest, Unicamp, Unesp | ⬜ só ENEM 2025 |
 | Simulado completo no formato da banca (blocos, tempo oficial) | ⬜ |
-| **Cartão-resposta digital** (marcar o caderno oficial e corrigir) | ⬜ |
+| **Cartão-resposta digital** (marcar o caderno oficial e corrigir; foto do cartão lida por IA) | ✅ |
 | Simulados próprios por banca, em série | ⬜ |
 | Banco de imagens e gráficos autorais | ⬜ |
 | Trilhas por matéria e por banca | ⬜ |
@@ -39,12 +39,13 @@ Quem se prepara para ENEM, Fuvest, Unicamp e Unesp precisa de quatro coisas no m
 - [ ] Ficha de cada edição: ano, aplicação, cor do caderno, link do gabarito.
 - **Você faz:** juntar os endereços oficiais (INEP, Fuvest, Comvest, Vunesp). **Eu faço:** o SQL de cadastro e a tela.
 
-### Fase B. Cartão-resposta digital (valor alto, risco baixo)
+### Fase B. Cartão-resposta digital ✅ (feito)
 O aluno faz a prova no **PDF oficial** e marca as respostas no app; o app corrige com o **gabarito oficial** e mostra acertos por matéria.
-- [ ] Gabarito digitado por edição: número da questão, alternativa correta, área e se foi anulada.
-- [ ] Tela de marcação (grade de bolinhas, uma por questão) com cronômetro opcional.
-- [ ] Resultado por área e por assunto, com **nota estimada** (aviso claro: o ENEM usa TRI, o app só aproxima).
-- [ ] As questões erradas entram na revisão.
+- [x] Gabarito digital por edição (Admin → Biblioteca → Gabaritos): lido do PDF oficial (texto ou IA), conferido e salvo, com áreas por faixa.
+- [x] Tela de marcação (bolinhas A–E por questão) com cronômetro e rascunho que não se perde.
+- [x] **Foto do cartão de papel:** a IA lê as marcações, o aluno confere e envia (a IA nunca corrige sozinha).
+- [x] Resultado por área, com percentual de acertos (aviso claro: o ENEM usa TRI, então não é a nota oficial). Questão anulada conta como certa.
+- [x] Revisão questão a questão, com a letra certa só depois de enviar.
 - **Por que primeiro:** não copia as questões da banca (só o gabarito, que é público), então evita problema de direitos.
 
 ### Fase C. Simulados próprios no estilo da banca
@@ -56,7 +57,7 @@ Pipeline (IA rascunha, humano publica):
 - **Estilo ENEM:** situação-problema, texto-base longo, interdisciplinaridade, habilidades da Matriz de Referência.
 - **Estilo Fuvest/Unicamp/Unesp:** mais conteudista, enunciado direto, nível mais alto, às vezes com imagem ou mapa.
 - Composição de um simulado completo: 45 questões por área (ENEM), com tempo da banca.
-- [ ] Biblioteca de **prompts por banca** (texto pronto no Admin).
+- [x] **Estilo da prova** no gerador de simulado do Admin: ENEM, Fuvest, Unicamp e Unesp (sempre texto original).
 - [ ] Meta inicial: 4 simulados curtos (1 por área) por banca, depois completos.
 
 ### Fase D. Questões ricas (imagem, gráfico, texto longo)
@@ -81,6 +82,9 @@ O motor já suporta; falta **produção e experiência**:
 - Gabarito (lista de letras) e metadados são factuais: podem ser digitados.
 - Simulados próprios: 100% originais, "no estilo de".
 - Todo conteúdo de IA passa por revisão antes de publicar.
+
+## 5.1 Boletim por série ✅
+A aba Desempenho tem o **Boletim por série**: nota por matéria separada pela série do conteúdo (6º ano ao 3º EM), com os mesmos pesos do boletim geral. Conteúdo de vestibular não entra.
 
 ## 6. Ordem sugerida
 1. **Fase B** (cartão-resposta), porque entrega o simulado real sem produzir questões.

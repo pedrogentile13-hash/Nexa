@@ -28,8 +28,12 @@ import { formatGrade } from '@/lib/format/grade';
 import { levelProgressPercent } from '@/features/performance/lib/level';
 import {
   getPerformance,
+  getReportCardByGrade,
   type ScoreEvolutionPoint,
 } from '@/features/performance/server/queries';
+import { groupReportCard } from '@/features/performance/lib/report-card';
+import { ReportCardByGrade } from '@/features/performance/components/report-card-by-grade';
+import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/supabase/server';
 import { MasteryPanel } from '@/features/performance/components/mastery-panel';
 import { cn } from '@/lib/utils';
@@ -107,6 +111,8 @@ export default async function PerformancePage() {
   if (!user) redirect('/login');
 
   const data = await getPerformance(user.id);
+  const gradeCards = groupReportCard(await getReportCardByGrade(user.id));
+  const { data: me } = await (await createClient()).from('profiles').select('grade_level').eq('id', user.id).maybeSingle();
 
   const gradedSubjects = data.subjectScores.filter((s) => s.blendedScore !== null);
   const hasScores = gradedSubjects.length > 0;
@@ -224,6 +230,8 @@ export default async function PerformancePage() {
             </table>
           </Card>
         )}
+
+        {gradeCards.length > 0 && <ReportCardByGrade cards={gradeCards} mySerie={me?.grade_level ?? null} />}
 
         {hasScores ? (
           <>

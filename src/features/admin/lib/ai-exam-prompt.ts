@@ -16,6 +16,8 @@ export const generateExamDraftSchema = z.object({
     .int()
     .min(1, 'Pelo menos 1 questão.')
     .max(20, 'No máximo 20 por vez.'),
+  /** Estilo de banca: o simulado sai "no estilo de" ENEM, Fuvest, Unicamp ou Unesp (texto original, nunca cópia). */
+  style: z.enum(['', 'enem', 'fuvest', 'unicamp', 'unesp']).optional(),
   includeEssay: z.enum(['on']).optional(),
   /** Planejamento/material do professor: se vier, é a ÚNICA fonte do conteúdo. */
   source: z.string().trim().max(20000).optional().or(z.literal('')),
@@ -49,6 +51,23 @@ MATERIAL>>>
 `;
 }
 
+const STYLE_LABEL: Record<string, string> = { enem: 'ENEM', fuvest: 'Fuvest', unicamp: 'Unicamp', unesp: 'Unesp' };
+
+const STYLE_GUIDE: Record<string, string> = {
+  enem: 'situação-problema contextualizada, texto-base de 8 a 15 linhas (ou gráfico/tabela descritos no texto), enunciado que exige interpretar e relacionar informações, 5 alternativas plausíveis (A a E), interdisciplinaridade quando fizer sentido e a habilidade da Matriz de Referência citada na explicação',
+  fuvest: 'enunciado direto e conteudista, que exige conhecimento específico e raciocínio, nível mais alto, 5 alternativas (A a E), com trechos de textos, mapas ou dados quando couber',
+  unicamp: 'questões contextualizadas e analíticas, com textos curtos e leitura crítica, conexões entre áreas e alternativas bem diferenciadas',
+  unesp: 'enunciados com textos ou imagens descritas, ênfase em interpretação e conhecimento da área, 5 alternativas (A a E)',
+};
+
+/** Orientação de estilo da banca. Sempre texto ORIGINAL: nunca reproduz questão real. */
+export function styleBlock(style: string | undefined | null): string {
+  if (!style || !STYLE_GUIDE[style]) return '';
+  return `
+
+ESTILO DA PROVA: escreva no estilo ${STYLE_LABEL[style]}: ${STYLE_GUIDE[style]}. Crie textos e questões ORIGINAIS ("no estilo de"), sem reproduzir nem parafrasear questões reais de provas anteriores.`;
+}
+
 export function buildExamPrompt(input: GenerateExamDraftInput, includeEssay: boolean): string {
   const parts = [
     `matéria "${input.subjectName}"`,
@@ -73,7 +92,7 @@ export function buildExamPrompt(input: GenerateExamDraftInput, includeEssay: boo
     ]`
     : '';
 
-  return `Gere um simulado em JSON estrito sobre ${parts.join(', ')}${includeEssay ? ', incluindo uma redação (writingTasks)' : ''}.${sourceBlock(input.source, input.questionCount)}
+  return `Gere um simulado em JSON estrito sobre ${parts.join(', ')}${includeEssay ? ', incluindo uma redação (writingTasks)' : ''}.${styleBlock(input.style)}${sourceBlock(input.source, input.questionCount)}
 
 Responda APENAS com o JSON abaixo preenchido — sem texto antes ou depois, sem cercar com \`\`\`, exatamente neste formato:
 

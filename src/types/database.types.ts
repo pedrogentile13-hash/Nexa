@@ -549,6 +549,32 @@ export type ExamFileRow = {
   created_at: string;
 };
 
+export type ExamAnswerKeyRow = {
+  id: string;
+  exam_edition_id: string;
+  number: number;
+  correct: string | null;
+  annulled: boolean;
+  area: string | null;
+  created_at: string;
+};
+
+export type ExamAttemptRow = {
+  id: string;
+  user_id: string;
+  exam_edition_id: string;
+  mode: 'digital' | 'foto';
+  answers: Record<string, string>;
+  total: number;
+  correct: number;
+  wrong: number;
+  blank: number;
+  score_pct: number;
+  by_area: { area: string; total: number; correct: number; wrong: number; blank: number; pct: number }[];
+  duration_seconds: number | null;
+  created_at: string;
+};
+
 export type BillingAlertRow = {
   id: string;
   user_id: string | null;
@@ -1621,6 +1647,8 @@ export type Database = {
       essay_themes: Table<EssayThemeRow>;
       exam_files: Table<ExamFileRow>;
       billing_alerts: Table<BillingAlertRow>;
+      exam_answer_keys: Table<ExamAnswerKeyRow>;
+      exam_attempts: Table<ExamAttemptRow>;
       announcement_reads: Table<AnnouncementReadRow>;
     };
     Views: {
@@ -2268,6 +2296,43 @@ export type Database = {
           due_date: string;
           next_interval_step: number;
           resource_kind: ResourceKind | null;
+        }[];
+      };
+      exam_keys_summary: {
+        Args: Record<string, never>;
+        Returns: { exam_edition_id: string; total: number }[];
+      };
+      exam_key_layout: {
+        Args: { p_edition_id: string };
+        Returns: { number: number; area: string; annulled: boolean }[];
+      };
+      submit_exam_attempt: {
+        Args: { p_edition_id: string; p_answers: Record<string, string>; p_duration_seconds?: number | null; p_mode?: 'digital' | 'foto' };
+        Returns: {
+          attempt_id: string;
+          total: number;
+          correct: number;
+          wrong: number;
+          blank: number;
+          score_pct: number;
+          by_area: ExamAttemptRow['by_area'];
+        }[];
+      };
+      exam_attempt_review: {
+        Args: { p_attempt_id: string };
+        Returns: { number: number; area: string; chosen: string | null; correct: string | null; status: 'certa' | 'errada' | 'branca' | 'anulada' }[];
+      };
+      report_card_by_grade: {
+        Args: { p_user_id?: string };
+        Returns: {
+          grade_level: string;
+          subject_catalog_id: string;
+          subject_name: string;
+          subject_color: string;
+          assessment_score: number | null;
+          quizzes_done: number;
+          simulados_done: number;
+          content_completed: number;
         }[];
       };
       subject_scores: {

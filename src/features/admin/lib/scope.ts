@@ -25,6 +25,7 @@ export const ADMIN_ACCESS: Record<string, readonly AdminScope[]> = {
   '/admin/nexaai': ['full', 'limited', 'school'],
   '/admin/bots': ['full', 'limited', 'school'],
   '/admin/materias': ['full', 'limited'],
+  '/admin/gabaritos': ['full', 'limited'],
   '/admin/comunidade': ['full', 'limited'],
   '/admin/notificacoes': ['full', 'limited'],
   '/admin/escolas': ['full'],

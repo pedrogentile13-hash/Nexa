@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildExamPrompt, generateExamDraftSchema, sourceBlock, stripCodeFence } from './ai-exam-prompt';
+import { styleBlock, buildExamPrompt, generateExamDraftSchema, sourceBlock, stripCodeFence } from './ai-exam-prompt';
 
 describe('generateExamDraftSchema', () => {
   it('aceita entrada mínima válida', () => {
@@ -110,5 +110,25 @@ describe('planejamento do professor como fonte única', () => {
   it('texto em branco não vira fonte', () => {
     expect(sourceBlock('   ', 5)).toBe('');
     expect(sourceBlock(undefined, 5)).toBe('');
+  });
+});
+
+describe('estilo de banca', () => {
+  it('vazio ou desconhecido não acrescenta nada', () => {
+    expect(styleBlock('')).toBe('');
+    expect(styleBlock('inexistente')).toBe('');
+    expect(styleBlock(undefined)).toBe('');
+  });
+  it('cada banca acrescenta a orientação e a exigência de texto original', () => {
+    for (const s of ['enem', 'fuvest', 'unicamp', 'unesp']) {
+      const t = styleBlock(s);
+      expect(t).toContain('ORIGINAIS');
+      expect(t).toContain('estilo');
+    }
+    expect(styleBlock('enem')).toContain('ENEM');
+  });
+  it('entra no pedido à IA', () => {
+    const input = generateExamDraftSchema.parse({ subjectName: 'Matemática', difficulty: 'medio', questionCount: 5, style: 'fuvest' });
+    expect(buildExamPrompt(input, false)).toContain('Fuvest');
   });
 });

@@ -114,6 +114,16 @@ export function AiExamGenerator({
           </Field>
         </div>
 
+        <Field label="Estilo da prova (opcional)">
+          <Select name="style" defaultValue="">
+            <option value="">Sem estilo específico</option>
+            <option value="enem">No estilo ENEM</option>
+            <option value="fuvest">No estilo Fuvest</option>
+            <option value="unicamp">No estilo Unicamp</option>
+            <option value="unesp">No estilo Unesp</option>
+          </Select>
+        </Field>
+
         <Toggle
           name="includeEssay"
           label="Incluir redação"
