@@ -143,7 +143,7 @@ export function PracticeSetup({
             )}
             {pending ? 'Montando…' : 'Começar treino'}
           </Button>
-          <p className="text-subtle text-center text-xs">
+          <p className="text-subtle text-xs">
             Prioriza o que você ainda não respondeu e o que você errou antes.
           </p>
         </CardContent>

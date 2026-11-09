@@ -18,7 +18,7 @@ export function PracticeReview({ items }: { items: PracticeReviewItem[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="border-border bg-surface rounded-[20px] border p-5 text-center">
+      <div className="border-border bg-surface rounded-[20px] border p-5">
         <p className="text-subtle text-xs font-semibold tracking-wide uppercase">Resultado</p>
         <p className="mt-1 text-4xl font-bold">
           {correct}

@@ -31,7 +31,7 @@ export default async function VestibularDesempenhoPage() {
     <>
       <AppHeader title="Desempenho" subtitle="Seu mapa de domínio no vestibular" />
       <PageMain>
-        <div className="mx-auto max-w-2xl py-4">
+        <div className="max-w-3xl py-1">
           <VestibularPerformance subjects={subjects} topics={topics} />
         </div>
       </PageMain>

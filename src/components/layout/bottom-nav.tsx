@@ -26,9 +26,12 @@ import {
   User,
   Users2,
   X,
+  BookMarked,
+  Library,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { resolveActivePlatform } from './platform-switcher';
+import { bestActiveHref } from './active-href';
 import { useRememberedPlatform } from './platform-context';
 import type { Journey } from '@/types/database.types';
 
@@ -82,8 +85,8 @@ const SCHOOL_ITEM = { href: '/hoje', label: 'Escola', Icon: School } as const;
  */
 const VESTIBULAR_FIXED_ITEMS = [
   { href: '/vestibular', label: 'Início', Icon: Home },
-  { href: '/vestibular/plano', label: 'Plano', Icon: RouteIcon },
-  { href: '/vestibular/questoes', label: 'Questões', Icon: ClipboardCheck },
+  { href: '/vestibular/questoes', label: 'Treinar', Icon: ClipboardCheck },
+  { href: '/vestibular/provas', label: 'Provas', Icon: Library },
 ] as const;
 
 /**
@@ -92,9 +95,11 @@ const VESTIBULAR_FIXED_ITEMS = [
  * "Erros", que são as duas telas que alguém em preparação abre todo dia.
  */
 const VESTIBULAR_MORE_ITEMS = [
-  { href: '/vestibular/redacao', label: 'Redação', Icon: PenLine },
+  { href: '/vestibular/plano', label: 'Plano de estudo', Icon: RouteIcon },
+  { href: '/vestibular/redacao', label: 'Minhas redações', Icon: PenLine },
+  { href: '/vestibular/redacao/temas', label: 'Banco de temas', Icon: BookMarked },
+  { href: '/revisoes', label: 'Erros e revisões', Icon: RotateCcw },
   { href: '/vestibular/desempenho', label: 'Desempenho', Icon: TrendingUp },
-  { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
   { href: '/estudar', label: 'Biblioteca', Icon: GraduationCap },
   { href: '/ranking', label: 'Ranking', Icon: Trophy },
   { href: '/perfil', label: 'Perfil', Icon: User },
@@ -176,7 +181,9 @@ export function BottomNav({
   const moreItems = sections.flatMap((sec) => sec.items);
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const activeHref = bestActiveHref(pathname, [...fixedItems, ...moreItems].map((i) => i.href));
+  const isActive = (href: string) =>
+    activeHref !== null ? href === activeHref : pathname === href || pathname.startsWith(`${href}/`);
   const moreActive = moreItems.some((item) => isActive(item.href));
 
   const renderItem = ({ href, label, Icon }: NavItem) => {

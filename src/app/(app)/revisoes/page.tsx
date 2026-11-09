@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { RedoErrors } from '@/features/vestibular/components/redo-errors';
 import { PLATFORM_COOKIE } from '@/components/layout/platform-context';
 import { AppHeader } from '@/components/layout/app-header';
 import { RevisoesView } from '@/features/revisoes/components/revisoes-view';
@@ -32,7 +33,15 @@ export default async function RevisoesPage() {
 
   return (
     <>
-      <AppHeader title="Revisões" subtitle={platform === 'vestibular' ? 'Questões e conteúdos do vestibular para fixar' : 'Fixe o que você já estudou'} />
+      <AppHeader
+        title={platform === 'vestibular' ? 'Erros e revisões' : 'Revisões'}
+        subtitle={platform === 'vestibular' ? 'Questões e conteúdos do vestibular para fixar' : 'Fixe o que você já estudou'}
+      />
+      {platform === 'vestibular' && (
+        <div className="max-w-2xl px-4 pt-4 md:px-6 lg:px-8">
+          <RedoErrors />
+        </div>
+      )}
       <RevisoesView items={items} currentStreak={stats?.current_streak ?? 0} />
     </>
   );

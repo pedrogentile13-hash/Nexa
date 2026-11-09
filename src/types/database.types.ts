@@ -389,6 +389,7 @@ export type ExamRow = {
   name: string;
   organization: string | null;
   kind: ExamKind;
+  cover_url: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;

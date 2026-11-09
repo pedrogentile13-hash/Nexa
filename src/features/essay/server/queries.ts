@@ -66,3 +66,33 @@ export async function listEssayThemes(): Promise<EssayThemeItem[]> {
     axis: t.axis,
   }));
 }
+
+export interface EssayDetail extends EssayHistoryItem {
+  essay: string;
+  themeId: string | null;
+}
+
+/** Uma correção inteira (texto + laudo) para a página do laudo. A política do banco só devolve as do próprio aluno. */
+export async function getEssay(id: string): Promise<EssayDetail | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('essay_corrections')
+    .select('id, theme, theme_id, essay, c1, c2, c3, c4, c5, total, feedback, created_at')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+
+  return {
+    id: data.id,
+    theme: data.theme,
+    themeId: data.theme_id,
+    essay: data.essay,
+    total: data.total,
+    scores: [data.c1, data.c2, data.c3, data.c4, data.c5],
+    createdAt: data.created_at,
+    feedback:
+      data.feedback && typeof data.feedback === 'object' && 'competencies' in (data.feedback as object)
+        ? (data.feedback as EssayFeedback)
+        : null,
+  };
+}

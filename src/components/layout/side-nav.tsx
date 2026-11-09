@@ -10,6 +10,8 @@ import {
   Crown,
   Home,
   Newspaper,
+  BookMarked,
+  Library,
   Route as RouteIcon,
   RotateCcw,
   Shield,
@@ -25,6 +27,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlatformSwitcher, resolveActivePlatform } from './platform-switcher';
+import { bestActiveHref } from './active-href';
 import { useRememberedPlatform } from './platform-context';
 import type { Journey } from '@/types/database.types';
 
@@ -90,11 +93,13 @@ const ANNOUNCEMENTS_ITEM: NavItem = { href: '/avisos', label: 'Avisos', Icon: Me
 const VESTIBULAR_PRIMARY_ITEMS: NavItem[] = [
   { href: '/vestibular', label: 'Início', Icon: Home },
   { href: '/vestibular/plano', label: 'Plano de estudo', Icon: RouteIcon },
-  { href: '/vestibular/questoes', label: 'Questões', Icon: ClipboardCheck },
-  { href: '/vestibular/erros', label: 'Central de erros', Icon: Target },
-  { href: '/vestibular/redacao', label: 'Redação', Icon: PenLine },
+  { href: '/vestibular/provas', label: 'Banco de provas', Icon: Library },
+  { href: '/vestibular/questoes', label: 'Treinar questões', Icon: ClipboardCheck },
+  { href: '/vestibular/redacao/temas', label: 'Banco de temas', Icon: BookMarked },
+  { href: '/vestibular/redacao', label: 'Minhas redações', Icon: PenLine },
+  // Uma entrada só para erros e revisões (antes eram duas telas que se repetiam).
+  { href: '/revisoes', label: 'Erros e revisões', Icon: RotateCcw },
   { href: '/vestibular/desempenho', label: 'Desempenho', Icon: TrendingUp },
-  { href: '/revisoes', label: 'Revisões', Icon: RotateCcw },
   { href: '/nexa-ia', label: 'NexaAI', Icon: Sparkles },
 ];
 
@@ -162,7 +167,6 @@ export function SideNav({
   const initial = name?.trim()?.[0]?.toUpperCase() ?? null;
   const firstName = name?.trim()?.split(/\s+/)[0] ?? null;
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   // A jornada decide o menu padrão; a URL só manda quando você entra na
   // outra plataforma. É o que faz um vestibulando ver a navegação dele
   // também em Revisões e Biblioteca, que são telas compartilhadas.
@@ -185,6 +189,10 @@ export function SideNav({
         ...(isTeacher ? [TEACHER_ITEM] : []),
         ...(billingEnabled ? [PRO_ITEM] : []),
       ];
+
+  const activeHref = bestActiveHref(pathname, [...primaryItems, ...secondaryItems].map((i) => i.href));
+  const isActive = (href: string) =>
+    activeHref !== null ? href === activeHref : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <nav

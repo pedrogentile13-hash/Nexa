@@ -25,7 +25,7 @@ export default async function VestibularPlanoPage() {
     <>
       <AppHeader title="Plano de estudo" subtitle="Por onde começar" />
       <PageMain>
-        <div className="mx-auto max-w-2xl py-4">
+        <div className="max-w-3xl py-1">
           <StudyPlanView plan={plan} />
         </div>
       </PageMain>

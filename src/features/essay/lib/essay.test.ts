@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildEssayMessages, countWords, parseEssayFeedback, snapScore, weakestCompetency } from './essay';
+import { buildEssayMessages, countWords, LEVEL_DESCRIPTORS, markExcerpts, parseEssayFeedback, snapScore, weakestCompetency } from './essay';
 
 const essay =
   'A desigualdade social no Brasil persiste. Muitos jovens não têm acesso à educação de qualidade. Portanto, o governo deve agir.';
@@ -125,5 +125,38 @@ describe('buildEssayMessages · critérios', () => {
   it('sem contexto, não inclui o bloco', () => {
     const [, user] = buildEssayMessages('Tema X', 'Texto.', null);
     expect(user!.content).not.toContain('Contexto do tema');
+  });
+});
+
+describe('markExcerpts', () => {
+  const text = 'A desigualdade persiste no país. Muitos jovens não têm acesso à escola. Portanto, o governo deve agir.';
+
+  it('marca o trecho no texto e numera na ordem em que aparece', () => {
+    const r = markExcerpts(text, [{ excerpt: 'o governo deve agir' }, { excerpt: 'Muitos jovens não têm acesso' }]);
+    expect(r.flagged.map((f) => f.flag)).toEqual([1, 2]);
+    expect(r.flagged[0]!.excerpt).toBe('Muitos jovens não têm acesso');
+    expect(r.segments.filter((s) => s.flag).map((s) => s.text)).toEqual(['Muitos jovens não têm acesso', 'o governo deve agir']);
+    // juntando tudo volta o texto original
+    expect(r.segments.map((s) => s.text).join('')).toBe(text);
+  });
+
+  it('ignora trecho que não existe e trecho sobreposto', () => {
+    const r = markExcerpts(text, [{ excerpt: 'frase inventada pela IA' }, { excerpt: 'Muitos jovens não têm' }, { excerpt: 'jovens não têm acesso' }]);
+    expect(r.flagged).toHaveLength(1);
+    expect(r.segments.map((s) => s.text).join('')).toBe(text);
+  });
+
+  it('sem trechos devolve o texto inteiro', () => {
+    expect(markExcerpts(text, []).segments).toEqual([{ text }]);
+  });
+});
+
+describe('LEVEL_DESCRIPTORS', () => {
+  it('tem um texto para cada competência em cada degrau', () => {
+    for (const c of [1, 2, 3, 4, 5]) {
+      for (const n of [0, 40, 80, 120, 160, 200]) {
+        expect(LEVEL_DESCRIPTORS[c]?.[n], `C${c} nota ${n}`).toBeTruthy();
+      }
+    }
   });
 });

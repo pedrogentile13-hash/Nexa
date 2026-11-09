@@ -265,7 +265,7 @@ export function PracticePlayer({
           type="button"
           onClick={finish}
           disabled={finishing}
-          className="text-subtle hover:text-muted w-full text-center text-sm underline underline-offset-4"
+          className="text-subtle hover:text-muted w-full text-left text-sm underline underline-offset-4"
         >
           Encerrar agora e ver a revisão
         </button>

@@ -71,7 +71,7 @@ export function RevisoesView({
 
   if (optimistic.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-4 pt-6 pb-8">
+      <div className="max-w-2xl px-4 pt-6 pb-8 md:px-6 lg:px-8">
         <PopEmptyState
           tone="success"
           icon={<Check className="text-white" strokeWidth={3} />}
@@ -104,7 +104,7 @@ export function RevisoesView({
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 px-4 pt-4 pb-8">
+    <div className="max-w-2xl space-y-4 px-4 pt-4 pb-8 md:px-6 lg:px-8">
       <section className="grid grid-cols-3 gap-2">
         <MiniStat icon={Flame} value={String(currentStreak)} label="Sequência" />
         <MiniStat icon={Check} value={String(counts.concluida)} label="Revisados hoje" />
@@ -156,7 +156,7 @@ export function RevisoesView({
       <p className="text-muted text-xs">{BUCKET_META[activeTab].description}</p>
 
       {filtered.length === 0 ? (
-        <p className="text-muted py-6 text-center text-sm">Nada por aqui{subject ? ' nesta matéria' : ''}.</p>
+        <p className="text-muted py-6 text-sm">Nada por aqui{subject ? ' nesta matéria' : ''}.</p>
       ) : (
         <ul className="space-y-2">
           {visible.map((item) =>
@@ -199,7 +199,7 @@ export function RevisoesView({
         <button
           type="button"
           onClick={() => setShown((n) => n + PAGE_SIZE)}
-          className={cn(popEmptyStateActionClass, 'mx-auto')}
+          className={popEmptyStateActionClass}
         >
           Ver mais ({filtered.length - visible.length})
         </button>
@@ -218,7 +218,7 @@ function MiniStat({
   label: string;
 }) {
   return (
-    <div className="border-border bg-surface flex flex-col items-center gap-1 rounded-2xl border p-3 text-center">
+    <div className="border-border bg-surface flex flex-col items-start gap-1 rounded-2xl border p-3 text-left">
       <Icon className="text-brand size-4" aria-hidden />
       <p className="tabular text-lg leading-none font-semibold">{value}</p>
       <p className="text-muted text-xs leading-tight">{label}</p>

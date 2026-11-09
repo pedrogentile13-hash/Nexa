@@ -226,3 +226,24 @@ export async function getVestibularHome(): Promise<VestibularHome | null> {
     openSessionId: row.open_session_id,
   };
 }
+
+export interface ExamEditionSummary {
+  id: string;
+  year: number;
+  examName: string;
+  coverUrl: string | null;
+}
+
+/** Edições cadastradas (ENEM 2025, FUVEST 2026...). Servem para listar "Em breve" quando a prova ainda não tem questões. */
+export async function listExamEditions(): Promise<ExamEditionSummary[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('exam_editions')
+    .select('id, year, exams(name, cover_url)')
+    .order('year', { ascending: false });
+  if (error || !data) return [];
+  return data.map((e) => {
+    const exam = e.exams as unknown as { name: string; cover_url: string | null } | null;
+    return { id: e.id, year: e.year, examName: exam?.name ?? 'Prova', coverUrl: exam?.cover_url ?? null };
+  });
+}

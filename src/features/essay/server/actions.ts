@@ -13,7 +13,7 @@ import { buildEssayMessages, countWords, MAX_WORDS, MIN_WORDS, parseEssayFeedbac
 export type EssayState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
-  | { status: 'done'; theme: string; feedback: EssayFeedback; saved: boolean };
+  | { status: 'done'; theme: string; feedback: EssayFeedback; saved: boolean; id: string | null };
 
 const schema = z.object({
   theme: z.string().trim().min(3, 'Escreva o tema da redação.').max(300),
@@ -91,7 +91,9 @@ export async function correctEssay(_prev: EssayState, formData: FormData): Promi
   }
 
   const score = (id: number) => feedback.competencies.find((c) => c.id === id)!.score;
-  const { error } = await supabase.from('essay_corrections').insert({
+  const { data: savedRow, error } = await supabase
+    .from('essay_corrections')
+    .insert({
     user_id: user.id,
     theme: themeTitle,
     theme_id: themeId,
@@ -102,10 +104,12 @@ export async function correctEssay(_prev: EssayState, formData: FormData): Promi
     c4: score(4),
     c5: score(5),
     feedback: feedback as unknown,
-  });
+    })
+    .select('id')
+    .single();
 
   revalidatePath('/vestibular/redacao');
-  return { status: 'done', theme: themeTitle, feedback, saved: !error };
+  return { status: 'done', theme: themeTitle, feedback, saved: !error, id: savedRow?.id ?? null };
 }
 
 export async function deleteEssay(formData: FormData): Promise<void> {

@@ -553,3 +553,13 @@
   #nexa-intro { animation-delay: 0.8s; }
   .nexa-intro-logo, .nexa-intro-word span, .nexa-intro-sub, .nexa-intro-tag, .nexa-intro-orb { animation: none; }
 }
+
+/* Laudo da redação: ao imprimir, some a navegação e fica só a folha. */
+@media print {
+  body:has([data-laudo]) :is(nav, aside, [data-print-hide]) {
+    display: none !important;
+  }
+  body:has([data-laudo]) header {
+    position: static !important;
+  }
+}

@@ -215,3 +215,89 @@ export function weakestCompetency(history: { scores: number[] }[]): { id: number
   const i = avgs.indexOf(min);
   return { id: i + 1, name: COMPETENCIES[i]!.name, average: Math.round(min) };
 }
+
+export interface EssaySegment {
+  text: string;
+  /** Número da marca (1, 2...) quando o trecho foi apontado no laudo. */
+  flag?: number;
+}
+
+/**
+ * Divide a redação em pedaços, marcando os trechos que o corretor apontou
+ * (na ordem em que aparecem no texto, numerados 1, 2, 3…). Casa pelo texto
+ * literal, sem diferenciar maiúsculas; trecho que não se encontra é ignorado,
+ * e trechos que se sobrepõem a um já marcado também.
+ */
+export function markExcerpts(essay: string, excerpts: { excerpt: string }[]): { segments: EssaySegment[]; flagged: { flag: number; excerpt: string }[] } {
+  const lower = essay.toLowerCase();
+  const found: { start: number; end: number; excerpt: string }[] = [];
+  for (const e of excerpts) {
+    const needle = e.excerpt.trim().toLowerCase();
+    if (needle.length < 4) continue;
+    const start = lower.indexOf(needle);
+    if (start < 0) continue;
+    found.push({ start, end: start + needle.length, excerpt: e.excerpt });
+  }
+  found.sort((a, b) => a.start - b.start);
+
+  const segments: EssaySegment[] = [];
+  const flagged: { flag: number; excerpt: string }[] = [];
+  let cursor = 0;
+  for (const f of found) {
+    if (f.start < cursor) continue; // sobreposto
+    if (f.start > cursor) segments.push({ text: essay.slice(cursor, f.start) });
+    const flag = flagged.length + 1;
+    flagged.push({ flag, excerpt: f.excerpt });
+    segments.push({ text: essay.slice(f.start, f.end), flag });
+    cursor = f.end;
+  }
+  if (cursor < essay.length) segments.push({ text: essay.slice(cursor) });
+  return { segments, flagged };
+}
+
+/**
+ * O que cada nota significa em cada competência (resumo dos critérios públicos
+ * do INEP). Aparece no laudo ao lado do comentário da correção.
+ */
+export const LEVEL_DESCRIPTORS: Record<number, Record<number, string>> = {
+  1: {
+    200: 'Excelente domínio da modalidade escrita formal da língua portuguesa, com no máximo dois desvios.',
+    160: 'Bom domínio da modalidade escrita formal, com poucos desvios gramaticais e de convenções da escrita.',
+    120: 'Domínio mediano da modalidade escrita formal, com alguns desvios gramaticais e de convenções.',
+    80: 'Domínio insuficiente da modalidade escrita formal, com muitos desvios gramaticais e de convenções.',
+    40: 'Domínio precário da modalidade escrita formal, com desvios graves e frequentes.',
+    0: 'Desconhecimento da modalidade escrita formal da língua portuguesa.',
+  },
+  2: {
+    200: 'Desenvolve o tema com repertório sociocultural legitimado, pertinente e produtivo, e mostra excelente domínio do texto dissertativo-argumentativo.',
+    160: 'Desenvolve o tema com repertório legitimado e pertinente, e mostra bom domínio do texto dissertativo-argumentativo.',
+    120: 'Desenvolve o tema com repertório baseado nos textos motivadores ou pouco pertinente, com domínio mediano do tipo textual.',
+    80: 'Desenvolve o tema por cópia dos textos motivadores ou com domínio insuficiente do texto dissertativo-argumentativo.',
+    40: 'Tangencia o tema ou apresenta domínio precário do tipo textual.',
+    0: 'Foge ao tema ou não atende à estrutura dissertativo-argumentativa.',
+  },
+  3: {
+    200: 'Projeto de texto estratégico: informações, fatos e opiniões consistentes, com defesa clara de um ponto de vista e indícios de autoria.',
+    160: 'Projeto de texto com boa organização das informações e poucas falhas, com indícios de autoria.',
+    120: 'Ideias previsíveis ou presas aos textos motivadores, com algumas inconsistências.',
+    80: 'Informações, fatos e opiniões pouco organizados ou contraditórios.',
+    40: 'Informações pouco relacionadas ao tema, com argumentação frágil.',
+    0: 'Informações e opiniões desconexas, sem defesa de ponto de vista.',
+  },
+  4: {
+    200: 'Articula bem as partes do texto, com repertório variado de recursos coesivos e sem inadequações.',
+    160: 'Articula as partes do texto, com poucas inadequações no uso de recursos coesivos.',
+    120: 'Articula as partes do texto de forma mediana, com algumas inadequações e repertório pouco variado.',
+    80: 'Articulação insuficiente, com inadequações frequentes ou repetição de conectivos.',
+    40: 'Articulação precária entre as partes do texto.',
+    0: 'Não articula as informações do texto.',
+  },
+  5: {
+    200: 'Proposta de intervenção muito bem elaborada: tem agente, ação, meio/modo, finalidade e detalhamento, articulada à discussão do texto.',
+    160: 'Proposta bem elaborada, com quatro dos cinco elementos.',
+    120: 'Proposta mediana, com três dos cinco elementos.',
+    80: 'Proposta insuficiente, com dois dos cinco elementos.',
+    40: 'Proposta vaga, com apenas um dos cinco elementos.',
+    0: 'Não apresenta proposta de intervenção, ou ela não se relaciona ao tema.',
+  },
+};
