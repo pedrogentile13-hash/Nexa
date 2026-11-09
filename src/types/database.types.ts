@@ -527,7 +527,23 @@ export type EssayThemeRow = {
   context_text: string | null;
   axis: string | null;
   kind: 'real' | 'inspirado';
+  genre: string | null;
+  edition_note: string | null;
+  proposal_no: number | null;
+  correction_model: 'enem' | 'outras';
   source_note: string | null;
+  is_published: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+export type ExamFileRow = {
+  id: string;
+  exam_edition_id: string;
+  kind: 'caderno' | 'gabarito' | 'pagina';
+  label: string;
+  url: string;
+  source: string | null;
   is_published: boolean;
   sort_order: number;
   created_at: string;
@@ -1588,6 +1604,7 @@ export type Database = {
       school_announcements: Table<SchoolAnnouncementRow>;
       essay_corrections: Table<EssayCorrectionRow>;
       essay_themes: Table<EssayThemeRow>;
+      exam_files: Table<ExamFileRow>;
       announcement_reads: Table<AnnouncementReadRow>;
     };
     Views: {

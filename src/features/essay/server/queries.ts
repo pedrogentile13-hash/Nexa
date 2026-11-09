@@ -40,6 +40,13 @@ export interface EssayThemeItem {
   examName: string | null;
   context: string | null;
   axis: string | null;
+  /** Gênero pedido (UNICAMP): "carta-denúncia", "manifesto"... */
+  genre: string | null;
+  /** Observação da edição (ex.: "havia opção de gênero"). */
+  note: string | null;
+  proposalNo: number | null;
+  /** 'enem' = régua do ENEM; 'outras' = modelo adaptado para as demais bancas. */
+  model: 'enem' | 'outras';
 }
 
 /**
@@ -51,7 +58,7 @@ export async function listEssayThemes(): Promise<EssayThemeItem[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('essay_themes')
-    .select('id, title, kind, year, context_text, axis, exams(name)')
+    .select('id, title, kind, year, context_text, axis, genre, edition_note, proposal_no, correction_model, exams(name)')
     .order('year', { ascending: false, nullsFirst: false })
     .order('sort_order');
   if (error || !data) return [];
@@ -64,6 +71,10 @@ export async function listEssayThemes(): Promise<EssayThemeItem[]> {
     examName: (t.exams as unknown as { name: string } | null)?.name ?? null,
     context: t.context_text,
     axis: t.axis,
+    genre: t.genre,
+    note: t.edition_note,
+    proposalNo: t.proposal_no,
+    model: t.correction_model === 'outras' ? 'outras' : 'enem',
   }));
 }
 

@@ -4,7 +4,7 @@ import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { ExamBank } from '@/features/vestibular/components/exam-bank';
 import { buildExamBank } from '@/features/vestibular/lib/exam-bank';
-import { listExamEditions, listVestibularResources } from '@/features/vestibular/server/queries';
+import { listExamEditions, listExamFiles, listVestibularResources } from '@/features/vestibular/server/queries';
 import { isFeatureEnabled } from '@/lib/feature-flags';
 import { getCurrentUser } from '@/lib/supabase/server';
 
@@ -20,8 +20,10 @@ export default async function BancoDeProvasPage() {
   if (!user) redirect('/login');
   if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
 
-  const [resources, editions] = await Promise.all([listVestibularResources(), listExamEditions()]);
-  const items = buildExamBank(resources, editions);
+  const [resources, editions, files] = await Promise.all([listVestibularResources(), listExamEditions(), listExamFiles()]);
+  const fileCounts: Record<string, number> = {};
+  for (const f of files) fileCounts[f.editionId] = (fileCounts[f.editionId] ?? 0) + 1;
+  const items = buildExamBank(resources, editions, fileCounts);
 
   return (
     <>

@@ -9,6 +9,7 @@ import {
   getVestibularHome,
   getVestibularProfile,
   listExamEditions,
+  listExamFiles,
   listExams,
   listVestibularResources,
 } from '@/features/vestibular/server/queries';
@@ -45,9 +46,11 @@ export default async function VestibularPage() {
     );
   }
 
-  const [home, resources, editions] = await Promise.all([getVestibularHome(), listVestibularResources(), listExamEditions()]);
+  const [home, resources, editions, files] = await Promise.all([getVestibularHome(), listVestibularResources(), listExamEditions(), listExamFiles()]);
+  const fileCounts: Record<string, number> = {};
+  for (const f of files) fileCounts[f.editionId] = (fileCounts[f.editionId] ?? 0) + 1;
   // Provas recentes da home: só as que já têm questões, as mais novas primeiro.
-  const recentExams = buildExamBank(resources, editions).filter((i) => i.resourceId !== null).slice(0, 8);
+  const recentExams = buildExamBank(resources, editions, fileCounts).filter((i) => i.resourceId !== null).slice(0, 8);
 
   return (
     <>

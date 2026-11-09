@@ -247,3 +247,37 @@ export async function listExamEditions(): Promise<ExamEditionSummary[]> {
     return { id: e.id, year: e.year, examName: exam?.name ?? 'Prova', coverUrl: exam?.cover_url ?? null };
   });
 }
+
+export interface ExamFileItem {
+  id: string;
+  editionId: string;
+  kind: 'caderno' | 'gabarito' | 'pagina';
+  label: string;
+  url: string;
+  source: string | null;
+}
+
+/** Arquivos publicados (endereços dos cadernos e gabaritos nos sites oficiais). */
+export async function listExamFiles(editionId?: string): Promise<ExamFileItem[]> {
+  const supabase = await createClient();
+  let query = supabase.from('exam_files').select('id, exam_edition_id, kind, label, url, source').order('sort_order').order('label');
+  if (editionId) query = query.eq('exam_edition_id', editionId);
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return data.map((f) => ({ id: f.id, editionId: f.exam_edition_id, kind: f.kind, label: f.label, url: f.url, source: f.source }));
+}
+
+export interface ExamEditionDetail {
+  id: string;
+  year: number;
+  examName: string;
+  coverUrl: string | null;
+}
+
+export async function getExamEdition(id: string): Promise<ExamEditionDetail | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('exam_editions').select('id, year, exams(name, cover_url)').eq('id', id).maybeSingle();
+  if (error || !data) return null;
+  const exam = data.exams as unknown as { name: string; cover_url: string | null } | null;
+  return { id: data.id, year: data.year, examName: exam?.name ?? 'Prova', coverUrl: exam?.cover_url ?? null };
+}

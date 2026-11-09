@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { countWords, LEVEL_DESCRIPTORS, markExcerpts, type EssayFeedback } from '../lib/essay';
+import { countWords, LEVEL_DESCRIPTORS, LEVEL_DESCRIPTORS_C5_OUTRAS, markExcerpts, type EssayFeedback } from '../lib/essay';
 import type { EssayDetail } from '../server/queries';
 import { PrintButton } from './print-button';
 
@@ -78,7 +78,11 @@ export function EssayLaudo({ essay }: { essay: EssayDetail }) {
           <dt className="text-muted font-medium">Tema da redação:</dt>
           <dd className="font-semibold">{essay.theme}</dd>
           <dt className="text-muted font-medium">Modelo de correção:</dt>
-          <dd>ENEM (5 competências, 0 a 200 cada)</dd>
+          <dd>
+            {f?.model === 'outras'
+              ? `ENEM adaptado${f.banca ? ` para ${f.banca}` : ''} (5 competências, 0 a 200 cada)`
+              : 'ENEM (5 competências, 0 a 200 cada)'}
+          </dd>
           <dt className="text-muted font-medium">Corrigida em:</dt>
           <dd>{dateFmt.format(new Date(essay.createdAt))}</dd>
           <dt className="text-muted font-medium">Tamanho:</dt>
@@ -152,7 +156,9 @@ export function EssayLaudo({ essay }: { essay: EssayDetail }) {
                 <h3 className="text-sm font-extrabold tracking-wide uppercase">
                   {c.id}. {c.name}: <span className="text-brand-text">{c.score} /200 pontos</span>
                 </h3>
-                <p className="text-muted mt-2 text-sm leading-relaxed">{LEVEL_DESCRIPTORS[c.id]?.[c.score]}</p>
+                <p className="text-muted mt-2 text-sm leading-relaxed">
+                  {c.id === 5 && f.model === 'outras' ? LEVEL_DESCRIPTORS_C5_OUTRAS[c.score] : LEVEL_DESCRIPTORS[c.id]?.[c.score]}
+                </p>
                 {c.comment && <p className="mt-2 text-sm leading-relaxed">{c.comment}</p>}
 
                 {c.id === 5 && f.intervention && (

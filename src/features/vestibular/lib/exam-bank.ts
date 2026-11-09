@@ -2,6 +2,10 @@ import type { VestibularResource, ExamEditionSummary } from '../server/queries';
 
 export interface ExamBankItem {
   key: string;
+  /** Edição (ENEM 2025...), quando cadastrada: leva à página de caderno, gabarito e redação. */
+  editionId: string | null;
+  /** Quantos arquivos oficiais (cadernos, gabaritos, páginas) a edição tem. */
+  fileCount: number;
   /** Recurso a abrir; ausente = "Em breve". */
   resourceId: string | null;
   title: string;
@@ -29,9 +33,18 @@ export function coverLabel(title: string, examName: string | null, year: number 
  * é um cartão; edição sem nenhum recurso vira cartão "Em breve".
  * Mais recentes primeiro; dentro do ano, provas oficiais antes dos simulados.
  */
-export function buildExamBank(resources: VestibularResource[], editions: ExamEditionSummary[]): ExamBankItem[] {
+export function buildExamBank(
+  resources: VestibularResource[],
+  editions: ExamEditionSummary[],
+  fileCounts: Record<string, number> = {},
+  currentYear = new Date().getFullYear(),
+): ExamBankItem[] {
+  const editionOf = (examName: string | null, year: number | null) =>
+    year === null ? null : (editions.find((e) => e.examName === examName && e.year === year) ?? null);
   const items: ExamBankItem[] = resources.map((r) => ({
     key: `r-${r.id}`,
+    editionId: editionOf(r.examName, r.editionYear)?.id ?? null,
+    fileCount: fileCounts[editionOf(r.examName, r.editionYear)?.id ?? ''] ?? 0,
     resourceId: r.id,
     title: r.title,
     examName: r.examName,
@@ -47,13 +60,18 @@ export function buildExamBank(resources: VestibularResource[], editions: ExamEdi
   const withContent = new Set(resources.filter((r) => r.editionYear !== null).map((r) => `${r.examName}|${r.editionYear}`));
   for (const e of editions) {
     if (withContent.has(`${e.examName}|${e.year}`)) continue;
+    const fileCount = fileCounts[e.id] ?? 0;
+    // Edição passada sem nenhum arquivo nem questão não vira cartão (só poluiria a lista).
+    if (fileCount === 0 && e.year < currentYear) continue;
     items.push({
       key: `e-${e.id}`,
+      editionId: e.id,
+      fileCount,
       resourceId: null,
       title: `${e.examName} ${e.year}`,
       examName: e.examName,
       year: e.year,
-      coverLabel: 'Em breve',
+      coverLabel: fileCount > 0 ? 'Caderno e gabarito' : 'Em breve',
       coverUrl: e.coverUrl,
       official: true,
       subjectName: null,

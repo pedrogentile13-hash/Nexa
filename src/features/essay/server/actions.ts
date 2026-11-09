@@ -8,7 +8,7 @@ import { checkPlanQuota } from '@/features/billing/server/quota';
 import { reportError } from '@/features/observability/server/actions';
 import { checkChatFile } from '@/features/nexa-ia/server/chat-material';
 import { readUploadedFile } from '@/features/nexa-ia/server/material-ingest';
-import { buildEssayMessages, countWords, MAX_WORDS, MIN_WORDS, parseEssayFeedback, type EssayFeedback } from '../lib/essay';
+import { buildEssayMessages, countWords, MAX_WORDS, MIN_WORDS, parseEssayFeedback, type EssayContext, type EssayFeedback } from '../lib/essay';
 
 export type EssayState =
   | { status: 'idle' }
@@ -54,20 +54,27 @@ export async function correctEssay(_prev: EssayState, formData: FormData): Promi
   let themeTitle = parsed.data.theme;
   let themeContext: string | null = null;
   let themeId: string | null = null;
+  let ctx: EssayContext = {};
   if (parsed.data.themeId) {
     const { data: theme } = await supabase
       .from('essay_themes')
-      .select('id, title, context_text')
+      .select('id, title, context_text, genre, edition_note, correction_model, exams(name)')
       .eq('id', parsed.data.themeId)
       .maybeSingle();
     if (theme) {
       themeTitle = theme.title;
       themeContext = theme.context_text;
       themeId = theme.id;
+      ctx = {
+        model: theme.correction_model === 'outras' ? 'outras' : 'enem',
+        banca: (theme.exams as unknown as { name: string } | null)?.name ?? null,
+        genre: theme.genre,
+        note: theme.edition_note,
+      };
     }
   }
 
-  const result = await completeWithAI(buildEssayMessages(themeTitle, parsed.data.essay, themeContext), {
+  const result = await completeWithAI(buildEssayMessages(themeTitle, parsed.data.essay, themeContext, ctx), {
     maxTokens: 3000,
     temperature: 0.2,
     timeoutMs: 45_000,
@@ -85,10 +92,12 @@ export async function correctEssay(_prev: EssayState, formData: FormData): Promi
     return { status: 'error', message: 'A IA não respondeu agora — tente de novo em instantes.' };
   }
 
-  const feedback = parseEssayFeedback(result.text, parsed.data.essay);
+  const feedback = parseEssayFeedback(result.text, parsed.data.essay, { model: ctx.model });
   if (!feedback) {
     return { status: 'error', message: 'A IA devolveu uma correção que não consegui ler. Tente de novo (não conta no seu histórico).' };
   }
+
+  if (ctx.model === 'outras' && ctx.banca) feedback.banca = ctx.banca;
 
   const score = (id: number) => feedback.competencies.find((c) => c.id === id)!.score;
   const { data: savedRow, error } = await supabase

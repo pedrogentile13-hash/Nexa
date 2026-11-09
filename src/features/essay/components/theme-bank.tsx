@@ -8,7 +8,7 @@ import { PopEmptyState } from '@/components/ui/empty-state';
 import { AXIS_BRAND, examBrand } from '@/features/vestibular/lib/exam-brand';
 import type { EssayThemeItem } from '../server/queries';
 
-type Kind = 'all' | 'real' | 'inspirado';
+const INSPIRED = '__inspirado__';
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -29,19 +29,25 @@ const AXIS_ICON: Record<string, typeof BookOpen> = {
  */
 export function ThemeBank({ themes }: { themes: EssayThemeItem[] }) {
   const [q, setQ] = useState('');
-  const [kind, setKind] = useState<Kind>('all');
+  const [source, setSource] = useState('');
   const [axis, setAxis] = useState('');
   const [year, setYear] = useState('');
 
+  const sources = useMemo(() => {
+    const names = [...new Set(themes.filter((t) => t.kind === 'real').map((t) => t.examName).filter((n): n is string => Boolean(n)))];
+    const order = ['ENEM', 'FUVEST', 'UNICAMP', 'UNESP', 'ITA'];
+    return names.sort((a, b) => (order.indexOf(a) + 100) % 100 - (order.indexOf(b) + 100) % 100 || a.localeCompare(b));
+  }, [themes]);
+  const hasInspired = themes.some((t) => t.kind === 'inspirado');
   const axes = useMemo(() => [...new Set(themes.map((t) => t.axis).filter((a): a is string => Boolean(a)))], [themes]);
   const years = useMemo(() => [...new Set(themes.map((t) => t.year).filter((y): y is number => y !== null))].sort((a, b) => b - a), [themes]);
 
   const visible = themes.filter(
     (t) =>
-      (kind === 'all' || t.kind === kind) &&
+      (!source || (source === INSPIRED ? t.kind === 'inspirado' : t.kind === 'real' && t.examName === source)) &&
       (!axis || t.axis === axis) &&
       (!year || String(t.year) === year) &&
-      (!q.trim() || norm(`${t.title} ${t.context ?? ''}`).includes(norm(q))),
+      (!q.trim() || norm(`${t.title} ${t.context ?? ''} ${t.genre ?? ''}`).includes(norm(q))),
   );
 
   if (themes.length === 0) {
@@ -71,15 +77,23 @@ export function ThemeBank({ themes }: { themes: EssayThemeItem[] }) {
         </label>
 
         <fieldset>
-          <legend className="text-muted mb-2 text-xs font-semibold uppercase">Tipo</legend>
+          <legend className="text-muted mb-2 text-xs font-semibold uppercase">Banca</legend>
           <div className="flex flex-wrap gap-2">
-            <Chip active={kind === 'all'} onClick={() => setKind('all')}>Todos</Chip>
-            <Chip active={kind === 'real'} onClick={() => setKind('real')}>Reais</Chip>
-            <Chip active={kind === 'inspirado'} onClick={() => setKind('inspirado')}>Inspirados</Chip>
+            <Chip active={source === ''} onClick={() => setSource('')}>Todas</Chip>
+            {sources.map((n) => (
+              <Chip key={n} active={source === n} onClick={() => setSource(n)}>
+                {n}
+              </Chip>
+            ))}
+            {hasInspired && (
+              <Chip active={source === INSPIRED} onClick={() => setSource(INSPIRED)}>
+                Inspirados
+              </Chip>
+            )}
           </div>
         </fieldset>
 
-        {axes.length > 0 && (
+        {axes.length > 0 && (source === '' || source === INSPIRED) && (
           <fieldset>
             <legend className="text-muted mb-2 text-xs font-semibold uppercase">Assunto</legend>
             <div className="flex flex-wrap gap-2">
@@ -135,7 +149,9 @@ function ThemeCover({ theme: t }: { theme: EssayThemeItem }) {
     const b = examBrand(t.examName);
     return (
       <div className="relative flex h-32 flex-col justify-end p-4" style={{ background: b.bg, color: b.fg }}>
-        <p className="text-xs font-semibold tracking-[0.16em] uppercase opacity-80">Tema oficial</p>
+        <p className="text-xs font-semibold tracking-[0.16em] uppercase opacity-80">
+          {t.proposalNo ? `Tema oficial · Proposta ${t.proposalNo}` : 'Tema oficial'}
+        </p>
         <p className="text-3xl leading-none font-black" style={{ color: b.accent }}>
           {b.short} <span className="tabular-nums">{t.year}</span>
         </p>
@@ -159,14 +175,13 @@ function ThemeCard({ theme: t }: { theme: EssayThemeItem }) {
       <ThemeCover theme={t} />
       <div className="flex flex-1 flex-col p-4">
         <span className="bg-brand-soft text-brand-text mb-2 inline-flex h-6 w-fit items-center rounded-full px-2.5 text-xs font-semibold">
-          Dissertação ENEM
+          {t.genre ?? 'Dissertativo-argumentativo'}
         </span>
         <h3 className="text-[0.95rem] leading-snug font-semibold">{t.title}</h3>
         {t.context && <p className="text-muted mt-2 line-clamp-3 text-sm leading-relaxed">{t.context}</p>}
+        {t.note && <p className="text-subtle mt-2 line-clamp-3 text-xs leading-relaxed">{t.note}</p>}
         <p className="text-muted mt-3 text-xs leading-relaxed">
-          <b className="font-semibold">Sugestão de uso:</b> Ensino Médio e pré-vestibular.
-          <br />
-          <b className="font-semibold">Modelo de correção:</b> ENEM.
+          <b className="font-semibold">Modelo de correção:</b> {t.model === 'enem' ? 'ENEM' : 'ENEM adaptado'}.
         </p>
         <div className="mt-auto pt-4">
           <Link

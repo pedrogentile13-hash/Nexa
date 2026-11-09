@@ -160,3 +160,34 @@ describe('LEVEL_DESCRIPTORS', () => {
     }
   });
 });
+
+describe('modelo adaptado para outras bancas', () => {
+  it('o prompt dispensa a proposta de intervenção e cobra o gênero', () => {
+    const [sys, user] = buildEssayMessages('Racismo escolar', 'Texto.', null, { model: 'outras', banca: 'UNICAMP', genre: 'depoimento sigiloso', note: 'Duas propostas' });
+    expect(sys!.content).toContain('vestibulares brasileiros');
+    expect(user!.content).toContain('Banca: UNICAMP');
+    expect(user!.content).toContain('depoimento sigiloso');
+    expect(user!.content).toContain('NÃO exige proposta de intervenção');
+    expect(user!.content).not.toContain('"intervencao"');
+    expect(user!.content).not.toContain('agente (quem)');
+  });
+
+  it('a C5 não é limitada pelos elementos da proposta e muda de nome', () => {
+    const withInter = {
+      ...good,
+      competencias: good.competencias.map((c) => ({ ...c, nota: 200 })),
+      intervencao: { agente: false, acao: false, meio: false, finalidade: false, detalhamento: false },
+    };
+    const f = parseEssayFeedback(JSON.stringify(withInter), essay, { model: 'outras' })!;
+    expect(f.competencies[4]!.score).toBe(200);
+    expect(f.competencies[4]!.name).toBe('Conclusão e posicionamento');
+    expect(f.intervention).toBeUndefined();
+    expect(f.model).toBe('outras');
+  });
+
+  it('no modelo ENEM nada muda', () => {
+    const f = parseEssayFeedback(JSON.stringify(good), essay)!;
+    expect(f.model).toBeUndefined();
+    expect(f.competencies[4]!.name).toBe('Proposta de intervenção');
+  });
+});

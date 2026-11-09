@@ -35,26 +35,46 @@ C3 Argumentação — 200: projeto de texto estratégico, ideias consistentes, d
 C4 Coesão — 200: articula bem as partes, repertório variado de conectivos, sem inadequações; 160: poucas inadequações; 120: algumas, repertório pouco variado; 80: inadequações frequentes ou repetição; 40: precária; 0: ausente.
 C5 Proposta de intervenção — conte os 5 elementos: agente (quem), ação (o quê), meio/modo (como), finalidade (para quê) e detalhamento (de um deles). 5 elementos = 200, 4 = 160, 3 = 120, 2 = 80, 1 = 40, nenhum ou fora do tema = 0. Se a proposta desrespeita os direitos humanos, C5 = 0.`;
 
-export function buildEssayMessages(theme: string, essay: string, themeContext?: string | null) {
+export interface EssayContext {
+  /** 'enem' (padrão) ou 'outras': modelo adaptado às demais bancas, sem proposta de intervenção obrigatória. */
+  model?: 'enem' | 'outras';
+  banca?: string | null;
+  genre?: string | null;
+  note?: string | null;
+}
+
+/** Régua da C5 para as bancas que NÃO exigem proposta de intervenção (UNESP, ITA, FUVEST, UNICAMP). */
+const RUBRIC_OUTRAS_C5 = `C5 Conclusão e posicionamento (esta banca NÃO exige proposta de intervenção; não penalize a ausência dela) — 200: tese clara do início ao fim, resposta explícita ao tema/pergunta e fechamento que retoma e amplia a ideia; 160: posicionamento claro com fechamento adequado; 120: posicionamento presente, mas pouco sustentado ou conclusão apenas resumida; 80: posicionamento vago ou conclusão que não fecha o texto; 40: sem posicionamento claro; 0: texto sem tese nem fechamento.`;
+
+export function buildEssayMessages(theme: string, essay: string, themeContext?: string | null, ctx: EssayContext = {}) {
+  const others = ctx.model === 'outras';
   const system =
-    'Você é um corretor experiente de redação do ENEM. Avalia com rigor justo e linguagem acolhedora, em português do Brasil. ' +
+    (others
+      ? 'Você é um corretor experiente de redação de vestibulares brasileiros. Usa as 5 competências do ENEM como régua de qualidade, adaptada à banca. '
+      : 'Você é um corretor experiente de redação do ENEM. ') +
+    'Avalia com rigor justo e linguagem acolhedora, em português do Brasil. ' +
     'Corrige o TEXTO, nunca a pessoa. Não inventa trechos que o aluno não escreveu: todo trecho citado precisa existir literalmente no texto. ' +
     'Não infla notas: 200 é raro e exige o critério completo; na dúvida entre dois degraus, escolha o menor. ' +
     'Responde SEMPRE e SOMENTE com JSON válido, sem texto antes ou depois.';
 
-  const comps = COMPETENCIES.map((c) => `${c.id}. ${c.name} (${c.hint})`).join('\n');
   const context = themeContext?.trim() ? `\nContexto do tema (apenas para você avaliar a adequação ao tema):\n${themeContext.trim()}\n` : '';
+  const banca = others
+    ? `\nBanca: ${ctx.banca ?? 'vestibular'}.${ctx.genre ? ` Gênero textual pedido: ${ctx.genre}. A adequação ao gênero é decisiva: se o texto não corresponde ao gênero pedido, a nota da C2 não passa de 80 e o comentário explica por quê.` : ''}${ctx.note ? ` Observação da edição: ${ctx.note}.` : ''}\n`
+    : '';
+  const rubric = others ? RUBRIC.replace(/C5 Proposta de intervenção[\s\S]*$/, RUBRIC_OUTRAS_C5) : RUBRIC;
+  const c5Name = others ? 'Conclusão e posicionamento' : 'Proposta de intervenção';
+  const comps = COMPETENCIES.map((c) => (c.id === 5 && others ? `5. ${c5Name} (tese, resposta ao tema e fechamento)` : `${c.id}. ${c.name} (${c.hint})`)).join('\n');
 
   const user = `Tema da redação: ${theme.trim()}
-${context}
+${banca}${context}
 Texto do aluno:
 <<<REDACAO
 ${essay.trim()}
 REDACAO>>>
 
-${RUBRIC}
+${rubric}
 
-Avalie nas 5 competências do ENEM:
+Avalie nas 5 competências${others ? ' (modelo adaptado)' : ' do ENEM'}:
 ${comps}
 
 Cada nota é um destes valores: 0, 40, 80, 120, 160 ou 200.
@@ -68,8 +88,8 @@ Devolva exatamente este JSON:
     { "id": 4, "nota": 160, "comentario": "..." },
     { "id": 5, "nota": 120, "comentario": "..." }
   ],
-  "intervencao": { "agente": true, "acao": true, "meio": false, "finalidade": true, "detalhamento": false },
-  "repertorio": "o repertório sociocultural usado (ou \\"nenhum\\") e se é legitimado, pertinente e produtivo",
+${others ? '' : `  "intervencao": { "agente": true, "acao": true, "meio": false, "finalidade": true, "detalhamento": false },
+`}  "repertorio": "o repertório sociocultural usado (ou \\"nenhum\\") e se é legitimado, pertinente e produtivo",
   "alertas": ["só se houver: possível ANULAÇÃO (fuga ao tema, texto não dissertativo-argumentativo, menos de 7 linhas, cópia dos motivadores, partes desconectadas) ou desrespeito aos direitos humanos na proposta"],
   "pontosFortes": ["até 3 itens curtos"],
   "melhorias": ["até 3 ações práticas, em ordem de impacto"],
@@ -135,6 +155,10 @@ export interface EssayFeedback {
   repertoire?: string;
   /** Avisos graves (possível anulação, direitos humanos). */
   alerts?: string[];
+  /** Modelo usado: ausente = ENEM. */
+  model?: 'enem' | 'outras';
+  /** Banca do tema (para bancas diferentes do ENEM). */
+  banca?: string;
 }
 
 /** Aproxima para o degrau de 40 mais próximo e limita a 0–200. */
@@ -161,7 +185,8 @@ function norm(s: string): string {
  * Trechos "citados" que NÃO existem no texto do aluno são descartados: é a
  * defesa contra a IA inventar uma frase que o aluno nunca escreveu.
  */
-export function parseEssayFeedback(raw: string, essay: string): EssayFeedback | null {
+export function parseEssayFeedback(raw: string, essay: string, opts: { model?: 'enem' | 'outras' } = {}): EssayFeedback | null {
+  const others = opts.model === 'outras';
   let json: unknown;
   try {
     json = JSON.parse(stripFence(raw));
@@ -174,7 +199,7 @@ export function parseEssayFeedback(raw: string, essay: string): EssayFeedback | 
   const byId = new Map(parsed.data.competencias.map((c) => [c.id, c]));
   if (byId.size !== 5) return null;
 
-  const inter = parsed.data.intervencao;
+  const inter = others ? undefined : parsed.data.intervencao;
   const interventionOk = inter
     ? { agent: inter.agente, action: inter.acao, means: inter.meio, purpose: inter.finalidade, detail: inter.detalhamento }
     : undefined;
@@ -184,7 +209,8 @@ export function parseEssayFeedback(raw: string, essay: string): EssayFeedback | 
   const competencies = COMPETENCIES.map((c) => {
     const found = byId.get(c.id)!;
     const snapped = snapScore(found.nota);
-    return { id: c.id, name: c.name, score: c.id === 5 ? Math.min(snapped, c5Cap) : snapped, comment: found.comentario };
+    const name = c.id === 5 && others ? 'Conclusão e posicionamento' : c.name;
+    return { id: c.id, name, score: c.id === 5 ? Math.min(snapped, c5Cap) : snapped, comment: found.comentario };
   });
 
   const text = norm(essay);
@@ -202,6 +228,7 @@ export function parseEssayFeedback(raw: string, essay: string): EssayFeedback | 
     ...(interventionOk ? { intervention: interventionOk } : {}),
     ...(parsed.data.repertorio ? { repertoire: parsed.data.repertorio } : {}),
     alerts: parsed.data.alertas.filter(Boolean),
+    ...(others ? { model: 'outras' as const } : {}),
   };
 }
 
@@ -300,4 +327,14 @@ export const LEVEL_DESCRIPTORS: Record<number, Record<number, string>> = {
     40: 'Proposta vaga, com apenas um dos cinco elementos.',
     0: 'Não apresenta proposta de intervenção, ou ela não se relaciona ao tema.',
   },
+};
+
+/** Descrição de cada nota da C5 quando a banca não exige proposta de intervenção. */
+export const LEVEL_DESCRIPTORS_C5_OUTRAS: Record<number, string> = {
+  200: 'Tese clara do início ao fim, resposta explícita ao tema e fechamento que retoma e amplia a ideia.',
+  160: 'Posicionamento claro, com fechamento adequado.',
+  120: 'Posicionamento presente, mas pouco sustentado, ou conclusão que apenas resume o texto.',
+  80: 'Posicionamento vago, ou conclusão que não fecha o texto.',
+  40: 'Sem posicionamento claro.',
+  0: 'Texto sem tese nem fechamento.',
 };

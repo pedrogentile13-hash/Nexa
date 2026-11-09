@@ -47,9 +47,35 @@ describe('buildExamBank', () => {
     const bank = buildExamBank(
       [res({ id: 'a', editionYear: 2023, title: 'ENEM 2023 — Dia 1' }), res({ id: 'b', editionYear: 2025, title: 'ENEM 2025 — Dia 1' })],
       [{ id: 'e', year: 2025, examName: 'FUVEST', coverUrl: null }],
+      {},
+      2025,
     );
     expect(bank.map((b) => b.year)).toEqual([2025, 2025, 2023]);
     expect(bank[0]!.resourceId).toBe('b');
+  });
+
+  it('edição passada sem arquivos nem questões não aparece; com arquivos aparece com o link da edição', () => {
+    const bank = buildExamBank(
+      [],
+      [
+        { id: 'e17', year: 2017, examName: 'ITA', coverUrl: null },
+        { id: 'e24', year: 2024, examName: 'ITA', coverUrl: null },
+        { id: 'e26', year: 2026, examName: 'ENEM', coverUrl: null },
+      ],
+      { e24: 2 },
+      2026,
+    );
+    expect(bank.map((b) => b.editionId).sort()).toEqual(['e24', 'e26']);
+    const ita = bank.find((b) => b.editionId === 'e24')!;
+    expect(ita.fileCount).toBe(2);
+    expect(ita.coverLabel).toBe('Caderno e gabarito');
+    expect(bank.find((b) => b.editionId === 'e26')!.coverLabel).toBe('Em breve');
+  });
+
+  it('o recurso herda a edição e a contagem de arquivos', () => {
+    const bank = buildExamBank([res({})], [{ id: 'e24', year: 2024, examName: 'ENEM', coverUrl: null }], { e24: 3 });
+    expect(bank[0]!.editionId).toBe('e24');
+    expect(bank[0]!.fileCount).toBe(3);
   });
 
   it('simulado sem edição não é prova oficial', () => {

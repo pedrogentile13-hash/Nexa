@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowRight, Clock3, Search } from 'lucide-react';
+import { ArrowRight, Clock3, FileText, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Chip } from '@/components/ui/chip';
 import { PopEmptyState } from '@/components/ui/empty-state';
@@ -100,7 +100,7 @@ export function ExamBank({ items }: { items: ExamBankItem[] }) {
 }
 
 function ExamCard({ item: i }: { item: ExamBankItem }) {
-  const soon = i.resourceId === null;
+  const soon = i.resourceId === null && !(i.editionId && i.fileCount > 0);
   return (
     <article className={cn('border-border bg-surface flex h-full gap-4 rounded-2xl border p-3 sm:p-4', soon && 'opacity-80')}>
       <div className="w-28 shrink-0">
@@ -109,7 +109,9 @@ function ExamCard({ item: i }: { item: ExamBankItem }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <h3 className="text-[0.95rem] leading-snug font-semibold">{i.title}</h3>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {soon ? (
+          {i.resourceId === null && i.fileCount > 0 ? (
+            <Badge variant="brand">{i.fileCount} {i.fileCount === 1 ? 'arquivo oficial' : 'arquivos oficiais'}</Badge>
+          ) : soon ? (
             <Badge variant="neutral">Ainda sem questões</Badge>
           ) : (
             <Badge variant={i.official ? 'brand' : 'neutral'}>{i.official ? 'Prova anterior' : 'Simulado inspirado'}</Badge>
@@ -118,10 +120,8 @@ function ExamCard({ item: i }: { item: ExamBankItem }) {
           {i.questionCount > 0 && <Badge>{i.questionCount} {i.questionCount === 1 ? 'questão' : 'questões'}</Badge>}
           {i.bestPercent !== null && <Badge variant={i.bestPercent >= 60 ? 'success' : 'warning'}>Melhor: {i.bestPercent}%</Badge>}
         </div>
-        <div className="mt-auto pt-4">
-          {soon ? (
-            <span className="bg-surface-2 text-muted inline-flex h-10 items-center rounded-full px-5 text-sm font-semibold">Em breve</span>
-          ) : (
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+          {i.resourceId ? (
             <Link
               href={`/estudar/${i.resourceId}`}
               className="bg-brand text-brand-fg hover:bg-brand-hover inline-flex h-10 items-center gap-1.5 rounded-full px-5 text-sm font-semibold transition-colors"
@@ -129,7 +129,22 @@ function ExamCard({ item: i }: { item: ExamBankItem }) {
               Acessar
               <ArrowRight className="size-4" aria-hidden />
             </Link>
-          )}
+          ) : null}
+          {i.editionId && i.fileCount > 0 ? (
+            <Link
+              href={`/vestibular/provas/${i.editionId}`}
+              className={cn(
+                'inline-flex h-10 items-center gap-1.5 rounded-full px-5 text-sm font-semibold transition-colors',
+                i.resourceId ? 'border-border hover:bg-surface-2 border' : 'bg-brand text-brand-fg hover:bg-brand-hover',
+              )}
+            >
+              <FileText className="size-4" aria-hidden />
+              {i.resourceId ? 'Caderno e gabarito' : 'Ver caderno e gabarito'}
+            </Link>
+          ) : null}
+          {soon && !(i.editionId && i.fileCount > 0) ? (
+            <span className="bg-surface-2 text-muted inline-flex h-10 items-center rounded-full px-5 text-sm font-semibold">Em breve</span>
+          ) : null}
         </div>
       </div>
     </article>
