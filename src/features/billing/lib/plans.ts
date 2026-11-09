@@ -23,7 +23,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   school: { aiMultiplier: 1, libraryDocs: 30 }, // igual ao que o aluno de escola já tem
   free: { aiMultiplier: 1, libraryDocs: 10 },
   plus: { aiMultiplier: 3, libraryDocs: 60 },
-  pro: { aiMultiplier: 8, libraryDocs: 300 },
+  pro: { aiMultiplier: 5, libraryDocs: 300 },
 };
 
 export interface Entitlements {
@@ -57,8 +57,8 @@ export function isPaidPlan(value: unknown): value is PaidPlan {
 
 /** Preços exibidos na tela (em centavos). Precisam bater com os preços criados no Stripe. */
 export const PLAN_PRICES: Record<PaidPlan, Record<BillingInterval, number>> = {
-  plus: { month: 1490, year: 14900 },
-  pro: { month: 2990, year: 29900 },
+  plus: { month: 1990, year: 19900 },
+  pro: { month: 3990, year: 39900 },
 };
 
 export const PLAN_LABEL: Record<Plan, string> = { school: 'Nexa Escolas', free: 'Grátis', plus: 'Nexa Plus', pro: 'Nexa Pro' };
@@ -67,7 +67,7 @@ export function formatBRL(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-/** Quanto o plano anual economiza, em meses grátis (ex.: 14900 vs 12×1490 → 2 meses). */
+/** Quanto o plano anual economiza, em meses grátis (ex.: 19900 vs 12×1990 → 2 meses). */
 export function yearlyFreeMonths(plan: PaidPlan): number {
   const monthly = PLAN_PRICES[plan].month;
   return Math.round((monthly * 12 - PLAN_PRICES[plan].year) / monthly);

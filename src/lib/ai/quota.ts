@@ -40,9 +40,12 @@ interface QuotaClient {
 
 export type QuotaResult = { ok: true; remaining: number | null } | { ok: false; message: string };
 
+/** Correção de redação é a chamada mais cara: o plano multiplica, mas nunca passa de 3x o limite base. */
+const ESSAY_MAX_MULTIPLIER = 3;
+
 /** `multiplier`: o plano da pessoa (Plus e Pro ganham mais por dia). */
 export async function checkAiQuota(client: QuotaClient, feature: AiFeature, multiplier = 1): Promise<QuotaResult> {
-  const limit = Math.round(AI_DAILY_LIMITS[feature] * multiplier);
+  const limit = Math.round(AI_DAILY_LIMITS[feature] * (feature === 'essay' ? Math.min(multiplier, ESSAY_MAX_MULTIPLIER) : multiplier));
   try {
     const { data, error } = await client.rpc('consume_ai_quota', { p_feature: feature, p_daily_limit: limit });
     if (error) return { ok: true, remaining: null };
