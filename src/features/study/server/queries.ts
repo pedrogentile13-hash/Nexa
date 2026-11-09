@@ -1,4 +1,5 @@
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { SERIES, matchesSerie } from '@/lib/design/serie';
 import type { Difficulty, ResourceKind } from '@/types/database.types';
 import type { EvaluationCriterion, ExamAsset, ExamMode, ExamSection, ExamSettings } from '@/types/simulado';
 
@@ -30,6 +31,8 @@ export interface LibraryItem {
   progressPercent: number;
   /** 1 a 4, ou `null` quando o recurso não é amarrado a um bimestre específico. */
   bimestre: number | null;
+  /** Séries a que o conteúdo se destina. Vazio = serve para todas. */
+  gradeLevels: string[];
   /** Criado pelo próprio aluno com a IA (a Biblioteca separa "meus conteúdos" do acervo da plataforma). */
   mine: boolean;
 }
@@ -40,6 +43,10 @@ export interface StudyHubData {
   items: LibraryItem[];
   countsByKind: Record<ResourceKind, number>;
   subjects: { id: string; name: string; color: string }[];
+  /** Séries que têm conteúdo na Biblioteca, na ordem do 6º ano ao 3º EM, com a quantidade. */
+  series: { value: string; count: number }[];
+  /** Série do aluno (do perfil), se estiver entre as conhecidas. */
+  mySerie: string | null;
   continueItem: (LibraryItem & { positionSeconds: number }) | null;
   tracks: { id: string; title: string; subjectName: string; done: number; total: number }[];
 }
@@ -58,6 +65,7 @@ export async function getStudyHub(
   subjectFilter?: string,
   bimestreFilter?: number,
   origin: LibraryOrigin = 'todos',
+  serieFilter?: string,
 ): Promise<StudyHubData> {
   const supabase = await createClient();
   const user = await getCurrentUser();
@@ -107,6 +115,7 @@ export async function getStudyHub(
     questionCount: Number(r.question_count ?? 0),
     progressPercent: Number(progressByResource.get(r.id)?.progress_percent ?? 0),
     bimestre: r.bimestre,
+    gradeLevels: r.grade_levels ?? [],
     mine: myCreations.has(r.id),
   }));
 
@@ -130,6 +139,14 @@ export async function getStudyHub(
 
   let items = subjectFilter ? all.filter((i) => i.subjectId === subjectFilter) : all;
   if (bimestreFilter) items = items.filter((i) => i.bimestre === bimestreFilter);
+  if (serieFilter) items = items.filter((i) => matchesSerie(i.gradeLevels, serieFilter));
+
+  // Séries com conteúdo (só as que têm série marcada contam; o que vale para todas não cria opção).
+  const serieCount = new Map<string, number>();
+  for (const item of all) for (const g of item.gradeLevels) serieCount.set(g, (serieCount.get(g) ?? 0) + 1);
+  const series = SERIES.filter((s) => serieCount.has(s.value)).map((s) => ({ value: s.value, count: serieCount.get(s.value) ?? 0 }));
+  const { data: me } = user ? await supabase.from('profiles').select('grade_level').eq('id', user.id).maybeSingle() : { data: null };
+  const mySerie = SERIES.find((s) => s.value === me?.grade_level)?.value ?? null;
 
   // "Continuar de onde parou": o mais recente que começou e não terminou.
   // Um item concluído não é uma pendência, e oferecê-lo de novo no topo faz a
@@ -169,6 +186,8 @@ export async function getStudyHub(
     items,
     countsByKind,
     subjects: [...subjectMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    series,
+    mySerie,
     continueItem,
     tracks,
   };

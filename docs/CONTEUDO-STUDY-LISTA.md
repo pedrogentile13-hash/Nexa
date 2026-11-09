@@ -1,13 +1,14 @@
 # Nexa Study — lista de conteúdos (6º ano ao 3º ano do EM)
 
 Mapa de tópicos alinhado à BNCC. **✅ = pacote pronto** (resumo + quiz de 8 questões, carregado como **rascunho**).
-**⬜ = tópico cadastrado, pacote ainda por fazer.** Total: 88 tópicos, 88 pacotes prontos.
+**⬜ = tópico cadastrado, pacote ainda por fazer.** Total: 132 tópicos, 112 pacotes prontos.
 
 ## Como usar
 1. Admin → Conteúdo → **Conteúdo inicial do Nexa Study** → **Carregar tópicos e pacotes** (entra como conteúdo **geral**, em rascunho; repetir não duplica).
 2. Revise cada rascunho (resumo e gabarito do quiz). Edite o que quiser.
 3. Quando estiver de acordo, use **Publicar pacote inicial** (ou publique um a um).
 4. Os próximos pacotes seguem o mesmo molde (ver `src/features/content/seed/` e `docs/PLANEJAMENTO-CONTEUDO.md`).
+5. Na Biblioteca, o aluno filtra por **matéria**, **série** (com a idade aproximada) e **bimestre**.
 
 ## Matemática
 
@@ -121,4 +122,63 @@ Mapa de tópicos alinhado à BNCC. **✅ = pacote pronto** (resumo + quiz de 8 q
 | 3ª série EM | pH e equilíbrio ácido-base | ✅ |
 | 3ª série EM | Eletroquímica: pilhas e eletrólise | ✅ |
 | 3ª série EM | Química orgânica: hidrocarbonetos e funções | ✅ |
+
+## Língua Portuguesa
+
+| Série | Tópico | Pacote |
+|---|---|---|
+| 6º ano | Substantivo, adjetivo e verbo | ✅ |
+| 6º ano | Gêneros e tipos textuais | ⬜ |
+| 7º ano | Sujeito e predicado | ✅ |
+| 7º ano | Pontuação | ✅ |
+| 8º ano | Período simples e composto | ⬜ |
+| 8º ano | Figuras de linguagem | ✅ |
+| 9º ano | Concordância verbal e nominal | ✅ |
+| 9º ano | Regência e crase | ✅ |
+| 1ª série EM | Funções da linguagem | ✅ |
+| 1ª série EM | Interpretação de texto e inferência | ⬜ |
+| 1ª série EM | Ortografia e acentuação | ⬜ |
+| 2ª série EM | Romantismo e Realismo | ⬜ |
+| 2ª série EM | Variação linguística | ⬜ |
+| 3ª série EM | Modernismo no Brasil | ⬜ |
+| 3ª série EM | Redação dissertativa-argumentativa | ✅ |
+
+## História
+
+| Série | Tópico | Pacote |
+|---|---|---|
+| 6º ano | Origens da humanidade e Pré-História | ⬜ |
+| 6º ano | Mesopotâmia e Egito Antigo | ⬜ |
+| 6º ano | Grécia e Roma antigas | ✅ |
+| 7º ano | Idade Média e feudalismo | ✅ |
+| 7º ano | Renascimento e Reformas religiosas | ⬜ |
+| 7º ano | Grandes Navegações | ✅ |
+| 8º ano | Iluminismo e Revolução Francesa | ✅ |
+| 8º ano | Revolução Industrial | ✅ |
+| 8º ano | Independência do Brasil e Império | ⬜ |
+| 9º ano | Primeira Guerra Mundial | ✅ |
+| 9º ano | Segunda Guerra Mundial e Guerra Fria | ✅ |
+| 1ª série EM | Brasil Colônia e escravidão | ⬜ |
+| 2ª série EM | República Velha e Era Vargas | ⬜ |
+| 3ª série EM | Ditadura militar e redemocratização | ✅ |
+
+## Geografia
+
+| Série | Tópico | Pacote |
+|---|---|---|
+| 6º ano | Cartografia: mapas, escalas e coordenadas | ✅ |
+| 6º ano | Relevo e hidrografia | ✅ |
+| 7º ano | Regiões do Brasil | ✅ |
+| 7º ano | População brasileira | ✅ |
+| 8º ano | Globalização e blocos econômicos | ✅ |
+| 8º ano | Continente americano | ⬜ |
+| 9º ano | Europa e Ásia | ⬜ |
+| 9º ano | Geopolítica mundial | ⬜ |
+| 1ª série EM | Climas e biomas do Brasil | ✅ |
+| 1ª série EM | Estrutura geológica e relevo | ⬜ |
+| 2ª série EM | Urbanização | ✅ |
+| 2ª série EM | Demografia | ⬜ |
+| 3ª série EM | Questão ambiental | ✅ |
+| 3ª série EM | Agropecuária e agronegócio | ⬜ |
+| 3ª série EM | Indústria e energia | ⬜ |
 

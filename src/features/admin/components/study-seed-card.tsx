@@ -18,7 +18,7 @@ export function StudySeedCard({ drafts, published, topics, packages }: { drafts:
         <BookCheck className="text-brand size-5" aria-hidden /> Conteúdo inicial do Nexa Study
       </h2>
       <p className="text-muted mt-1 text-sm">
-        {topics} tópicos do 6º ano ao 3º ano do EM (Matemática, Ciências, Biologia, Física e Química) e {packages} pacotes prontos (resumo + quiz de 8 questões).
+        {topics} tópicos do 6º ano ao 3º ano do EM (Matemática, Ciências, Biologia, Física, Química, Português, História e Geografia) e {packages} pacotes prontos (resumo + quiz de 8 questões).
         Tudo entra como <b>rascunho</b>: revise e depois publique.
       </p>
       <p className="text-subtle mt-2 text-xs">Já no painel: {drafts} rascunhos e {published} publicados do pacote inicial.</p>

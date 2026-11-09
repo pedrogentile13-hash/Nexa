@@ -11,8 +11,8 @@ describe('conteúdo inicial do Nexa Study', () => {
     expect(uuidV5('a')).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
-  it('tem os 88 tópicos, sem slug repetido por matéria', () => {
-    expect(TOPICOS).toHaveLength(88);
+  it('tem os 132 tópicos, sem slug repetido por matéria', () => {
+    expect(TOPICOS).toHaveLength(132);
     const keys = TOPICOS.map(([subject, , , slug]) => `${subject}/${slug}`);
     expect(new Set(keys).size).toBe(keys.length);
   });

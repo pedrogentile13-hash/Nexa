@@ -10,6 +10,7 @@ import { subjectColorVars } from '@/lib/design/subject-colors';
 import { RESOURCE_KIND_COLOR as KIND_COLOR, RESOURCE_KIND_ICON as ICONS } from '@/lib/design/resource-kind';
 import { KIND_META, KIND_ORDER, humanDuration } from '../lib/format';
 import { BIMESTRES } from '@/lib/design/bimestre';
+import { SERIES, serieOptionLabel } from '@/lib/design/serie';
 import type { StudyHubData } from '../server/queries';
 import type { ResourceKind } from '@/types/database.types';
 
@@ -28,6 +29,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
   const params = useSearchParams();
   const subjectFilter = params.get('materia');
   const bimestreFilter = params.get('bimestre');
+  const serieFilter = params.get('serie');
   const origin = params.get('origem') ?? 'todos';
 
   function setParam(key: string, value: string | null) {
@@ -40,8 +42,10 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
 
   let visible = kindFilter ? data.items.filter((i) => i.kind === kindFilter) : data.items;
   if (bimestreFilter) visible = visible.filter((i) => i.bimestre === Number(bimestreFilter));
+  if (serieFilter) visible = visible.filter((i) => i.gradeLevels.length === 0 || i.gradeLevels.includes(serieFilter));
 
   const hasBimestre = data.items.some((i) => i.bimestre);
+  const hasSeries = data.series.length > 0;
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-8 md:px-6 md:pt-6 lg:px-8">
@@ -73,8 +77,8 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
       {/* ------------------------------------------------------ filtros -- */}
       {/* Menus suspensos, não fileiras de botões rolando para o lado: com 10+
           matérias a fileira escondia metade das opções. */}
-      {(data.subjects.length > 0 || hasBimestre) && (
-        <div className="grid grid-cols-2 gap-2.5 md:max-w-xl">
+      {(data.subjects.length > 0 || hasBimestre || hasSeries) && (
+        <div className="grid grid-cols-2 gap-2.5 md:max-w-3xl md:grid-cols-3">
           {data.subjects.length > 0 && (
             <FilterSelect
               label="Matéria"
@@ -83,6 +87,15 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
               allLabel="Todas as matérias"
               options={data.subjects.map((subject) => ({ value: subject.id, label: subject.name }))}
               className={hasBimestre ? undefined : 'col-span-2'}
+            />
+          )}
+          {hasSeries && (
+            <FilterSelect
+              label="Série"
+              value={serieFilter ?? ''}
+              onChange={(v) => setParam('serie', v || null)}
+              allLabel="Todas as séries"
+              options={SERIES.filter((s) => data.series.some((x) => x.value === s.value)).map((s) => ({ value: s.value, label: serieOptionLabel(s) }))}
             />
           )}
           {hasBimestre && (
@@ -97,9 +110,18 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
           )}
         </div>
       )}
+      {data.mySerie && !serieFilter && hasSeries && (
+        <button
+          type="button"
+          onClick={() => setParam('serie', data.mySerie)}
+          className="bg-brand-soft text-brand-text -mt-2 inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold"
+        >
+          Ver só a minha série ({data.mySerie})
+        </button>
+      )}
 
       {/* --------------------------------------------------- continuar -- */}
-      {data.continueItem && !kindFilter && !bimestreFilter && (
+      {data.continueItem && !kindFilter && !bimestreFilter && !serieFilter && (
         <section>
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Continuar de onde parou
@@ -141,7 +163,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
       )}
 
       {/* ---------------------------------------------------- formatos -- */}
-      {!kindFilter && !bimestreFilter && (
+      {!kindFilter && !bimestreFilter && !serieFilter && (
         <section>
           <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Formatos
@@ -259,7 +281,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
 
         {visible.length === 0 ? (
           <EmptyLibrary
-            filtered={Boolean(subjectFilter || kindFilter || bimestreFilter || origin !== 'todos')}
+            filtered={Boolean(subjectFilter || kindFilter || bimestreFilter || serieFilter || origin !== 'todos')}
             kind={kindFilter}
           />
         ) : (

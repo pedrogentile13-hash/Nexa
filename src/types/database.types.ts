@@ -1508,6 +1508,8 @@ export type VResourceLibraryRow = {
   published_at: string | null;
   question_count: number;
   bimestre: number | null;
+  /** Séries a que o conteúdo se destina (vazio = todas). Coluna nova: pode não existir antes do SQL rodar. */
+  grade_levels?: string[];
 };
 
 export type VTrackLessonResolvedRow = {
