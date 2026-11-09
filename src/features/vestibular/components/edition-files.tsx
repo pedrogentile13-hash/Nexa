@@ -1,12 +1,13 @@
 import Link from 'next/link';
-import { Download, ExternalLink, FileText, PenLine } from 'lucide-react';
+import { BookOpen, Download, ExternalLink, FileText, PenLine } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { EssayThemeItem } from '@/features/essay/server/queries';
 import type { ExamFileItem, VestibularResource } from '../server/queries';
 import { ExamCover } from './exam-cover';
 
 function FileRow({ file }: { file: ExamFileItem }) {
-  const isPdf = /\.pdf($|\?)/i.test(file.url);
+  // Caderno e gabarito abrem DENTRO do Nexa (visualizador); só a página oficial abre fora.
+  const readable = file.kind === 'caderno' || file.kind === 'gabarito';
   return (
     <li className="border-border bg-surface flex flex-wrap items-center gap-3 rounded-2xl border p-4">
       <span className="bg-brand-soft text-brand-text grid size-11 shrink-0 place-items-center rounded-xl">
@@ -17,25 +18,33 @@ function FileRow({ file }: { file: ExamFileItem }) {
         {file.source && <p className="text-muted text-xs">Fonte: {file.source}</p>}
       </div>
       <div className="flex gap-2">
-        <a
-          href={file.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-brand text-brand-fg hover:bg-brand-hover inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors"
-        >
-          <ExternalLink className="size-4" aria-hidden />
-          {file.kind === 'pagina' ? 'Abrir página oficial' : 'Abrir'}
-        </a>
-        {isPdf && (
+        {readable ? (
+          <>
+            <Link
+              href={`/vestibular/provas/${file.editionId}/ler/${file.id}`}
+              className="bg-brand text-brand-fg hover:bg-brand-hover inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors"
+            >
+              <BookOpen className="size-4" aria-hidden />
+              Ler aqui
+            </Link>
+            <a
+              href={`/api/provas/arquivo/${file.id}?download=1`}
+              download
+              className="border-border hover:bg-surface-2 inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors"
+            >
+              <Download className="size-4" aria-hidden />
+              Baixar
+            </a>
+          </>
+        ) : (
           <a
             href={file.url}
-            download
             target="_blank"
             rel="noopener noreferrer"
-            className="border-border hover:bg-surface-2 inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors"
+            className="bg-brand text-brand-fg hover:bg-brand-hover inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors"
           >
-            <Download className="size-4" aria-hidden />
-            Baixar
+            <ExternalLink className="size-4" aria-hidden />
+            Abrir página oficial
           </a>
         )}
       </div>
@@ -91,7 +100,7 @@ export function EditionFiles({
   ].filter((m): m is { href: string; label: string } => Boolean(m));
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
       <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
         <div className="w-32 lg:w-full">
           <ExamCover examName={examName} year={year} label="Caderno e gabarito" coverUrl={coverUrl} />

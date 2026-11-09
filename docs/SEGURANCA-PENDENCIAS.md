@@ -61,4 +61,17 @@ webhook da Stripe com assinatura; uploads limitados (PDF/imagem, 6 MB).
 
 ---
 
-<!-- Próximas varreduras: acrescentar abaixo, no mesmo formato (P6, P7…). -->
+## Varredura 2 — 2026-11-09 (visualizador de provas dentro do app)
+
+Novo ponto de entrada: `GET /api/provas/arquivo/[id]` busca o PDF no site oficial e o entrega pelo Nexa.
+
+**Já protegido (com testes):** o endereço vem só de `exam_files` (nunca do navegador); só https de uma lista fixa de sites
+oficiais (`exam-file-proxy.ts`); redirecionamento só para sites da lista; recusa endereço interno/nuvem (SSRF), usuário:senha e
+http; só quem está logado; limite de 120 MB; só PDF.
+
+- [ ] **P6 · Baixo — banda e abuso:** cada leitura passa o arquivo (20 a 40 MB) pelo servidor da Hostinger. Sem limite por usuário,
+  alguém logado pode gastar banda. **Resolver:** limite por usuário/minuto na rota e, se virar problema, cache em Storage/CDN
+  (ou hospedar os PDFs no Supabase Storage e deixar o navegador ler direto).
+- [ ] **P7 · Info — variável `EXAM_FILE_HOSTS`:** serve para liberar sites extras (ex.: o Storage). Só use sites que você controla.
+
+<!-- Próximas varreduras: acrescentar abaixo, no mesmo formato (P8, P9…). -->
