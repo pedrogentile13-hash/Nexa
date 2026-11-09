@@ -50,7 +50,7 @@ export async function AppHeader({
             tela onde ela aparece, então é nela que o menu tem que morar. */}
         <PlatformSwitcher
           journey={journey}
-          vestibularEnabled={vestibularEnabled && !schoolAccount}
+          vestibularEnabled={vestibularEnabled}
           schoolAccount={schoolAccount}
           variant="mark"
           className="shrink-0"

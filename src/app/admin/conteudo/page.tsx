@@ -9,6 +9,9 @@ import {
   listSubjectsWithTopics,
 } from '@/features/admin/server/queries';
 import { requireAdmin } from '@/features/admin/server/guard';
+import { StudySeedCard } from '@/features/admin/components/study-seed-card';
+import { createClient } from '@/lib/supabase/server';
+import { SEED_TAG } from '@/features/content/seed';
 import { Button } from '@/components/ui/button';
 import type { ResourceKind } from '@/types/database.types';
 
@@ -26,8 +29,13 @@ type Search = {
 export default async function ContentPage({ searchParams }: { searchParams: Promise<Search> }) {
   const identity = await requireAdmin();
   const params = await searchParams;
+  const supabase = await createClient();
+  const seedCount = async (published: boolean) =>
+    (await supabase.from('resources').select('id', { count: 'exact', head: true }).contains('tags', [SEED_TAG]).eq('is_published', published)).count ?? 0;
 
-  const [resources, subjects, schools] = await Promise.all([
+  const [seedDrafts, seedPublished, resources, subjects, schools] = await Promise.all([
+    seedCount(false),
+    seedCount(true),
     listResources({
       kind: (params.kind as ResourceKind) || 'todos',
       subjectId: params.subject,
@@ -64,6 +72,7 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
       />
 
       <div className="space-y-4 p-5">
+        <StudySeedCard drafts={seedDrafts} published={seedPublished} />
         <ResourceFilterBar
           subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
           schools={schools.map((s) => ({ id: s.id, name: s.name }))}

@@ -1,6 +1,5 @@
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { getPlanInfo } from '@/features/billing/server/entitlements';
 
 /**
  * Feature flags do Nexa — cada fase grande (Community: feed, comunidades,
@@ -41,12 +40,6 @@ export const getFeatureFlags = cache(async (): Promise<Record<FeatureFlagKey, bo
     }
   }
 
-  // Nexa Escolas não inclui o Vestibular: para conta ou endereço de escola, as duas chaves ficam desligadas
-  // (as telas do Vestibular já mandam para o início quando a chave está desligada).
-  if ((await getPlanInfo()).plan === 'school') {
-    flags.vestibular_enabled = false;
-    flags.enem_enabled = false;
-  }
   return flags;
 });
 

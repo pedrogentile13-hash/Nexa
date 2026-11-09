@@ -22,7 +22,7 @@ Os números (limites por plano, preços exibidos) ficam em `src/features/billing
 | | Escola | Grátis | Plus | Pro |
 |---|---|---|---|---|
 | Materiais na Biblioteca | 30 | 10 | 60 | 300 |
-| Limite diário de IA | ×1 | ×1 | ×3 | ×8 |
+| Limite diário de IA | ×1 | ×1 | ×3 | ×5 |
 | Anúncios | não | sim | não | não |
 
 ## Stripe
