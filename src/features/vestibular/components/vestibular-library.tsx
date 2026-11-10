@@ -47,7 +47,7 @@ export function VestibularLibrary({ items, coverByBanca }: { items: LibraryItem[
           className="pointer-events-none absolute inset-0 opacity-20"
           style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '28px 28px', maskImage: 'linear-gradient(to bottom right, #000, transparent 70%)' }}
         />
-        <p className="relative text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">Biblioteca do Vestibular</p>
+        <p className="relative text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">Banco de provas</p>
         <h2 className="relative mt-2 max-w-xl text-2xl leading-tight font-black md:text-3xl">Tudo o que cai na prova, numa estante só.</h2>
         <p className="relative mt-2 max-w-xl text-sm leading-relaxed text-white/75">
           Simulados no estilo de cada banca, cadernos oficiais com gabarito, quizzes e resumos. Escolha a banca e comece.

@@ -12,7 +12,6 @@ import {
   Newspaper,
   BookMarked,
   Library,
-  LibraryBig,
   Route as RouteIcon,
   RotateCcw,
   Shield,
@@ -94,7 +93,6 @@ const ANNOUNCEMENTS_ITEM: NavItem = { href: '/avisos', label: 'Avisos', Icon: Me
 const VESTIBULAR_PRIMARY_ITEMS: NavItem[] = [
   { href: '/vestibular', label: 'Início', Icon: Home },
   { href: '/vestibular/plano', label: 'Plano de estudo', Icon: RouteIcon },
-  { href: '/vestibular/biblioteca', label: 'Biblioteca', Icon: LibraryBig },
   { href: '/vestibular/provas', label: 'Banco de provas', Icon: Library },
   { href: '/vestibular/questoes', label: 'Treinar questões', Icon: ClipboardCheck },
   { href: '/vestibular/redacao/temas', label: 'Banco de temas', Icon: BookMarked },

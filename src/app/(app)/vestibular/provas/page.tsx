@@ -1,16 +1,18 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ArrowRight, ClipboardCheck } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
-import { ExamBank } from '@/features/vestibular/components/exam-bank';
-import { buildExamBank } from '@/features/vestibular/lib/exam-bank';
+import { VestibularLibrary } from '@/features/vestibular/components/vestibular-library';
+import { buildLibrary } from '@/features/vestibular/lib/library';
 import { listExamEditions, listExamFiles, listVestibularResources } from '@/features/vestibular/server/queries';
 import { isFeatureEnabled } from '@/lib/feature-flags';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
   title: 'Banco de provas',
-  description: 'Provas anteriores dos principais vestibulares e simulados inspirados.',
+  description: 'Provas anteriores, cadernos oficiais e simulados no estilo de cada banca.',
 };
 
 export const dynamic = 'force-dynamic';
@@ -20,20 +22,32 @@ export default async function BancoDeProvasPage() {
   if (!user) redirect('/login');
   if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
 
-  const [resources, editions, files] = await Promise.all([listVestibularResources(), listExamEditions(), listExamFiles()]);
+  const [resources, editions, files] = await Promise.all([listVestibularResources({}, 200), listExamEditions(), listExamFiles()]);
   const fileCounts: Record<string, number> = {};
   for (const f of files) fileCounts[f.editionId] = (fileCounts[f.editionId] ?? 0) + 1;
-  const items = buildExamBank(resources, editions, fileCounts);
+
+  const items = buildLibrary(resources, editions, fileCounts);
+  const coverByBanca: Record<string, string | null> = {};
+  for (const e of editions) coverByBanca[e.examName.toUpperCase()] ??= e.coverUrl;
 
   return (
     <>
-      <AppHeader title="Banco de provas" subtitle="ENEM, FUVEST, UNESP e mais" />
-      <PageMain className="pt-4 md:pt-6">
-        <p className="text-muted mb-5 max-w-2xl text-sm leading-relaxed">
-          Resolva a prova inteira, na ordem original, com cronômetro e correção. As provas anteriores entram
-          conforme são revisadas; os simulados inspirados seguem o estilo de cada vestibular.
-        </p>
-        <ExamBank items={items} />
+      <AppHeader title="Banco de provas" subtitle="ENEM, FUVEST, UNICAMP, UNESP e mais" />
+      <PageMain className="space-y-5 pt-4 md:pt-6">
+        <Link
+          href="/vestibular/questoes"
+          className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-2xl border p-4 transition-colors"
+        >
+          <span className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-xl">
+            <ClipboardCheck className="size-5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 text-sm">
+            <span className="block font-semibold">Quer treinar por matéria ou assunto?</span>
+            <span className="text-muted block">Questões avulsas das provas, com correção na hora.</span>
+          </span>
+          <ArrowRight className="text-muted size-4 shrink-0" aria-hidden />
+        </Link>
+        <VestibularLibrary items={items} coverByBanca={coverByBanca} />
       </PageMain>
     </>
   );

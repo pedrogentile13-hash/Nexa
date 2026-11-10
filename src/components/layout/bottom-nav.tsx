@@ -27,7 +27,6 @@ import {
   X,
   BookMarked,
   Library,
-  LibraryBig,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { resolveActivePlatform } from './platform-switcher';
@@ -94,7 +93,6 @@ const VESTIBULAR_FIXED_ITEMS = [
  * "Erros", que são as duas telas que alguém em preparação abre todo dia.
  */
 const VESTIBULAR_MORE_ITEMS = [
-  { href: '/vestibular/biblioteca', label: 'Biblioteca', Icon: LibraryBig },
   { href: '/vestibular/plano', label: 'Plano de estudo', Icon: RouteIcon },
   { href: '/vestibular/redacao', label: 'Minhas redações', Icon: PenLine },
   { href: '/vestibular/redacao/temas', label: 'Banco de temas', Icon: BookMarked },
