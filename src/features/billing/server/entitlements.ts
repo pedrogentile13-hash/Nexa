@@ -10,6 +10,15 @@ export interface PlanInfo extends Entitlements {
   interval: 'month' | 'year' | null;
 }
 
+/** Contas com Nexa Pro de cortesia. Troque por `NEXA_PRO_FREE_EMAILS` (e-mails separados por vírgula) sem mexer no código. */
+const DEFAULT_PRO_EMAILS = ['pedrogentile13@gmail.com'];
+
+export function isComplimentaryPro(email: string | null | undefined, env = process.env.NEXA_PRO_FREE_EMAILS): boolean {
+  if (!email) return false;
+  const list = env?.trim() ? env.split(',') : DEFAULT_PRO_EMAILS;
+  return list.some((e) => e.trim().toLowerCase() === email.trim().toLowerCase());
+}
+
 const NO_SUB = { status: null, periodEnd: null, cancelAtPeriodEnd: false, interval: null } as const;
 
 /**
@@ -29,15 +38,12 @@ export const getPlanInfo = cache(async (): Promise<PlanInfo> => {
     const row = data?.[0];
     if (error || !row) return { ...FALLBACK_ENTITLEMENTS, ...NO_SUB };
 
-    // Administrador geral: tem o Nexa Pro de cortesia (sem cobrança, sem tela de assinatura). Escola continua sendo escola.
+    // Nexa Pro de cortesia: só para as contas da lista (sem cobrança, sem tela de assinatura). Escola continua sendo escola.
     if (parsePlan(row.plan) !== 'school') {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-        if (profile?.role === 'admin') return { ...entitlementsFor('pro'), billingVisible: false, ...NO_SUB };
-      }
+      if (isComplimentaryPro(user?.email)) return { ...entitlementsFor('pro'), billingVisible: false, ...NO_SUB };
     }
     return {
       ...entitlementsFor(parsePlan(row.plan)),
