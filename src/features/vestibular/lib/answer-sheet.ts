@@ -36,13 +36,17 @@ export function parseAnswerKeyText(text: string): { entries: KeyEntry[]; ignored
   return { entries, ignored: 0 };
 }
 
-/** Confere se a lista cobre 1..N sem buracos. Devolve os números que faltam. */
+/**
+ * Confere se a lista cobre a faixa do primeiro ao último número sem buracos. Devolve os que faltam.
+ * A faixa pode começar em qualquer número: o 2º dia do ENEM vai de 91 a 180.
+ */
 export function missingNumbers(entries: readonly KeyEntry[]): number[] {
   if (entries.length === 0) return [];
   const have = new Set(entries.map((e) => e.number));
+  const min = Math.min(...have);
   const max = Math.max(...have);
   const missing: number[] = [];
-  for (let n = 1; n <= max; n++) if (!have.has(n)) missing.push(n);
+  for (let n = min; n <= max; n++) if (!have.has(n)) missing.push(n);
   return missing;
 }
 

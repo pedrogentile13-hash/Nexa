@@ -7,7 +7,8 @@ import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { AnswerSheet } from '@/features/vestibular/components/answer-sheet';
 import { getKeyVariants, getSheetLayout } from '@/features/vestibular/server/answer-sheet';
-import { getExamEdition } from '@/features/vestibular/server/queries';
+import { pairingKey } from '@/features/vestibular/lib/classify-file';
+import { getExamEdition, listExamFiles } from '@/features/vestibular/server/queries';
 import { isFeatureEnabled } from '@/lib/feature-flags';
 import { getCurrentUser } from '@/lib/supabase/server';
 
@@ -30,6 +31,9 @@ export default async function FazerProvaPage({ params, searchParams }: { params:
   const chosen = named.some((v) => v.variant === caderno) ? (caderno ?? '') : named.length === 1 ? named[0]!.variant : '';
   const needsPick = named.length > 1 && !chosen;
   const layout = needsPick ? [] : await getSheetLayout(id, chosen);
+  // O caderno de questões da mesma cor (dia + cor): o padrão que liga caderno e gabarito.
+  const files = chosen ? await listExamFiles(id) : [];
+  const notebook = chosen ? files.find((f) => f.kind === 'caderno' && pairingKey(f.label) === pairingKey(chosen)) ?? null : null;
 
   return (
     <>
@@ -67,7 +71,16 @@ export default async function FazerProvaPage({ params, searchParams }: { params:
               <p className="text-muted mb-4 text-sm">
                 Faça a prova no caderno oficial e marque aqui. Toque na letra para marcar e toque de novo para apagar. O Nexa corrige com o gabarito oficial.
               </p>
-              {chosen && <p className="bg-brand-soft text-brand-text mb-4 rounded-xl px-3 py-2 text-sm font-semibold">Caderno: {chosen}</p>}
+              {chosen && (
+                <p className="bg-brand-soft text-brand-text mb-4 flex flex-wrap items-center gap-x-3 rounded-xl px-3 py-2 text-sm font-semibold">
+                  <span>Caderno: {chosen}</span>
+                  {notebook && (
+                    <Link href={`/vestibular/provas/${id}/ler/${notebook.id}` as Route} className="underline underline-offset-2">
+                      Abrir o caderno de questões
+                    </Link>
+                  )}
+                </p>
+              )}
               <AnswerSheet editionId={id} layout={layout} variant={chosen} />
             </>
           )}

@@ -214,3 +214,13 @@ export async function publishVestibularSimulados(): Promise<StudySeedState> {
   revalidatePath('/admin/conteudo');
   return { status: 'done', message: data?.length ? `${data.length} simulados de vestibular publicados.` : 'Não há simulados de vestibular em rascunho.' };
 }
+
+/** Carrega e já publica os simulados de vestibular, de uma vez (atalho para o administrador, direto na Biblioteca). */
+export async function loadAndPublishVestibularSimulados(): Promise<StudySeedState> {
+  const loaded = await loadVestibularSimulados();
+  if (loaded.status !== 'done') return loaded;
+  const published = await publishVestibularSimulados();
+  if (published.status !== 'done') return published;
+  revalidatePath('/vestibular/provas');
+  return { status: 'done', message: `${loaded.message} ${published.message}`.replace('Revise e depois publique.', '').trim() };
+}

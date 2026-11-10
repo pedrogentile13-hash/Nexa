@@ -22,6 +22,10 @@ describe('missingNumbers e applyAreas', () => {
     const { entries } = parseAnswerKeyText('1-A 2-B 4-C');
     expect(missingNumbers(entries)).toEqual([3]);
     expect(missingNumbers([])).toEqual([]);
+    // 2º dia do ENEM: a prova começa na questão 91
+    const day2 = Array.from({ length: 90 }, (_, i) => ({ number: 91 + i, correct: 'A' as const, annulled: false }));
+    expect(missingNumbers(day2)).toEqual([]);
+    expect(missingNumbers(day2.filter((e) => e.number !== 100))).toEqual([100]);
   });
   it('aplica áreas por faixa', () => {
     const { entries } = parseAnswerKeyText('1-A 2-B 3-C');

@@ -124,3 +124,60 @@ export function mergeClassification(fromCover: Classification | null, fileName: 
   const notebook = base.notebook ?? hints.notebook ?? null;
   return { exam, year, kind, stage, notebook, color: base.color, label: buildLabel({ stage, notebook, color: base.color, kind }), confidence: fromCover ? base.confidence : 'baixa' };
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+ * Padrão que liga CADERNO ↔ GABARITO: o par é dia/fase + cor ("1º dia · Amarelo"). O número do caderno ajuda a
+ * achar o arquivo, mas a cor é o que o aluno vê na capa do caderno dele, então é a cor que manda.
+ * ------------------------------------------------------------------------------------------------------------- */
+
+/** "1° dia", "Dia 1", "primeiro dia", "2ª fase", "Fase 2" → "1º dia" / "2ª fase". Outros textos ficam como vieram. */
+export function normalizeStage(raw: string | null | undefined): string | null {
+  const s = (raw ?? '').trim();
+  if (!s) return null;
+  const lower = s.toLowerCase();
+  const num = /(\d)/.exec(lower)?.[1] ?? (/primeir/.test(lower) ? '1' : /segund/.test(lower) ? '2' : null);
+  if (num && /dia/.test(lower)) return `${num}º dia`;
+  if (num && /fase/.test(lower)) return `${num}ª fase`;
+  return s;
+}
+
+export function variantFromParts(stage: string | null | undefined, color: string | null | undefined): string {
+  const st = normalizeStage(stage);
+  const c = (color ?? '').trim();
+  return [st, c ? title(c) : null].filter(Boolean).join(' · ');
+}
+
+/** Tira dia/fase e cor de um nome como "1º dia · Caderno 2 · Amarelo". Sem cor nem etapa, devolve vazio. */
+function partsOf(label: string): { stage: string | null; color: string | null } {
+  const parts = label.split(/[·|]/).map((p) => p.trim()).filter(Boolean);
+  const stage = parts.find((p) => /\b(dia|fase)\b/i.test(p)) ?? null;
+  const colorPart = parts.find((p) => COLORS.some((c) => p.toLowerCase() === c || p.toLowerCase().endsWith(` ${c}`)));
+  const color = colorPart ? (COLORS.find((c) => colorPart.toLowerCase().includes(c)) ?? null) : null;
+  return { stage, color };
+}
+
+export function variantFromLabel(label: string): string {
+  const { stage, color } = partsOf(label);
+  return variantFromParts(stage, color);
+}
+
+/**
+ * Chave de pareamento caderno ↔ gabarito: dia+cor quando o nome traz a cor; sem cor, o próprio nome
+ * (assim "Caderno 1" e "Caderno 2" do mesmo dia não se misturam).
+ */
+export function pairingKey(label: string): string {
+  const { stage, color } = partsOf(label);
+  return (color ? variantFromParts(stage, color) : label).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/** Áreas do ENEM para os números presentes (1-45 Linguagens, 46-90 Humanas, 91-135 Natureza, 136-180 Matemática). */
+export function enemAreasFor(numbers: readonly number[]): string {
+  const bands: [number, number, string][] = [
+    [1, 45, 'Linguagens'],
+    [46, 90, 'Ciências Humanas'],
+    [91, 135, 'Ciências da Natureza'],
+    [136, 180, 'Matemática'],
+  ];
+  const have = new Set(numbers);
+  return bands.filter(([a, b]) => numbers.some((n) => n >= a && n <= b) || (have.size === 0 && a === 1 && b === 45)).map(([a, b, name]) => `${a}-${b} ${name}`).join(', ');
+}

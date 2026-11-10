@@ -4,8 +4,8 @@ import { useRef, useState, useTransition } from 'react';
 import { CheckCircle2, FileUp, Loader2, Sparkles, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { EXAM_NAMES, EXAM_SLUGS, type ExamSlug } from '@/features/vestibular/lib/classify-file';
-import { classifyUploadedFile, registerClassifiedFiles } from '../server/exam-file-bulk-actions';
+import { EXAM_NAMES, EXAM_SLUGS, variantFromLabel, type ExamSlug } from '@/features/vestibular/lib/classify-file';
+import { classifyUploadedFile, readUploadedKey, registerClassifiedFiles } from '../server/exam-file-bulk-actions';
 
 type Status = 'uploading' | 'reading' | 'ready' | 'error' | 'saved';
 
@@ -20,6 +20,11 @@ interface Row {
   label: string;
   confidence: 'alta' | 'media' | 'baixa' | null;
   note: string | null;
+  /** Só gabarito: caderno (dia + cor), respostas lidas e áreas. */
+  variant: string;
+  answers: string;
+  areas: string;
+  keyNote: string | null;
 }
 
 const MAX_FILES = 40;
@@ -55,9 +60,25 @@ export function ExamFileBulk() {
       const r = await classifyUploadedFile(path, file.name);
       if (!r.ok) return patch(id, { status: 'error', note: r.message });
       const c = r.classification;
-      patch(id, { status: 'ready', exam: c.exam ?? '', year: c.year ? String(c.year) : '', kind: c.kind, label: c.label, confidence: c.confidence, note: r.note });
+      patch(id, { status: 'ready', exam: c.exam ?? '', year: c.year ? String(c.year) : '', kind: c.kind, label: c.label, confidence: c.confidence, note: r.note, variant: variantFromLabel(c.label) });
+      if (c.kind === 'gabarito') await readKey(id, path);
     } catch {
       patch(id, { status: 'error', note: 'Não consegui ler a capa agora. Tente de novo.' });
+    }
+  }
+
+  async function readKey(id: string, path: string) {
+    patch(id, { keyNote: 'Lendo as respostas…' });
+    try {
+      const k = await readUploadedKey(path);
+      if (!k.ok) return patch(id, { keyNote: k.message, answers: '' });
+      patch(id, {
+        answers: k.text,
+        areas: k.areas,
+        keyNote: `${k.count} respostas lidas (questões ${k.first} a ${k.last}, ${k.source}).${k.missing.length ? ` Faltam: ${k.missing.slice(0, 10).join(', ')}.` : ''}`,
+      });
+    } catch {
+      patch(id, { keyNote: 'Não consegui ler as respostas agora.', answers: '' });
     }
   }
 
@@ -73,7 +94,7 @@ export function ExamFileBulk() {
     }
     const created: { row: Row; file: File }[] = ok.map((file) => ({
       file,
-      row: { id: crypto.randomUUID(), name: file.name, status: 'uploading', path: '', exam: '', year: '', kind: 'caderno', label: '', confidence: null, note: null },
+      row: { id: crypto.randomUUID(), name: file.name, status: 'uploading', path: '', exam: '', year: '', kind: 'caderno', label: '', confidence: null, note: null, variant: '', answers: '', areas: '', keyNote: null },
     }));
     setRows((all) => [...all, ...created.map((c) => c.row)]);
     setBusy(true);
@@ -92,7 +113,9 @@ export function ExamFileBulk() {
 
   function saveAll() {
     setMessage(null);
-    const items = ready.filter((r) => !incomplete(r)).map((r) => ({ path: r.path, exam: r.exam, year: Number(r.year), kind: r.kind, label: r.label.trim() }));
+    const items = ready
+      .filter((r) => !incomplete(r))
+      .map((r) => ({ path: r.path, exam: r.exam, year: Number(r.year), kind: r.kind, label: r.label.trim(), ...(r.kind === 'gabarito' ? { variant: r.variant.trim(), answers: r.answers, areas: r.areas } : {}) }));
     if (items.length === 0) return setMessage('Complete a prova, o ano e o nome dos arquivos marcados.');
     startSave(async () => {
       const results = await registerClassifiedFiles(items);
@@ -145,6 +168,20 @@ export function ExamFileBulk() {
                     <option value="gabarito">Gabarito</option>
                   </select>
                   <input aria-label="Nome" maxLength={160} value={r.label} disabled={r.status === 'saved'} onChange={(e) => patch(r.id, { label: e.target.value })} className={field} />
+                </div>
+              )}
+              {r.kind === 'gabarito' && (r.status === 'ready' || r.status === 'saved') && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs">
+                    <span className="text-muted font-semibold">Caderno (dia + cor) deste gabarito — é o que liga ao caderno de questões</span>
+                    <input value={r.variant} disabled={r.status === 'saved'} maxLength={60} onChange={(e) => patch(r.id, { variant: e.target.value })} placeholder="1º dia · Azul" className={`${field} mt-1 w-full`} />
+                  </label>
+                  {r.keyNote && <p className={`text-xs ${r.answers ? 'text-muted' : 'text-danger'}`}>{r.keyNote}</p>}
+                  {!r.answers && r.status === 'ready' && (
+                    <button type="button" onClick={() => void readKey(r.id, r.path)} className="border-border rounded-full border px-3 py-1.5 text-xs font-semibold">
+                      Ler as respostas de novo
+                    </button>
+                  )}
                 </div>
               )}
               {r.confidence === 'baixa' && r.status === 'ready' && <p className="text-warning text-xs">Confiança baixa: confira com atenção.</p>}

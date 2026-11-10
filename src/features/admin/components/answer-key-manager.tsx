@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { AlertTriangle, CheckCircle2, FileSearch, Loader2, Save, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AREA_PRESETS } from '@/features/vestibular/lib/answer-sheet';
+import { variantFromLabel } from '@/features/vestibular/lib/classify-file';
 import { deleteAnswerKey, previewAnswerKey, previewAnswerKeyUpload, saveAnswerKey } from '../server/answer-key-actions';
 
 export interface KeyEdition {
@@ -56,7 +57,7 @@ function EditionKey({ edition }: { edition: KeyEdition }) {
     setFileId(id);
     // O nome do arquivo costuma trazer a cor ("1º dia · Caderno 2 · Amarelo"): já sugere como nome do caderno.
     const label = edition.gabaritoFiles.find((f) => f.id === id)?.label ?? '';
-    if (label && !variant) setVariant(label);
+    if (label && !variant) setVariant(variantFromLabel(label) || label);
   }
 
   function read() {

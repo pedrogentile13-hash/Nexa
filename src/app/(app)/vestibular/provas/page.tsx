@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation';
 import { ArrowRight, ClipboardCheck } from 'lucide-react';
 import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
+import { SimuladoSeedBanner } from '@/features/vestibular/components/simulado-seed-banner';
+import { SIMULADOS_VESTIBULAR, VEST_TAG } from '@/features/content/seed/vestibular';
+import { createClient } from '@/lib/supabase/server';
 import { VestibularLibrary } from '@/features/vestibular/components/vestibular-library';
 import { buildLibrary } from '@/features/vestibular/lib/library';
 import { listExamEditions, listExamFiles, listVestibularResources } from '@/features/vestibular/server/queries';
@@ -33,6 +36,17 @@ export default async function BancoDeProvasPage() {
   const fileCounts: Record<string, number> = {};
   for (const f of files) fileCounts[f.editionId] = (fileCounts[f.editionId] ?? 0) + 1;
 
+  // Administrador: quantos simulados do Nexa já estão publicados (se faltar, aparece o botão para carregar).
+  const supabase = await createClient();
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  let seedBanner: { published: number; drafts: number } | null = null;
+  if (me?.role === 'admin') {
+    const count = async (published: boolean) =>
+      (await supabase.from('resources').select('id', { count: 'exact', head: true }).contains('tags', [VEST_TAG]).eq('is_published', published)).count ?? 0;
+    const [published, drafts] = await Promise.all([count(true), count(false)]);
+    if (published < SIMULADOS_VESTIBULAR.length) seedBanner = { published, drafts };
+  }
+
   const items = buildLibrary(resources, editions, fileCounts);
   const coverByBanca: Record<string, string | null> = {};
   for (const e of editions) coverByBanca[e.examName.toUpperCase()] ??= e.coverUrl;
@@ -54,6 +68,7 @@ export default async function BancoDeProvasPage() {
           </span>
           <ArrowRight className="text-muted size-4 shrink-0" aria-hidden />
         </Link>
+        {seedBanner && <SimuladoSeedBanner published={seedBanner.published} drafts={seedBanner.drafts} expected={SIMULADOS_VESTIBULAR.length} />}
         <VestibularLibrary items={items} coverByBanca={coverByBanca} />
       </PageMain>
     </>

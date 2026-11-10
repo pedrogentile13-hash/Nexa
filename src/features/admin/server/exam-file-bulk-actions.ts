@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
 import { fetchExamFile } from '@/features/vestibular/server/fetch-exam-file';
-import { CLASSIFY_PROMPT, EXAM_SLUGS, mergeClassification, parseClassification, type Classification } from '@/features/vestibular/lib/classify-file';
+import { CLASSIFY_PROMPT, EXAM_SLUGS, enemAreasFor, mergeClassification, parseClassification, type Classification } from '@/features/vestibular/lib/classify-file';
+import { persistAnswerKey, readKey } from './answer-key-store';
 import { requireAccess } from './guard';
 
 const PATH = '/admin/arquivos-provas';
@@ -63,12 +64,34 @@ export async function classifyUploadedFile(path: string, fileName: string): Prom
   return { ok: true, classification: mergeClassification(fromCover, fileName), note };
 }
 
+export type UploadedKeyResult =
+  | { ok: true; text: string; count: number; first: number; last: number; missing: number[]; source: string; areas: string }
+  | { ok: false; message: string };
+
+/** Lê as RESPOSTAS de um gabarito já enviado (texto do PDF ou IA). Serve o envio em massa: o gabarito cai pronto, no caderno certo. */
+export async function readUploadedKey(path: string): Promise<UploadedKeyResult> {
+  await requireAccess(PATH);
+  if (!STORAGE_PATH.test(path)) return { ok: false, message: 'Arquivo inválido.' };
+  const url = publicUrl(path);
+  if (!url) return { ok: false, message: 'O endereço do Supabase não está configurado.' };
+  const downloaded = await fetchExamFile(url, MAX_ATTACH_BYTES);
+  if (!downloaded.ok) return { ok: false, message: downloaded.message };
+  const r = await readKey(downloaded.data, downloaded.mime);
+  if (!r.ok) return r;
+  const numbers = Array.from({ length: r.last - r.first + 1 }, (_, i) => r.first + i);
+  return { ok: true, text: r.text, count: r.count, first: r.first, last: r.last, missing: r.missing, source: r.source, areas: enemAreasFor(numbers) };
+}
+
 const itemSchema = z.object({
   path: z.string().regex(STORAGE_PATH),
   exam: z.enum(EXAM_SLUGS),
   year: z.number().int().min(2000).max(2100),
   kind: z.enum(['caderno', 'gabarito']),
   label: z.string().trim().min(2).max(160),
+  /** Só gabarito: nome do caderno (dia + cor) e as respostas lidas, para salvar o gabarito digital junto. */
+  variant: z.string().trim().max(60).optional(),
+  answers: z.string().max(20_000).optional(),
+  areas: z.string().max(400).optional(),
 });
 
 export type RegisterItemResult = { path: string; ok: boolean; message: string };
@@ -119,7 +142,18 @@ export async function registerClassifiedFiles(items: unknown): Promise<RegisterI
     const { error } = await supabase
       .from('exam_files')
       .insert({ exam_edition_id: editionId, kind: d.kind, label: d.label, url, source: 'Enviado ao Nexa', is_published: true, sort_order: d.kind === 'caderno' ? 10 : 11 });
-    results.push({ path: d.path, ok: !error, message: error ? (error.code === '23505' ? 'Já cadastrado.' : 'Não consegui salvar.') : 'Cadastrado.' });
+    if (error && error.code !== '23505') {
+      results.push({ path: d.path, ok: false, message: 'Não consegui salvar.' });
+      continue;
+    }
+    let message = error ? 'Arquivo já cadastrado.' : 'Cadastrado.';
+    let ok = true;
+    if (d.kind === 'gabarito' && d.answers?.trim()) {
+      const key = await persistAnswerKey(supabase, editionId, d.variant ?? '', d.answers, d.areas ?? '');
+      ok = key.ok;
+      message = `${message} ${key.message}`;
+    }
+    results.push({ path: d.path, ok, message });
   }
 
   revalidatePath(PATH);
