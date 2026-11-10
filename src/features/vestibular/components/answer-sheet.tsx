@@ -6,6 +6,7 @@ import type { Route } from 'next';
 import { Camera, CheckCircle2, Loader2, Send, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { WhiteboardButton, useWhiteboardStore } from '@/components/whiteboard/whiteboard';
 import { LETTERS, answersToPayload, formatElapsed, groupByArea, type AnswerMap, type Letter } from '../lib/answer-sheet';
 import { readAnswerSheetPhoto, submitAnswerSheet } from '../server/answer-sheet-actions';
 
@@ -20,6 +21,7 @@ interface Question {
  * A correção é feita no servidor com o gabarito oficial: o app nunca tem as respostas certas.
  */
 export function AnswerSheet({ editionId, layout }: { editionId: string; layout: Question[] }) {
+  const whiteboards = useWhiteboardStore();
   const router = useRouter();
   const storageKey = `nx_sheet_${editionId}`;
   const [answers, setAnswers] = useState<AnswerMap>({});
@@ -171,6 +173,7 @@ export function AnswerSheet({ editionId, layout }: { editionId: string; layout: 
             <CheckCircle2 className="mr-1 inline size-4" aria-hidden />
             {marked}/{layout.length}
           </span>
+          <WhiteboardButton boardKey="prova" label="Rascunho da prova" store={whiteboards} className="size-11 shadow-none" />
           <Button type="button" onClick={() => void send()} disabled={busy !== null || marked === 0}>
             {busy === 'send' ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />} Corrigir
           </Button>

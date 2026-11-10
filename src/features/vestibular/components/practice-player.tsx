@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { WhiteboardButton, useWhiteboardStore } from '@/components/whiteboard/whiteboard';
 import { answerPracticeQuestion, finishPracticeSession } from '../server/practice-actions';
 import type { PracticeQuestion } from '../server/practice-queries';
 
@@ -52,6 +53,7 @@ export function PracticePlayer({
   const [pendingQuestionId, setPendingQuestionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [finishing, startFinishing] = useTransition();
+  const whiteboards = useWhiteboardStore();
 
   // Tempo por questão: zera toda vez que a questão na tela muda.
   const enteredAt = useRef(Date.now());
@@ -228,6 +230,14 @@ export function PracticePlayer({
           </p>
         )}
       </div>
+
+      <WhiteboardButton
+        boardKey={current.questionId}
+        label={`Questão ${index + 1}`}
+        statement={current.statement}
+        store={whiteboards}
+        className="pb-safe fixed right-4 bottom-[calc(5.25rem_+_env(safe-area-inset-bottom))] z-40 md:bottom-6"
+      />
 
       <div className="flex items-center gap-2">
         <Button

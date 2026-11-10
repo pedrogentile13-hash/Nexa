@@ -23,6 +23,7 @@ import { StudyTopBar } from './study-top-bar';
 import { QuestionAssets } from './question-assets';
 import { WritingTaskRunner } from './writing-task-runner';
 import { CalculatorDialog } from './calculator-dialog';
+import { WhiteboardButton, useWhiteboardStore } from '@/components/whiteboard/whiteboard';
 import { clockTime, humanDuration } from '../lib/format';
 import { getQuestionHint } from '../server/hint-actions';
 import { HINT_XP_COST, MAX_HINT_LEVEL } from '../lib/hint-prompt';
@@ -91,6 +92,7 @@ export function QuizRunner({
   const [phase, setPhase] = useState<Phase>('intro');
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [calcOpen, setCalcOpen] = useState(false);
+  const whiteboards = useWhiteboardStore();
   const [index, setIndex] = useState(0);
   const [writingIndex, setWritingIndex] = useState(0);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -739,6 +741,13 @@ export function QuizRunner({
       </aside>
       </div>
 
+      <WhiteboardButton
+        boardKey={question.question_id}
+        label={`Questão ${index + 1}`}
+        statement={question.statement}
+        store={whiteboards}
+        className={cn('pb-safe fixed bottom-[calc(5.25rem_+_env(safe-area-inset-bottom))] z-40 md:bottom-20', settings.calculatorAllowed ? 'right-20' : 'right-4')}
+      />
       {settings.calculatorAllowed && (
         <button
           type="button"
