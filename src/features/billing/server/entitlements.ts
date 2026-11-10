@@ -28,6 +28,17 @@ export const getPlanInfo = cache(async (): Promise<PlanInfo> => {
     const { data, error } = await supabase.rpc('my_plan');
     const row = data?.[0];
     if (error || !row) return { ...FALLBACK_ENTITLEMENTS, ...NO_SUB };
+
+    // Administrador geral: tem o Nexa Pro de cortesia (sem cobrança, sem tela de assinatura). Escola continua sendo escola.
+    if (parsePlan(row.plan) !== 'school') {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        if (profile?.role === 'admin') return { ...entitlementsFor('pro'), billingVisible: false, ...NO_SUB };
+      }
+    }
     return {
       ...entitlementsFor(parsePlan(row.plan)),
       status: row.status,

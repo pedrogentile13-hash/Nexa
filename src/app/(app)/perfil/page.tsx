@@ -140,7 +140,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           </CardContent>
         </Card>
 
-        {(plan.plan === 'plus' || plan.plan === 'pro') && (
+        {plan.billingVisible && (plan.plan === 'plus' || plan.plan === 'pro') && (
           <Link
             href="/perfil?aba=assinatura"
             className="bg-brand-soft text-brand-text flex items-center gap-3 rounded-3xl px-5 py-4 text-sm font-semibold lg:col-span-2"
