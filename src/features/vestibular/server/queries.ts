@@ -125,6 +125,7 @@ export interface VestibularResourceFilters {
 
 export async function listVestibularResources(
   filters: VestibularResourceFilters = {},
+  limit?: number,
 ): Promise<VestibularResource[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('list_vestibular_resources', {
@@ -132,6 +133,7 @@ export async function listVestibularResources(
     p_year: filters.year ?? null,
     p_subject_catalog_id: filters.subjectCatalogId ?? null,
     p_kind: filters.kind ?? null,
+    ...(limit ? { p_limit: limit } : {}),
   });
   if (error || !data) return [];
 
