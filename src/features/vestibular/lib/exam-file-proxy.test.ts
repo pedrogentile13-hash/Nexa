@@ -52,3 +52,15 @@ describe('safeFilename', () => {
     expect(safeFilename('   ')).toBe('prova.pdf');
   });
 });
+
+import { explainUpstreamStatus as explain } from './exam-file-proxy';
+
+describe('explainUpstreamStatus', () => {
+  it('diz o motivo de cada tipo de falha', () => {
+    expect(explain(404)).toMatch(/endereço cadastrado está errado/);
+    expect(explain(403)).toMatch(/recusou o acesso do servidor/);
+    expect(explain(429)).toMatch(/limitou/);
+    expect(explain(503)).toMatch(/problema agora \(503\)/);
+    expect(explain(418)).toMatch(/418/);
+  });
+});

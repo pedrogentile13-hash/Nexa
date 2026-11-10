@@ -78,3 +78,12 @@ export function safeFilename(label: string, fallback = 'prova'): string {
     .slice(0, 80);
   return `${base || fallback}.pdf`;
 }
+
+/** Explica, em português, por que o site oficial não entregou o arquivo (para o aluno e para o administrador). */
+export function explainUpstreamStatus(status: number): string {
+  if (status === 404 || status === 410) return 'O site oficial respondeu "não encontrado" (404): o endereço cadastrado está errado ou o arquivo saiu do ar.';
+  if (status === 401 || status === 403) return 'O site oficial recusou o acesso do servidor do Nexa (403). Hospede o PDF no Nexa (envio de arquivo) ou use "Abrir no site oficial".';
+  if (status === 429) return 'O site oficial limitou os acessos (429). Tente de novo em alguns minutos.';
+  if (status >= 500) return `O site oficial está com problema agora (${status}). Tente de novo mais tarde.`;
+  return `O site oficial respondeu com o código ${status}.`;
+}

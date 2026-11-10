@@ -4,6 +4,7 @@ import {
   allowedHosts,
   checkExamFileUrl,
   MAX_EXAM_FILE_BYTES,
+  explainUpstreamStatus,
   safeFilename,
 } from '@/features/vestibular/lib/exam-file-proxy';
 
@@ -67,8 +68,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
     break;
   }
-  if (!target || !upstream) return fail('Não consegui abrir este arquivo.', 502);
-  if (upstream.status !== 200 && upstream.status !== 206) return fail('O site oficial não entregou o arquivo.', 502);
+  if (!target || !upstream) return fail('O endereço cadastrado não é permitido ou redirecionou para fora da lista de sites oficiais.', 502);
+  if (upstream.status !== 200 && upstream.status !== 206) return fail(explainUpstreamStatus(upstream.status), 502);
 
   const type = upstream.headers.get('content-type') ?? '';
   if (!/pdf|octet-stream/i.test(type)) return fail('O endereço cadastrado não é um PDF.', 502);

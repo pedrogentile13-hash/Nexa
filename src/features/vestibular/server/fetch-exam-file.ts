@@ -1,4 +1,4 @@
-import { allowedHosts, checkExamFileUrl } from '../lib/exam-file-proxy';
+import { allowedHosts, checkExamFileUrl, explainUpstreamStatus } from '../lib/exam-file-proxy';
 
 const MAX_REDIRECTS = 3;
 
@@ -23,7 +23,7 @@ export async function fetchExamFile(url: string, maxBytes = 15 * 1024 * 1024): P
       target = next ? checkExamFileUrl(new URL(next, target).toString(), hosts, production) : null;
       continue;
     }
-    if (res.status !== 200) return { ok: false, message: 'O site oficial não entregou o arquivo.' };
+    if (res.status !== 200) return { ok: false, message: explainUpstreamStatus(res.status) };
     const length = Number(res.headers.get('content-length') ?? '0');
     if (length > maxBytes) return { ok: false, message: 'Arquivo grande demais para a IA ler.' };
     const data = Buffer.from(await res.arrayBuffer());

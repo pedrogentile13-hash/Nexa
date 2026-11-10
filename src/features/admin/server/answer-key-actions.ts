@@ -14,6 +14,15 @@ export type KeySaved = { ok: true; message: string } | { ok: false; message: str
 
 const editionSchema = z.string().uuid();
 
+/** Traduz o erro do banco: o mais comum é o SQL do cartão-resposta ainda não ter sido rodado. */
+function dbProblem(error: { code?: string; message: string }): string {
+  if (error.code === '42P01' || /exam_answer_keys/i.test(error.message) && /does not exist|schema cache|could not find/i.test(error.message)) {
+    return 'O banco ainda não tem a tabela de gabaritos. Rode o SQL do cartão-resposta (migration 20261109000600) no Supabase e tente de novo.';
+  }
+  if (error.code === '42501') return 'Sem permissão para salvar. Entre com a conta de administrador geral.';
+  return `Não consegui salvar: ${error.message}`;
+}
+
 /**
  * Lê o gabarito oficial cadastrado para a edição (arquivo do tipo "gabarito"): primeiro o texto do PDF, que é exato;
  * se não vier texto suficiente (PDF escaneado), a IA lê a imagem. O resultado é só uma PRÉVIA em texto: o administrador
@@ -76,11 +85,11 @@ export async function saveAnswerKey(editionId: string, text: string, areas: stri
 
   const supabase = await createClient();
   const removed = await supabase.from('exam_answer_keys').delete().eq('exam_edition_id', editionId);
-  if (removed.error) return { ok: false, message: 'Não consegui salvar (sem permissão ou erro do banco).' };
+  if (removed.error) return { ok: false, message: dbProblem(removed.error) };
   const { error } = await supabase.from('exam_answer_keys').insert(
     entries.map((e) => ({ exam_edition_id: editionId, number: e.number, correct: e.correct, annulled: e.annulled, area: e.area ?? null })),
   );
-  if (error) return { ok: false, message: `Não consegui salvar: ${error.message}` };
+  if (error) return { ok: false, message: dbProblem(error) };
 
   revalidatePath('/admin/gabaritos');
   revalidatePath('/vestibular/provas');
