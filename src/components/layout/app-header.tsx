@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { Flame, User } from 'lucide-react';
+import { Coins, Flame, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getNavContext } from '@/lib/supabase/server';
 import { PlatformSwitcher } from './platform-switcher';
 import { getPlanInfo } from '@/features/billing/server/entitlements';
+import { getCoinBalance } from '@/features/billing/server/coins';
 import { HeaderSearchToggle } from './header-search-toggle';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 
@@ -38,6 +39,7 @@ export async function AppHeader({
   // coisa pra montar a navegação, então isto não custa um round-trip novo.
   const { journey, vestibularEnabled } = await getNavContext();
   const schoolAccount = (await getPlanInfo()).plan === 'school';
+  const coins = await getCoinBalance();
   // Conta de escola não tem Vestibular: o seletor de plataforma nem aparece.
 
   return (
@@ -76,6 +78,18 @@ export async function AppHeader({
               {streak}
               <span className="sr-only">dias seguidos de estudo</span>
             </span>
+          )}
+
+          {coins && (
+            <Link
+              href="/perfil"
+              className="bg-surface-2 text-muted hidden items-center gap-1 rounded-full px-2.5 py-1.5 text-sm font-semibold tabular-nums sm:flex"
+              title={`${coins.remaining} Nexa Coins restantes neste mês`}
+            >
+              <Coins className="text-warning size-4" aria-hidden />
+              {coins.remaining.toLocaleString('pt-BR')}
+              <span className="sr-only">Nexa Coins restantes</span>
+            </Link>
           )}
 
           <HeaderSearchToggle />

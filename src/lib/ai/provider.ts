@@ -38,6 +38,8 @@ export interface AICompletionOptions {
   timeoutMs?: number;
   /** Quem está do outro lado: define a trava de escopo. Padrão: aluno. */
   audience?: AIAudience;
+  /** 'pro' usa o modelo avançado (`GEMINI_PRO_MODEL`) — mais caro e mais cuidadoso. Padrão: 'basic'. */
+  tier?: 'basic' | 'pro';
 }
 
 export type AICompletionResult =
@@ -161,6 +163,15 @@ export async function listGeminiModels(apiKey: string): Promise<string[]> {
   }
 }
 
+/** Modelo avançado (correção PRO de redação). Troca por variável, como o básico, sem novo deploy. */
+const GEMINI_PRO_DEFAULT_MODEL = 'gemini-3.8-pro,gemini-3.8-flash';
+
+export function geminiProModels(): string[] {
+  const raw = process.env.GEMINI_PRO_MODEL || GEMINI_PRO_DEFAULT_MODEL;
+  const list = raw.split(',').map((m) => m.trim()).filter(Boolean);
+  return list.length ? list : geminiModels();
+}
+
 export function geminiModels(): string[] {
   const raw = process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
   const list = raw.split(',').map((m) => m.trim()).filter(Boolean);
@@ -214,8 +225,8 @@ export class GeminiProvider implements AIProvider {
    * justamente quando todo mundo migra pra ele; ter um segundo na lista
    * transforma isso de "IA fora do ar" em "respondeu pelo modelo ao lado".
    */
-  private models(): string[] {
-    return this.modelsOverride?.length ? this.modelsOverride : geminiModels();
+  private models(tier: 'basic' | 'pro' = 'basic'): string[] {
+    return this.modelsOverride?.length ? this.modelsOverride : tier === 'pro' ? geminiProModels() : geminiModels();
   }
 
   /**
@@ -231,7 +242,7 @@ export class GeminiProvider implements AIProvider {
     const deadline = Date.now() + total;
     let result: AICompletionResult = { ok: false, reason: 'missing_api_key' };
 
-    const models = this.models();
+    const models = this.models(options.tier);
     for (let m = 0; m < models.length; m += 1) {
       const model = models[m]!;
       if (m > 0 && deadline - Date.now() < 3_000) break;

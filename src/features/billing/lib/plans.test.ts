@@ -16,7 +16,7 @@ describe('entitlementsFor', () => {
     const e = entitlementsFor(p);
     expect(e.adsEnabled).toBe(false);
     expect(e.limits.libraryDocs).toBeGreaterThan(entitlementsFor('free').limits.libraryDocs);
-    expect(e.limits.aiMultiplier).toBeGreaterThan(1);
+    expect(e.limits.coins).toBeGreaterThan(1);
   });
 });
 

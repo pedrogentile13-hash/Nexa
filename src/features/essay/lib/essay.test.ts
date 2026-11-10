@@ -191,3 +191,37 @@ describe('modelo adaptado para outras bancas', () => {
     expect(f.competencies[4]!.name).toBe('Proposta de intervenção');
   });
 });
+
+describe('corretor PRO', () => {
+  const ref = { theme: 'Tema X', essay: 'Texto de referência. '.repeat(30), c1: 200, c2: 200, c3: 160, c4: 200, c5: 200, total: 960, notes: null };
+
+  it('o básico não carrega as regras rígidas; o PRO carrega, com auditoria e calibração', () => {
+    const basic = buildEssayMessages('Tema', 'texto', null, { tier: 'basic', references: [ref] })[1]!.content;
+    expect(basic).not.toMatch(/REGRAS RÍGIDAS/);
+    expect(basic).not.toMatch(/Referência 1/);
+    const pro = buildEssayMessages('Tema', 'texto', null, { tier: 'pro', references: [ref] })[1]!.content;
+    expect(pro).toMatch(/REGRAS RÍGIDAS DO CORRETOR PRO/);
+    expect(pro).toMatch(/"auditoria"/);
+    expect(pro).toMatch(/Referência 1 — tema: Tema X/);
+    expect(pro).toMatch(/total 960/);
+  });
+
+  it('lê a auditoria e o "para subir" só no PRO', () => {
+    const raw = JSON.stringify({
+      competencias: [1, 2, 3, 4, 5].map((id) => ({ id, nota: 120, comentario: 'ok', paraSubir: 'fazer mais' })),
+      intervencao: { agente: true, acao: true, meio: true, finalidade: true, detalhamento: false },
+      auditoria: { paragrafos: 4, linhas: 25, desviosC1: ['crase: a nível de'], tese: true, repertorioUsado: false, anulacao: 'nenhuma' },
+      alertas: [],
+      pontosFortes: [],
+      melhorias: [],
+      trechos: [],
+      reescrita: '',
+    });
+    const pro = parseEssayFeedback(raw, 'texto', { tier: 'pro' });
+    expect(pro?.tier).toBe('pro');
+    expect(pro?.audit).toMatchObject({ paragraphs: 4, lines: 25, deviations: ['crase: a nível de'], thesis: true });
+    expect(pro?.audit?.annulment).toBeUndefined();
+    expect(pro?.competencies[0]?.toImprove).toBe('fazer mais');
+    expect(parseEssayFeedback(raw, 'texto')?.audit).toBeUndefined();
+  });
+});

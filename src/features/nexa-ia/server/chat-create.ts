@@ -53,7 +53,7 @@ export async function maybeCreateFromChat(
   const subjects = subjectRows ?? [];
   if (subjects.length === 0) return null;
 
-  const quota = await checkPlanQuota(supabase, 'creator');
+  const quota = await checkPlanQuota(supabase, 'quiz');
   if (!quota.ok) return quota.message;
 
   const extraction = await completeWithAI(

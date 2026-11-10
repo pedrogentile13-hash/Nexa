@@ -1,3 +1,5 @@
+import { CoinsPanel } from '@/features/billing/components/coins-panel';
+import { getCoinBalance } from '@/features/billing/server/coins';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -148,6 +150,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             <span className="text-xs font-medium underline">Gerenciar assinatura</span>
           </Link>
         )}
+
+        <div className="lg:col-span-2">
+          <CoinsPanel balance={await getCoinBalance()} canUpgrade={plan.billingVisible && plan.plan === 'free'} />
+        </div>
 
         {/* Conta/Notificações/Aparência/Privacidade -------------------------- */}
         <ProfileTabs

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PRO_RULES, calibrationBlock, type EssayReference } from './essay-pro';
 
 /**
  * Corretor de redação (modelo ENEM) — a parte pura.
@@ -41,6 +42,10 @@ export interface EssayContext {
   banca?: string | null;
   genre?: string | null;
   note?: string | null;
+  /** 'pro': modelo avançado, régua rígida e calibração com redações reais. Padrão: 'basic'. */
+  tier?: 'basic' | 'pro';
+  /** Redações reais já corrigidas (só no PRO). */
+  references?: EssayReference[];
 }
 
 /** Régua da C5 para as bancas que NÃO exigem proposta de intervenção (UNESP, ITA, FUVEST, UNICAMP). */
@@ -48,6 +53,7 @@ const RUBRIC_OUTRAS_C5 = `C5 Conclusão e posicionamento (esta banca NÃO exige 
 
 export function buildEssayMessages(theme: string, essay: string, themeContext?: string | null, ctx: EssayContext = {}) {
   const others = ctx.model === 'outras';
+  const pro = ctx.tier === 'pro';
   const system =
     (others
       ? 'Você é um corretor experiente de redação de vestibulares brasileiros. Usa as 5 competências do ENEM como régua de qualidade, adaptada à banca. '
@@ -55,6 +61,7 @@ export function buildEssayMessages(theme: string, essay: string, themeContext?: 
     'Avalia com rigor justo e linguagem acolhedora, em português do Brasil. ' +
     'Corrige o TEXTO, nunca a pessoa. Não inventa trechos que o aluno não escreveu: todo trecho citado precisa existir literalmente no texto. ' +
     'Não infla notas: 200 é raro e exige o critério completo; na dúvida entre dois degraus, escolha o menor. ' +
+    (pro ? 'Atua como corretor oficial da banca: rigoroso, imparcial e preciso, sem inflar nada. ' : '') +
     'Responde SEMPRE e SOMENTE com JSON válido, sem texto antes ou depois.';
 
   const context = themeContext?.trim() ? `\nContexto do tema (apenas para você avaliar a adequação ao tema):\n${themeContext.trim()}\n` : '';
@@ -66,14 +73,14 @@ export function buildEssayMessages(theme: string, essay: string, themeContext?: 
   const comps = COMPETENCIES.map((c) => (c.id === 5 && others ? `5. ${c5Name} (tese, resposta ao tema e fechamento)` : `${c.id}. ${c.name} (${c.hint})`)).join('\n');
 
   const user = `Tema da redação: ${theme.trim()}
-${banca}${context}
+${banca}${context}${pro ? calibrationBlock(ctx.references ?? []) : ''}
 Texto do aluno:
 <<<REDACAO
 ${essay.trim()}
 REDACAO>>>
 
 ${rubric}
-
+${pro ? `\n${PRO_RULES}\n` : ''}
 Avalie nas 5 competências${others ? ' (modelo adaptado)' : ' do ENEM'}:
 ${comps}
 
@@ -82,12 +89,13 @@ Cada nota é um destes valores: 0, 40, 80, 120, 160 ou 200.
 Devolva exatamente este JSON:
 {
   "competencias": [
-    { "id": 1, "nota": 120, "comentario": "1 a 2 frases, específicas ao texto" },
-    { "id": 2, "nota": 160, "comentario": "..." },
-    { "id": 3, "nota": 120, "comentario": "..." },
-    { "id": 4, "nota": 160, "comentario": "..." },
-    { "id": 5, "nota": 120, "comentario": "..." }
-  ],
+    { "id": 1, "nota": 120, "comentario": "1 a 2 frases, específicas ao texto"${pro ? ', "paraSubir": "o que falta para o próximo degrau"' : ''} },
+    { "id": 2, "nota": 160, "comentario": "..."${pro ? ', "paraSubir": "..."' : ''} },
+    { "id": 3, "nota": 120, "comentario": "..."${pro ? ', "paraSubir": "..."' : ''} },
+    { "id": 4, "nota": 160, "comentario": "..."${pro ? ', "paraSubir": "..."' : ''} },
+    { "id": 5, "nota": 120, "comentario": "..."${pro ? ', "paraSubir": "..."' : ''} }
+  ],${pro ? `
+  "auditoria": { "paragrafos": 4, "linhas": 28, "desviosC1": ["tipo: trecho"], "tese": true, "repertorioUsado": true, "anulacao": "nenhuma ou o motivo" },` : ''}
 ${others ? '' : `  "intervencao": { "agente": true, "acao": true, "meio": false, "finalidade": true, "detalhamento": false },
 `}  "repertorio": "o repertório sociocultural usado (ou \\"nenhum\\") e se é legitimado, pertinente e produtivo",
   "alertas": ["só se houver: possível ANULAÇÃO (fuga ao tema, texto não dissertativo-argumentativo, menos de 7 linhas, cópia dos motivadores, partes desconectadas) ou desrespeito aos direitos humanos na proposta"],
@@ -113,6 +121,7 @@ const feedbackSchema = z.object({
         id: z.coerce.number().int().min(1).max(5),
         nota: z.coerce.number(),
         comentario: z.string().trim().max(600).default(''),
+        paraSubir: z.string().trim().max(300).optional(),
       }),
     )
     .length(5),
@@ -123,6 +132,16 @@ const feedbackSchema = z.object({
       meio: z.coerce.boolean().default(false),
       finalidade: z.coerce.boolean().default(false),
       detalhamento: z.coerce.boolean().default(false),
+    })
+    .optional(),
+  auditoria: z
+    .object({
+      paragrafos: z.coerce.number().int().min(0).max(40).optional(),
+      linhas: z.coerce.number().int().min(0).max(200).optional(),
+      desviosC1: z.array(z.string().trim().max(200)).max(20).default([]),
+      tese: z.coerce.boolean().optional(),
+      repertorioUsado: z.coerce.boolean().optional(),
+      anulacao: z.string().trim().max(300).optional(),
     })
     .optional(),
   repertorio: z.string().trim().max(400).optional(),
@@ -143,7 +162,7 @@ const feedbackSchema = z.object({
 });
 
 export interface EssayFeedback {
-  competencies: { id: number; name: string; score: number; comment: string }[];
+  competencies: { id: number; name: string; score: number; comment: string; toImprove?: string }[];
   total: number;
   strengths: string[];
   improvements: string[];
@@ -159,6 +178,10 @@ export interface EssayFeedback {
   model?: 'enem' | 'outras';
   /** Banca do tema (para bancas diferentes do ENEM). */
   banca?: string;
+  /** Modelo de correção: ausente = básico. */
+  tier?: 'basic' | 'pro';
+  /** Só no PRO: o que o corretor conferiu antes de dar a nota. */
+  audit?: { paragraphs?: number; lines?: number; deviations: string[]; thesis?: boolean; repertoireUsed?: boolean; annulment?: string };
 }
 
 /** Aproxima para o degrau de 40 mais próximo e limita a 0–200. */
@@ -185,7 +208,7 @@ function norm(s: string): string {
  * Trechos "citados" que NÃO existem no texto do aluno são descartados: é a
  * defesa contra a IA inventar uma frase que o aluno nunca escreveu.
  */
-export function parseEssayFeedback(raw: string, essay: string, opts: { model?: 'enem' | 'outras' } = {}): EssayFeedback | null {
+export function parseEssayFeedback(raw: string, essay: string, opts: { model?: 'enem' | 'outras'; tier?: 'basic' | 'pro' } = {}): EssayFeedback | null {
   const others = opts.model === 'outras';
   let json: unknown;
   try {
@@ -210,7 +233,7 @@ export function parseEssayFeedback(raw: string, essay: string, opts: { model?: '
     const found = byId.get(c.id)!;
     const snapped = snapScore(found.nota);
     const name = c.id === 5 && others ? 'Conclusão e posicionamento' : c.name;
-    return { id: c.id, name, score: c.id === 5 ? Math.min(snapped, c5Cap) : snapped, comment: found.comentario };
+    return { id: c.id, name, score: c.id === 5 ? Math.min(snapped, c5Cap) : snapped, comment: found.comentario, ...(found.paraSubir ? { toImprove: found.paraSubir } : {}) };
   });
 
   const text = norm(essay);
@@ -229,6 +252,19 @@ export function parseEssayFeedback(raw: string, essay: string, opts: { model?: '
     ...(parsed.data.repertorio ? { repertoire: parsed.data.repertorio } : {}),
     alerts: parsed.data.alertas.filter(Boolean),
     ...(others ? { model: 'outras' as const } : {}),
+    ...(opts.tier === 'pro' ? { tier: 'pro' as const } : {}),
+    ...(opts.tier === 'pro' && parsed.data.auditoria
+      ? {
+          audit: {
+            paragraphs: parsed.data.auditoria.paragrafos,
+            lines: parsed.data.auditoria.linhas,
+            deviations: parsed.data.auditoria.desviosC1.filter(Boolean),
+            thesis: parsed.data.auditoria.tese,
+            repertoireUsed: parsed.data.auditoria.repertorioUsado,
+            annulment: parsed.data.auditoria.anulacao && !/^nenhuma/i.test(parsed.data.auditoria.anulacao) ? parsed.data.auditoria.anulacao : undefined,
+          },
+        }
+      : {}),
   };
 }
 

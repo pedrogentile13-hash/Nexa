@@ -8,22 +8,24 @@
  * Os números ficam aqui (e não no banco) para ajustar sem migração, como em `ai/quota.ts`.
  */
 
+import { COIN_ALLOWANCE } from '@/lib/ai/coins';
+
 export type Plan = 'school' | 'free' | 'plus' | 'pro';
 export type PaidPlan = 'plus' | 'pro';
 export type BillingInterval = 'month' | 'year';
 
 export interface PlanLimits {
-  /** Multiplica os limites diários de IA (`AI_DAILY_LIMITS`). */
-  aiMultiplier: number;
+  /** Saldo mensal de Nexa Coins (`ai/coins.ts`). */
+  coins: number;
   /** Materiais (PDF, imagem, texto) guardados na Biblioteca. */
   libraryDocs: number;
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  school: { aiMultiplier: 1, libraryDocs: 30 }, // igual ao que o aluno de escola já tem
-  free: { aiMultiplier: 1, libraryDocs: 10 },
-  plus: { aiMultiplier: 3, libraryDocs: 60 },
-  pro: { aiMultiplier: 5, libraryDocs: 300 },
+  school: { coins: COIN_ALLOWANCE.school, libraryDocs: 30 }, // igual ao que o aluno de escola já tem
+  free: { coins: COIN_ALLOWANCE.free, libraryDocs: 10 },
+  plus: { coins: COIN_ALLOWANCE.plus, libraryDocs: 60 },
+  pro: { coins: COIN_ALLOWANCE.pro, libraryDocs: 300 },
 };
 
 export interface Entitlements {

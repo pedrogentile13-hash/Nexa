@@ -70,7 +70,7 @@ export async function generateAndSaveCreatorQuiz(
   const subject = await subjectName(parsed.data.subjectCatalogId);
   if (!subject) return { status: 'error', message: 'Matéria inválida.' };
 
-  const quota = await checkPlanQuota(await createClient(), 'creator');
+  const quota = await checkPlanQuota(await createClient(), 'quiz');
   if (!quota.ok) return { status: 'error', message: quota.message };
 
   const result = await completeWithAI(
@@ -128,7 +128,7 @@ export async function generateAndSaveCreatorSummary(
   const subject = await subjectName(parsed.data.subjectCatalogId);
   if (!subject) return { status: 'error', message: 'Matéria inválida.' };
 
-  const quota = await checkPlanQuota(await createClient(), 'creator');
+  const quota = await checkPlanQuota(await createClient(), 'summary');
   if (!quota.ok) return { status: 'error', message: quota.message };
 
   const result = await completeWithAI(

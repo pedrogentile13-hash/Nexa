@@ -3,9 +3,8 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { completeWithAI } from '@/lib/ai/provider';
-import { checkAiQuota } from '@/lib/ai/quota';
 import { aiMessage } from '@/features/nexa-ia/server/material-ingest';
-import { getPlanInfo } from '@/features/billing/server/entitlements';
+import { checkPlanQuota } from '@/features/billing/server/quota';
 import { answersToPayload, answerSheetPrompt, parseAiAnswers, type AnswerMap, type Letter } from '../lib/answer-sheet';
 import { getSheetLayout } from './answer-sheet';
 
@@ -74,8 +73,7 @@ export async function readAnswerSheetPhoto(formData: FormData): Promise<PhotoRes
   const layout = await getSheetLayout(editionId.data);
   if (layout.length === 0) return { ok: false, message: 'O gabarito desta prova ainda não foi cadastrado.' };
 
-  const { limits } = await getPlanInfo();
-  const quota = await checkAiQuota(supabase, 'answer_sheet', limits.aiMultiplier);
+  const quota = await checkPlanQuota(supabase, 'answer_sheet');
   if (!quota.ok) return { ok: false, message: quota.message };
 
   const result = await completeWithAI(

@@ -194,7 +194,7 @@ export async function createSummaryFromDocument(_prev: CreateFromDocState, formD
   if (!ctx) return { status: 'error', message: 'Material não encontrado.' };
   if (!(await subjectName(ctx.supabase, parsed.data.subjectCatalogId))) return { status: 'error', message: 'Matéria inválida.' };
 
-  const quota = await checkPlanQuota(ctx.supabase, 'creator');
+  const quota = await checkPlanQuota(ctx.supabase, 'summary');
   if (!quota.ok) return { status: 'error', message: quota.message };
 
   const r = await completeWithAI(buildMaterialSummaryMessages(ctx.doc.title, ctx.doc.content), {
@@ -227,7 +227,7 @@ export async function createQuizFromDocument(_prev: CreateFromDocState, formData
   const subject = await subjectName(ctx.supabase, parsed.data.subjectCatalogId);
   if (!subject) return { status: 'error', message: 'Matéria inválida.' };
 
-  const quota = await checkPlanQuota(ctx.supabase, 'creator');
+  const quota = await checkPlanQuota(ctx.supabase, 'quiz');
   if (!quota.ok) return { status: 'error', message: quota.message };
 
   const r = await completeWithAI(

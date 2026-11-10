@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
-import { BookMarked, Camera, Check, Dices, Loader2, PenLine, Shuffle, Sparkles } from 'lucide-react';
+import { BookMarked, Camera, Check, Dices, Loader2, PenLine, Shuffle, Sparkles, Zap } from 'lucide-react';
+import { COIN_COSTS } from '@/lib/ai/coins';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AXIS_BRAND, examBrand } from '@/features/vestibular/lib/exam-brand';
@@ -19,7 +20,7 @@ const INITIAL: EssayState = { status: 'idle' };
 /** Uma linha da folha do ENEM comporta cerca de 10 a 11 palavras. */
 const WORDS_PER_LINE = 10.5;
 
-function Submit({ disabled }: { disabled: boolean }) {
+function Submit({ disabled, tier }: { disabled: boolean; tier: 'basic' | 'pro' }) {
   const { pending } = useFormStatus();
   return (
     <button
@@ -28,7 +29,7 @@ function Submit({ disabled }: { disabled: boolean }) {
       className="bg-brand text-brand-fg hover:bg-brand-hover inline-flex h-12 w-full items-center justify-center gap-2 rounded-full px-7 text-sm font-semibold transition-colors disabled:opacity-60 sm:w-auto"
     >
       {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
-      {pending ? 'Corrigindo… (pode levar até 30s)' : 'Corrigir minha redação'}
+      {pending ? `Corrigindo… (pode levar até ${tier === 'pro' ? 60 : 30}s)` : `Corrigir minha redação · ${COIN_COSTS[tier === 'pro' ? 'essay_pro' : 'essay']} 🪙`}
     </button>
   );
 }
@@ -79,6 +80,7 @@ export function EssayCorrector({ themes, initialThemeId }: { themes: EssayThemeI
   const [free, setFree] = useState(false);
   const [freeTheme, setFreeTheme] = useState('');
   const [text, setText] = useState('');
+  const [tier, setTier] = useState<'basic' | 'pro'>('basic');
   const [reading, startReading] = useTransition();
   const [readNote, setReadNote] = useState<{ ok: boolean; message: string } | null>(null);
   const [checked, setChecked] = useState<Record<number, boolean>>({});
@@ -288,8 +290,43 @@ export function EssayCorrector({ themes, initialThemeId }: { themes: EssayThemeI
           </p>
         )}
 
+        {/* 3 · Modelo de correção */}
+        <section aria-label="Modelo de correção" className="border-border bg-surface rounded-3xl border p-5 md:p-6">
+          <input type="hidden" name="tier" value={tier} />
+          <h2 className="text-lg font-bold">Como corrigir?</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Modelo de correção">
+            {(
+              [
+                { id: 'basic', name: 'Básico', cost: COIN_COSTS.essay, text: 'Rápido e acolhedor. Boa estimativa para treinar todo dia.' },
+                { id: 'pro', name: 'PRO', cost: COIN_COSTS.essay_pro, text: 'Modelo avançado com as regras rígidas do ENEM: audita o texto, conta os desvios, confere a proposta e se calibra com redações reais corrigidas.' },
+              ] as const
+            ).map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                role="radio"
+                aria-checked={tier === o.id}
+                onClick={() => setTier(o.id)}
+                className={cn(
+                  'rounded-2xl border p-4 text-left transition-colors',
+                  tier === o.id ? 'border-brand bg-brand-soft' : 'border-border hover:bg-surface-2',
+                )}
+              >
+                <span className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    {o.id === 'pro' && <Zap className="text-warning size-4" aria-hidden />}
+                    {o.name}
+                  </span>
+                  <span className="bg-surface-2 text-muted rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums">{o.cost} 🪙</span>
+                </span>
+                <span className="text-muted mt-1.5 block text-sm leading-snug">{o.text}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         <div className="flex flex-wrap items-center gap-4">
-          <Submit disabled={!ready} />
+          <Submit disabled={!ready} tier={tier} />
           <p className="text-subtle max-w-md text-xs">
             {ready ? 'Estimativa feita por IA, no modelo das 5 competências do ENEM. Não é a nota oficial.' : 'Escolha um tema para liberar a correção.'}
           </p>

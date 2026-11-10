@@ -7,7 +7,7 @@ import { Check, Crown, Loader2, ShieldCheck, Sparkles, X, Zap } from 'lucide-rea
 import { cn } from '@/lib/utils';
 import { isNativeApp } from '@/lib/native';
 import { track } from '@/features/analytics/lib/track';
-import { AI_DAILY_LIMITS } from '@/lib/ai/quota';
+import { COIN_COSTS, howMany } from '@/lib/ai/coins';
 import { PLAN_LABEL, PLAN_LIMITS, PLAN_PRICES, formatBRL, yearlyFreeMonths, type BillingInterval, type PaidPlan, type Plan } from '../lib/plans';
 
 interface Props {
@@ -24,10 +24,9 @@ function features(plan: 'free' | PaidPlan): { text: string; on: boolean }[] {
   const l = PLAN_LIMITS[plan];
   return [
     { text: `${l.libraryDocs} materiais na Biblioteca`, on: true },
-    { text: `${AI_DAILY_LIMITS.nexa_ia * l.aiMultiplier} perguntas por dia à NexaAI`, on: true },
-    { text: `${AI_DAILY_LIMITS.material * l.aiMultiplier} leituras de material por dia`, on: true },
-    { text: `${AI_DAILY_LIMITS.creator * l.aiMultiplier} resumos e simulados com IA por dia`, on: true },
-    { text: `${Math.round(AI_DAILY_LIMITS.essay * Math.min(l.aiMultiplier, 3))} correções de redação por dia`, on: true },
+    { text: `${l.coins.toLocaleString('pt-BR')} Nexa Coins por mês para a IA`, on: true },
+    { text: `≈ ${howMany(plan, 'nexa_ia').toLocaleString('pt-BR')} conversas ou ${howMany(plan, 'essay')} correções de redação`, on: true },
+    { text: `≈ ${howMany(plan, 'essay_pro')} correções PRO (${COIN_COSTS.essay_pro} moedas cada)`, on: true },
     { text: 'Sem anúncios', on: plan !== 'free' },
   ];
 }

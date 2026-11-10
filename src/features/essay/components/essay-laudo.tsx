@@ -88,7 +88,10 @@ export function EssayLaudo({ essay }: { essay: EssayDetail }) {
           <dt className="text-muted font-medium">Tamanho:</dt>
           <dd>{words} palavras</dd>
         </dl>
-        <p className="text-subtle mt-4 text-xs">Estimativa feita por IA a partir dos critérios públicos do INEP. Não é a nota oficial.</p>
+        <p className="text-subtle mt-4 text-xs">
+          {f?.tier === 'pro' ? <b className="text-warning">Correção PRO · </b> : null}
+          Estimativa feita por IA a partir dos critérios públicos do INEP. Não é a nota oficial.
+        </p>
       </header>
 
       {!f ? (
@@ -105,6 +108,28 @@ export function EssayLaudo({ essay }: { essay: EssayDetail }) {
               </p>
               <ul className="list-disc space-y-1 pl-5">{f.alerts.map((a) => <li key={a}>{a}</li>)}</ul>
             </div>
+          )}
+
+          {f.audit && (
+            <section aria-label="Auditoria do corretor PRO" className="border-border bg-surface rounded-2xl border p-4 md:p-5">
+              <h3 className="text-sm font-extrabold tracking-wide uppercase">O que o corretor PRO conferiu</h3>
+              <ul className="text-muted mt-2 space-y-1 text-sm">
+                {f.audit.paragraphs != null && <li>Parágrafos: <b className="text-text">{f.audit.paragraphs}</b>{f.audit.lines != null && <> · linhas estimadas: <b className="text-text">{f.audit.lines}</b></>}</li>}
+                {f.audit.thesis != null && <li>Tese na introdução: <b className="text-text">{f.audit.thesis ? 'sim' : 'não'}</b></li>}
+                {f.audit.repertoireUsed != null && <li>Repertório usado para argumentar: <b className="text-text">{f.audit.repertoireUsed ? 'sim' : 'não'}</b></li>}
+                <li>
+                  Desvios de norma culta encontrados: <b className="text-text">{f.audit.deviations.length}</b>
+                </li>
+              </ul>
+              {f.audit.deviations.length > 0 && (
+                <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm">
+                  {f.audit.deviations.map((d) => (
+                    <li key={d}>{d}</li>
+                  ))}
+                </ul>
+              )}
+              {f.audit.annulment && <p className="bg-danger-soft text-danger mt-3 rounded-xl px-3 py-2 text-sm">Risco de anulação: {f.audit.annulment}</p>}
+            </section>
           )}
 
           {/* Distribuição de critérios: uma linha por competência, a nota marcada na faixa */}
@@ -160,6 +185,11 @@ export function EssayLaudo({ essay }: { essay: EssayDetail }) {
                   {c.id === 5 && f.model === 'outras' ? LEVEL_DESCRIPTORS_C5_OUTRAS[c.score] : LEVEL_DESCRIPTORS[c.id]?.[c.score]}
                 </p>
                 {c.comment && <p className="mt-2 text-sm leading-relaxed">{c.comment}</p>}
+                {c.toImprove && (
+                  <p className="bg-brand-soft text-brand-text mt-2 rounded-xl px-3 py-2 text-sm">
+                    <b>Para subir:</b> {c.toImprove}
+                  </p>
+                )}
 
                 {c.id === 5 && f.intervention && (
                   <ul className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-5" aria-label="Elementos da proposta de intervenção">

@@ -595,6 +595,31 @@ export type AiUsageRow = {
   uses: number;
 };
 
+export type AiCoinUsageRow = {
+  user_id: string;
+  period: string;
+  feature: string;
+  coins: number;
+  uses: number;
+};
+
+export type EssayReferenceRow = {
+  id: string;
+  banca: string;
+  theme: string;
+  essay: string;
+  c1: number;
+  c2: number;
+  c3: number;
+  c4: number;
+  c5: number;
+  total: number;
+  source: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+};
+
 export type ErrorReportRpcRow = {
   id: string;
   origin: 'client' | 'server';
@@ -1641,6 +1666,8 @@ export type Database = {
       bot_conversations: Table<BotConversationRow>;
       bot_messages: Table<BotMessageRow>;
       ai_usage: Table<AiUsageRow>;
+      ai_coin_usage: Table<AiCoinUsageRow>;
+      essay_references: Table<EssayReferenceRow>;
       teacher_plans: Table<TeacherPlanRow>;
       school_announcements: Table<SchoolAnnouncementRow>;
       essay_corrections: Table<EssayCorrectionRow>;
@@ -1849,6 +1876,16 @@ export type Database = {
       consume_ai_quota: {
         Args: { p_feature: string; p_daily_limit: number };
         Returns: { allowed: boolean; used: number; remaining: number }[];
+      };
+      spend_ai_coins: {
+        Args: { p_feature: string; p_cost: number; p_allowance: number };
+        Returns: { allowed: boolean; spent: number; remaining: number }[];
+      };
+      refund_ai_coins: { Args: { p_feature: string; p_cost: number }; Returns: undefined };
+      my_ai_coin_usage: { Args: Record<string, never>; Returns: { feature: string; coins: number; uses: number }[] };
+      essay_calibration: {
+        Args: { p_banca: string; p_limit?: number };
+        Returns: { theme: string; essay: string; c1: number; c2: number; c3: number; c4: number; c5: number; total: number; notes: string | null }[];
       };
       student_has_teacher: { Args: { p_teacher_id: string; p_student_id?: string }; Returns: boolean };
       my_teachers: { Args: Record<string, never>; Returns: { teacher_id: string; full_name: string; subjects: string }[] };
