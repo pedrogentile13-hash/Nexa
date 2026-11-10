@@ -1,0 +1,103 @@
+import { qv, type SimuladoVest } from './types';
+
+export const ENEM_LINGUAGENS: SimuladoVest = {
+  slug: 'enem-linguagens',
+  banca: 'enem',
+  subject: 'lingua-portuguesa',
+  title: 'ENEM · Linguagens e Códigos',
+  subtitle: '10 questões no estilo ENEM, com texto-base e explicação',
+  minutes: 40,
+  questoes: [
+    qv('medio', '"Não tive filhos, não transmiti a nenhuma criatura o legado da nossa miséria."\n(Machado de Assis. Memórias póstumas de Brás Cubas)\n\nNo trecho, o narrador-defunto revela uma visão de mundo marcada', [
+      'pelo arrependimento de não ter constituído família.',
+      'pelo otimismo diante da possibilidade de superar a miséria material.',
+      'pelo pessimismo, ao tratar a existência humana como herança de sofrimento que ele evitou passar adiante.',
+      'pela idealização romântica da maternidade e da paternidade.',
+      'pela defesa de que a pobreza é um destino imposto por Deus.',
+    ], 2, 'A "miséria" aqui é a condição humana, e não só a falta de dinheiro. Ao se orgulhar de não ter deixado herdeiros, Brás Cubas mostra o pessimismo e a ironia típicos do Realismo machadiano, e não arrependimento nem idealização.'),
+    qv('facil', '"Doe sangue. Salve até quatro vidas. Você pode ser o herói de alguém hoje."\n(Campanha de saúde pública)\n\nPredomina nesse texto a função da linguagem', [
+      'emotiva, pois expressa sentimentos íntimos do emissor.',
+      'conativa, pois busca convencer o leitor a agir.',
+      'poética, pois valoriza a construção estética da mensagem.',
+      'metalinguística, pois explica o próprio código da língua.',
+      'fática, pois testa o canal de comunicação.',
+    ], 1, 'Os verbos no imperativo ("Doe", "Salve") e o tratamento direto ao leitor ("Você") mostram o foco no receptor: é a função conativa (apelativa), típica de campanhas.'),
+    qv('facil', '— Tá ligado, mano? Esse rolê de ontem foi massa demais!\n— Pô, foi top mesmo! Bora repetir semana que vem?\n(Conversa entre dois amigos, por mensagem de voz)\n\nDo ponto de vista da variação linguística, o diálogo mostra', [
+      'um desvio grave da norma culta, que precisa ser corrigido pela escola.',
+      'o desconhecimento da língua portuguesa por parte dos jovens.',
+      'a adequação da linguagem informal à situação, já que os interlocutores são amigos em conversa descontraída.',
+      'a impossibilidade de comunicação entre falantes de regiões diferentes.',
+      'o uso de uma variedade arcaica, típica de textos literários antigos.',
+    ], 2, 'Variação não é erro: gírias e marcas de oralidade são adequadas entre amigos, num contexto informal. O que a escola ensina é adequar a variedade à situação de uso.'),
+    qv('medio', 'Leia as duas frases:\nI. Os alunos, que faltaram à prova, serão avaliados em outra data.\nII. Os alunos que faltaram à prova serão avaliados em outra data.\n\nA diferença de sentido entre elas decorre', [
+      'da concordância verbal, que muda de uma frase para a outra.',
+      'do uso das vírgulas: na I, todos os alunos faltaram; na II, apenas parte deles.',
+      'da troca do tempo verbal, que passa do passado para o futuro.',
+      'da regência do verbo faltar, que é transitivo direto em I.',
+      'do uso da crase, que altera a localização da prova.',
+    ], 1, 'Com vírgulas, a oração é explicativa e vale para todos os alunos (todos faltaram). Sem vírgulas, é restritiva e vale só para os que faltaram. A pontuação altera o sentido.'),
+    qv('medio', '"Existe um povo que a bandeira empresta\nP’ra cobrir tanta infâmia e cobardia!…\nE deixa-a transformar-se nessa festa\nEm manto impuro de bacante fria!"\n(Castro Alves. O navio negreiro)\n\nNos versos, o poeta mostra um posicionamento', [
+      'saudosista, ao lembrar com nostalgia o passado do Brasil.',
+      'nacionalista ingênuo, ao exaltar a bandeira como símbolo puro.',
+      'de denúncia social, ao criticar que a bandeira nacional cubra o tráfico de escravizados.',
+      'alienado, ao evitar qualquer tema político.',
+      'religioso, ao pedir a intervenção divina contra os escravizados.',
+    ], 2, 'Castro Alves, poeta da 3ª geração romântica (condoreira), usa a bandeira como símbolo para denunciar a "infâmia e cobardia" do tráfico negreiro. É poesia de engajamento social.'),
+    qv('medio', '"Dê-me um cigarro\nDiz a gramática\nDo professor e do aluno\nE do mulato sabido\nMas o bom negro e o bom branco\nDa Nação Brasileira\nDizem todos os dias\nDeixa disso camarada\nMe dá um cigarro"\n(Oswald de Andrade. Pronominais)\n\nO poema ilustra uma proposta modernista ao', [
+      'defender o rigor da gramática normativa na fala cotidiana.',
+      'valorizar a língua falada pelo povo brasileiro, questionando a rigidez da norma gramatical.',
+      'imitar a métrica e a rima dos poetas parnasianos.',
+      'exaltar a cultura europeia como modelo para o Brasil.',
+      'retratar a vida rural de forma idealizada.',
+    ], 1, 'O poema contrasta o que "diz a gramática" (colocação do pronome antes do verbo) com o que "dizem todos os dias" os brasileiros. A valorização da fala popular é marca do Modernismo de 1922.'),
+    qv('facil', '"A cidade é uma selva de pedra, onde só sobrevive o mais forte."\n\nA expressão "selva de pedra" é um exemplo de', [
+      'metáfora, pois compara a cidade a uma selva sem usar conectivo comparativo.',
+      'comparação, pois usa o conectivo "como".',
+      'onomatopeia, pois imita um som da natureza.',
+      'eufemismo, pois suaviza uma realidade desagradável.',
+      'ironia, pois afirma o contrário do que pensa.',
+    ], 0, 'Na metáfora, a identificação é direta ("é"), sem conectivo: cidade = selva. Os edifícios ("pedra") e a competição ("sobrevive o mais forte") sustentam a imagem.'),
+    qv('medio', 'Minha rua tem buracos\nOnde o ônibus não passa;\nAs águas que lá se acumulam\nNão matam a sede de ninguém.\n(Paródia de "Canção do exílio", de Gonçalves Dias)\n\nA paródia, nesse caso, tem como objetivo', [
+      'repetir o nacionalismo ufanista do poema original.',
+      'criticar problemas urbanos por meio da retomada de um texto conhecido, invertendo seu sentido de exaltação.',
+      'traduzir o poema original para a linguagem informal.',
+      'provar que a poesia romântica é superior à contemporânea.',
+      'descrever com neutralidade a paisagem de uma cidade.',
+    ], 1, 'Na paródia, o texto-fonte é retomado, mas com sentido crítico ou irônico. Aqui, a exaltação da terra vira denúncia de problemas urbanos (buracos, falta de transporte e água).'),
+    qv('medio', '"Studies suggest that sleeping fewer than six hours a night can harm memory and attention. Experts recommend that teenagers sleep between eight and ten hours."\n\nSegundo o texto, o hábito de dormir menos de seis horas por noite', [
+      'melhora a memória, mas prejudica a atenção.',
+      'é recomendado para adolescentes que estudam muito.',
+      'pode prejudicar a memória e a atenção.',
+      'não tem efeito comprovado sobre o desempenho escolar.',
+      'só é prejudicial para adultos.',
+    ], 2, '"Can harm memory and attention" = "pode prejudicar a memória e a atenção". O texto ainda recomenda 8 a 10 horas de sono para adolescentes, o que descarta as demais opções.'),
+    qv('dificil', 'O tempo de tela dos jovens cresceu e, com ele, a preocupação dos pais. Mas proibir o celular não resolve: o problema não é o aparelho, e sim a falta de critérios para usá-lo. Ensinar a escolher o que consumir, por quanto tempo e em que momentos é mais eficaz do que erguer muros que, cedo ou tarde, serão pulados.\n\nA tese defendida no texto é que', [
+      'o celular deve ser proibido para menores de idade.',
+      'o tempo de tela não traz nenhum risco aos jovens.',
+      'a educação para o uso consciente da tecnologia é mais eficaz do que a proibição.',
+      'os pais não devem se preocupar com o consumo digital dos filhos.',
+      'a tecnologia é a única causa dos problemas de atenção dos jovens.',
+    ], 2, 'O autor rejeita a proibição ("não resolve") e propõe ensinar critérios de uso. A tese aparece na contraposição entre "ensinar a escolher" e "erguer muros".'),
+  ],
+};
+
+export const ENEM_MATEMATICA: SimuladoVest = {
+  slug: 'enem-matematica',
+  banca: 'enem',
+  subject: 'matematica',
+  title: 'ENEM · Matemática e suas Tecnologias',
+  subtitle: '10 questões contextualizadas, com resolução comentada',
+  minutes: 60,
+  questoes: [
+    qv('facil', 'Uma loja anunciou uma blusa de R$ 80,00 com 15% de desconto. Na semana seguinte, o preço promocional foi aumentado em 15%.\n\nDepois do aumento, o preço da blusa passou a ser', ['R$ 80,00', 'R$ 78,20', 'R$ 76,50', 'R$ 82,80', 'R$ 68,00'], 1, 'Desconto: 80 × 0,85 = 68. Aumento sobre o novo preço: 68 × 1,15 = 78,20. Os 15% não se anulam porque incidem sobre bases diferentes.'),
+    qv('facil', 'Em um mapa, a escala é 1 : 50 000. Dois pontos estão a 4 cm um do outro no mapa.\n\nA distância real entre eles é de', ['200 m', '500 m', '2 km', '5 km', '20 km'], 2, '4 cm × 50 000 = 200 000 cm = 2 000 m = 2 km.'),
+    qv('facil', 'Um aluno fez três avaliações com pesos diferentes: nota 6 (peso 2), nota 8 (peso 3) e nota 7 (peso 5).\n\nA média ponderada dele é', ['6,5', '7,0', '7,1', '7,3', '7,5'], 2, '(6×2 + 8×3 + 7×5) / (2+3+5) = (12 + 24 + 35) / 10 = 71/10 = 7,1.'),
+    qv('medio', 'Uma urna contém 5 bolas vermelhas, 3 azuis e 2 verdes. Duas bolas são sorteadas, uma após a outra, sem reposição.\n\nA probabilidade de as duas serem vermelhas é', ['1/4', '2/9', '1/5', '4/9', '5/18'], 1, 'P = (5/10) × (4/9) = 20/90 = 2/9. Sem reposição, o segundo sorteio acontece com 9 bolas, das quais 4 são vermelhas.'),
+    qv('medio', 'Um táxi cobra bandeirada de R$ 5,00 mais R$ 2,50 por quilômetro rodado. Um passageiro dispõe de R$ 40,00.\n\nQual é a maior distância que ele pode percorrer?', ['12 km', '13 km', '14 km', '16 km', '18 km'], 2, 'Custo = 5 + 2,5x. Com 40: 5 + 2,5x = 40, então x = 35/2,5 = 14 km.'),
+    qv('medio', 'Uma caixa-d’água cilíndrica tem 1 m de raio e 2 m de altura. Considere π = 3,14 e 1 m³ = 1 000 litros. Uma torneira a enche com vazão de 20 litros por minuto.\n\nO tempo para encher a caixa completamente é de', ['2 h 40 min', '3 h 14 min', '5 h 14 min', '6 h 28 min', '10 h 28 min'], 2, 'Volume = π·r²·h = 3,14 × 1 × 2 = 6,28 m³ = 6 280 L. Tempo = 6 280 / 20 = 314 min = 5 h 14 min.'),
+    qv('medio', 'Uma aplicação financeira rende juros compostos de 10% ao mês. Um investidor aplicou R$ 1 000,00.\n\nDepois de dois meses, o montante será de', ['R$ 1 100,00', 'R$ 1 200,00', 'R$ 1 210,00', 'R$ 1 220,00', 'R$ 1 331,00'], 2, 'M = 1 000 × (1,1)² = 1 000 × 1,21 = R$ 1 210,00. Nos juros compostos, o segundo mês rende sobre o montante do primeiro (R$ 1 100,00).'),
+    qv('medio', 'Em uma turma, 6 alunos se candidataram para formar uma comissão de 3 representantes, sem funções distintas.\n\nDe quantas maneiras diferentes a comissão pode ser formada?', ['6', '18', '20', '60', '120'], 2, 'Como a ordem não importa, usa-se combinação: C(6,3) = 6!/(3!·3!) = 20.'),
+    qv('facil', 'As idades de sete jogadores de um time de vôlei são: 15, 16, 17, 17, 18, 20 e 22 anos.\n\nA mediana dessas idades é', ['16', '17', '17,5', '18', '20'], 1, 'Os valores já estão em ordem crescente. Com 7 valores, a mediana é o 4º: 17.'),
+    qv('dificil', 'Para dar acesso a uma plataforma, será construída uma rampa que forma 30° com o solo e vence um desnível de 1,5 m. Considere sen 30° = 1/2.\n\nO comprimento da rampa deve ser de', ['0,75 m', '1,5 m', '2,0 m', '3,0 m', '4,5 m'], 3, 'O desnível é o cateto oposto ao ângulo e a rampa é a hipotenusa: sen 30° = 1,5 / c, logo 1/2 = 1,5 / c e c = 3 m.'),
+  ],
+};

@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { buildStudySeed } from '@/features/content/lib/study-seed';
 import { SEED_TAG } from '@/features/content/seed';
+import { VEST_TAG } from '@/features/content/seed/vestibular';
+import { buildVestibularSeed } from '@/features/content/lib/vestibular-seed';
 import { requireAccess } from './guard';
 
 export type StudySeedState = { status: 'idle' } | { status: 'done'; message: string } | { status: 'error'; message: string };
@@ -129,4 +131,86 @@ export async function publishStudyStarter(): Promise<StudySeedState> {
   if (error) return fail(`Não consegui publicar: ${error.message}`);
   revalidatePath('/admin/conteudo');
   return { status: 'done', message: data?.length ? `${data.length} conteúdos publicados.` : 'Não há rascunhos do pacote inicial para publicar.' };
+}
+
+/**
+ * Carrega os simulados de vestibular (ENEM, Fuvest, Unicamp, Unesp) COMO RASCUNHO.
+ * Mesmas regras do pacote inicial: destino geral para o admin geral, a escola para o admin da escola.
+ */
+export async function loadVestibularSimulados(): Promise<StudySeedState> {
+  const identity = await requireAccess('/admin/conteudo');
+  const supabase = await createClient();
+  const schoolId: string | null = identity.isGlobal ? null : identity.schoolId;
+
+  const seed = buildVestibularSeed(schoolId);
+  const slugs = [...new Set(seed.resources.map((r) => r.subject_slug))];
+  const { data: subjects, error: subjectsError } = await supabase.from('subject_catalog').select('id, slug').in('slug', slugs);
+  if (subjectsError || !subjects?.length) return fail('Não encontrei as matérias do catálogo. Confira se o banco está atualizado.');
+  const subjectId = new Map(subjects.map((s) => [s.slug, s.id]));
+  const { data: exams } = await supabase.from('exams').select('id, slug').in('slug', ['enem', 'fuvest', 'unicamp', 'unesp']);
+  const examId = new Map((exams ?? []).map((e) => [e.slug, e.id]));
+  if (examId.size === 0) return fail('Não encontrei as provas (ENEM, Fuvest…) no banco. Rode o SQL do Vestibular primeiro.');
+
+  const { data: already } = await supabase.from('resources').select('title').contains('tags', [VEST_TAG]);
+  const have = new Set((already ?? []).map((r) => r.title));
+  const fresh = seed.resources.filter((r) => !have.has(r.title) && subjectId.has(r.subject_slug));
+  const freshIds = new Set(fresh.map((r) => r.id));
+
+  const resources = await insertAll(
+    supabase,
+    'resources',
+    fresh.map((r) => ({
+      id: r.id,
+      school_id: r.school_id,
+      subject_catalog_id: subjectId.get(r.subject_slug),
+      kind: 'simulado',
+      context: 'vestibular',
+      exam_id: examId.get(r.exam_slug) ?? null,
+      time_limit_seconds: r.duration_seconds,
+      title: r.title,
+      subtitle: r.subtitle,
+      description: r.description,
+      duration_seconds: r.duration_seconds,
+      difficulty: r.difficulty,
+      grade_levels: r.grade_levels,
+      tags: r.tags,
+      xp_reward: r.xp_reward,
+      sort_order: r.sort_order,
+      is_published: false,
+      created_by: identity.userId,
+    })),
+  );
+  if (resources.error) return fail(`Não consegui carregar: ${resources.error}`);
+
+  const qs = seed.questions.filter((q) => freshIds.has(q.resource_id));
+  const questions = await insertAll(
+    supabase,
+    'questions',
+    qs.map((q) => ({ id: q.id, resource_id: q.resource_id, position: q.position, statement: q.statement, explanation: q.explanation, difficulty: q.difficulty })),
+  );
+  if (questions.error) return fail(`Não consegui carregar: ${questions.error}`);
+
+  const qIds = new Set(qs.map((q) => q.id));
+  const options = await insertAll(
+    supabase,
+    'question_options',
+    seed.options.filter((o) => qIds.has(o.question_id)).map((o) => ({ id: o.id, question_id: o.question_id, position: o.position, body: o.body, is_correct: o.is_correct })),
+  );
+  if (options.error) return fail(`Não consegui carregar: ${options.error}`);
+
+  revalidatePath('/admin/conteudo');
+  return {
+    status: 'done',
+    message: resources.added === 0 ? 'Os simulados de vestibular já estavam carregados. Nada foi duplicado.' : `Carregado como rascunho: ${resources.added} simulados e ${questions.added} questões. Revise e depois publique.`,
+  };
+}
+
+/** Publica de uma vez os simulados de vestibular que ainda são rascunho. */
+export async function publishVestibularSimulados(): Promise<StudySeedState> {
+  await requireAccess('/admin/conteudo');
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('resources').update({ is_published: true }).contains('tags', [VEST_TAG]).eq('is_published', false).select('id');
+  if (error) return fail(`Não consegui publicar: ${error.message}`);
+  revalidatePath('/admin/conteudo');
+  return { status: 'done', message: data?.length ? `${data.length} simulados de vestibular publicados.` : 'Não há simulados de vestibular em rascunho.' };
 }

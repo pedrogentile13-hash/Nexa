@@ -53,3 +53,20 @@ Dados de cartão **nunca** passam pelo Nexa: o pagamento acontece na página do 
 - **Google Play:** assinatura de conteúdo digital dentro de app distribuído na Play deve usar o **Google Play Billing**; levar o usuário a pagar por fora (Stripe) pode violar a política. Por isso, **dentro do app da Play a tela Nexa Pro só mostra o plano, sem botão de assinar**. Quem assina pelo site (navegador) tem o plano valendo também no app. Se quiser vender dentro do app, o caminho é Play Billing (ou os programas de cobrança alternativa do Google, se disponíveis no Brasil na época).
 - **LGPD:** atualizar a política de privacidade com Stripe (pagamento), Google (anúncios) e a base legal. Pagantes menores de idade precisam de responsável.
 - **Escolas:** a separação é por regra de negócio e testada no banco (`supabase/tests/74_planos.test.sql`). Ainda assim, confira na prática: entrar com conta da escola e abrir `/pro` deve voltar para `/hoje`, sem anúncios em lugar nenhum.
+
+## Nexa Coin — a moeda da IA
+
+Cada ação de IA custa moedas e cada plano traz um saldo por mês (tudo em `src/lib/ai/coins.ts`, ajustável sem migração):
+
+| Ação | Moedas |
+|---|---|
+| Conversa com a NexaAI / Explicar / Dica | 1 |
+| Leitura de material (PDF, imagem) | 2 |
+| Resumo com IA | 4 |
+| Quiz com IA / Cartão-resposta por foto | 6 |
+| Correção de redação — Básico | 8 |
+| Correção de redação — PRO | 30 |
+
+Saldo mensal: Escola 600 · Grátis 150 · Plus 2.000 · Pro 6.000. Se a IA falha, as moedas voltam (estorno).
+O painel da equipe (professores) segue um limite diário próprio e não gasta moedas.
+Corretor PRO: modelo avançado (`GEMINI_PRO_MODEL`), regras rígidas do ENEM, auditoria do texto e calibração com redações reais cadastradas em Admin → Biblioteca → Redações-modelo.

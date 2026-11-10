@@ -23,6 +23,7 @@ import { StudyTopBar } from './study-top-bar';
 import { QuestionAssets } from './question-assets';
 import { WritingTaskRunner } from './writing-task-runner';
 import { CalculatorDialog } from './calculator-dialog';
+import { splitStatement } from '../lib/statement';
 import { WhiteboardButton, useWhiteboardStore } from '@/components/whiteboard/whiteboard';
 import { clockTime, humanDuration } from '../lib/format';
 import { getQuestionHint } from '../server/hint-actions';
@@ -567,8 +568,14 @@ export function QuizRunner({
 
         <QuestionAssets refs={question.resource_refs} assets={resource.assets} />
 
+        {splitStatement(question.statement).base && (
+          <blockquote className="border-border bg-surface-2 text-muted max-h-[40dvh] overflow-y-auto rounded-2xl border-l-4 px-4 py-3 text-[0.9375rem] leading-relaxed whitespace-pre-line">
+            {splitStatement(question.statement).base}
+          </blockquote>
+        )}
+
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-lg leading-snug font-semibold">{question.statement}</h1>
+          <h1 className="text-lg leading-snug font-semibold whitespace-pre-line">{splitStatement(question.statement).command}</h1>
           <button
             type="button"
             onClick={toggleFlag}
