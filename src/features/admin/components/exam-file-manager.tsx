@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from 'react';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { MediaUpload } from './media-upload';
+import { ExamFileBulk } from './exam-file-bulk';
 import { addExamFile, deleteExamFile, testExamFile, toggleExamFile, type FileState, type TestResult } from '../server/exam-file-actions';
 
 export interface FileItem {
@@ -47,6 +48,7 @@ export function ExamFileManager({ editions }: { editions: EditionFiles[] }) {
   const [state, action, pending] = useActionState<FileState, FormData>(addExamFile, { status: 'idle' });
   return (
     <div className="space-y-6">
+      <ExamFileBulk />
       <form action={action} className="border-border bg-surface space-y-3 rounded-2xl border p-4">
         <h2 className="text-base font-semibold">Cadastrar caderno ou gabarito</h2>
         <div className="grid gap-3 sm:grid-cols-3">

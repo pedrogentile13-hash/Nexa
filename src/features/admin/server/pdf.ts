@@ -55,3 +55,14 @@ export async function extractPdf(buffer: Buffer): Promise<PdfExtraction> {
     await parser.destroy();
   }
 }
+
+/** Texto só das primeiras páginas (a capa de uma prova). Bem mais leve que ler um caderno de 80 páginas. */
+export async function extractPdfCover(buffer: Buffer, pages = 2): Promise<string> {
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const result = await parser.getText({ first: pages });
+    return result.text.trim();
+  } finally {
+    await parser.destroy();
+  }
+}
