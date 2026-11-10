@@ -84,7 +84,7 @@ const VESTIBULAR_ITEM = { href: '/vestibular', label: 'Vestibular', Icon: Gradua
 const VESTIBULAR_FIXED_ITEMS = [
   { href: '/vestibular', label: 'Início', Icon: Home },
   { href: '/vestibular/questoes', label: 'Treinar', Icon: ClipboardCheck },
-  { href: '/vestibular/provas', label: 'Provas', Icon: Library },
+  { href: '/vestibular/provas', label: 'Biblioteca', Icon: Library },
 ] as const;
 
 /**

@@ -108,7 +108,7 @@ export function VestibularHomeView({ home, recentExams }: { home: VestibularHome
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Shortcut href="/vestibular/plano" title="Plano de estudo" hint="Por onde começar" Icon={RouteIcon} />
           <Shortcut href="/vestibular/questoes" title="Treinar questões" hint="Monte um treino por matéria" Icon={ClipboardCheck} />
-          <Shortcut href="/vestibular/provas" title="Banco de provas" hint="ENEM, FUVEST, UNESP e mais" Icon={Library} />
+          <Shortcut href="/vestibular/provas" title="Biblioteca" hint="Simulados e provas de ENEM, FUVEST e mais" Icon={Library} />
           <Shortcut href="/vestibular/redacao/temas" title="Banco de temas" hint="Temas reais e inspirados" Icon={BookMarked} />
           <Shortcut href="/vestibular/redacao" title="Minhas redações" hint="Seus laudos e sua evolução" Icon={PenLine} />
           <Shortcut href="/revisoes" title="Erros e revisões" hint="O que você ainda erra" Icon={RotateCcw} />

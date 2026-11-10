@@ -47,7 +47,7 @@ export function VestibularLibrary({ items, coverByBanca }: { items: LibraryItem[
           className="pointer-events-none absolute inset-0 opacity-20"
           style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '28px 28px', maskImage: 'linear-gradient(to bottom right, #000, transparent 70%)' }}
         />
-        <p className="relative text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">Banco de provas</p>
+        <p className="relative text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">Biblioteca do Vestibular</p>
         <h2 className="relative mt-2 max-w-xl text-2xl leading-tight font-black md:text-3xl">Tudo o que cai na prova, numa estante só.</h2>
         <p className="relative mt-2 max-w-xl text-sm leading-relaxed text-white/75">
           Simulados no estilo de cada banca, cadernos oficiais com gabarito, quizzes e resumos. Escolha a banca e comece.
@@ -113,11 +113,14 @@ export function VestibularLibrary({ items, coverByBanca }: { items: LibraryItem[
         shelves.map((shelf) => {
           const brand = examBrand(shelf.banca === 'GERAL' ? null : shelf.banca);
           return (
-            <section key={shelf.banca} aria-label={`Estante ${shelf.banca}`} className="space-y-3">
+            <section key={shelf.key} aria-label={`${shelf.banca} · ${shelf.title}`} className="space-y-3">
               <header className="flex items-center gap-3">
                 <span className="h-9 w-1.5 rounded-full" style={{ background: shelf.banca === 'GERAL' ? '#6D28D9' : brand.bg }} aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-lg leading-none font-black tracking-tight">{shelf.banca === 'GERAL' ? 'Para qualquer vestibular' : brand.short}</h3>
+                  <h3 className="text-lg leading-none font-black tracking-tight">
+                    {shelf.banca === 'GERAL' ? 'Para qualquer vestibular' : brand.short}
+                    <span className="text-muted ml-2 text-sm font-semibold">{shelf.banca === 'GERAL' ? '' : shelf.title}</span>
+                  </h3>
                   <p className="text-muted mt-1 text-xs">
                     {shelf.items.length} {shelf.items.length === 1 ? 'material' : 'materiais'}
                   </p>

@@ -37,7 +37,7 @@ export default async function VestibularQuestoesPage() {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">Prefere a prova inteira?</span>
-              <span className="text-muted block text-xs">Abra o Banco de provas: ENEM, FUVEST, UNESP e mais.</span>
+              <span className="text-muted block text-xs">Abra a Biblioteca: ENEM, FUVEST, UNESP e mais.</span>
             </span>
             <ArrowRight className="text-subtle size-4 shrink-0" aria-hidden />
           </Link>

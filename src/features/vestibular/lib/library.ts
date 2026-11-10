@@ -82,8 +82,15 @@ export function buildLibrary(
   return items;
 }
 
+export type ShelfGroup = 'nexa' | 'oficial';
+
 export interface Shelf {
+  /** Chave estável: banca + grupo. */
+  key: string;
   banca: string;
+  /** 'nexa' = simulados, quizzes e resumos do Nexa; 'oficial' = provas anteriores e cadernos oficiais. */
+  group: ShelfGroup;
+  title: string;
   items: LibraryItem[];
 }
 
@@ -107,19 +114,29 @@ export function filterLibrary(items: LibraryItem[], f: LibraryFilters): LibraryI
   );
 }
 
-/** Uma prateleira por banca (ENEM, FUVEST, UNICAMP, UNESP… e as outras por ordem alfabética); dentro dela, o mais novo primeiro. */
+/**
+ * Duas prateleiras por banca: primeiro os simulados, quizzes e resumos do Nexa e, depois, as provas anteriores.
+ * Separar evita que os simulados (sem ano) fiquem escondidos no fim de uma fila longa de provas por ano.
+ */
 export function groupIntoShelves(items: LibraryItem[]): Shelf[] {
-  const by = new Map<string, LibraryItem[]>();
-  for (const i of items) by.set(i.banca, [...(by.get(i.banca) ?? []), i]);
+  const groupOf = (i: LibraryItem): ShelfGroup => (i.type === 'prova' || i.official ? 'oficial' : 'nexa');
+  const by = new Map<string, Shelf>();
+  for (const i of items) {
+    const group = groupOf(i);
+    const key = `${i.banca}|${group}`;
+    const shelf = by.get(key) ?? { key, banca: i.banca, group, title: group === 'nexa' ? 'Simulados e treino' : 'Provas anteriores', items: [] };
+    shelf.items.push(i);
+    by.set(key, shelf);
+  }
   const rank = (b: string) => {
     const k = BANCA_ORDER.indexOf(b);
     return k === -1 ? BANCA_ORDER.length : k;
   };
-  return [...by.entries()]
-    .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b, 'pt-BR'))
-    .map(([banca, list]) => ({
-      banca,
-      items: [...list].sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || Number(b.official) - Number(a.official) || a.title.localeCompare(b.title, 'pt-BR')),
+  return [...by.values()]
+    .sort((a, b) => rank(a.banca) - rank(b.banca) || a.banca.localeCompare(b.banca, 'pt-BR') || (a.group === b.group ? 0 : a.group === 'nexa' ? -1 : 1))
+    .map((shelf) => ({
+      ...shelf,
+      items: [...shelf.items].sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.title.localeCompare(b.title, 'pt-BR')),
     }));
 }
 

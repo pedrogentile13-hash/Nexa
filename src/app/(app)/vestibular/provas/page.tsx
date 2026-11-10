@@ -11,7 +11,7 @@ import { isFeatureEnabled } from '@/lib/feature-flags';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
-  title: 'Banco de provas',
+  title: 'Biblioteca',
   description: 'Provas anteriores, cadernos oficiais e simulados no estilo de cada banca.',
 };
 
@@ -22,7 +22,14 @@ export default async function BancoDeProvasPage() {
   if (!user) redirect('/login');
   if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
 
-  const [resources, editions, files] = await Promise.all([listVestibularResources({}, 200), listExamEditions(), listExamFiles()]);
+  // Duas leituras: todo o conteúdo e, à parte, os simulados — assim nenhum simulado fica de fora por limite de lista.
+  const [all, simulados, editions, files] = await Promise.all([
+    listVestibularResources({}, 200),
+    listVestibularResources({ kind: 'simulado' }, 200),
+    listExamEditions(),
+    listExamFiles(),
+  ]);
+  const resources = [...all, ...simulados.filter((s) => !all.some((a) => a.id === s.id))];
   const fileCounts: Record<string, number> = {};
   for (const f of files) fileCounts[f.editionId] = (fileCounts[f.editionId] ?? 0) + 1;
 
@@ -32,7 +39,7 @@ export default async function BancoDeProvasPage() {
 
   return (
     <>
-      <AppHeader title="Banco de provas" subtitle="ENEM, FUVEST, UNICAMP, UNESP e mais" />
+      <AppHeader title="Biblioteca" subtitle="Simulados e provas: ENEM, FUVEST, UNICAMP, UNESP" />
       <PageMain className="space-y-5 pt-4 md:pt-6">
         <Link
           href="/vestibular/questoes"

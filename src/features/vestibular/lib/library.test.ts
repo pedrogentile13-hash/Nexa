@@ -22,10 +22,11 @@ describe('biblioteca do vestibular', () => {
     expect(items.find((i) => i.key === 'r-r3')?.banca).toBe('GERAL');
   });
 
-  it('uma prateleira por banca, na ordem ENEM, FUVEST… e conteúdo sem banca por último', () => {
-    expect(groupIntoShelves(items).map((s) => s.banca)).toEqual(['ENEM', 'FUVEST', 'GERAL']);
-    const enem = groupIntoShelves(items)[0]!;
-    expect(enem.items[0]!.key).toBe('e-e1'); // mais novo (2024) primeiro
+  it('duas prateleiras por banca: simulados primeiro, provas anteriores depois (simulado nunca fica escondido)', () => {
+    const shelves = groupIntoShelves(items);
+    expect(shelves.map((s) => `${s.banca}/${s.group}`)).toEqual(['ENEM/nexa', 'ENEM/oficial', 'FUVEST/nexa', 'GERAL/nexa']);
+    expect(shelves[0]!.title).toBe('Simulados e treino');
+    expect(shelves[1]!.items[0]!.key).toBe('e-e1'); // mais novo (2024) primeiro
   });
 
   it('filtra por tipo, matéria e busca sem diferenciar acento', () => {
