@@ -26,7 +26,7 @@ export default async function ResultadoPage({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      <AppHeader title={`${edition.examName} ${edition.year}`} subtitle="Resultado" />
+      <AppHeader title={`${edition.examName} ${edition.year}`} subtitle={attempt.variant ? `Resultado · Caderno ${attempt.variant}` : 'Resultado'} />
       <PageMain className="pt-4 md:pt-6">
         <div className="mx-auto w-full max-w-3xl space-y-4">
           <AttemptResult attempt={attempt} review={review} />

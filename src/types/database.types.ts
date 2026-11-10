@@ -556,6 +556,8 @@ export type ExamAnswerKeyRow = {
   correct: string | null;
   annulled: boolean;
   area: string | null;
+  /** Caderno (cor). Vazio = gabarito único. Coluna nova: pode não existir antes do SQL rodar. */
+  variant?: string;
   created_at: string;
 };
 
@@ -572,6 +574,7 @@ export type ExamAttemptRow = {
   score_pct: number;
   by_area: { area: string; total: number; correct: number; wrong: number; blank: number; pct: number }[];
   duration_seconds: number | null;
+  variant?: string;
   created_at: string;
 };
 
@@ -2339,12 +2342,16 @@ export type Database = {
         Args: Record<string, never>;
         Returns: { exam_edition_id: string; total: number }[];
       };
-      exam_key_layout: {
+      exam_key_variants: {
         Args: { p_edition_id: string };
+        Returns: { variant: string; total: number }[];
+      };
+      exam_key_layout: {
+        Args: { p_edition_id: string; p_variant?: string };
         Returns: { number: number; area: string; annulled: boolean }[];
       };
       submit_exam_attempt: {
-        Args: { p_edition_id: string; p_answers: Record<string, string>; p_duration_seconds?: number | null; p_mode?: 'digital' | 'foto' };
+        Args: { p_edition_id: string; p_answers: Record<string, string>; p_duration_seconds?: number | null; p_mode?: 'digital' | 'foto'; p_variant?: string };
         Returns: {
           attempt_id: string;
           total: number;

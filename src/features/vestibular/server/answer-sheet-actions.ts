@@ -15,6 +15,7 @@ const submitSchema = z.object({
   answers: z.record(z.string().regex(/^\d{1,3}$/), z.enum(['A', 'B', 'C', 'D', 'E'])),
   durationSeconds: z.number().int().min(0).max(172_800).nullable(),
   mode: z.enum(['digital', 'foto']),
+  variant: z.string().max(60).default(''),
 });
 
 /** Corrige no banco com o gabarito oficial e guarda a tentativa. */
@@ -23,6 +24,7 @@ export async function submitAnswerSheet(input: {
   answers: Record<string, string>;
   durationSeconds: number | null;
   mode: 'digital' | 'foto';
+  variant?: string;
 }): Promise<SubmitResult> {
   const parsed = submitSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: 'Respostas inválidas. Confira o cartão e tente de novo.' };
@@ -38,6 +40,7 @@ export async function submitAnswerSheet(input: {
     p_answers: parsed.data.answers,
     p_duration_seconds: parsed.data.durationSeconds,
     p_mode: parsed.data.mode,
+    ...(parsed.data.variant ? { p_variant: parsed.data.variant } : {}),
   });
   const row = data?.[0];
   if (error || !row) {
@@ -70,7 +73,7 @@ export async function readAnswerSheetPhoto(formData: FormData): Promise<PhotoRes
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: 'Entre para continuar.' };
 
-  const layout = await getSheetLayout(editionId.data);
+  const layout = await getSheetLayout(editionId.data, String(formData.get('variant') ?? '').slice(0, 60));
   if (layout.length === 0) return { ok: false, message: 'O gabarito desta prova ainda não foi cadastrado.' };
 
   const quota = await checkPlanQuota(supabase, 'answer_sheet');

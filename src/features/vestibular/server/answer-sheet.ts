@@ -9,10 +9,18 @@ export interface SheetQuestion {
   annulled: boolean;
 }
 
-export async function getSheetLayout(editionId: string): Promise<SheetQuestion[]> {
+/** O desenho do cartão do caderno escolhido (sem `variant`, o primeiro caderno). Só manda o argumento novo quando há caderno. */
+export async function getSheetLayout(editionId: string, variant = ''): Promise<SheetQuestion[]> {
   const supabase = await createClient();
-  const { data } = await supabase.rpc('exam_key_layout', { p_edition_id: editionId });
+  const { data } = await supabase.rpc('exam_key_layout', variant ? { p_edition_id: editionId, p_variant: variant } : { p_edition_id: editionId });
   return (data ?? []).map((q) => ({ number: q.number, area: q.area, annulled: q.annulled }));
+}
+
+/** Os cadernos (cores) com gabarito cadastrado. Antes do SQL novo, ou com gabarito único, devolve vazio ou um item só. */
+export async function getKeyVariants(editionId: string): Promise<{ variant: string; total: number }[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('exam_key_variants', { p_edition_id: editionId });
+  return error || !data ? [] : data;
 }
 
 /** Quantas questões tem o gabarito de cada edição (as que ainda não têm gabarito não aparecem). */

@@ -20,10 +20,10 @@ interface Question {
  * Cartão-resposta digital. O aluno faz a prova no caderno oficial e marca aqui (ou envia a foto do cartão, que a IA lê).
  * A correção é feita no servidor com o gabarito oficial: o app nunca tem as respostas certas.
  */
-export function AnswerSheet({ editionId, layout }: { editionId: string; layout: Question[] }) {
+export function AnswerSheet({ editionId, layout, variant = '' }: { editionId: string; layout: Question[]; variant?: string }) {
   const whiteboards = useWhiteboardStore();
   const router = useRouter();
-  const storageKey = `nx_sheet_${editionId}`;
+  const storageKey = `nx_sheet_${editionId}${variant ? `_${variant}` : ''}`;
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [doubtful, setDoubtful] = useState<Set<number>>(new Set());
   const [usedPhoto, setUsedPhoto] = useState(false);
@@ -76,6 +76,7 @@ export function AnswerSheet({ editionId, layout }: { editionId: string; layout: 
     setMessage(null);
     const body = new FormData();
     body.set('editionId', editionId);
+    body.set('variant', variant);
     body.set('photo', file);
     const r = await readAnswerSheetPhoto(body);
     setBusy(null);
@@ -96,7 +97,7 @@ export function AnswerSheet({ editionId, layout }: { editionId: string; layout: 
     setBusy('send');
     setMessage(null);
     setRunning(false);
-    const r = await submitAnswerSheet({ editionId, answers: answersToPayload(answers), durationSeconds: elapsed, mode: usedPhoto ? 'foto' : 'digital' });
+    const r = await submitAnswerSheet({ editionId, answers: answersToPayload(answers), durationSeconds: elapsed, mode: usedPhoto ? 'foto' : 'digital', variant });
     if (!r.ok) {
       setBusy(null);
       setRunning(true);
