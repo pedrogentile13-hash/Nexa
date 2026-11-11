@@ -5,8 +5,21 @@ const hosts = allowedHosts();
 
 describe('checkExamFileUrl', () => {
   it('aceita https de um site oficial', () => {
-    expect(checkExamFileUrl('https://download.inep.gov.br/enem/provas_e_gabaritos/2025_PV_impresso_D1_CD2.pdf', hosts)).not.toBeNull();
-    expect(checkExamFileUrl('https://www.vestibular.ita.br/provas/redacao_2024_2f.pdf', hosts)).not.toBeNull();
+    expect(
+      checkExamFileUrl(
+        'https://download.inep.gov.br/enem/provas_e_gabaritos/2025_PV_impresso_D1_CD2.pdf',
+        hosts,
+      ),
+    ).not.toBeNull();
+    expect(
+      checkExamFileUrl('https://www.vestibular.ita.br/provas/redacao_2024_2f.pdf', hosts),
+    ).not.toBeNull();
+    expect(
+      checkExamFileUrl(
+        'https://www.ime.eb.mil.br/images/arquivos/admissao/cfg/provas-anteriores/2024-2025/CFG_Objetiva_24_25.pdf',
+        hosts,
+      ),
+    ).not.toBeNull();
   });
 
   it('recusa site que não está na lista', () => {
@@ -15,7 +28,13 @@ describe('checkExamFileUrl', () => {
   });
 
   it('recusa endereço interno e de nuvem (SSRF)', () => {
-    for (const u of ['http://localhost/a.pdf', 'http://127.0.0.1:3000/a.pdf', 'http://169.254.169.254/latest/meta-data', 'https://10.0.0.1/a.pdf', 'file:///etc/passwd']) {
+    for (const u of [
+      'http://localhost/a.pdf',
+      'http://127.0.0.1:3000/a.pdf',
+      'http://169.254.169.254/latest/meta-data',
+      'https://10.0.0.1/a.pdf',
+      'file:///etc/passwd',
+    ]) {
       expect(checkExamFileUrl(u, hosts), u).toBeNull();
     }
   });
@@ -40,14 +59,18 @@ describe('checkExamFileUrl', () => {
 
 describe('allowedHosts', () => {
   it('inclui o Supabase quando configurado', () => {
-    expect(allowedHosts({ supabaseUrl: 'https://abc.supabase.co' }).has('abc.supabase.co')).toBe(true);
+    expect(allowedHosts({ supabaseUrl: 'https://abc.supabase.co' }).has('abc.supabase.co')).toBe(
+      true,
+    );
     expect(allowedHosts({ supabaseUrl: 'lixo' }).size).toBe(allowedHosts().size);
   });
 });
 
 describe('safeFilename', () => {
   it('tira acento e símbolos', () => {
-    expect(safeFilename('ENEM 2025 · 1º dia · Caderno 2 · Amarelo')).toBe('enem-2025-1-dia-caderno-2-amarelo.pdf');
+    expect(safeFilename('ENEM 2025 · 1º dia · Caderno 2 · Amarelo')).toBe(
+      'enem-2025-1-dia-caderno-2-amarelo.pdf',
+    );
     expect(safeFilename('../../etc/passwd')).toBe('etc-passwd.pdf');
     expect(safeFilename('   ')).toBe('prova.pdf');
   });

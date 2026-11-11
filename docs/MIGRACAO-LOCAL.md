@@ -101,16 +101,17 @@ O arquivo `supabase/setup-completo.sql` junta tudo e é **seguro rodar de novo**
 
 Migrations recentes (confirme no Supabase que todas foram rodadas):
 
-| Arquivo                                | Para quê                                     |
-| -------------------------------------- | -------------------------------------------- |
-| `20261109000200_enem_2025_arquivos`    | cadernos e gabaritos do ENEM 2025            |
-| `20261109000300_billing_alerts`        | alertas de cobrança (Stripe)                 |
-| `20261109000400_escola_com_vestibular` | Vestibular dentro do Nexa Escolas            |
-| `20261109000500_biblioteca_series`     | filtro por série na Biblioteca               |
-| `20261109000600_cartao_resposta`       | cartão-resposta e correção                   |
-| `20261109000700_boletim_por_serie`     | boletim por série                            |
-| `20261110000100_nexa_coins`            | Nexa Coins + redações-modelo do corretor PRO |
-| `20261110000200_gabarito_por_caderno`  | gabarito por cor de caderno                  |
+| Arquivo                                    | Para quê                                                                                                          |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `20261109000200_enem_2025_arquivos`        | cadernos e gabaritos do ENEM 2025                                                                                 |
+| `20261109000300_billing_alerts`            | alertas de cobrança (Stripe)                                                                                      |
+| `20261109000400_escola_com_vestibular`     | Vestibular dentro do Nexa Escolas                                                                                 |
+| `20261109000500_biblioteca_series`         | filtro por série na Biblioteca                                                                                    |
+| `20261109000600_cartao_resposta`           | cartão-resposta e correção                                                                                        |
+| `20261109000700_boletim_por_serie`         | boletim por série                                                                                                 |
+| `20261110000100_nexa_coins`                | Nexa Coins + redações-modelo do corretor PRO                                                                      |
+| `20261110000200_gabarito_por_caderno`      | gabarito por cor de caderno                                                                                       |
+| `20261111000100_provas_oficiais_2018_2026` | links de provas e gabaritos (ENEM, FUVEST, UNICAMP, ITA, IME, UNESP) + gabaritos por caderno do ENEM e da UNICAMP |
 
 ## 9. O que vive FORA do Git (guarde em lugar seguro, faça backup)
 

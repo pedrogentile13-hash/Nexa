@@ -19,6 +19,7 @@ export const OFFICIAL_FILE_HOSTS = [
   'www.fuvest.br',
   'www.comvest.unicamp.br',
   'vestibular.unesp.br',
+  'www.ime.eb.mil.br',
 ] as const;
 
 /** Maior arquivo que o servidor aceita repassar (um caderno do ENEM tem 20 a 40 MB). */
@@ -63,7 +64,12 @@ export function checkExamFileUrl(raw: string, hosts: Set<string>, production = t
   const host = url.host.toLowerCase();
   if (!hosts.has(host)) return null;
   if (url.protocol === 'https:') return url;
-  if (url.protocol === 'http:' && !production && !(OFFICIAL_FILE_HOSTS as readonly string[]).includes(host)) return url;
+  if (
+    url.protocol === 'http:' &&
+    !production &&
+    !(OFFICIAL_FILE_HOSTS as readonly string[]).includes(host)
+  )
+    return url;
   return null;
 }
 
@@ -81,9 +87,13 @@ export function safeFilename(label: string, fallback = 'prova'): string {
 
 /** Explica, em português, por que o site oficial não entregou o arquivo (para o aluno e para o administrador). */
 export function explainUpstreamStatus(status: number): string {
-  if (status === 404 || status === 410) return 'O site oficial respondeu "não encontrado" (404): o endereço cadastrado está errado ou o arquivo saiu do ar.';
-  if (status === 401 || status === 403) return 'O site oficial recusou o acesso do servidor do Nexa (403). Hospede o PDF no Nexa (envio de arquivo) ou use "Abrir no site oficial".';
-  if (status === 429) return 'O site oficial limitou os acessos (429). Tente de novo em alguns minutos.';
-  if (status >= 500) return `O site oficial está com problema agora (${status}). Tente de novo mais tarde.`;
+  if (status === 404 || status === 410)
+    return 'O site oficial respondeu "não encontrado" (404): o endereço cadastrado está errado ou o arquivo saiu do ar.';
+  if (status === 401 || status === 403)
+    return 'O site oficial recusou o acesso do servidor do Nexa (403). Hospede o PDF no Nexa (envio de arquivo) ou use "Abrir no site oficial".';
+  if (status === 429)
+    return 'O site oficial limitou os acessos (429). Tente de novo em alguns minutos.';
+  if (status >= 500)
+    return `O site oficial está com problema agora (${status}). Tente de novo mais tarde.`;
   return `O site oficial respondeu com o código ${status}.`;
 }
