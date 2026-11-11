@@ -19,6 +19,7 @@ export const COIN_COSTS = {
   essay: 8, // correção de redação — modelo BÁSICO
   essay_pro: 30, // correção de redação — modelo PRO (avançado + régua rígida + calibração)
   exam_ai: 12, // simulado de vestibular gerado pela IA (estilo de uma banca)
+  discursive: 3, // correção por IA de UMA questão discursiva (quiz ou simulado)
 } as const;
 
 export type CoinFeature = keyof typeof COIN_COSTS;
@@ -39,6 +40,7 @@ export const COIN_LABEL: Record<CoinFeature, string> = {
   essay: 'Correção de redação (básico)',
   essay_pro: 'Correção de redação (PRO)',
   exam_ai: 'Simulado de vestibular com IA',
+  discursive: 'Correção de questão discursiva',
 };
 
 /** Saldo mensal por plano. Escola é generosa: o contrato é da escola, e o aluno não vê cobrança. */

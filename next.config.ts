@@ -10,12 +10,16 @@ import type { NextConfig } from 'next';
  * (aparece no console do navegador, não bloqueia) até a escola validar o app sem
  * nenhuma violação — aí é só trocar para obrigatória.
  */
-const supabaseHost = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+const supabaseHost = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '')
+  .replace(/^https?:\/\//, '')
+  .replace(/\/.*$/, '');
 const isDev = process.env.NODE_ENV !== 'production';
 
 // Só quando o AdSense está configurado: libera os endereços do Google Ads (script, imagem, quadro e conexão).
 const ads = true;
-const adScripts = ads ? ' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://www.googletagservices.com https://adservice.google.com https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com' : '';
+const adScripts = ads
+  ? ' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://www.googletagservices.com https://adservice.google.com https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com'
+  : '';
 
 const strictCsp = [
   "default-src 'self'",
@@ -24,7 +28,7 @@ const strictCsp = [
   `img-src 'self' data: blob: https://${supabaseHost || '*.supabase.co'}${ads ? ' https:' : ''}`,
   `media-src 'self' blob: https://${supabaseHost || '*.supabase.co'}`,
   "font-src 'self' data:",
-  `connect-src 'self' https://${supabaseHost || '*.supabase.co'} wss://${supabaseHost || '*.supabase.co'}${adScripts}`,
+  `connect-src 'self' https://${supabaseHost || '*.supabase.co'} wss://${supabaseHost || '*.supabase.co'} https://download.inep.gov.br${adScripts}`,
   `frame-src 'self' blob: about:${adScripts}`,
   "worker-src 'self' blob:",
 ].join('; ');
@@ -33,10 +37,16 @@ const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  },
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
   // Obrigatório: não segura nada que o app use hoje.
-  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
+  {
+    key: 'Content-Security-Policy',
+    value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+  },
   // Só relata: mostra no console o que a política completa bloquearia.
   { key: 'Content-Security-Policy-Report-Only', value: strictCsp },
 ];

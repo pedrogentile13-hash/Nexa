@@ -23,6 +23,9 @@ import { StudyTopBar } from './study-top-bar';
 import { QuestionAssets } from './question-assets';
 import { WritingTaskRunner } from './writing-task-runner';
 import { CalculatorDialog } from './calculator-dialog';
+import { DiscursiveAnswer } from './discursive-answer';
+import type { DiscursiveGrade } from '../server/discursive-actions';
+import { PASS_RATIO } from '../lib/discursive';
 import { splitStatement } from '../lib/statement';
 import { WhiteboardButton, useWhiteboardStore } from '@/components/whiteboard/whiteboard';
 import { clockTime, humanDuration } from '../lib/format';
@@ -59,6 +62,9 @@ import type { QuizQuestion } from './resource-viewer';
  */
 
 type Phase = 'intro' | 'running' | 'writing' | 'done';
+
+/** Valor de `answeredMap` para uma discursiva já respondida (não há alternativa escolhida). */
+const WRITTEN = '__texto__';
 
 export function QuizRunner({
   resource,
@@ -104,6 +110,9 @@ export function QuizRunner({
   } | null>(null);
   const [answeredMap, setAnsweredMap] = useState<Record<string, string | null>>({});
   const [flaggedMap, setFlaggedMap] = useState<Record<string, boolean>>({});
+  // Discursivas: texto já salvo e correção da IA, por questão.
+  const [discTexts, setDiscTexts] = useState<Record<string, string>>({});
+  const [discGrades, setDiscGrades] = useState<Record<string, DiscursiveGrade>>({});
   const [essayDrafts, setEssayDrafts] = useState<EssayDraft[]>([]);
   const [showNavigator, setShowNavigator] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
@@ -123,6 +132,7 @@ export function QuizRunner({
 
   const question = orderedQuestions[index];
   const total = orderedQuestions.length;
+  const discursiveCount = orderedQuestions.filter((q) => q.kind === 'discursiva').length;
 
   // Tempo por questão: acumula em segundo plano, some junto da resposta.
   const timeAccumRef = useRef<Record<string, number>>({});
@@ -163,10 +173,17 @@ export function QuizRunner({
 
       const answered: Record<string, string | null> = {};
       const flagged: Record<string, boolean> = {};
+      const texts: Record<string, string> = {};
+      const grades: Record<string, DiscursiveGrade> = {};
       for (const row of state) {
-        answered[row.questionId] = row.optionId;
+        answered[row.questionId] = row.answerText?.trim() ? WRITTEN : row.optionId;
         flagged[row.questionId] = row.flagged;
+        if (row.answerText?.trim()) texts[row.questionId] = row.answerText;
+        if (row.aiScore !== null && row.aiFeedback)
+          grades[row.questionId] = { score: row.aiScore, feedback: row.aiFeedback };
       }
+      setDiscTexts(texts);
+      setDiscGrades(grades);
 
       // Seed pelo attemptId de verdade (não pelo closure de `orderedQuestions`
       // do render atual, que ainda reflete a ordem sem embaralhar) — evita a
@@ -184,7 +201,9 @@ export function QuizRunner({
       // Retoma na primeira questão sem resposta — quem já respondeu tudo cai
       // na última, pronto para revisar/finalizar.
       const firstUnanswered = order.findIndex((q) => !(q.question_id in answered));
-      setIndex(order.length === 0 ? 0 : firstUnanswered === -1 ? order.length - 1 : firstUnanswered);
+      setIndex(
+        order.length === 0 ? 0 : firstUnanswered === -1 ? order.length - 1 : firstUnanswered,
+      );
       setPhase(order.length > 0 ? 'running' : 'writing');
     });
   }
@@ -200,7 +219,12 @@ export function QuizRunner({
     const enteredNow = (Date.now() - enteredAtRef.current) / 1000;
 
     startTransition(async () => {
-      const result = await answerQuestion(attemptId, question.question_id, optionId, spent + enteredNow);
+      const result = await answerQuestion(
+        attemptId,
+        question.question_id,
+        optionId,
+        spent + enteredNow,
+      );
       enteredAtRef.current = Date.now();
       setAnsweredMap((current) => ({ ...current, [question.question_id]: optionId }));
       if (result) {
@@ -311,6 +335,15 @@ export function QuizRunner({
                   </dd>
                 </div>
               )}
+              {discursiveCount > 0 && (
+                <div>
+                  <dt className="sr-only">Discursivas</dt>
+                  <dd className="tabular-nums">
+                    <strong className="text-text font-semibold">{discursiveCount}</strong>{' '}
+                    {discursiveCount === 1 ? 'discursiva' : 'discursivas'}
+                  </dd>
+                </div>
+              )}
               {writingTasks.length > 0 && (
                 <div>
                   <dt className="sr-only">Redação</dt>
@@ -337,6 +370,10 @@ export function QuizRunner({
               {isQuiz
                 ? 'Você vê se acertou logo depois de responder, com a explicação.'
                 : 'A correção aparece no fim, como numa prova. O tempo fica no topo.'}
+              {discursiveCount > 0 &&
+                (isQuiz
+                  ? ' As discursivas são corrigidas por IA na hora, com devolutiva.'
+                  : ' As discursivas são corrigidas por IA depois, no gabarito.')}
             </p>
 
             {error && <p className="text-danger mt-4 text-sm">{error}</p>}
@@ -486,7 +523,9 @@ export function QuizRunner({
     );
   }
 
-  const currentSection = resource.sections.find((s) => s.questionIds?.includes(question.question_id));
+  const currentSection = resource.sections.find((s) =>
+    s.questionIds?.includes(question.question_id),
+  );
   const previousQuestion = orderedQuestions[index - 1];
   const previousSection = previousQuestion
     ? resource.sections.find((s) => s.questionIds?.includes(previousQuestion.question_id))
@@ -503,10 +542,15 @@ export function QuizRunner({
       : question.options;
 
   const isFlagged = Boolean(flaggedMap[question.question_id]);
-  const correctSoFar = orderedQuestions.filter((q) => {
-    const opt = answeredMap[q.question_id];
-    return opt && q.options.some((o) => o.id === opt) && q.question_id in answeredMap && isQuiz;
-  }).length;
+  const isDiscursive = question.kind === 'discursiva';
+  const discCorrect = orderedQuestions.filter(
+    (q) => (discGrades[q.question_id]?.score ?? 0) >= PASS_RATIO,
+  ).length;
+  const correctSoFar =
+    orderedQuestions.filter((q) => {
+      const opt = answeredMap[q.question_id];
+      return opt && q.options.some((o) => o.id === opt) && q.question_id in answeredMap && isQuiz;
+    }).length + (isQuiz ? discCorrect : 0);
 
   // ------------------------------------------------------------ rodando --
   return (
@@ -554,198 +598,251 @@ export function QuizRunner({
       )}
 
       <div className="mx-auto max-w-[1100px] px-5 pt-5 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-6">
-      <div className="min-w-0">
-        {showSectionDivider && currentSection && (
-          <div className="border-border bg-surface-2/60 mb-4 rounded-lg border px-3 py-2">
-            <p className="text-subtle text-xs font-semibold tracking-wide uppercase">
-              {currentSection.title}
-            </p>
-            {currentSection.subject && currentSection.subject !== resource.subjectName && (
-              <p className="text-muted text-xs">{currentSection.subject}</p>
-            )}
-          </div>
-        )}
-
-        <QuestionAssets refs={question.resource_refs} assets={resource.assets} />
-
-        {splitStatement(question.statement).base && (
-          <blockquote className="border-border bg-surface-2 text-muted max-h-[40dvh] overflow-y-auto rounded-2xl border-l-4 px-4 py-3 text-[0.9375rem] leading-relaxed whitespace-pre-line">
-            {splitStatement(question.statement).base}
-          </blockquote>
-        )}
-
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="text-lg leading-snug font-semibold whitespace-pre-line">{splitStatement(question.statement).command}</h1>
-          <button
-            type="button"
-            onClick={toggleFlag}
-            aria-pressed={isFlagged}
-            aria-label={isFlagged ? 'Desmarcar revisão' : 'Marcar para revisar'}
-            className={cn(
-              'grid size-9 shrink-0 place-items-center rounded-full',
-              isFlagged ? 'bg-warning-soft text-warning' : 'text-subtle hover:bg-surface-2',
-            )}
-          >
-            <Flag className={cn('size-4', isFlagged && 'fill-current')} aria-hidden />
-          </button>
-        </div>
-
-        {(() => {
-          const given = hints[question.question_id] ?? [];
-          const canAsk = !verdict && given.length < MAX_HINT_LEVEL;
-          const ask = () => {
-            setHintError(null);
-            startHint(async () => {
-              const r = await getQuestionHint(resource.id, question.question_id, given.length + 1);
-              if (r.ok) setHints((cur) => ({ ...cur, [question.question_id]: [...(cur[question.question_id] ?? []), r.hint] }));
-              else setHintError(r.message);
-            });
-          };
-          return (
-            <div className="mt-4 space-y-2">
-              {given.map((h, i) => (
-                <p key={i} className="bg-brand-soft text-text flex gap-2 rounded-lg px-3.5 py-2.5 text-sm leading-relaxed">
-                  <Lightbulb className="text-brand mt-0.5 size-4 shrink-0" aria-hidden />
-                  <span>{h}</span>
-                </p>
-              ))}
-              {hintError && <p role="alert" className="text-danger text-sm">{hintError}</p>}
-              {canAsk && (
-                <button
-                  type="button"
-                  onClick={ask}
-                  disabled={hintPending}
-                  className="text-brand-text hover:bg-brand-soft inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium disabled:opacity-60"
-                >
-                  {hintPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Lightbulb className="size-4" aria-hidden />}
-                  {hintPending
-                    ? 'Pensando…'
-                    : `${given.length === 0 ? 'Pedir uma dica' : 'Preciso de mais uma dica'} (−${HINT_XP_COST[(given.length + 1) as 1 | 2]} XP)`}
-                </button>
+        <div className="min-w-0">
+          {showSectionDivider && currentSection && (
+            <div className="border-border bg-surface-2/60 mb-4 rounded-lg border px-3 py-2">
+              <p className="text-subtle text-xs font-semibold tracking-wide uppercase">
+                {currentSection.title}
+              </p>
+              {currentSection.subject && currentSection.subject !== resource.subjectName && (
+                <p className="text-muted text-xs">{currentSection.subject}</p>
               )}
             </div>
-          );
-        })()}
+          )}
 
-        <ul className="mt-5 space-y-2.5">
-          {displayOptions.map((option, optionIndex) => {
-            const isChosen = chosen === option.id || (!chosen && answeredMap[question.question_id] === option.id);
-            const isRight = verdict?.correctOptionId === option.id;
-            const showRight = Boolean(verdict) && isRight;
-            const showWrong = Boolean(verdict) && isChosen && !verdict?.isCorrect;
+          <QuestionAssets refs={question.resource_refs} assets={resource.assets} />
 
-            return (
-              <li key={option.id}>
-                <button
-                  type="button"
-                  onClick={() => submitAnswer(option.id)}
-                  disabled={isQuiz && Boolean(chosen)}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-lg border p-3.5 text-left transition-colors',
-                    'min-h-[56px]',
-                    showRight
-                      ? 'border-success bg-success-soft'
-                      : showWrong
-                        ? 'border-danger bg-danger-soft'
-                        : isChosen
-                          ? 'border-brand bg-brand-soft'
-                          : 'border-border bg-surface hover:bg-surface-2',
-                  )}
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'grid size-7 shrink-0 place-items-center rounded-full border-2 text-xs font-bold',
-                      showRight
-                        ? 'border-success bg-success text-white'
-                        : showWrong
-                          ? 'border-danger bg-danger text-white'
-                          : 'border-border-strong text-subtle',
-                    )}
-                  >
-                    {showRight ? (
-                      <Check className="size-4" strokeWidth={3} />
-                    ) : showWrong ? (
-                      <X className="size-4" strokeWidth={3} />
-                    ) : (
-                      String.fromCharCode(65 + optionIndex)
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm">{option.body}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+          {splitStatement(question.statement).base && (
+            <blockquote className="border-border bg-surface-2 text-muted max-h-[40dvh] overflow-y-auto rounded-2xl border-l-4 px-4 py-3 text-[0.9375rem] leading-relaxed whitespace-pre-line">
+              {splitStatement(question.statement).base}
+            </blockquote>
+          )}
 
-        {verdict && (
-          <div
-            className={cn(
-              'mt-5 rounded-lg p-4',
-              verdict.isCorrect ? 'bg-success-soft' : 'bg-warning-soft',
-            )}
-          >
-            <p
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-lg leading-snug font-semibold whitespace-pre-line">
+              {splitStatement(question.statement).command}
+            </h1>
+            <button
+              type="button"
+              onClick={toggleFlag}
+              aria-pressed={isFlagged}
+              aria-label={isFlagged ? 'Desmarcar revisão' : 'Marcar para revisar'}
               className={cn(
-                'text-sm font-semibold',
-                verdict.isCorrect ? 'text-success' : 'text-warning',
+                'grid size-9 shrink-0 place-items-center rounded-full',
+                isFlagged ? 'bg-warning-soft text-warning' : 'text-subtle hover:bg-surface-2',
               )}
             >
-              {verdict.isCorrect ? 'Certa.' : 'Não é essa.'}
-            </p>
-            {verdict.explanation && (
-              <p className="text-text/80 mt-1.5 text-sm leading-relaxed">{verdict.explanation}</p>
-            )}
+              <Flag className={cn('size-4', isFlagged && 'fill-current')} aria-hidden />
+            </button>
           </div>
-        )}
-      </div>
 
-      {/* Sidebar: só desktop. No simulado não mostra corretas/incorretas —
+          {!isDiscursive &&
+            (() => {
+              const given = hints[question.question_id] ?? [];
+              const canAsk = !verdict && given.length < MAX_HINT_LEVEL;
+              const ask = () => {
+                setHintError(null);
+                startHint(async () => {
+                  const r = await getQuestionHint(
+                    resource.id,
+                    question.question_id,
+                    given.length + 1,
+                  );
+                  if (r.ok)
+                    setHints((cur) => ({
+                      ...cur,
+                      [question.question_id]: [...(cur[question.question_id] ?? []), r.hint],
+                    }));
+                  else setHintError(r.message);
+                });
+              };
+              return (
+                <div className="mt-4 space-y-2">
+                  {given.map((h, i) => (
+                    <p
+                      key={i}
+                      className="bg-brand-soft text-text flex gap-2 rounded-lg px-3.5 py-2.5 text-sm leading-relaxed"
+                    >
+                      <Lightbulb className="text-brand mt-0.5 size-4 shrink-0" aria-hidden />
+                      <span>{h}</span>
+                    </p>
+                  ))}
+                  {hintError && (
+                    <p role="alert" className="text-danger text-sm">
+                      {hintError}
+                    </p>
+                  )}
+                  {canAsk && (
+                    <button
+                      type="button"
+                      onClick={ask}
+                      disabled={hintPending}
+                      className="text-brand-text hover:bg-brand-soft inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium disabled:opacity-60"
+                    >
+                      {hintPending ? (
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                      ) : (
+                        <Lightbulb className="size-4" aria-hidden />
+                      )}
+                      {hintPending
+                        ? 'Pensando…'
+                        : `${given.length === 0 ? 'Pedir uma dica' : 'Preciso de mais uma dica'} (−${HINT_XP_COST[(given.length + 1) as 1 | 2]} XP)`}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
+          {isDiscursive && attemptId && (
+            <DiscursiveAnswer
+              key={question.question_id}
+              attemptId={attemptId}
+              questionId={question.question_id}
+              immediate={isQuiz}
+              initialText={discTexts[question.question_id] ?? ''}
+              initialGrade={discGrades[question.question_id] ?? null}
+              getSpentSeconds={() => {
+                const spent =
+                  (timeAccumRef.current[question.question_id] ?? 0) +
+                  (Date.now() - enteredAtRef.current) / 1000;
+                timeAccumRef.current[question.question_id] = 0;
+                enteredAtRef.current = Date.now();
+                return spent;
+              }}
+              onSaved={(saved) => {
+                setDiscTexts((cur) => ({ ...cur, [question.question_id]: saved }));
+                setAnsweredMap((cur) => ({ ...cur, [question.question_id]: WRITTEN }));
+              }}
+              onGraded={(g) => setDiscGrades((cur) => ({ ...cur, [question.question_id]: g }))}
+            />
+          )}
+
+          {!isDiscursive && (
+            <ul className="mt-5 space-y-2.5">
+              {displayOptions.map((option, optionIndex) => {
+                const isChosen =
+                  chosen === option.id ||
+                  (!chosen && answeredMap[question.question_id] === option.id);
+                const isRight = verdict?.correctOptionId === option.id;
+                const showRight = Boolean(verdict) && isRight;
+                const showWrong = Boolean(verdict) && isChosen && !verdict?.isCorrect;
+
+                return (
+                  <li key={option.id}>
+                    <button
+                      type="button"
+                      onClick={() => submitAnswer(option.id)}
+                      disabled={isQuiz && Boolean(chosen)}
+                      className={cn(
+                        'flex w-full items-center gap-3 rounded-lg border p-3.5 text-left transition-colors',
+                        'min-h-[56px]',
+                        showRight
+                          ? 'border-success bg-success-soft'
+                          : showWrong
+                            ? 'border-danger bg-danger-soft'
+                            : isChosen
+                              ? 'border-brand bg-brand-soft'
+                              : 'border-border bg-surface hover:bg-surface-2',
+                      )}
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'grid size-7 shrink-0 place-items-center rounded-full border-2 text-xs font-bold',
+                          showRight
+                            ? 'border-success bg-success text-white'
+                            : showWrong
+                              ? 'border-danger bg-danger text-white'
+                              : 'border-border-strong text-subtle',
+                        )}
+                      >
+                        {showRight ? (
+                          <Check className="size-4" strokeWidth={3} />
+                        ) : showWrong ? (
+                          <X className="size-4" strokeWidth={3} />
+                        ) : (
+                          String.fromCharCode(65 + optionIndex)
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1 text-sm">{option.body}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {!isDiscursive && verdict && (
+            <div
+              className={cn(
+                'mt-5 rounded-lg p-4',
+                verdict.isCorrect ? 'bg-success-soft' : 'bg-warning-soft',
+              )}
+            >
+              <p
+                className={cn(
+                  'text-sm font-semibold',
+                  verdict.isCorrect ? 'text-success' : 'text-warning',
+                )}
+              >
+                {verdict.isCorrect ? 'Certa.' : 'Não é essa.'}
+              </p>
+              {verdict.explanation && (
+                <p className="text-text/80 mt-1.5 text-sm leading-relaxed">{verdict.explanation}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar: só desktop. No simulado não mostra corretas/incorretas —
           revelar isso durante a prova quebraria a proposta de "sem feedback
           até o fim" que o simulado tem por definição. */}
-      <aside className="mt-6 hidden min-w-0 space-y-4 lg:mt-0 lg:block">
-        {showProgress && (
-          <div className="border-border bg-surface rounded-2xl border p-4">
-            <h2 className="text-sm font-semibold">Seu progresso</h2>
-            {isQuiz ? (
-              <dl className="mt-3 space-y-1.5 text-sm">
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted flex items-center gap-1.5">
-                    <span aria-hidden className="bg-success size-2 rounded-full" />
-                    Corretas
-                  </dt>
-                  <dd className="tabular font-semibold">{correctSoFar}</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted flex items-center gap-1.5">
-                    <span aria-hidden className="border-border-strong size-2 rounded-full border" />
-                    Restantes
-                  </dt>
-                  <dd className="tabular font-semibold">{unansweredCount}</dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="text-muted mt-2 text-sm">
-                <span className="text-text tabular font-semibold">{total - unansweredCount}</span> de{' '}
-                {total} questões respondidas
-                {flaggedCount > 0 && (
-                  <span className="text-warning block">
-                    {flaggedCount} marcada{flaggedCount === 1 ? '' : 's'} para revisão
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
-        )}
+        <aside className="mt-6 hidden min-w-0 space-y-4 lg:mt-0 lg:block">
+          {showProgress && (
+            <div className="border-border bg-surface rounded-2xl border p-4">
+              <h2 className="text-sm font-semibold">Seu progresso</h2>
+              {isQuiz ? (
+                <dl className="mt-3 space-y-1.5 text-sm">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted flex items-center gap-1.5">
+                      <span aria-hidden className="bg-success size-2 rounded-full" />
+                      Corretas
+                    </dt>
+                    <dd className="tabular font-semibold">{correctSoFar}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="border-border-strong size-2 rounded-full border"
+                      />
+                      Restantes
+                    </dt>
+                    <dd className="tabular font-semibold">{unansweredCount}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="text-muted mt-2 text-sm">
+                  <span className="text-text tabular font-semibold">{total - unansweredCount}</span>{' '}
+                  de {total} questões respondidas
+                  {flaggedCount > 0 && (
+                    <span className="text-warning block">
+                      {flaggedCount} marcada{flaggedCount === 1 ? '' : 's'} para revisão
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
 
-        <QuestionNavigatorGrid
-          questions={orderedQuestions}
-          currentId={question.question_id}
-          answered={answeredMap}
-          flagged={flaggedMap}
-          onSelect={allowReview ? (i) => goTo(i) : undefined}
-        />
-      </aside>
+          <QuestionNavigatorGrid
+            questions={orderedQuestions}
+            currentId={question.question_id}
+            answered={answeredMap}
+            flagged={flaggedMap}
+            onSelect={allowReview ? (i) => goTo(i) : undefined}
+          />
+        </aside>
       </div>
 
       <WhiteboardButton
@@ -753,7 +850,10 @@ export function QuizRunner({
         label={`Questão ${index + 1}`}
         statement={question.statement}
         store={whiteboards}
-        className={cn('pb-safe fixed bottom-[calc(5.25rem_+_env(safe-area-inset-bottom))] z-40 md:bottom-20', settings.calculatorAllowed ? 'right-20' : 'right-4')}
+        className={cn(
+          'pb-safe fixed bottom-[calc(5.25rem_+_env(safe-area-inset-bottom))] z-40 md:bottom-20',
+          settings.calculatorAllowed ? 'right-20' : 'right-4',
+        )}
       />
       {settings.calculatorAllowed && (
         <button
@@ -776,7 +876,12 @@ export function QuizRunner({
             </Button>
           )}
           {isQuiz ? (
-            <Button size="lg" className="flex-1" onClick={advance} disabled={!chosen && !answeredMap[question.question_id]}>
+            <Button
+              size="lg"
+              className="flex-1"
+              onClick={advance}
+              disabled={!chosen && !answeredMap[question.question_id]}
+            >
               {index + 1 === total ? 'Ver resultado' : 'Continuar'}
             </Button>
           ) : (
@@ -839,7 +944,10 @@ export function QuizRunner({
 }
 
 /** Reordena pela ordem das seções; questões fora de qualquer seção vão pro fim, na ordem original. */
-function orderBySections(questions: QuizQuestion[], sections: ResourceDetail['sections']): QuizQuestion[] {
+function orderBySections(
+  questions: QuizQuestion[],
+  sections: ResourceDetail['sections'],
+): QuizQuestion[] {
   if (sections.length === 0) return questions;
 
   const byId = new Map(questions.map((q) => [q.question_id, q]));
@@ -940,7 +1048,10 @@ function QuestionNavigatorGrid({
 }) {
   return (
     <div>
-      <ol className="grid grid-cols-6 gap-1.5 sm:grid-cols-8 lg:grid-cols-5" aria-label="Navegador de questões">
+      <ol
+        className="grid grid-cols-6 gap-1.5 sm:grid-cols-8 lg:grid-cols-5"
+        aria-label="Navegador de questões"
+      >
         {questions.map((q, i) => {
           const isCurrent = q.question_id === currentId;
           const isAnswered = q.question_id in answered;
@@ -964,7 +1075,10 @@ function QuestionNavigatorGrid({
               >
                 {i + 1}
                 {isFlagged && (
-                  <Flag className="text-warning absolute -top-1 -right-1 size-3 fill-current" aria-hidden />
+                  <Flag
+                    className="text-warning absolute -top-1 -right-1 size-3 fill-current"
+                    aria-hidden
+                  />
                 )}
               </button>
             </li>

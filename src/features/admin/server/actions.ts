@@ -6,7 +6,14 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { PLATFORM_ROLE_CHOICES, platformChoiceToProfile } from '@/lib/school-roles';
 import { sendPushToUsers } from '@/lib/push/send';
-import { assertSubjectAllowed, requireAccess, requireAdmin, requireContentManager, requireFullAdmin, resolveSchoolId } from './guard';
+import {
+  assertSubjectAllowed,
+  requireAccess,
+  requireAdmin,
+  requireContentManager,
+  requireFullAdmin,
+  resolveSchoolId,
+} from './guard';
 import { parseAssets, parseSimuladoCode } from '../lib/simulado-import';
 
 /**
@@ -543,8 +550,79 @@ const questionSchema = z.object({
   resourceRefs: z.array(z.string().trim().max(60)).optional().default([]),
 });
 
+const discursiveSchema = questionSchema.omit({ options: true, correctIndex: true }).extend({
+  modelAnswer: z
+    .string()
+    .trim()
+    .min(10, 'Escreva a resposta esperada: é com ela que a IA corrige.')
+    .max(4000),
+  rubric: z.string().trim().max(2000).optional().or(z.literal('')),
+});
+
+/** Questão DISCURSIVA: sem alternativas; a resposta esperada e os critérios são o gabarito da correção por IA. */
+async function saveDiscursiveQuestion(
+  identity: Awaited<ReturnType<typeof requireContentManager>>,
+  formData: FormData,
+): Promise<AdminState> {
+  const parsed = discursiveSchema.safeParse({
+    id: formData.get('id') || undefined,
+    resourceId: formData.get('resourceId'),
+    statement: formData.get('statement'),
+    explanation: formData.get('explanation') || '',
+    difficulty: formData.get('difficulty') || 'medio',
+    topicId: formData.get('topicId') || '',
+    groupId: formData.get('groupId') || '',
+    resourceRefs: formData.getAll('resourceRefs').map((r) => String(r)),
+    modelAnswer: formData.get('modelAnswer') || '',
+    rubric: formData.get('rubric') || '',
+  });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+  const d = parsed.data;
+  const supabase = await createClient();
+
+  const fields = {
+    statement: d.statement,
+    explanation: d.explanation || null,
+    difficulty: d.difficulty,
+    topic_id: d.topicId || null,
+    group_id: d.groupId || null,
+    resource_refs: d.resourceRefs,
+    kind: 'discursiva' as const,
+    model_answer: d.modelAnswer,
+    rubric: d.rubric || null,
+  };
+
+  if (d.id) {
+    const { error } = await supabase.from('questions').update(fields).eq('id', d.id);
+    if (error) return fail(error.message);
+    // Se antes era objetiva, as alternativas deixam de existir.
+    await supabase.from('question_options').delete().eq('question_id', d.id);
+  } else {
+    const { data: last } = await supabase
+      .from('questions')
+      .select('position')
+      .eq('resource_id', d.resourceId)
+      .order('position', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const { error } = await supabase
+      .from('questions')
+      .insert({ resource_id: d.resourceId, position: (last?.position ?? 0) + 1, ...fields });
+    if (error)
+      return fail(
+        /kind|model_answer|rubric|column/i.test(error.message)
+          ? 'Falta rodar o SQL das questões discursivas no Supabase (migration 20261111000200).'
+          : error.message,
+      );
+  }
+
+  revalidatePath(`${identity.basePath}/${d.resourceId}/questoes`);
+  return ok;
+}
+
 export async function saveQuestion(_prev: AdminState, formData: FormData): Promise<AdminState> {
   const identity = await requireContentManager();
+  if (formData.get('kind') === 'discursiva') return saveDiscursiveQuestion(identity, formData);
 
   const options = formData
     .getAll('option')
@@ -565,8 +643,16 @@ export async function saveQuestion(_prev: AdminState, formData: FormData): Promi
   });
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
-  const { resourceId, statement, explanation, difficulty, topicId, correctIndex, groupId, resourceRefs } =
-    parsed.data;
+  const {
+    resourceId,
+    statement,
+    explanation,
+    difficulty,
+    topicId,
+    correctIndex,
+    groupId,
+    resourceRefs,
+  } = parsed.data;
   if (correctIndex >= parsed.data.options.length) {
     return fail('Marque qual alternativa é a correta.');
   }
@@ -584,6 +670,8 @@ export async function saveQuestion(_prev: AdminState, formData: FormData): Promi
         topic_id: topicId || null,
         group_id: groupId || null,
         resource_refs: resourceRefs,
+        // Se a questão era discursiva e virou objetiva, some a resposta esperada.
+        ...(formData.has('kind') ? { kind: 'objetiva', model_answer: null, rubric: null } : {}),
       })
       .eq('id', questionId);
     if (error) return fail(error.message);
@@ -729,7 +817,9 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
     }
     const questionScopeError = assertSubjectAllowed(identity, effective);
     if (questionScopeError) {
-      return fail(`Questão ${question.sourceId}: matéria "${question.subjectName}" fora do seu escopo — ${questionScopeError}`);
+      return fail(
+        `Questão ${question.sourceId}: matéria "${question.subjectName}" fora do seu escopo — ${questionScopeError}`,
+      );
     }
     effectiveSubjectByIndex.set(question.index, effective);
   }
@@ -801,7 +891,8 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
   for (const question of result.questions) {
     const effectiveSubjectId = effectiveSubjectByIndex.get(question.index) as string;
     const topicId = question.topicName
-      ? (topicByNameAndSubject.get(`${effectiveSubjectId}:${question.topicName.toLowerCase()}`) ?? null)
+      ? (topicByNameAndSubject.get(`${effectiveSubjectId}:${question.topicName.toLowerCase()}`) ??
+        null)
       : null;
 
     const { data: createdQuestion, error: questionError } = await supabase
@@ -823,6 +914,14 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
         skills: question.skills,
         error_types: question.errorTypes,
         estimated_time_seconds: question.estimatedTimeSeconds,
+        // Discursiva: a resposta esperada e os critérios são o gabarito que a IA usa para corrigir.
+        ...(question.kind === 'discursiva'
+          ? {
+              kind: 'discursiva',
+              model_answer: question.modelAnswer ?? null,
+              rubric: question.rubric ?? null,
+            }
+          : {}),
       })
       .select('id')
       .single();
@@ -836,14 +935,17 @@ export async function importSimulado(_prev: AdminState, formData: FormData): Pro
       );
     }
 
-    const { error: optionsError } = await supabase.from('question_options').insert(
-      question.options.map((option, i) => ({
-        question_id: createdQuestion.id,
-        position: i + 1,
-        body: option.text,
-        is_correct: option.key === question.correctKey,
-      })),
-    );
+    const { error: optionsError } =
+      question.kind === 'discursiva'
+        ? { error: null }
+        : await supabase.from('question_options').insert(
+            question.options.map((option, i) => ({
+              question_id: createdQuestion.id,
+              position: i + 1,
+              body: option.text,
+              is_correct: option.key === question.correctKey,
+            })),
+          );
 
     if (optionsError) {
       return fail(
@@ -1095,14 +1197,24 @@ export async function setPersonRole(_prev: AdminState, formData: FormData): Prom
   const supabase = await createClient();
 
   // Esta tela não gerencia papéis de escola: não rebaixa direção/coordenação/professor.
-  const { data: current } = await supabase.from('profiles').select('role').eq('id', parsed.data.userId).maybeSingle();
+  const { data: current } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', parsed.data.userId)
+    .maybeSingle();
   if (current && current.role !== 'student' && current.role !== 'admin') {
-    return fail('Esta conta é gerenciada pela escola (Contas da escola) — a plataforma não altera o papel dela.');
+    return fail(
+      'Esta conta é gerenciada pela escola (Contas da escola) — a plataforma não altera o papel dela.',
+    );
   }
 
   const { role, adminScope } = platformChoiceToProfile(parsed.data.role);
-  const base: { role: 'student' | 'admin'; school_title: null; school_id?: string | null } = { role, school_title: null };
-  if (parsed.data.schoolId !== undefined) base.school_id = parsed.data.schoolId ? parsed.data.schoolId : null;
+  const base: { role: 'student' | 'admin'; school_title: null; school_id?: string | null } = {
+    role,
+    school_title: null,
+  };
+  if (parsed.data.schoolId !== undefined)
+    base.school_id = parsed.data.schoolId ? parsed.data.schoolId : null;
 
   let { error } = await supabase
     .from('profiles')
@@ -1111,7 +1223,10 @@ export async function setPersonRole(_prev: AdminState, formData: FormData): Prom
 
   // Código publicado antes do SQL do admin restrito: a coluna ainda não existe.
   if (error?.code === '42703' || error?.code === 'PGRST204') {
-    if (adminScope) return fail('Aplique o SQL do admin restrito no Supabase antes de criar um admin com funções limitadas.');
+    if (adminScope)
+      return fail(
+        'Aplique o SQL do admin restrito no Supabase antes de criar um admin com funções limitadas.',
+      );
     ({ error } = await supabase.from('profiles').update(base).eq('id', parsed.data.userId));
   }
 
@@ -1134,7 +1249,10 @@ export async function movePersonSchool(_prev: AdminState, formData: FormData): P
   if (target && !z.string().uuid().safeParse(target).success) return fail('Escola inválida.');
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc('move_person_school', { p_user_id: userId.data, p_school_id: target || null });
+  const { error } = await supabase.rpc('move_person_school', {
+    p_user_id: userId.data,
+    p_school_id: target || null,
+  });
   if (error) {
     return fail(
       error.code === '42501'
@@ -1206,7 +1324,10 @@ const teacherAssignmentSchema = z.object({
   classId: z.string().uuid('Escolha a turma.'),
 });
 
-export async function saveTeacherAssignment(_prev: AdminState, formData: FormData): Promise<AdminState> {
+export async function saveTeacherAssignment(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
   const identity = await requireAdmin();
 
   const parsed = teacherAssignmentSchema.safeParse({

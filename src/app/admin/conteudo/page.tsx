@@ -10,9 +10,11 @@ import {
 } from '@/features/admin/server/queries';
 import { requireAdmin } from '@/features/admin/server/guard';
 import { StudySeedCard } from '@/features/admin/components/study-seed-card';
+import { MixedSeedCard } from '@/features/admin/components/mixed-seed-card';
 import { createClient } from '@/lib/supabase/server';
 import { PACOTES, SEED_TAG, TOPICOS } from '@/features/content/seed';
 import { VEST_TAG } from '@/features/content/seed/vestibular';
+import { MISTO_TAG, PACOTES_MISTOS } from '@/features/content/seed/misto';
 import { Button } from '@/components/ui/button';
 import type { ResourceKind } from '@/types/database.types';
 
@@ -32,16 +34,49 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
   const params = await searchParams;
   const supabase = await createClient();
   const seedCount = async (published: boolean) =>
-    (await supabase.from('resources').select('id', { count: 'exact', head: true }).contains('tags', [SEED_TAG]).eq('is_published', published)).count ?? 0;
+    (
+      await supabase
+        .from('resources')
+        .select('id', { count: 'exact', head: true })
+        .contains('tags', [SEED_TAG])
+        .eq('is_published', published)
+    ).count ?? 0;
 
   const vestCount = async (published: boolean) =>
-    (await supabase.from('resources').select('id', { count: 'exact', head: true }).contains('tags', [VEST_TAG]).eq('is_published', published)).count ?? 0;
+    (
+      await supabase
+        .from('resources')
+        .select('id', { count: 'exact', head: true })
+        .contains('tags', [VEST_TAG])
+        .eq('is_published', published)
+    ).count ?? 0;
 
-  const [seedDrafts, seedPublished, vestDrafts, vestPublished, resources, subjects, schools] = await Promise.all([
+  const mixedCount = async (published: boolean) =>
+    (
+      await supabase
+        .from('resources')
+        .select('id', { count: 'exact', head: true })
+        .contains('tags', [MISTO_TAG])
+        .eq('is_published', published)
+    ).count ?? 0;
+
+  const [
+    seedDrafts,
+    seedPublished,
+    vestDrafts,
+    vestPublished,
+    mixedDrafts,
+    mixedPublished,
+    resources,
+    subjects,
+    schools,
+  ] = await Promise.all([
     seedCount(false),
     seedCount(true),
     vestCount(false),
     vestCount(true),
+    mixedCount(false),
+    mixedCount(true),
     listResources({
       kind: (params.kind as ResourceKind) || 'todos',
       subjectId: params.subject,
@@ -78,7 +113,24 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
       />
 
       <div className="space-y-4 p-5">
-        <StudySeedCard drafts={seedDrafts} published={seedPublished} topics={TOPICOS.length} packages={PACOTES.length} vestDrafts={vestDrafts} vestPublished={vestPublished} />
+        <StudySeedCard
+          drafts={seedDrafts}
+          published={seedPublished}
+          topics={TOPICOS.length}
+          packages={PACOTES.length}
+          vestDrafts={vestDrafts}
+          vestPublished={vestPublished}
+        />
+        <MixedSeedCard
+          drafts={mixedDrafts}
+          published={mixedPublished}
+          packages={PACOTES_MISTOS.length}
+          questions={PACOTES_MISTOS.reduce((n, p) => n + p.questoes.length, 0)}
+          discursive={PACOTES_MISTOS.reduce(
+            (n, p) => n + p.questoes.filter((q) => q.k === 'd').length,
+            0,
+          )}
+        />
         <ResourceFilterBar
           subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
           schools={schools.map((s) => ({ id: s.id, name: s.name }))}

@@ -112,6 +112,7 @@ Migrations recentes (confirme no Supabase que todas foram rodadas):
 | `20261110000100_nexa_coins`                | Nexa Coins + redações-modelo do corretor PRO                                                                      |
 | `20261110000200_gabarito_por_caderno`      | gabarito por cor de caderno                                                                                       |
 | `20261111000100_provas_oficiais_2018_2026` | links de provas e gabaritos (ENEM, FUVEST, UNICAMP, ITA, IME, UNESP) + gabaritos por caderno do ENEM e da UNICAMP |
+| `20261111000200_questoes_discursivas` | questões discursivas com correção por IA (quiz e simulado) |
 
 ## 9. O que vive FORA do Git (guarde em lugar seguro, faça backup)
 

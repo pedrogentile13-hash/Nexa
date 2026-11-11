@@ -32,6 +32,10 @@ export interface EditableQuestion {
   group_id: string | null;
   resource_refs: string[];
   options: { id: string; position: number; body: string; is_correct: boolean }[];
+  /** 'discursiva': sem alternativas; a IA corrige com `model_answer` e `rubric`. */
+  kind?: 'objetiva' | 'discursiva';
+  model_answer?: string | null;
+  rubric?: string | null;
 }
 
 const INITIAL: AdminState = { status: 'idle' };
@@ -53,6 +57,7 @@ export function QuestionEditor({
   const [editing, setEditing] = useState<EditableQuestion | null>(null);
   const [optionCount, setOptionCount] = useState(4);
   const [selectedRefs, setSelectedRefs] = useState<string[]>([]);
+  const [kindChoice, setKindChoice] = useState<'objetiva' | 'discursiva'>('objetiva');
 
   const current = editing;
   const initialOptions = current ? current.options.map((o) => o.body) : EMPTY_OPTIONS;
@@ -100,7 +105,24 @@ export function QuestionEditor({
                         ))}
                       </div>
                     )}
-                    <p className="text-sm font-medium">{question.statement}</p>
+                    <p className="text-sm font-medium">
+                      {question.kind === 'discursiva' && (
+                        <span className="bg-brand-soft text-brand-text mr-2 rounded-full px-2 py-0.5 align-middle text-[11px] font-semibold">
+                          Discursiva · IA
+                        </span>
+                      )}
+                      {question.statement}
+                    </p>
+
+                    {question.kind === 'discursiva' && (
+                      <div className="text-success mt-2 border-l-2 border-current/30 pl-3 text-xs leading-relaxed">
+                        <p className="font-semibold">Resposta esperada</p>
+                        <p className="text-muted whitespace-pre-line">{question.model_answer}</p>
+                        {question.rubric && (
+                          <p className="text-subtle mt-1 whitespace-pre-line">{question.rubric}</p>
+                        )}
+                      </div>
+                    )}
 
                     <ul className="mt-2 space-y-1">
                       {question.options.map((option) => (
@@ -139,8 +161,9 @@ export function QuestionEditor({
                       type="button"
                       onClick={() => {
                         setEditing(question);
-                        setOptionCount(question.options.length);
+                        setOptionCount(Math.max(4, question.options.length));
                         setSelectedRefs(question.resource_refs);
+                        setKindChoice(question.kind === 'discursiva' ? 'discursiva' : 'objetiva');
                       }}
                       aria-label={`Editar questão ${question.position}`}
                       className="text-muted hover:bg-surface-2 hover:text-text grid size-11 place-items-center rounded-md"
@@ -183,6 +206,7 @@ export function QuestionEditor({
                   setEditing(null);
                   setOptionCount(4);
                   setSelectedRefs([]);
+                  setKindChoice('objetiva');
                 }}
                 aria-label="Cancelar edição"
                 className="text-muted hover:text-text grid size-11 place-items-center rounded-md"
@@ -195,6 +219,30 @@ export function QuestionEditor({
           <input type="hidden" name="resourceId" value={resourceId} />
           {current && <input type="hidden" name="id" value={current.id} />}
 
+          <fieldset className="flex gap-2" aria-label="Tipo da questão">
+            {(['objetiva', 'discursiva'] as const).map((k) => (
+              <label
+                key={k}
+                className={cn(
+                  'flex h-11 flex-1 cursor-pointer items-center justify-center rounded-lg border text-sm font-semibold',
+                  kindChoice === k
+                    ? 'border-brand bg-brand-soft text-brand-text'
+                    : 'border-border text-muted',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="kind"
+                  value={k}
+                  checked={kindChoice === k}
+                  onChange={() => setKindChoice(k)}
+                  className="sr-only"
+                />
+                {k === 'objetiva' ? 'Objetiva' : 'Discursiva (IA corrige)'}
+              </label>
+            ))}
+          </fieldset>
+
           <Field label="Enunciado">
             <Textarea
               name="statement"
@@ -205,42 +253,67 @@ export function QuestionEditor({
             />
           </Field>
 
-          <fieldset>
-            <legend className="text-text mb-1.5 block text-sm font-medium">
-              Alternativas <span className="text-subtle font-normal">· marque a correta</span>
-            </legend>
-
-            <div className="space-y-2">
-              {visibleOptions.map((value, index) => (
-                <label key={index} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="correctIndex"
-                    value={index}
-                    defaultChecked={index === Math.max(0, initialCorrect)}
-                    aria-label={`Alternativa ${index + 1} é a correta`}
-                    className="accent-success size-5 shrink-0"
-                  />
-                  <Input
-                    name="option"
-                    defaultValue={value}
-                    placeholder={`Alternativa ${String.fromCharCode(65 + index)}`}
-                  />
-                </label>
-              ))}
-            </div>
-
-            {optionCount < 6 && (
-              <button
-                type="button"
-                onClick={() => setOptionCount((n) => n + 1)}
-                className="text-muted hover:text-text mt-2 flex h-11 items-center gap-1.5 text-sm"
+          {kindChoice === 'discursiva' ? (
+            <>
+              <Field
+                label="Resposta esperada"
+                hint="a IA corrige comparando com ela; o aluno só a vê depois de finalizar"
               >
-                <Plus className="size-4" aria-hidden />
-                Mais uma alternativa
-              </button>
-            )}
-          </fieldset>
+                <Textarea
+                  name="modelAnswer"
+                  rows={5}
+                  required
+                  defaultValue={current?.model_answer ?? ''}
+                  placeholder="Crise financeira do Estado e privilégios dos estamentos, além do Iluminismo."
+                />
+              </Field>
+              <Field label="Critérios de correção" hint="opcional — um por linha">
+                <Textarea
+                  name="rubric"
+                  rows={3}
+                  defaultValue={current?.rubric ?? ''}
+                  placeholder={'• Cita ao menos duas causas\n• Relaciona ao Antigo Regime'}
+                />
+              </Field>
+            </>
+          ) : (
+            <fieldset>
+              <legend className="text-text mb-1.5 block text-sm font-medium">
+                Alternativas <span className="text-subtle font-normal">· marque a correta</span>
+              </legend>
+
+              <div className="space-y-2">
+                {visibleOptions.map((value, index) => (
+                  <label key={index} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="correctIndex"
+                      value={index}
+                      defaultChecked={index === Math.max(0, initialCorrect)}
+                      aria-label={`Alternativa ${index + 1} é a correta`}
+                      className="accent-success size-5 shrink-0"
+                    />
+                    <Input
+                      name="option"
+                      defaultValue={value}
+                      placeholder={`Alternativa ${String.fromCharCode(65 + index)}`}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              {optionCount < 6 && (
+                <button
+                  type="button"
+                  onClick={() => setOptionCount((n) => n + 1)}
+                  className="text-muted hover:text-text mt-2 flex h-11 items-center gap-1.5 text-sm"
+                >
+                  <Plus className="size-4" aria-hidden />
+                  Mais uma alternativa
+                </button>
+              )}
+            </fieldset>
+          )}
 
           <Field label="Explicação" hint="aparece depois de responder">
             <Textarea
@@ -280,7 +353,8 @@ export function QuestionEditor({
           {assets.length > 0 && (
             <fieldset>
               <legend className="text-text mb-1.5 block text-sm font-medium">
-                Vincular recursos <span className="text-subtle font-normal">· texto, imagem, gráfico...</span>
+                Vincular recursos{' '}
+                <span className="text-subtle font-normal">· texto, imagem, gráfico...</span>
               </legend>
               <div className="space-y-1.5">
                 {assets.map((asset) => (
@@ -292,7 +366,9 @@ export function QuestionEditor({
                       checked={selectedRefs.includes(asset.id)}
                       onChange={(e) =>
                         setSelectedRefs((refs) =>
-                          e.target.checked ? [...refs, asset.id] : refs.filter((r) => r !== asset.id),
+                          e.target.checked
+                            ? [...refs, asset.id]
+                            : refs.filter((r) => r !== asset.id),
                         )
                       }
                       className="accent-brand size-4 shrink-0"

@@ -1,5 +1,11 @@
 import type { Difficulty } from '@/types/database.types';
-import type { EvaluationCriterion, ExamAsset, ExamMode, ExamSection, ExamSettings } from '@/types/simulado';
+import type {
+  EvaluationCriterion,
+  ExamAsset,
+  ExamMode,
+  ExamSection,
+  ExamSettings,
+} from '@/types/simulado';
 
 /**
  * Importador de simulado por código — v1 (legado) e v2 (Anglo/ENEM).
@@ -51,6 +57,10 @@ export interface ParsedQuestion {
   skills: string[];
   errorTypes: string[];
   estimatedTimeSeconds: number | null;
+  // ---- questão discursiva (corrigida por IA); ausente = objetiva ----
+  kind?: 'objetiva' | 'discursiva';
+  modelAnswer?: string | null;
+  rubric?: string | null;
 }
 
 export interface ParsedWritingTask {
@@ -289,7 +299,9 @@ function countQuestions(questions: ParsedQuestion[]): ImportCounts {
     questions: questions.length,
     statements: questions.filter((q) => q.statement).length,
     alternatives: questions.reduce((sum, q) => sum + q.options.length, 0),
-    answerKeys: questions.filter((q) => q.correctKey !== null).length,
+    answerKeys: questions.filter(
+      (q) => q.correctKey !== null || (q.kind === 'discursiva' && !!q.modelAnswer),
+    ).length,
     errors: questions.filter((q) => q.errors.length > 0).length,
   };
 }
@@ -307,7 +319,10 @@ function parseAlternativesV2(raw: unknown): { options: ParsedOption[]; error: st
   const entries = Object.entries(raw).filter(([, text]) => text.trim().length > 0);
   const invalidKey = entries.find(([key]) => !ALTERNATIVE_KEYS.includes(key));
   if (invalidKey) {
-    return { options: [], error: `alternativas devem usar as letras A a E — chave inválida "${invalidKey[0]}".` };
+    return {
+      options: [],
+      error: `alternativas devem usar as letras A a E — chave inválida "${invalidKey[0]}".`,
+    };
   }
 
   if (entries.length !== 4 && entries.length !== 5) {
@@ -374,7 +389,9 @@ export function parseAssets(raw: unknown, errors: string[]): ExamAsset[] {
           return;
         }
         if (typeof a.alt !== 'string' || !a.alt.trim()) {
-          errors.push(`Recurso "${id}" (${type}): falta "alt" (texto alternativo — acessibilidade).`);
+          errors.push(
+            `Recurso "${id}" (${type}): falta "alt" (texto alternativo — acessibilidade).`,
+          );
           return;
         }
         assets.push({
@@ -402,7 +419,9 @@ export function parseAssets(raw: unknown, errors: string[]): ExamAsset[] {
               .map((d) => ({ label: d.label as string, data: (d.data as unknown[]).map(Number) }))
           : [];
         if (labels.length === 0 || datasets.length === 0) {
-          errors.push(`Recurso "${id}" (gráfico): precisa de "chart.labels" e ao menos um item em "chart.datasets".`);
+          errors.push(
+            `Recurso "${id}" (gráfico): precisa de "chart.labels" e ao menos um item em "chart.datasets".`,
+          );
           return;
         }
         assets.push({
@@ -419,7 +438,9 @@ export function parseAssets(raw: unknown, errors: string[]): ExamAsset[] {
         const headers = asStringArray(a.headers);
         const rows = Array.isArray(a.rows) ? a.rows.map((r) => asStringArray(r)) : [];
         if (headers.length === 0 || rows.length === 0) {
-          errors.push(`Recurso "${id}" (tabela): precisa de "headers" e ao menos uma linha em "rows".`);
+          errors.push(
+            `Recurso "${id}" (tabela): precisa de "headers" e ao menos uma linha em "rows".`,
+          );
           return;
         }
         assets.push({
@@ -432,7 +453,9 @@ export function parseAssets(raw: unknown, errors: string[]): ExamAsset[] {
         return;
       }
       default:
-        errors.push(`Recurso "${id}": tipo "${String(type)}" não é suportado (use text, image, chart, table, infographic ou diagram).`);
+        errors.push(
+          `Recurso "${id}": tipo "${String(type)}" não é suportado (use text, image, chart, table, infographic ou diagram).`,
+        );
     }
   });
 
@@ -532,12 +555,15 @@ function parseSimuladoV2(simObj: Record<string, unknown>): ImportResult {
   const rawWritingTasks = Array.isArray(simObj.writingTasks) ? simObj.writingTasks : [];
 
   if (rawQuestions.length === 0 && rawWritingTasks.length === 0) {
-    return emptyResult('a prova precisa ter ao menos uma questão em "questions" ou uma redação em "writingTasks".', {
-      schemaVersion: '2.0',
-      simulationCode: typeof simObj.code === 'string' ? simObj.code : null,
-      simulationTitle: typeof simObj.title === 'string' ? simObj.title : null,
-      simulationDescription: typeof simObj.description === 'string' ? simObj.description : null,
-    });
+    return emptyResult(
+      'a prova precisa ter ao menos uma questão em "questions" ou uma redação em "writingTasks".',
+      {
+        schemaVersion: '2.0',
+        simulationCode: typeof simObj.code === 'string' ? simObj.code : null,
+        simulationTitle: typeof simObj.title === 'string' ? simObj.title : null,
+        simulationDescription: typeof simObj.description === 'string' ? simObj.description : null,
+      },
+    );
   }
 
   const simulationErrors: string[] = [];
@@ -560,12 +586,29 @@ function parseSimuladoV2(simObj: Record<string, unknown>): ImportResult {
     const statement = typeof q.statement === 'string' ? q.statement.trim() : '';
     if (!statement) errors.push('falta o enunciado.');
 
-    const { options, error: altError } = parseAlternativesV2(q.alternatives);
+    // Discursiva: sem alternativas; a resposta esperada (e os critérios) é o gabarito que a IA usa para corrigir.
+    const isDiscursive = q.type === 'discursive' || q.type === 'discursiva';
+    const modelAnswer = typeof q.modelAnswer === 'string' ? q.modelAnswer.trim() : '';
+    const rubric = Array.isArray(q.rubric)
+      ? asStringArray(q.rubric)
+          .map((r) => `• ${r}`)
+          .join('\n')
+      : typeof q.rubric === 'string'
+        ? q.rubric.trim()
+        : '';
+    if (isDiscursive && modelAnswer.length < 10)
+      errors.push(
+        'questão discursiva precisa de "modelAnswer" (a resposta esperada, com pelo menos 10 caracteres).',
+      );
+
+    const { options, error: altError } = isDiscursive
+      ? { options: [] as ParsedOption[], error: null }
+      : parseAlternativesV2(q.alternatives);
     if (altError) errors.push(altError);
 
     const correctKeyRaw = typeof q.correctAlternative === 'string' ? q.correctAlternative : null;
     let correctKey: string | null = null;
-    if (!altError) {
+    if (!altError && !isDiscursive) {
       if (!correctKeyRaw) {
         errors.push('falta dizer qual é a alternativa correta.');
       } else if (!options.some((o) => o.key === correctKeyRaw)) {
@@ -580,7 +623,10 @@ function parseSimuladoV2(simObj: Record<string, unknown>): ImportResult {
 
     const resourceRefs = asStringArray(q.resourceRefs);
     for (const ref of resourceRefs) {
-      if (!assetIds.has(ref)) simulationErrors.push(`Questão ${sourceId}: recurso "${ref}" (em resourceRefs) não existe.`);
+      if (!assetIds.has(ref))
+        simulationErrors.push(
+          `Questão ${sourceId}: recurso "${ref}" (em resourceRefs) não existe.`,
+        );
     }
 
     return {
@@ -592,7 +638,8 @@ function parseSimuladoV2(simObj: Record<string, unknown>): ImportResult {
       difficulty: normalizeDifficulty(q.difficulty),
       topicName: typeof q.topic === 'string' && q.topic.trim() ? q.topic.trim() : null,
       errors,
-      explanation: typeof q.explanation === 'string' && q.explanation.trim() ? q.explanation.trim() : null,
+      explanation:
+        typeof q.explanation === 'string' && q.explanation.trim() ? q.explanation.trim() : null,
       groupId: typeof q.groupId === 'string' && q.groupId.trim() ? q.groupId.trim() : null,
       resourceRefs,
       subjectName: typeof q.subject === 'string' && q.subject.trim() ? q.subject.trim() : null,
@@ -601,7 +648,11 @@ function parseSimuladoV2(simObj: Record<string, unknown>): ImportResult {
       module: typeof q.module === 'number' ? q.module : null,
       skills: asStringArray(q.skills),
       errorTypes: asStringArray(q.errorTypes),
-      estimatedTimeSeconds: typeof q.estimatedTimeSeconds === 'number' ? q.estimatedTimeSeconds : null,
+      estimatedTimeSeconds:
+        typeof q.estimatedTimeSeconds === 'number' ? q.estimatedTimeSeconds : null,
+      kind: isDiscursive ? 'discursiva' : 'objetiva',
+      modelAnswer: isDiscursive ? modelAnswer : null,
+      rubric: isDiscursive && rubric ? rubric : null,
     };
   });
 

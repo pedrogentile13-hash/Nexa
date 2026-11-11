@@ -16,7 +16,7 @@ begin
   assert (select count(distinct correction_model) from public.essay_themes t join public.exams e on e.id = t.exam_id where e.slug in ('fuvest','unesp','ita')) = 1, 'bancas sem proposta usam o modelo adaptado';
 
   -- arquivos
-  assert (select count(*) from public.exam_files where kind = 'caderno' and source like 'ITA%') = 10, 'esperava 10 cadernos diretos do ITA';
+  assert (select count(*) from public.exam_files where kind = 'caderno' and source like 'ITA%' and label like 'Caderno de Português%') = 10, 'esperava 10 cadernos diretos do ITA (Português e Redação)';
   assert (select count(*) from public.exam_files where kind = 'caderno' and url ~ '2025_PV_impresso_D[12]_CD[1-8]\.pdf$') = 8, 'esperava 8 cadernos do ENEM 2025';
   assert (select count(*) from public.exam_files where kind = 'gabarito' and url ~ '2025_GB_impresso_D[12]_CD[1-8]\.pdf$') = 8, 'esperava 8 gabaritos do ENEM 2025';
   assert (select count(*) from public.exam_files where url = 'https://download.inep.gov.br/enem/provas_e_gabaritos/2025_PV_impresso_D1_CD2.pdf') = 1, 'D1 CD2 deveria existir uma vez';

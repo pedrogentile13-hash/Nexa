@@ -988,6 +988,10 @@ export type QuestionRow = {
   skills: string[];
   error_types: string[];
   estimated_time_seconds: number | null;
+  /** 'discursiva': o aluno escreve e a IA corrige; `model_answer` e `rubric` são o gabarito (só admin lê). */
+  kind: 'objetiva' | 'discursiva';
+  model_answer: string | null;
+  rubric: string | null;
 };
 
 export type WritingTaskRow = {
@@ -1112,6 +1116,11 @@ export type QuizAnswerRow = {
   answered_at: string;
   flagged: boolean;
   time_spent_seconds: number;
+  /** Discursivas: texto do aluno, nota da IA (0 a 1), devolutiva e quando foi corrigida. */
+  answer_text: string | null;
+  ai_score: number | null;
+  ai_feedback: string | null;
+  graded_at: string | null;
 };
 
 export type LessonProgressRow = {
@@ -2147,12 +2156,44 @@ export type Database = {
           subtopic: string | null;
           skills: string[];
           options: { id: string; position: number; body: string }[];
+          kind: 'objetiva' | 'discursiva';
         }[];
       };
       start_quiz_attempt: { Args: { p_resource_id: string }; Returns: string };
       quiz_attempt_state: {
         Args: { p_attempt_id: string };
-        Returns: { question_id: string; option_id: string | null; flagged: boolean }[];
+        Returns: {
+          question_id: string;
+          option_id: string | null;
+          flagged: boolean;
+          answer_text: string | null;
+          ai_score: number | null;
+          ai_feedback: string | null;
+        }[];
+      };
+      save_discursive_answer: {
+        Args: { p_attempt_id: string; p_question_id: string; p_text: string; p_time_spent_seconds?: number };
+        Returns: boolean;
+      };
+      /** Só com a chave de serviço (servidor). */
+      discursive_grading_context: {
+        Args: { p_attempt_id: string; p_question_id: string };
+        Returns: {
+          user_id: string;
+          statement: string;
+          model_answer: string | null;
+          rubric: string | null;
+          points: number;
+          subject_name: string | null;
+          topic_name: string | null;
+          answer_text: string | null;
+          graded_at: string | null;
+        }[];
+      };
+      /** Só com a chave de serviço (servidor). */
+      record_discursive_grade: {
+        Args: { p_attempt_id: string; p_question_id: string; p_score: number; p_feedback: string };
+        Returns: boolean;
       };
       answer_quiz_question: {
         Args: {
@@ -2196,6 +2237,11 @@ export type Database = {
           chosen_option_id: string | null;
           correct_option_id: string | null;
           is_correct: boolean;
+          kind: 'objetiva' | 'discursiva';
+          answer_text: string | null;
+          ai_score: number | null;
+          ai_feedback: string | null;
+          model_answer: string | null;
         }[];
       };
       save_essay_draft: {

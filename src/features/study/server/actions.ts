@@ -116,6 +116,10 @@ export interface AttemptAnswerState {
   questionId: string;
   optionId: string | null;
   flagged: boolean;
+  /** Discursivas: texto já salvo e correção da IA (se houver). */
+  answerText: string | null;
+  aiScore: number | null;
+  aiFeedback: string | null;
 }
 
 /** Restaura respostas e marcações já salvas — recarregar a página não perde nada. */
@@ -126,11 +130,17 @@ export async function getAttemptState(attemptId: string): Promise<AttemptAnswerS
     questionId: row.question_id,
     optionId: row.option_id,
     flagged: row.flagged,
+    answerText: row.answer_text ?? null,
+    aiScore: row.ai_score === null || row.ai_score === undefined ? null : Number(row.ai_score),
+    aiFeedback: row.ai_feedback ?? null,
   }));
 }
 
 /** "Marcar para revisar". Devolve o novo estado (true = marcada). */
-export async function toggleQuestionFlag(attemptId: string, questionId: string): Promise<boolean | null> {
+export async function toggleQuestionFlag(
+  attemptId: string,
+  questionId: string,
+): Promise<boolean | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('toggle_question_flag', {
     p_attempt_id: attemptId,
@@ -207,7 +217,10 @@ export async function finishAttempt(attemptId: string): Promise<FinishResult | n
     .eq('attempt_id', attemptId);
   for (const draft of drafts ?? []) {
     if (!draft.is_submitted && draft.content.trim()) {
-      await supabase.rpc('submit_essay', { p_attempt_id: attemptId, p_writing_task_id: draft.writing_task_id });
+      await supabase.rpc('submit_essay', {
+        p_attempt_id: attemptId,
+        p_writing_task_id: draft.writing_task_id,
+      });
     }
   }
 
@@ -323,7 +336,8 @@ export async function explainPassage(
 ): Promise<ExplainResult> {
   const id = z.string().uuid().safeParse(resourceId);
   const text = passage.trim().slice(0, MAX_PASSAGE_CHARS);
-  if (!id.success || text.length < 3) return { ok: false, message: 'Marque um trecho do texto primeiro.' };
+  if (!id.success || text.length < 3)
+    return { ok: false, message: 'Marque um trecho do texto primeiro.' };
 
   const supabase = await createClient();
   const {
@@ -344,7 +358,8 @@ export async function explainPassage(
   const result = await completeWithAI(
     buildExplainMessages({
       title: data.title,
-      subjectName: (data as { subject_catalog?: { name?: string } | null }).subject_catalog?.name ?? 'Estudos',
+      subjectName:
+        (data as { subject_catalog?: { name?: string } | null }).subject_catalog?.name ?? 'Estudos',
       passage: text,
       context: surroundingText(data.body ?? '', text),
       style: parseExplainStyle(style),
@@ -353,7 +368,8 @@ export async function explainPassage(
   );
   if (result.ok) return { ok: true, text: result.text };
 
-  if (result.reason === 'content_filter') return { ok: false, message: 'Não consegui explicar este trecho.' };
+  if (result.reason === 'content_filter')
+    return { ok: false, message: 'Não consegui explicar este trecho.' };
   await reportError({
     origin: 'server',
     message: `Explicar com IA falhou: ${result.reason}${'status' in result ? ` (HTTP ${result.status})` : ''}`,

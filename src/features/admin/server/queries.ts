@@ -380,7 +380,9 @@ export async function getResourceQuestions(resourceId: string) {
   // `questions`/`question_options` só libera para ele.
   const { data } = await supabase
     .from('questions')
-    .select('id, position, statement, explanation, difficulty, points, topic_id, group_id, resource_refs')
+    .select(
+      'id, position, statement, explanation, difficulty, points, topic_id, group_id, resource_refs, kind, model_answer, rubric',
+    )
     .eq('resource_id', resourceId)
     .order('position');
 
@@ -416,7 +418,9 @@ export async function listTracks(): Promise<AdminTrack[]> {
   const [tracksRes, lessonsRes] = await Promise.all([
     supabase
       .from('tracks')
-      .select('id, title, description, category, is_published, subject_catalog(name), schools(name)')
+      .select(
+        'id, title, description, category, is_published, subject_catalog(name), schools(name)',
+      )
       .order('sort_order'),
     supabase.from('v_track_lessons_resolved').select('track_id'),
   ]);
@@ -491,7 +495,11 @@ export async function listPeople(search?: string, schoolId?: string): Promise<Ad
   const supabase = await createClient();
 
   const build = (columns: string) => {
-    let q = supabase.from('profiles').select(columns).order('created_at', { ascending: false }).limit(100);
+    let q = supabase
+      .from('profiles')
+      .select(columns)
+      .order('created_at', { ascending: false })
+      .limit(100);
     if (search) q = q.ilike('full_name', `%${search}%`);
     if (schoolId) q = q.eq('school_id', schoolId);
     return q;
@@ -500,12 +508,21 @@ export async function listPeople(search?: string, schoolId?: string): Promise<Ad
   // `school_title` é coluna nova: antes do SQL rodar o PostgREST recusa a
   // consulta inteira (e supabase-js não lança). Sem o título, a lista continua
   // abrindo — só mostra "Admin da escola" onde seria direção/coordenação.
-  let res = await build('id, full_name, role, school_title, admin_scope, school_id, created_at, schools(name)');
-  if (res.error) res = await build('id, full_name, role, school_title, school_id, created_at, schools(name)');
+  let res = await build(
+    'id, full_name, role, school_title, admin_scope, school_id, created_at, schools(name)',
+  );
+  if (res.error)
+    res = await build('id, full_name, role, school_title, school_id, created_at, schools(name)');
   if (res.error) res = await build('id, full_name, role, school_id, created_at, schools(name)');
   const rows = (res.data ?? []) as unknown as Array<{
-    id: string; full_name: string | null; role: string; school_title?: string | null; admin_scope?: string | null;
-    school_id: string | null; created_at: string; schools: unknown;
+    id: string;
+    full_name: string | null;
+    role: string;
+    school_title?: string | null;
+    admin_scope?: string | null;
+    school_id: string | null;
+    created_at: string;
+    schools: unknown;
   }>;
 
   return rows.map((p) => {
@@ -596,7 +613,11 @@ export interface AdminClassOption {
 /** Todas as turmas de todas as escolas — só pro admin geral (escolhe a escola no próprio formulário). */
 export async function listAllClasses(): Promise<AdminClassOption[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from('classes').select('id, name, schools(name)').is('closed_at', null).order('name');
+  const { data } = await supabase
+    .from('classes')
+    .select('id, name, schools(name)')
+    .is('closed_at', null)
+    .order('name');
 
   return (data ?? []).map((row) => {
     const school = row.schools as unknown as { name: string } | null;
@@ -616,7 +637,11 @@ export interface AdminClass {
 export async function listClasses(): Promise<AdminClass[]> {
   const supabase = await createClient();
   const [{ data }, { data: studentCounts }] = await Promise.all([
-    supabase.from('classes').select('id, name, school_id, schools(name)').is('closed_at', null).order('name'),
+    supabase
+      .from('classes')
+      .select('id, name, school_id, schools(name)')
+      .is('closed_at', null)
+      .order('name'),
     supabase.from('profiles').select('class_id').eq('role', 'student').not('class_id', 'is', null),
   ]);
 

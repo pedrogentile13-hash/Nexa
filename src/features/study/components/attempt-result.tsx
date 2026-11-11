@@ -7,7 +7,10 @@ import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/utils';
 import { subjectColorVars } from '@/lib/design/subject-colors';
 import { StudyTopBar } from './study-top-bar';
+import { DiscursiveReview } from './discursive-answer';
 import { humanDuration } from '../lib/format';
+import { PASS_RATIO } from '../lib/discursive';
+import type { DiscursiveGrade } from '../server/discursive-actions';
 import type { EssayResult, ResourceDetail, StudyWritingTask } from '../server/queries';
 
 /**
@@ -35,6 +38,12 @@ interface ReviewRow {
   subtopic?: string | null;
   skills?: string[];
   time_spent_seconds?: number;
+  // ---- questões discursivas (correção por IA) ----
+  kind?: 'objetiva' | 'discursiva';
+  answer_text?: string | null;
+  ai_score?: number | null;
+  ai_feedback?: string | null;
+  model_answer?: string | null;
 }
 
 interface TopicRow {
@@ -52,7 +61,12 @@ export function AttemptResult({
 }: {
   resource: ResourceDetail;
   result: {
-    attempt: { correct_count: number; total_count: number; duration_seconds: number } | null;
+    attempt: {
+      id?: string;
+      correct_count: number;
+      total_count: number;
+      duration_seconds: number;
+    } | null;
     review: ReviewRow[];
     topics: TopicRow[];
   };
@@ -60,13 +74,32 @@ export function AttemptResult({
   essays?: EssayResult[];
 }) {
   const [filter, setFilter] = useState<'todas' | 'acertos' | 'erros'>('todas');
+  // Correções por IA pedidas AQUI (simulado: a discursiva só é corrigida depois de finalizar).
+  const [fresh, setFresh] = useState<Record<string, DiscursiveGrade>>({});
 
   const attempt = result.attempt;
   if (!attempt) return null;
 
-  const percent = attempt.total_count > 0 ? (attempt.correct_count / attempt.total_count) * 100 : 0;
-  const wrong = result.review.filter((row) => !row.is_correct);
-  const filteredReview = result.review.filter((row) =>
+  // Aplica as correções recém-feitas sobre o que o banco devolveu.
+  const review: ReviewRow[] = result.review.map((row) => {
+    const g = fresh[row.question_id];
+    return g
+      ? { ...row, ai_score: g.score, ai_feedback: g.feedback, is_correct: g.score >= PASS_RATIO }
+      : row;
+  });
+  const newlyCorrect = review.filter(
+    (row, i) => row.is_correct && !result.review[i]!.is_correct,
+  ).length;
+  const correctCount = Math.min(attempt.total_count, attempt.correct_count + newlyCorrect);
+  const pendingGrading = review.filter(
+    (row) => row.kind === 'discursiva' && row.answer_text?.trim() && row.ai_score == null,
+  ).length;
+
+  const percent = attempt.total_count > 0 ? (correctCount / attempt.total_count) * 100 : 0;
+  const wrong = review.filter(
+    (row) => !row.is_correct && !(row.kind === 'discursiva' && row.ai_score == null),
+  );
+  const filteredReview = review.filter((row) =>
     filter === 'todas' ? true : filter === 'acertos' ? row.is_correct : !row.is_correct,
   );
 
@@ -77,13 +110,21 @@ export function AttemptResult({
       <div className="mx-auto max-w-2xl space-y-6 px-5">
         <section className="border-border bg-surface rounded-2xl border p-5 text-center">
           <p className="text-4xl leading-none font-semibold tabular-nums">
-            {attempt.correct_count}
+            {correctCount}
             <span className="text-muted text-xl">/{attempt.total_count}</span>
           </p>
           <p className="text-muted mt-1.5 text-sm">
             {Math.round(percent)}% de acerto
             {attempt.duration_seconds > 0 && ` · ${humanDuration(attempt.duration_seconds)}`}
           </p>
+          {pendingGrading > 0 && (
+            <p className="text-warning mt-2 text-xs">
+              {pendingGrading === 1
+                ? '1 discursiva ainda não foi corrigida'
+                : `${pendingGrading} discursivas ainda não foram corrigidas`}
+              : peça a correção por IA no detalhamento abaixo.
+            </p>
+          )}
         </section>
 
         {result.topics.length > 0 && (
@@ -168,7 +209,9 @@ export function AttemptResult({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">Revisar todos os meus erros</span>
-                  <span className="text-muted text-xs">questões de todos os simulados e quizzes</span>
+                  <span className="text-muted text-xs">
+                    questões de todos os simulados e quizzes
+                  </span>
                 </span>
                 <ChevronRight className="text-muted size-4 shrink-0" aria-hidden />
               </Link>
@@ -183,10 +226,10 @@ export function AttemptResult({
             </h2>
             <div className="flex gap-1.5">
               <Chip active={filter === 'todas'} onClick={() => setFilter('todas')}>
-                Todas ({result.review.length})
+                Todas ({review.length})
               </Chip>
               <Chip active={filter === 'acertos'} onClick={() => setFilter('acertos')}>
-                Acertos ({result.review.length - wrong.length})
+                Acertos ({review.filter((row) => row.is_correct).length})
               </Chip>
               <Chip active={filter === 'erros'} onClick={() => setFilter('erros')}>
                 Erros ({wrong.length})
@@ -201,10 +244,16 @@ export function AttemptResult({
                     aria-hidden
                     className={cn(
                       'mt-0.5 grid size-6 shrink-0 place-items-center rounded-full',
-                      row.is_correct ? 'bg-success text-white' : 'bg-danger text-white',
+                      row.kind === 'discursiva' && row.ai_score == null
+                        ? 'bg-warning text-white'
+                        : row.is_correct
+                          ? 'bg-success text-white'
+                          : 'bg-danger text-white',
                     )}
                   >
-                    {row.is_correct ? (
+                    {row.kind === 'discursiva' && row.ai_score == null ? (
+                      <PenLine className="size-3.5" strokeWidth={3} />
+                    ) : row.is_correct ? (
                       <Check className="size-3.5" strokeWidth={3} />
                     ) : (
                       <X className="size-3.5" strokeWidth={3} />
@@ -218,17 +267,36 @@ export function AttemptResult({
                       </span>
                       {row.statement}
                     </p>
-                    {(row.topic_name || row.subject_name || (row.skills && row.skills.length > 0)) && (
+                    {(row.topic_name ||
+                      row.subject_name ||
+                      (row.skills && row.skills.length > 0)) && (
                       <p className="text-subtle mt-1 flex flex-wrap items-center gap-x-1.5 text-xs">
                         {row.subject_name && row.subject_name !== resource.subjectName && (
-                          <span className="bg-surface-2 rounded-full px-1.5 py-0.5">{row.subject_name}</span>
+                          <span className="bg-surface-2 rounded-full px-1.5 py-0.5">
+                            {row.subject_name}
+                          </span>
                         )}
                         {row.topic_name}
                         {row.subtopic && ` · ${row.subtopic}`}
-                        {typeof row.time_spent_seconds === 'number' && row.time_spent_seconds > 0 && (
-                          <span> · {humanDuration(row.time_spent_seconds)}</span>
-                        )}
+                        {typeof row.time_spent_seconds === 'number' &&
+                          row.time_spent_seconds > 0 && (
+                            <span> · {humanDuration(row.time_spent_seconds)}</span>
+                          )}
                       </p>
+                    )}
+                    {row.kind === 'discursiva' && attempt.id && (
+                      <DiscursiveReview
+                        attemptId={attempt.id}
+                        questionId={row.question_id}
+                        answerText={row.answer_text ?? null}
+                        grade={
+                          row.ai_score != null && row.ai_feedback
+                            ? { score: Number(row.ai_score), feedback: row.ai_feedback }
+                            : null
+                        }
+                        modelAnswer={row.model_answer ?? null}
+                        onGraded={(g) => setFresh((cur) => ({ ...cur, [row.question_id]: g }))}
+                      />
                     )}
                     {row.explanation && (
                       <p className="text-muted mt-2 border-l-2 border-current/20 pl-3 text-sm leading-relaxed">
@@ -273,7 +341,10 @@ export function AttemptResult({
                         {task.evaluationCriteria.length > 0 && essay.scores && (
                           <ul className="mt-2 space-y-1">
                             {task.evaluationCriteria.map((c) => (
-                              <li key={c.id} className="text-muted flex items-center justify-between text-xs">
+                              <li
+                                key={c.id}
+                                className="text-muted flex items-center justify-between text-xs"
+                              >
                                 <span>{c.name}</span>
                                 <span className="tabular-nums">
                                   {essay.scores?.[c.id] ?? 0}/{c.maxScore}

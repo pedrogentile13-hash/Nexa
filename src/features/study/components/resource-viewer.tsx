@@ -26,6 +26,8 @@ export interface QuizQuestion {
   subtopic: string | null;
   skills: string[];
   options: { id: string; position: number; body: string }[];
+  /** 'discursiva': sem alternativas; o aluno escreve e a IA corrige. */
+  kind?: 'objetiva' | 'discursiva';
 }
 
 export function ResourceViewer({

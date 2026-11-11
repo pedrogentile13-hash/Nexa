@@ -150,7 +150,9 @@ describe('parseSimuladoCode', () => {
     const result = parseSimuladoCode(
       JSON.stringify({
         simulation: {
-          questions: [{ id: 1, statement: 'x', alternatives: { A: '1', B: '2' }, correctAlternative: 'A' }],
+          questions: [
+            { id: 1, statement: 'x', alternatives: { A: '1', B: '2' }, correctAlternative: 'A' },
+          ],
         },
       }),
     );
@@ -167,63 +169,77 @@ const V2_BASE = JSON.parse(
   JSON.stringify({
     schemaVersion: '2.0',
     code: 'ANGLO-9ANO-001',
-  title: 'Simulado Anglo — 9º ano',
-  grade: 9,
-  examStyle: 'anglo',
-  mode: 'exam',
-  settings: { shuffleQuestions: false, showTimer: true, timeLimitMinutes: 150 },
-  resources: [
-    { id: 'TXT01', type: 'text', title: 'Texto I', content: 'Texto-base das questões 1 a 2.', presentation: 'collapsible' },
-    { id: 'IMG01', type: 'image', title: 'Mapa', src: '/mapa.png', alt: 'Mapa político' },
-    {
-      id: 'GRAPH01',
-      type: 'chart',
-      chart: { kind: 'bar', labels: ['A', 'B'], datasets: [{ label: 'Pop', data: [10, 20] }] },
-    },
-    { id: 'TABLE01', type: 'table', headers: ['País', 'Pop'], rows: [['Brasil', '200M']] },
-  ],
-  sections: [{ id: 'PORT', title: 'Língua Portuguesa', subject: 'Português', type: 'objective', questionIds: ['Q1', 'Q2'] }],
-  questions: [
-    {
-      id: 'Q1',
-      groupId: 'G1',
-      subject: 'Português',
-      book: 3,
-      module: 27,
-      topic: 'Tipos textuais',
-      subtopic: 'Argumentação',
-      difficulty: 'anglo',
-      statement: 'Considerando o Texto I e o mapa, assinale a alternativa correta.',
-      resourceRefs: ['TXT01', 'IMG01'],
-      alternatives: { A: 'a', B: 'b', C: 'c', D: 'd', E: 'e' },
-      correctAlternative: 'C',
-      explanation: 'A alternativa C interpreta corretamente.',
-      skills: ['interpretação'],
-      estimatedTimeSeconds: 120,
-    },
-    {
-      id: 'Q2',
-      groupId: 'G1',
-      statement: 'Segunda questão do grupo, com base no gráfico e na tabela.',
-      resourceRefs: ['GRAPH01', 'TABLE01'],
-      alternatives: { A: 'a', B: 'b', C: 'c', D: 'd' },
-      correctAlternative: 'B',
-    },
-  ],
-  writingTasks: [
-    {
-      id: 'R1',
-      title: 'Produção de Texto',
-      genre: 'artigo_de_opiniao',
-      theme: 'Tema de exemplo',
-      prompt: 'Com base nos textos motivadores, produza um artigo de opinião.',
-      resourceRefs: ['TXT01', 'GRAPH01'],
-      instructions: ['Respeite o gênero solicitado.'],
-      minWords: 180,
-      maxWords: 450,
-      evaluationCriteria: [{ id: 'C1', name: 'Adequação ao tema', maxScore: 2 }],
-    },
-  ],
+    title: 'Simulado Anglo — 9º ano',
+    grade: 9,
+    examStyle: 'anglo',
+    mode: 'exam',
+    settings: { shuffleQuestions: false, showTimer: true, timeLimitMinutes: 150 },
+    resources: [
+      {
+        id: 'TXT01',
+        type: 'text',
+        title: 'Texto I',
+        content: 'Texto-base das questões 1 a 2.',
+        presentation: 'collapsible',
+      },
+      { id: 'IMG01', type: 'image', title: 'Mapa', src: '/mapa.png', alt: 'Mapa político' },
+      {
+        id: 'GRAPH01',
+        type: 'chart',
+        chart: { kind: 'bar', labels: ['A', 'B'], datasets: [{ label: 'Pop', data: [10, 20] }] },
+      },
+      { id: 'TABLE01', type: 'table', headers: ['País', 'Pop'], rows: [['Brasil', '200M']] },
+    ],
+    sections: [
+      {
+        id: 'PORT',
+        title: 'Língua Portuguesa',
+        subject: 'Português',
+        type: 'objective',
+        questionIds: ['Q1', 'Q2'],
+      },
+    ],
+    questions: [
+      {
+        id: 'Q1',
+        groupId: 'G1',
+        subject: 'Português',
+        book: 3,
+        module: 27,
+        topic: 'Tipos textuais',
+        subtopic: 'Argumentação',
+        difficulty: 'anglo',
+        statement: 'Considerando o Texto I e o mapa, assinale a alternativa correta.',
+        resourceRefs: ['TXT01', 'IMG01'],
+        alternatives: { A: 'a', B: 'b', C: 'c', D: 'd', E: 'e' },
+        correctAlternative: 'C',
+        explanation: 'A alternativa C interpreta corretamente.',
+        skills: ['interpretação'],
+        estimatedTimeSeconds: 120,
+      },
+      {
+        id: 'Q2',
+        groupId: 'G1',
+        statement: 'Segunda questão do grupo, com base no gráfico e na tabela.',
+        resourceRefs: ['GRAPH01', 'TABLE01'],
+        alternatives: { A: 'a', B: 'b', C: 'c', D: 'd' },
+        correctAlternative: 'B',
+      },
+    ],
+    writingTasks: [
+      {
+        id: 'R1',
+        title: 'Produção de Texto',
+        genre: 'artigo_de_opiniao',
+        theme: 'Tema de exemplo',
+        prompt: 'Com base nos textos motivadores, produza um artigo de opinião.',
+        resourceRefs: ['TXT01', 'GRAPH01'],
+        instructions: ['Respeite o gênero solicitado.'],
+        minWords: 180,
+        maxWords: 450,
+        evaluationCriteria: [{ id: 'C1', name: 'Adequação ao tema', maxScore: 2 }],
+      },
+    ],
   }),
 );
 
@@ -268,7 +284,11 @@ describe('parseSimuladoCode — v2', () => {
       { ...sim.questions[0], alternatives: { A: 'a', B: 'b', C: 'c', D: 'd', E: 'e', F: 'f' } },
     ];
     const result = parseSimuladoCode(JSON.stringify({ simulation: sim }));
-    expect(result.questions[0]?.errors.some((e) => e.includes('4 ou 5 alternativas') || e.includes('letras A a E'))).toBe(true);
+    expect(
+      result.questions[0]?.errors.some(
+        (e) => e.includes('4 ou 5 alternativas') || e.includes('letras A a E'),
+      ),
+    ).toBe(true);
   });
 
   it('texto-base compartilhado: duas questões referenciam o MESMO asset, sem duplicar conteúdo', () => {
@@ -313,7 +333,11 @@ describe('parseSimuladoCode — v2', () => {
 
   it('seção agrupa questões por matéria, na ordem da prova', () => {
     const result = parseSimuladoCode(JSON.stringify({ simulation: V2_BASE }));
-    expect(result.sections[0]).toMatchObject({ id: 'PORT', subject: 'Português', questionIds: ['Q1', 'Q2'] });
+    expect(result.sections[0]).toMatchObject({
+      id: 'PORT',
+      subject: 'Português',
+      questionIds: ['Q1', 'Q2'],
+    });
   });
 
   it('redação: gênero, tema, critérios de avaliação', () => {
@@ -322,7 +346,9 @@ describe('parseSimuladoCode — v2', () => {
     expect(task?.genre).toBe('artigo_de_opiniao');
     expect(task?.minWords).toBe(180);
     expect(task?.maxWords).toBe(450);
-    expect(task?.evaluationCriteria).toEqual([{ id: 'C1', name: 'Adequação ao tema', maxScore: 2 }]);
+    expect(task?.evaluationCriteria).toEqual([
+      { id: 'C1', name: 'Adequação ao tema', maxScore: 2 },
+    ]);
   });
 
   it('textos motivadores da redação usam o mesmo sistema de resources', () => {
@@ -374,5 +400,41 @@ describe('parseSimuladoCode — v2', () => {
     const result = parseSimuladoCode(JSON.stringify({ simulation: sim }));
     expect(result.ok).toBe(true);
     expect(result.writingTasks).toHaveLength(1);
+  });
+});
+
+describe('questão discursiva (v2)', () => {
+  const base = (q: Record<string, unknown>) =>
+    JSON.stringify({ simulation: { schemaVersion: '2.0', title: 'Misto', questions: [q] } });
+
+  it('aceita discursiva com resposta esperada e critérios, sem alternativas', () => {
+    const r = parseSimuladoCode(
+      base({
+        id: '1',
+        type: 'discursive',
+        statement: 'Explique a inércia.',
+        modelAnswer: 'Um corpo mantém seu estado de movimento sem força resultante.',
+        rubric: ['Enuncia a lei', 'Dá exemplo'],
+      }),
+    );
+    expect(r.ok).toBe(true);
+    const q = r.questions[0]!;
+    expect(q.kind).toBe('discursiva');
+    expect(q.options).toHaveLength(0);
+    expect(q.rubric).toBe('• Enuncia a lei\n• Dá exemplo');
+    expect(r.counts.answerKeys).toBe(1);
+  });
+
+  it('recusa discursiva sem resposta esperada', () => {
+    const r = parseSimuladoCode(
+      base({ id: '1', type: 'discursiva', statement: 'Explique a inércia.' }),
+    );
+    expect(r.ok).toBe(false);
+    expect(r.questions[0]!.errors.join(' ')).toMatch(/modelAnswer/);
+  });
+
+  it('objetiva continua exigindo alternativas e gabarito', () => {
+    const r = parseSimuladoCode(base({ id: '1', statement: 'Qual é a capital?' }));
+    expect(r.ok).toBe(false);
   });
 });
