@@ -3,6 +3,8 @@
 Nexa Study / Nexa Vestibular / Nexa Escolas. Next.js 15 (App Router, typedRoutes) + Supabase (Postgres, RLS) + Tailwind, em português do Brasil.
 Domínio: nexastudy.com.br. Dono: estudante fundador, usa muito o celular. Piloto com o Colégio Anglo Morumbi.
 
+**Contexto completo do projeto (o que existe, últimas mudanças, pendências): `docs/CONTEXTO-NEXA.md`. Leia antes de começar uma tarefa grande.**
+
 ## Como trabalhar com o dono (combinados fixos)
 
 - **Aja sem perguntar** quando a decisão é óbvia. Pergunte só o que só o dono pode decidir.
