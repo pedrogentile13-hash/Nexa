@@ -12,6 +12,8 @@ import { requireAdmin } from '@/features/admin/server/guard';
 import { StudySeedCard } from '@/features/admin/components/study-seed-card';
 import { MixedSeedCard } from '@/features/admin/components/mixed-seed-card';
 import { Grande2Card } from '@/features/admin/components/grande2-card';
+import { Grande3Card } from '@/features/admin/components/grande3-card';
+import { buildGrande3Seed } from '@/features/content/lib/grande3-seed';
 import { createClient } from '@/lib/supabase/server';
 import { PACOTES, SEED_TAG, TOPICOS } from '@/features/content/seed';
 import { VEST_TAG } from '@/features/content/seed/vestibular';
@@ -22,6 +24,7 @@ import {
   PACOTES_G2_STUDY,
   PACOTES_G2_VESTIBULAR,
 } from '@/features/content/seed/grande2';
+import { G3_TAG, RESUMOS_G3, TRILHAS } from '@/features/content/seed/grande3';
 import { Button } from '@/components/ui/button';
 import type { ResourceKind } from '@/types/database.types';
 
@@ -76,7 +79,30 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
         .eq('is_published', published)
     ).count ?? 0;
 
+  const g3Count = async (published: boolean) =>
+    (
+      await supabase
+        .from('resources')
+        .select('id', { count: 'exact', head: true })
+        .contains('tags', [G3_TAG])
+        .eq('is_published', published)
+    ).count ?? 0;
+  const g3TrackIds = buildGrande3Seed(identity.isGlobal ? null : identity.schoolId).tracks.map(
+    (t) => t.id,
+  );
+  const g3TracksPublished = async () =>
+    (
+      await supabase
+        .from('tracks')
+        .select('id', { count: 'exact', head: true })
+        .in('id', g3TrackIds)
+        .eq('is_published', true)
+    ).count ?? 0;
+
   const [
+    g3Drafts,
+    g3Published,
+    g3Tracks,
     g2Drafts,
     g2Published,
     seedDrafts,
@@ -89,6 +115,9 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
     subjects,
     schools,
   ] = await Promise.all([
+    g3Count(false),
+    g3Count(true),
+    g3TracksPublished(),
     g2Count(false),
     g2Count(true),
     seedCount(false),
@@ -145,6 +174,15 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
             0,
           )}
           withDiscursive={PACOTES_G2.filter((p) => p.questoes.some((q) => q.k === 'd')).length}
+        />
+        <Grande3Card
+          drafts={g3Drafts}
+          published={g3Published}
+          resumos={RESUMOS_G3.length}
+          vestibular={RESUMOS_G3.filter((r) => r.context === 'vestibular').length}
+          planos={RESUMOS_G3.filter((r) => r.slug.startsWith('g3-plano-')).length}
+          trilhas={TRILHAS.length}
+          tracksPublished={g3Tracks}
         />
         <StudySeedCard
           drafts={seedDrafts}
