@@ -80,7 +80,8 @@ export async function loadMixedPackages(): Promise<StudySeedState> {
       school_id: r.school_id,
       subject_catalog_id: subjectId.get(r.subject_slug),
       kind: r.kind,
-      context: r.context,
+      // O banco só aceita 'school' ou 'vestibular' (o Nexa Study é 'school').
+      context: r.context === 'vestibular' ? 'vestibular' : 'school',
       exam_id: r.exam_slug ? (examId.get(r.exam_slug) ?? null) : null,
       time_limit_seconds: r.time_limit_seconds,
       duration_seconds: r.time_limit_seconds,
