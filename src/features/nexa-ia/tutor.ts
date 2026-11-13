@@ -29,8 +29,7 @@ const MODE_INSTRUCTIONS: Record<TutorMode, string> = {
     'Modo ME GUIE (socrático): NÃO entregue a resposta final. Faça UMA pergunta por vez que leve o aluno ao próximo passo do raciocínio, comece pelo que ele já sabe e elogie o que estiver certo. Só revele o passo seguinte se ele travar duas vezes.',
   desafio:
     'Modo ME DESAFIE: proponha UMA questão por vez (estilo prova), de dificuldade que acompanhe os acertos do aluno. Espere a resposta dele; depois corrija explicando o erro e proponha a próxima. Não entregue o gabarito antes da tentativa.',
-  dica:
-    'Modo SÓ A DICA: dê no máximo uma dica curta (2-3 frases) que destrave o aluno, sem resolver. Ofereça uma segunda dica só se ele pedir.',
+  dica: 'Modo SÓ A DICA: dê no máximo uma dica curta (2-3 frases) que destrave o aluno, sem resolver. Ofereça uma segunda dica só se ele pedir.',
 };
 
 export interface TutorContext {
@@ -47,7 +46,13 @@ Seu objetivo é fazer o aluno APRENDER, não só terminar a tarefa: nunca entreg
 Se a pergunta não tiver relação com estudos, responda com educação e traga a conversa de volta para os estudos.
 Nunca peça nem repita dados pessoais (endereço, telefone, documentos). Se o aluno parecer em sofrimento, acolha com gentileza e sugira conversar com um adulto de confiança.
 Respostas concisas — o aluno está lendo num celular, não num livro.
-Formate em Markdown simples (### para título quando houver partes, **negrito** no que importa, listas com "-") e use emojis com moderação (1-3), nunca a resposta inteira entre aspas ou em bloco de código.
+Organize SEMPRE a resposta assim (pule o que não couber):
+1. **Resposta direta** em 1 ou 2 frases, logo no começo (o que é, ou o resultado).
+2. **Explicação** em passos curtos e numerados (1., 2., 3.), um raciocínio por passo, sem parágrafos longos.
+3. **Exemplo** resolvido ou do dia a dia, quando ajudar.
+4. **Para fixar:** uma linha com o essencial ou uma pergunta curta para o aluno testar se entendeu.
+Use ### para separar essas partes quando a resposta tiver mais de um bloco, **negrito** só no que importa, listas com "-" ou numeradas, e tabela quando comparar coisas. Parágrafos de no máximo 3 linhas. Emojis com moderação (1-3), nunca a resposta inteira entre aspas ou em bloco de código.
+Se não tiver certeza de um dado (data, número, nome), diga que não tem certeza em vez de inventar.
 ${MATH_FORMAT_RULES}`;
 
 export function buildTutorSystemPrompt({ mode, journey, studentContext }: TutorContext): string {
@@ -58,9 +63,13 @@ export function buildTutorSystemPrompt({ mode, journey, studentContext }: TutorC
       'Este aluno se prepara para o VESTIBULAR/ENEM: relacione o conteúdo ao estilo das provas (interpretação, contextualização, pegadinhas comuns) e ao tempo de prova.',
     );
   } else if (journey === 'both') {
-    parts.push('Este aluno estuda na escola e também se prepara para o vestibular; conecte as duas coisas quando fizer sentido.');
+    parts.push(
+      'Este aluno estuda na escola e também se prepara para o vestibular; conecte as duas coisas quando fizer sentido.',
+    );
   } else {
-    parts.push('Este aluno está no ensino regular: acompanhe o conteúdo da série e o ritmo da escola.');
+    parts.push(
+      'Este aluno está no ensino regular: acompanhe o conteúdo da série e o ritmo da escola.',
+    );
   }
 
   if (studentContext) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { prettifyBareTex } from '../lib/bare-tex';
 import { CheckCircle2, Loader2, PenLine, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,7 +38,7 @@ export function GradeCard({ grade }: { grade: DiscursiveGrade }) {
         <span className="text-lg font-semibold tabular-nums">{formatScore(grade.score)}</span>
       </p>
       <p className="text-text/80 mt-1.5 text-sm leading-relaxed whitespace-pre-line">
-        {grade.feedback}
+        {prettifyBareTex(grade.feedback)}
       </p>
       {((grade.hits?.length ?? 0) > 0 || (grade.missing?.length ?? 0) > 0) && (
         <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
@@ -288,7 +289,7 @@ export function DiscursiveReview({
             Resposta esperada
           </p>
           <p className="text-muted mt-1 border-l-2 border-current/20 pl-3 text-sm leading-relaxed whitespace-pre-line">
-            {modelAnswer}
+            {prettifyBareTex(modelAnswer)}
           </p>
         </div>
       )}
