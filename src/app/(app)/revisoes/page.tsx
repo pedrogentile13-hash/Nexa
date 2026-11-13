@@ -23,7 +23,11 @@ export default async function RevisoesPage() {
   const saved = (await cookies()).get(PLATFORM_COOKIE)?.value;
   let platform: 'school' | 'vestibular' = saved === 'vestibular' ? 'vestibular' : 'school';
   if (!saved) {
-    const { data: p } = await supabase.from('profiles').select('journey').eq('id', user.id).maybeSingle();
+    const { data: p } = await supabase
+      .from('profiles')
+      .select('journey')
+      .eq('id', user.id)
+      .maybeSingle();
     if (p?.journey === 'vestibular') platform = 'vestibular';
   }
   const [items, { data: stats }] = await Promise.all([
@@ -35,14 +39,18 @@ export default async function RevisoesPage() {
     <>
       <AppHeader
         title={platform === 'vestibular' ? 'Erros e revisões' : 'Revisões'}
-        subtitle={platform === 'vestibular' ? 'Questões e conteúdos do vestibular para fixar' : 'Fixe o que você já estudou'}
+        subtitle={
+          platform === 'vestibular'
+            ? 'Só o que é do vestibular: questões que você errou e conteúdos para fixar'
+            : 'Só o que é da escola: questões que você errou e conteúdos para fixar'
+        }
       />
-      {platform === 'vestibular' && (
-        <div className="max-w-2xl px-4 pt-4 md:px-6 lg:px-8">
-          <RedoErrors />
-        </div>
-      )}
-      <RevisoesView items={items} currentStreak={stats?.current_streak ?? 0} />
+      <RevisoesView
+        items={items}
+        currentStreak={stats?.current_streak ?? 0}
+        platform={platform}
+        redo={platform === 'vestibular' ? <RedoErrors /> : undefined}
+      />
     </>
   );
 }
