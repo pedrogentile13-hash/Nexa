@@ -1332,13 +1332,13 @@ const UNICAMP: PacoteG2[] = [
     o(
       'medio',
       'A Amazônia Legal abrange',
-      'todos os estados da Região Norte e parte do Maranhão e do Mato Grosso, além de Tocantins.',
+      'todos os estados da Região Norte, todo o Mato Grosso e parte do Maranhão.',
       [
         'apenas o estado do Amazonas.',
         'só áreas de floresta intocada.',
         'territórios de outros países.',
       ],
-      'Região definida por lei para planejamento.',
+      'Região definida por lei para planejamento: os 7 estados do Norte, o Mato Grosso inteiro e o oeste do Maranhão.',
     ),
     o(
       'medio',

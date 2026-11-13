@@ -366,14 +366,14 @@ export const GEOGRAFIA_G2: BlocoG2[] = [
       ),
       o(
         'medio',
-        'O BRICS reúne originalmente:',
+        'Antes da ampliação de 2024, o BRICS era formado por:',
         'Brasil, Rússia, Índia, China e África do Sul',
         [
           'Brasil, Reino Unido, Itália, Canadá e Suíça',
           'Bolívia, Rússia, Irã, Chile e Sudão',
           'apenas países europeus',
         ],
-        'Grupo de economias emergentes, ampliado a partir de 2024.',
+        'O grupo começou como BRIC (2009); a África do Sul entrou em 2011 e novos membros chegaram a partir de 2024.',
       ),
       o(
         'dificil',
