@@ -8,6 +8,21 @@ import { KATEX_OPTIONS } from './math';
  */
 const render = (tex: string) => katex.renderToString(tex, { ...KATEX_OPTIONS, displayMode: false });
 
+describe('Math · comandos em português e de física/química', () => {
+  it('não mostra erro vermelho em \\sen, \\ohm, \\celsius, \\SI', () => {
+    for (const tex of [
+      '\\sen x',
+      '\\cossec x',
+      '\\arcsen x',
+      '10\\,\\ohm',
+      '25\\celsius',
+      '\\SI{10}{m/s}',
+    ]) {
+      expect(render(tex), tex).not.toContain('katex-error');
+    }
+  });
+});
+
 describe('Math · KaTeX seguro', () => {
   it('renderiza expoente, raiz e chaves', () => {
     const html = render('x^4 + \\sqrt{16} = \\{-3, 3\\}');
