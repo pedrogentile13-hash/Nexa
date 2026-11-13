@@ -42,3 +42,21 @@ describe('Português 4º bimestre (PB4)', () => {
     }
   });
 });
+
+import { buildPb4Rows } from './pb4-seed';
+
+describe('PB4: visibilidade (resumos públicos, simulados e trilha da escola)', () => {
+  const escola = '11111111-2222-4333-8444-555555555555';
+  const rows = buildPb4Rows(escola);
+
+  it('resumos são públicos (sem escola) e os simulados são da escola', () => {
+    for (const r of rows.resumos) expect(r.school_id).toBeNull();
+    for (const r of rows.simulados.resources) expect(r.school_id).toBe(escola);
+  });
+
+  it('a trilha é da escola e todo item aponta para um recurso que existe', () => {
+    expect(rows.track.school_id).toBe(escola);
+    const ids = new Set([...rows.resumos, ...rows.simulados.resources].map((r) => r.id));
+    for (const link of rows.lessonResources) expect(ids.has(link.resource_id)).toBe(true);
+  });
+});

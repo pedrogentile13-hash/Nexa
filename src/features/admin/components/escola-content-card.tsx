@@ -1,48 +1,27 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { Loader2, School, Sparkles } from 'lucide-react';
+import { Loader2, School } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { createGrande2, publishGrande2 } from '../server/grande2-actions';
-import { createGrande3, publishGrande3 } from '../server/grande3-actions';
-import { createPb4, publishPb4 } from '../server/pb4-actions';
+import { createPb4 } from '../server/pb4-actions';
+import { publicarImagensApoio } from '../server/imagens-actions';
 import type { StudySeedState } from '../server/study-seed-actions';
 
 const INITIAL: StudySeedState = { status: 'idle' };
 
 /**
- * "Conteúdo da escola": o admin geral escolhe uma escola e carrega ali os conteúdos (Grande criação 2 e 3 e
- * Português do 4º bimestre). Cada botão é separado, para não estourar o tempo do servidor numa carga só.
- * O que entra aqui aparece só na biblioteca daquela escola.
+ * "Conteúdo da escola": escolhe a escola e publica nela a trilha de Português do 4º bimestre.
+ * Resumos ficam públicos para todas as escolas; simulados e trilha ficam só na escola escolhida.
+ * (Os resumos e quizzes da Grande criação 2 e 3 já são públicos pela biblioteca geral: não se copiam por escola.)
  */
 export function EscolaContentCard({ schools }: { schools: { id: string; name: string }[] }) {
   const [schoolId, setSchoolId] = useState('');
-  const [g2, runG2, busyG2] = useActionState(
-    async (_p: StudySeedState, fd: FormData) => createGrande2(fd),
-    INITIAL,
-  );
-  const [g3, runG3, busyG3] = useActionState(
-    async (_p: StudySeedState, fd: FormData) => createGrande3(fd),
-    INITIAL,
-  );
-  const [pb4, runPb4, busyPb4] = useActionState(
+  const [state, run, busy] = useActionState(
     async (_p: StudySeedState, fd: FormData) => createPb4(fd),
     INITIAL,
   );
-  const [pub, runPub, busyPub] = useActionState(
-    async (_p: StudySeedState, fd: FormData) => publishPb4(fd),
-    INITIAL,
-  );
-  const [pubG2, runPubG2, busyPubG2] = useActionState(
-    async (_p: StudySeedState, fd: FormData) => publishGrande2(fd),
-    INITIAL,
-  );
-  const [pubG3, runPubG3, busyPubG3] = useActionState(
-    async (_p: StudySeedState, fd: FormData) => publishGrande3(fd),
-    INITIAL,
-  );
-  const busy = busyG2 || busyG3 || busyPb4 || busyPub || busyPubG2 || busyPubG3;
-  const sem = !schoolId;
+
+  const [img, runImg, busyImg] = useActionState(async () => publicarImagensApoio(), INITIAL);
 
   return (
     <section className="border-brand/40 bg-surface rounded-2xl border-2 p-4">
@@ -50,10 +29,9 @@ export function EscolaContentCard({ schools }: { schools: { id: string; name: st
         <School className="text-brand size-5" aria-hidden /> Conteúdo da escola
       </h2>
       <p className="text-muted mt-1 text-sm">
-        Escolha a escola e carregue ali os conteúdos. Eles aparecem só na biblioteca dessa escola,
-        não na biblioteca geral do Nexa.
+        Português do 4º bimestre (9º ano C, Anglo Morumbi): os resumos ficam públicos para todas as
+        escolas; os simulados e a trilha PB4 ficam só na escola escolhida.
       </p>
-
       <label className="mt-3 block text-sm">
         <span className="text-muted mb-1 block text-xs">Escola</span>
         <select
@@ -69,47 +47,45 @@ export function EscolaContentCard({ schools }: { schools: { id: string; name: st
           ))}
         </select>
       </label>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {[
-          { run: runG2, busy: busyG2, label: 'Carregar Grande criação 2 na escola' },
-          { run: runG3, busy: busyG3, label: 'Carregar Grande criação 3 na escola' },
-          { run: runPb4, busy: busyPb4, label: 'Carregar Português 4º bim. na escola' },
-        ].map((b) => (
-          <form key={b.label} action={b.run}>
-            <input type="hidden" name="schoolId" value={schoolId} />
-            <Button type="submit" disabled={busy || sem}>
-              {b.busy ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}{' '}
-              {b.label}
-            </Button>
-          </form>
-        ))}
-        {[
-          { run: runPubG2, label: 'Publicar Grande criação 2 desta escola' },
-          { run: runPubG3, label: 'Publicar Grande criação 3 desta escola' },
-          { run: runPub, label: 'Publicar Português 4º bim. desta escola' },
-        ].map((b) => (
-          <form key={b.label} action={b.run}>
-            <input type="hidden" name="schoolId" value={schoolId} />
-            <Button type="submit" variant="secondary" disabled={busy || sem}>
-              {b.label}
-            </Button>
-          </form>
-        ))}
-      </div>
-
-      {[g2, g3, pb4, pub, pubG2, pubG3].map((s, i) =>
-        s.status === 'idle' ? null : (
+      <form action={run} className="mt-3">
+        <input type="hidden" name="schoolId" value={schoolId} />
+        <Button type="submit" disabled={busy || !schoolId}>
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : null} Publicar Português 4º
+          bim. nesta escola
+        </Button>
+      </form>
+      <div className="border-border mt-5 border-t pt-4">
+        <p className="text-muted text-sm">
+          Imagens de apoio (mapa mental de modos verbais e espinha de peixe de genética): publicadas
+          para todas as escolas, uma vez só. Não ocupam o banco, porque os arquivos ficam no site.
+        </p>
+        <form action={runImg} className="mt-2">
+          <Button type="submit" variant="secondary" disabled={busyImg}>
+            {busyImg ? <Loader2 className="animate-spin" aria-hidden /> : null} Publicar imagens de
+            apoio para todas
+          </Button>
+        </form>
+        {img.status !== 'idle' && (
           <p
-            key={i}
-            role={s.status === 'error' ? 'alert' : 'status'}
+            role={img.status === 'error' ? 'alert' : 'status'}
             className={
-              s.status === 'error' ? 'text-danger mt-3 text-sm' : 'text-success mt-3 text-sm'
+              img.status === 'error' ? 'text-danger mt-2 text-sm' : 'text-success mt-2 text-sm'
             }
           >
-            {s.message}
+            {img.message}
           </p>
-        ),
+        )}
+      </div>
+
+      {state.status !== 'idle' && (
+        <p
+          role={state.status === 'error' ? 'alert' : 'status'}
+          className={
+            state.status === 'error' ? 'text-danger mt-3 text-sm' : 'text-success mt-3 text-sm'
+          }
+        >
+          {state.message}
+        </p>
       )}
     </section>
   );
