@@ -7,6 +7,8 @@ import { SEED_TAG } from '@/features/content/seed';
 import { VEST_TAG } from '@/features/content/seed/vestibular';
 import { buildVestibularSeed } from '@/features/content/lib/vestibular-seed';
 import { requireAccess } from './guard';
+import { missingOptions, missingQuestions, presentQuestionIds, presentResourceIds } from './seed-fill';
+
 
 export type StudySeedState = { status: 'idle' } | { status: 'done'; message: string } | { status: 'error'; message: string };
 
@@ -72,7 +74,6 @@ export async function loadStudyStarter(): Promise<StudySeedState> {
   const { data: already } = await supabase.from('resources').select('kind, title').contains('tags', [SEED_TAG]);
   const have = new Set((already ?? []).map((r) => `${r.kind}/${r.title}`));
   const freshResources = seed.resources.filter((r) => !have.has(`${r.kind}/${r.title}`));
-  const freshIds = new Set(freshResources.map((r) => r.id));
 
   const resources = await insertAll(
     supabase,
@@ -98,18 +99,22 @@ export async function loadStudyStarter(): Promise<StudySeedState> {
   );
   if (resources.error) return fail(`Não consegui carregar: ${resources.error}`);
 
+  // Completa também os já criados cujas questões não chegaram (carga interrompida no meio).
+  const presentStudy = await presentResourceIds(supabase, seed.resources.map((r) => r.id));
+  const missingStudy = await missingQuestions(supabase, seed.questions, presentStudy);
   const questions = await insertAll(
     supabase,
     'questions',
-    seed.questions.filter((q) => freshIds.has(q.resource_id)).map((q) => ({ id: q.id, resource_id: q.resource_id, topic_id: topicId.get(q.topic_slug) ?? null, position: q.position, statement: q.statement, explanation: q.explanation, difficulty: q.difficulty })),
+    missingStudy.map((q) => ({ id: q.id, resource_id: q.resource_id, topic_id: topicId.get(q.topic_slug) ?? null, position: q.position, statement: q.statement, explanation: q.explanation, difficulty: q.difficulty })),
   );
   if (questions.error) return fail(`Não consegui carregar: ${questions.error}`);
 
-  const freshQuestionIds = new Set(seed.questions.filter((q) => freshIds.has(q.resource_id)).map((q) => q.id));
+  const studyQIds = await presentQuestionIds(supabase, seed.questions.filter((q) => presentStudy.has(q.resource_id)).map((q) => q.id));
+  const studyOpts = await missingOptions(supabase, seed.options, studyQIds);
   const options = await insertAll(
     supabase,
     'question_options',
-    seed.options.filter((o) => freshQuestionIds.has(o.question_id)).map((o) => ({ id: o.id, question_id: o.question_id, position: o.position, body: o.body, is_correct: o.is_correct })),
+    studyOpts.map((o) => ({ id: o.id, question_id: o.question_id, position: o.position, body: o.body, is_correct: o.is_correct })),
   );
   if (options.error) return fail(`Não consegui carregar: ${options.error}`);
 
@@ -154,7 +159,6 @@ export async function loadVestibularSimulados(): Promise<StudySeedState> {
   const { data: already } = await supabase.from('resources').select('title').contains('tags', [VEST_TAG]);
   const have = new Set((already ?? []).map((r) => r.title));
   const fresh = seed.resources.filter((r) => !have.has(r.title) && subjectId.has(r.subject_slug));
-  const freshIds = new Set(fresh.map((r) => r.id));
 
   const resources = await insertAll(
     supabase,
@@ -182,7 +186,9 @@ export async function loadVestibularSimulados(): Promise<StudySeedState> {
   );
   if (resources.error) return fail(`Não consegui carregar: ${resources.error}`);
 
-  const qs = seed.questions.filter((q) => freshIds.has(q.resource_id));
+  // Completa também os já criados cujas questões não chegaram (carga interrompida no meio).
+  const present = await presentResourceIds(supabase, seed.resources.map((r) => r.id));
+  const qs = await missingQuestions(supabase, seed.questions, present);
   const questions = await insertAll(
     supabase,
     'questions',
@@ -190,18 +196,19 @@ export async function loadVestibularSimulados(): Promise<StudySeedState> {
   );
   if (questions.error) return fail(`Não consegui carregar: ${questions.error}`);
 
-  const qIds = new Set(qs.map((q) => q.id));
+  const qIds = await presentQuestionIds(supabase, seed.questions.filter((q) => present.has(q.resource_id)).map((q) => q.id));
+  const opts = await missingOptions(supabase, seed.options, qIds);
   const options = await insertAll(
     supabase,
     'question_options',
-    seed.options.filter((o) => qIds.has(o.question_id)).map((o) => ({ id: o.id, question_id: o.question_id, position: o.position, body: o.body, is_correct: o.is_correct })),
+    opts.map((o) => ({ id: o.id, question_id: o.question_id, position: o.position, body: o.body, is_correct: o.is_correct })),
   );
   if (options.error) return fail(`Não consegui carregar: ${options.error}`);
 
   revalidatePath('/admin/conteudo');
   return {
     status: 'done',
-    message: resources.added === 0 ? 'Os simulados de vestibular já estavam carregados. Nada foi duplicado.' : `Carregado como rascunho: ${resources.added} simulados e ${questions.added} questões. Revise e depois publique.`,
+    message: resources.added === 0 ? (questions.added > 0 ? `Completei ${questions.added} questões que faltavam nos simulados de vestibular.` : 'Os simulados de vestibular já estavam completos. Nada foi duplicado.') : `Carregado como rascunho: ${resources.added} simulados e ${questions.added} questões. Revise e depois publique.`,
   };
 }
 

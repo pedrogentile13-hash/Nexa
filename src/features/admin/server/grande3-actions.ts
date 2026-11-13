@@ -7,7 +7,7 @@ import { G3_TAG } from '@/features/content/seed/grande3';
 import { requireAccess } from './guard';
 import type { StudySeedState } from './study-seed-actions';
 
-const BATCH = 100;
+const BATCH = 250;
 const fail = (message: string): StudySeedState => ({ status: 'error', message });
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;

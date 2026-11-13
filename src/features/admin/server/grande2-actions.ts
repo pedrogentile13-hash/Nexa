@@ -5,9 +5,16 @@ import { createClient } from '@/lib/supabase/server';
 import { buildGrande2Seed } from '@/features/content/lib/grande2-seed';
 import { G2_TAG } from '@/features/content/seed/grande2';
 import { requireAccess } from './guard';
+import {
+  missingOptions,
+  missingQuestions,
+  presentQuestionIds,
+  presentResourceIds,
+} from './seed-fill';
+
 import type { StudySeedState } from './study-seed-actions';
 
-const BATCH = 100;
+const BATCH = 250;
 const BANCAS = ['enem', 'fuvest', 'unicamp', 'unesp', 'ita', 'ime'];
 const fail = (message: string): StudySeedState => ({ status: 'error', message });
 
@@ -74,7 +81,6 @@ export async function createGrande2(): Promise<StudySeedState> {
     }
     return true;
   });
-  const freshIds = new Set(fresh.map((r) => r.id));
 
   const resources = await insertAll(
     supabase,
@@ -103,7 +109,12 @@ export async function createGrande2(): Promise<StudySeedState> {
   );
   if (resources.error) return fail(`Não consegui criar: ${resources.error}`);
 
-  const qs = seed.questions.filter((q) => freshIds.has(q.resource_id));
+  // Completa também os já criados cujas questões não chegaram (carga interrompida no meio).
+  const present = await presentResourceIds(
+    supabase,
+    seed.resources.map((r) => r.id),
+  );
+  const qs = await missingQuestions(supabase, seed.questions, present);
   const questions = await insertAll(
     supabase,
     'questions',
@@ -138,19 +149,21 @@ export async function createGrande2(): Promise<StudySeedState> {
     return fail(`Não consegui criar: ${questions.error}`);
   }
 
-  const qIds = new Set(qs.map((q) => q.id));
+  const qIds = await presentQuestionIds(
+    supabase,
+    seed.questions.filter((q) => present.has(q.resource_id)).map((q) => q.id),
+  );
+  const opts = await missingOptions(supabase, seed.options, qIds);
   const options = await insertAll(
     supabase,
     'question_options',
-    seed.options
-      .filter((o) => qIds.has(o.question_id))
-      .map((o) => ({
-        id: o.id,
-        question_id: o.question_id,
-        position: o.position,
-        body: o.body,
-        is_correct: o.is_correct,
-      })),
+    opts.map((o) => ({
+      id: o.id,
+      question_id: o.question_id,
+      position: o.position,
+      body: o.body,
+      is_correct: o.is_correct,
+    })),
   );
   if (options.error) return fail(`Não consegui criar: ${options.error}`);
 
@@ -166,8 +179,11 @@ export async function createGrande2(): Promise<StudySeedState> {
     .join(' ');
   if (resources.added === 0) {
     return {
-      status: avisos ? 'error' : 'done',
-      message: avisos || 'A Grande criação 2 já estava criada. Nada foi duplicado.',
+      status: avisos && questions.added === 0 ? 'error' : 'done',
+      message:
+        questions.added > 0
+          ? `Completei ${questions.added} questões que faltavam (${discursivas} discursivas) em quizzes e simulados já criados.${avisos ? ` ${avisos}` : ''}`
+          : avisos || 'A Grande criação 2 já estava completa. Nada foi duplicado.',
     };
   }
   return {

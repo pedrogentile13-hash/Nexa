@@ -5,9 +5,16 @@ import { createClient } from '@/lib/supabase/server';
 import { buildMixedSeed } from '@/features/content/lib/mixed-seed';
 import { MISTO_TAG } from '@/features/content/seed/misto';
 import { requireAccess } from './guard';
+import {
+  missingOptions,
+  missingQuestions,
+  presentQuestionIds,
+  presentResourceIds,
+} from './seed-fill';
+
 import type { StudySeedState } from './study-seed-actions';
 
-const BATCH = 100;
+const BATCH = 250;
 const fail = (message: string): StudySeedState => ({ status: 'error', message });
 
 async function insertAll(
@@ -99,7 +106,12 @@ export async function loadMixedPackages(): Promise<StudySeedState> {
   );
   if (resources.error) return fail(`Não consegui carregar: ${resources.error}`);
 
-  const qs = seed.questions.filter((q) => freshIds.has(q.resource_id));
+  // Completa também os já criados cujas questões não chegaram (carga interrompida no meio).
+  const present = await presentResourceIds(
+    supabase,
+    seed.resources.map((r) => r.id),
+  );
+  const qs = await missingQuestions(supabase, seed.questions, present);
   const questions = await insertAll(
     supabase,
     'questions',
@@ -129,19 +141,21 @@ export async function loadMixedPackages(): Promise<StudySeedState> {
     return fail(`Não consegui carregar: ${questions.error}`);
   }
 
-  const qIds = new Set(qs.map((q) => q.id));
+  const qIds = await presentQuestionIds(
+    supabase,
+    seed.questions.filter((q) => present.has(q.resource_id)).map((q) => q.id),
+  );
+  const opts = await missingOptions(supabase, seed.options, qIds);
   const options = await insertAll(
     supabase,
     'question_options',
-    seed.options
-      .filter((o) => qIds.has(o.question_id))
-      .map((o) => ({
-        id: o.id,
-        question_id: o.question_id,
-        position: o.position,
-        body: o.body,
-        is_correct: o.is_correct,
-      })),
+    opts.map((o) => ({
+      id: o.id,
+      question_id: o.question_id,
+      position: o.position,
+      body: o.body,
+      is_correct: o.is_correct,
+    })),
   );
   if (options.error) return fail(`Não consegui carregar: ${options.error}`);
 
@@ -151,7 +165,9 @@ export async function loadMixedPackages(): Promise<StudySeedState> {
     status: 'done',
     message:
       resources.added === 0
-        ? 'Os pacotes mistos já estavam carregados. Nada foi duplicado.'
+        ? questions.added > 0
+          ? `Completei ${questions.added} questões que faltavam nos pacotes mistos já carregados.`
+          : 'Os pacotes mistos já estavam completos. Nada foi duplicado.'
         : `Carregado como rascunho: ${resources.added} pacotes e ${questions.added} questões (${discursivas} discursivas). Revise e depois publique.`,
   };
 }
