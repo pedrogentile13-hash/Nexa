@@ -34,17 +34,20 @@ export async function getSimuladoCatalog(): Promise<SimuladoCatalogItem[]> {
     .order('sort_order')
     .order('published_at', { ascending: false });
 
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    title: r.title,
-    subtitle: r.subtitle,
-    subjectId: r.subject_catalog_id,
-    subjectName: r.subject_name,
-    subjectColor: r.subject_color,
-    topicName: r.topic_name,
-    questionCount: Number(r.question_count ?? 0),
-    difficulty: r.difficulty,
-    durationSeconds: r.duration_seconds,
-    xpReward: r.xp_reward,
-  }));
+  // Simulado sem questões (carga incompleta) não aparece para o aluno.
+  return (data ?? [])
+    .filter((r) => Number(r.question_count ?? 0) > 0)
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      subtitle: r.subtitle,
+      subjectId: r.subject_catalog_id,
+      subjectName: r.subject_name,
+      subjectColor: r.subject_color,
+      topicName: r.topic_name,
+      questionCount: Number(r.question_count ?? 0),
+      difficulty: r.difficulty,
+      durationSeconds: r.duration_seconds,
+      xpReward: r.xp_reward,
+    }));
 }

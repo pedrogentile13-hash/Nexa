@@ -1,7 +1,13 @@
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { SERIES, matchesSerie } from '@/lib/design/serie';
 import type { Difficulty, ResourceKind } from '@/types/database.types';
-import type { EvaluationCriterion, ExamAsset, ExamMode, ExamSection, ExamSettings } from '@/types/simulado';
+import type {
+  EvaluationCriterion,
+  ExamAsset,
+  ExamMode,
+  ExamSection,
+  ExamSettings,
+} from '@/types/simulado';
 
 /**
  * Leituras da aba Estudar.
@@ -70,26 +76,27 @@ export async function getStudyHub(
   const supabase = await createClient();
   const user = await getCurrentUser();
 
-  const [libraryRes, progressRes, lessonsRes, tracksRes, mySubjectsRes, myCreationsRes] = await Promise.all([
-    supabase
-      .from('v_resource_library')
-      .select('*')
-      .order('sort_order')
-      .order('published_at', { ascending: false })
-      .limit(400),
-    supabase
-      .from('resource_progress')
-      .select('resource_id, progress_percent, position_seconds, last_seen_at, completed_at')
-      .order('last_seen_at', { ascending: false }),
-    supabase.from('v_track_lessons_resolved').select('track_id, raw_state, lesson_id'),
-    supabase.from('tracks').select('id, title, subject_catalog(name)').eq('is_published', true),
-    // As matérias do aluno decidem a ORDEM do acervo: o que ele cursa vem antes.
-    supabase.from('subjects').select('catalog_id').is('archived_at', null),
-    // O que a IA criou para ESTE aluno (a RLS já esconde o dos outros).
-    user
-      ? supabase.from('resources').select('id').eq('ai_generated', true).eq('created_by', user.id)
-      : Promise.resolve({ data: [] as { id: string }[] }),
-  ]);
+  const [libraryRes, progressRes, lessonsRes, tracksRes, mySubjectsRes, myCreationsRes] =
+    await Promise.all([
+      supabase
+        .from('v_resource_library')
+        .select('*')
+        .order('sort_order')
+        .order('published_at', { ascending: false })
+        .limit(400),
+      supabase
+        .from('resource_progress')
+        .select('resource_id, progress_percent, position_seconds, last_seen_at, completed_at')
+        .order('last_seen_at', { ascending: false }),
+      supabase.from('v_track_lessons_resolved').select('track_id, raw_state, lesson_id'),
+      supabase.from('tracks').select('id, title, subject_catalog(name)').eq('is_published', true),
+      // As matérias do aluno decidem a ORDEM do acervo: o que ele cursa vem antes.
+      supabase.from('subjects').select('catalog_id').is('archived_at', null),
+      // O que a IA criou para ESTE aluno (a RLS já esconde o dos outros).
+      user
+        ? supabase.from('resources').select('id').eq('ai_generated', true).eq('created_by', user.id)
+        : Promise.resolve({ data: [] as { id: string }[] }),
+    ]);
   const myCreations = new Set((myCreationsRes.data ?? []).map((r) => r.id));
 
   const progressByResource = new Map((progressRes.data ?? []).map((p) => [p.resource_id, p]));
@@ -98,7 +105,12 @@ export async function getStudyHub(
     (mySubjectsRes.data ?? []).map((s) => s.catalog_id).filter((id): id is string => Boolean(id)),
   );
 
-  const allItems: LibraryItem[] = (libraryRes.data ?? []).map((r) => ({
+  // Quiz ou simulado sem nenhuma questão (carga interrompida, rascunho publicado por engano) não aparece para o aluno:
+  // abriria uma tela vazia. O Admin continua mostrando "falta cadastrar questões".
+  const libraryRows = (libraryRes.data ?? []).filter(
+    (r) => !((r.kind === 'quiz' || r.kind === 'simulado') && Number(r.question_count ?? 0) === 0),
+  );
+  const allItems: LibraryItem[] = libraryRows.map((r) => ({
     id: r.id,
     kind: r.kind,
     title: r.title,
@@ -122,7 +134,12 @@ export async function getStudyHub(
   // Matéria que o aluno cursa primeiro; dentro disso, a ordem do catálogo.
   allItems.sort((a, b) => Number(mine.has(b.subjectId)) - Number(mine.has(a.subjectId)));
 
-  const all = origin === 'meus' ? allItems.filter((i) => i.mine) : origin === 'plataforma' ? allItems.filter((i) => !i.mine) : allItems;
+  const all =
+    origin === 'meus'
+      ? allItems.filter((i) => i.mine)
+      : origin === 'plataforma'
+        ? allItems.filter((i) => !i.mine)
+        : allItems;
 
   const countsByKind = { ...EMPTY_COUNTS };
   const subjectMap = new Map<string, { id: string; name: string; color: string }>();
@@ -143,9 +160,15 @@ export async function getStudyHub(
 
   // Séries com conteúdo (só as que têm série marcada contam; o que vale para todas não cria opção).
   const serieCount = new Map<string, number>();
-  for (const item of all) for (const g of item.gradeLevels) serieCount.set(g, (serieCount.get(g) ?? 0) + 1);
-  const series = SERIES.filter((s) => serieCount.has(s.value)).map((s) => ({ value: s.value, count: serieCount.get(s.value) ?? 0 }));
-  const { data: me } = user ? await supabase.from('profiles').select('grade_level').eq('id', user.id).maybeSingle() : { data: null };
+  for (const item of all)
+    for (const g of item.gradeLevels) serieCount.set(g, (serieCount.get(g) ?? 0) + 1);
+  const series = SERIES.filter((s) => serieCount.has(s.value)).map((s) => ({
+    value: s.value,
+    count: serieCount.get(s.value) ?? 0,
+  }));
+  const { data: me } = user
+    ? await supabase.from('profiles').select('grade_level').eq('id', user.id).maybeSingle()
+    : { data: null };
   const mySerie = SERIES.find((s) => s.value === me?.grade_level)?.value ?? null;
 
   // "Continuar de onde parou": o mais recente que começou e não terminou.
