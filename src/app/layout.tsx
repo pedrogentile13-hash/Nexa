@@ -8,6 +8,7 @@ import { ADSENSE_CLIENT, ADSENSE_SCRIPT, GA_INIT } from '@/features/ads/lib/conf
 import { CookieBanner } from '@/features/analytics/components/cookie-banner';
 import { AppAuthBridge } from '@/features/auth/components/app-auth-bridge';
 import { AppIntro } from '@/components/layout/app-intro';
+import { ServiceWorker } from '@/components/service-worker';
 import { isNativeAppRequest } from '@/lib/native-server';
 import { decodeTenant, tenantCss, TENANT_HEADER } from '@/lib/tenant/resolve';
 
@@ -109,6 +110,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-dvh antialiased">
         <SchoolBrandProvider value={tenant ? { name: tenant.name, logoUrl: tenant.logoUrl } : null}>
           <AppSplash />
+          <ServiceWorker />
           {children}
           {/* Sem aviso de cookies no endereço de uma escola: lá não há medição nem anúncio. */}
           {!tenant && !nativeApp && <CookieBanner />}
