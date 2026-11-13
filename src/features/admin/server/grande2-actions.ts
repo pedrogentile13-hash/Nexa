@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { buildGrande2Seed } from '@/features/content/lib/grande2-seed';
 import { G2_TAG } from '@/features/content/seed/grande2';
 import { requireAccess } from './guard';
+import { targetSchoolId } from './target-school';
 import {
   missingOptions,
   missingQuestions,
@@ -41,10 +42,10 @@ async function insertAll(
  * mais de 100 com discursiva corrigida por IA) e 32 simulados de vestibular (ENEM, Fuvest, Unicamp, Unesp, ITA, IME).
  * Destino geral para o admin geral; a própria escola para o admin da escola. Rodar de novo não duplica.
  */
-export async function createGrande2(): Promise<StudySeedState> {
+export async function createGrande2(formData?: FormData): Promise<StudySeedState> {
   const identity = await requireAccess('/admin/conteudo');
   const supabase = await createClient();
-  const schoolId: string | null = identity.isGlobal ? null : identity.schoolId;
+  const schoolId = targetSchoolId(identity, formData);
 
   const seed = buildGrande2Seed(schoolId);
   const slugs = [...new Set(seed.resources.map((r) => r.subject_slug))];
@@ -193,15 +194,16 @@ export async function createGrande2(): Promise<StudySeedState> {
 }
 
 /** Publica de uma vez a Grande criação 2 que ainda é rascunho. */
-export async function publishGrande2(): Promise<StudySeedState> {
-  await requireAccess('/admin/conteudo');
+export async function publishGrande2(formData?: FormData): Promise<StudySeedState> {
+  const identity = await requireAccess('/admin/conteudo');
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('resources')
-    .update({ is_published: true })
-    .contains('tags', [G2_TAG])
-    .eq('is_published', false)
-    .select('id');
+  const escolha = identity.isGlobal ? formData?.get('schoolId') : undefined;
+  const escola =
+    typeof escolha === 'string' && escolha ? targetSchoolId(identity, formData) : undefined;
+  if (typeof escolha === 'string' && escolha && !escola) return fail('Escola inválida.');
+  let query = supabase.from('resources').update({ is_published: true }).contains('tags', [G2_TAG]);
+  if (escola) query = query.eq('school_id', escola);
+  const { data, error } = await query.eq('is_published', false).select('id');
   if (error) return fail(`Não consegui publicar: ${error.message}`);
   revalidatePath('/admin/conteudo');
   revalidatePath('/vestibular/provas');

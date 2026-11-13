@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { buildGrande3Seed } from '@/features/content/lib/grande3-seed';
 import { G3_TAG } from '@/features/content/seed/grande3';
 import { requireAccess } from './guard';
+import { targetSchoolId } from './target-school';
 import type { StudySeedState } from './study-seed-actions';
 
 const BATCH = 250;
@@ -47,10 +48,10 @@ async function existingResourceIds(supabase: Supabase, ids: string[]): Promise<S
  * e as trilhas que juntam resumos, quizzes e simulados da Grande criação 2. Clicar de novo não duplica e
  * completa as trilhas com os itens que ainda faltavam (por exemplo, se a Grande criação 2 foi criada depois).
  */
-export async function createGrande3(): Promise<StudySeedState> {
+export async function createGrande3(formData?: FormData): Promise<StudySeedState> {
   const identity = await requireAccess('/admin/conteudo');
   const supabase = await createClient();
-  const schoolId: string | null = identity.isGlobal ? null : identity.schoolId;
+  const schoolId = targetSchoolId(identity, formData);
   const seed = buildGrande3Seed(schoolId);
 
   const slugs = [
@@ -156,16 +157,20 @@ export async function createGrande3(): Promise<StudySeedState> {
 }
 
 /** Publica os resumos e as trilhas da Grande criação 3 que ainda são rascunho. */
-export async function publishGrande3(): Promise<StudySeedState> {
+export async function publishGrande3(formData?: FormData): Promise<StudySeedState> {
   const identity = await requireAccess('/admin/conteudo');
   const supabase = await createClient();
-  const schoolId: string | null = identity.isGlobal ? null : identity.schoolId;
-  const { data: res, error } = await supabase
+  const escolha = identity.isGlobal ? formData?.get('schoolId') : undefined;
+  const escola =
+    typeof escolha === 'string' && escolha ? targetSchoolId(identity, formData) : undefined;
+  if (typeof escolha === 'string' && escolha && !escola) return fail('Escola inválida.');
+  const schoolId: string | null = escola ?? (identity.isGlobal ? null : identity.schoolId);
+  let query = supabase
     .from('resources')
     .update({ is_published: true, published_at: new Date().toISOString() } as never)
-    .contains('tags', [G3_TAG])
-    .eq('is_published', false)
-    .select('id');
+    .contains('tags', [G3_TAG]);
+  if (escola) query = query.eq('school_id', escola);
+  const { data: res, error } = await query.eq('is_published', false).select('id');
   if (error) return fail(`Não consegui publicar os resumos: ${error.message}`);
   const trackIds = buildGrande3Seed(schoolId).tracks.map((t) => t.id);
   const { data: trs, error: trackError } = await supabase

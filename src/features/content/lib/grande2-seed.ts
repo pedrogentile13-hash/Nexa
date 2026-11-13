@@ -22,6 +22,7 @@ function dominante(p: PacoteG2): 'facil' | 'medio' | 'dificil' {
 export function buildGrande2Seed(
   schoolId: string | null,
   packages: PacoteG2[] = PACOTES_G2,
+  tag: string = G2_TAG,
 ): MixedSeedRows {
   const scope = schoolId ?? 'global';
   const resources: MixedSeedRows['resources'] = [];
@@ -43,7 +44,7 @@ export function buildGrande2Seed(
       description: p.description,
       time_limit_seconds: p.kind === 'simulado' && p.minutes ? p.minutes * 60 : null,
       tags: [
-        G2_TAG,
+        tag,
         p.subject,
         p.context === 'vestibular' ? 'vestibular' : 'study',
         ...(p.banca ? [p.banca] : []),

@@ -13,6 +13,7 @@ import { StudySeedCard } from '@/features/admin/components/study-seed-card';
 import { MixedSeedCard } from '@/features/admin/components/mixed-seed-card';
 import { Grande2Card } from '@/features/admin/components/grande2-card';
 import { Grande3Card } from '@/features/admin/components/grande3-card';
+import { EscolaContentCard } from '@/features/admin/components/escola-content-card';
 import { buildGrande3Seed } from '@/features/content/lib/grande3-seed';
 import { createClient } from '@/lib/supabase/server';
 import { PACOTES, SEED_TAG, TOPICOS } from '@/features/content/seed';
@@ -184,6 +185,9 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
           trilhas={TRILHAS.length}
           tracksPublished={g3Tracks}
         />
+        {identity.isGlobal && (
+          <EscolaContentCard schools={schools.map((s) => ({ id: s.id, name: s.name }))} />
+        )}
         <StudySeedCard
           drafts={seedDrafts}
           published={seedPublished}

@@ -30,17 +30,26 @@ export function TrilhasView({ overview }: { overview: TrilhasOverview }) {
   const featured = overview.tracks.slice(0, 3);
 
   const filtered = useMemo(
-    () => (category === 'todas' ? overview.tracks : overview.tracks.filter((t) => t.category === category)),
+    () =>
+      category === 'todas'
+        ? overview.tracks
+        : overview.tracks.filter((t) => t.category === category),
     [overview.tracks, category],
   );
 
   const overallPercent =
-    overview.totalLessons === 0 ? 0 : Math.round((overview.totalDone / overview.totalLessons) * 100);
+    overview.totalLessons === 0
+      ? 0
+      : Math.round((overview.totalDone / overview.totalLessons) * 100);
 
   return (
     <div className="space-y-6">
       <section className="border-border bg-surface flex items-center gap-4 rounded-2xl border p-4">
-        <ProgressRing value={overallPercent} label={`Progresso geral em trilhas: ${overallPercent}%`} size={72}>
+        <ProgressRing
+          value={overallPercent}
+          label={`Progresso geral em trilhas: ${overallPercent}%`}
+          size={72}
+        >
           <span className="tabular text-sm font-semibold">{overallPercent}%</span>
         </ProgressRing>
         <div className="min-w-0">
@@ -79,7 +88,13 @@ export function TrilhasView({ overview }: { overview: TrilhasOverview }) {
 
       <section>
         <h2 className="mb-3 text-sm font-semibold">Todas as trilhas</h2>
-        <UnderlineTabs label="Categoria" value={category} onChange={setCategory} className="mb-4" options={TABS} />
+        <UnderlineTabs
+          label="Categoria"
+          value={category}
+          onChange={setCategory}
+          className="mb-4"
+          options={TABS}
+        />
 
         {filtered.length === 0 ? (
           <PopEmptyState
@@ -88,6 +103,15 @@ export function TrilhasView({ overview }: { overview: TrilhasOverview }) {
             title="Nenhuma trilha nesta categoria"
             description="Volte mais tarde ou veja outra categoria."
           />
+        ) : category === 'todas' ? (
+          <div className="space-y-6">
+            {TRACK_CATEGORIES.map((c) => {
+              const grupo = filtered.filter((t) => t.category === c.value);
+              return grupo.length === 0 ? null : (
+                <TrackSection key={c.value} title={c.label} tracks={grupo} />
+              );
+            })}
+          </div>
         ) : (
           <TrackGrid tracks={filtered} />
         )}
@@ -101,16 +125,16 @@ function TrackSection({
   title,
   tracks,
 }: {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title: string;
   tracks: TrilhaListItem[];
 }) {
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold">
+      <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold">
         {icon}
         {title}
-      </h2>
+      </h3>
       <TrackGrid tracks={tracks} />
     </section>
   );

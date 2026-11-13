@@ -64,6 +64,7 @@ export function buildGrande3Seed(
   schoolId: string | null,
   resumos: ResumoG3[] = RESUMOS_G3,
   trilhas: TrilhaG3[] = TRILHAS,
+  tag: string = G3_TAG,
 ): Grande3Rows {
   const scope = schoolId ?? 'global';
   const resources: Grande3Rows['resources'] = resumos.map((r, i) => ({
@@ -77,7 +78,7 @@ export function buildGrande3Seed(
     body: r.body,
     grade_levels: [r.grade],
     tags: [
-      G3_TAG,
+      tag,
       r.subject,
       r.context === 'vestibular' ? 'vestibular' : 'study',
       ...(r.slug.startsWith('g3-plano-') ? ['plano-de-estudo'] : []),
