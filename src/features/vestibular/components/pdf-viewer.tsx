@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { ChevronLeft, ChevronRight, Download, Loader2, Maximize2, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { readsDirect } from '../lib/exam-file-proxy';
 
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 3;
@@ -85,16 +86,30 @@ export function PdfViewer({
           };
           return loading.promise;
         };
+        const canDirect = Boolean(officialUrl && /^https:\/\//.test(officialUrl));
         let pdf: PDFDocumentProxy;
-        try {
-          pdf = await open(false);
-        } catch (viaServer) {
-          // O servidor do Nexa nem sempre alcança o site da banca (o INEP, por exemplo, recusa alguns servidores).
-          // O navegador do aluno, no Brasil, alcança: tenta direto antes de desistir.
-          if (cancelled || !officialUrl || !/^https:\/\//.test(officialUrl)) throw viaServer;
-          setProgress(0);
-          pdf = await open(true);
-          if (!cancelled) setDirect(true);
+        if (canDirect && readsDirect(officialUrl)) {
+          // INEP: o servidor do Nexa não alcança (recusa a conexão), o navegador sim. Vai direto,
+          // e só usa o servidor se o direto falhar.
+          try {
+            pdf = await open(true);
+            if (!cancelled) setDirect(true);
+          } catch (viaDirect) {
+            if (cancelled) throw viaDirect;
+            setProgress(0);
+            pdf = await open(false);
+          }
+        } else {
+          try {
+            pdf = await open(false);
+          } catch (viaServer) {
+            // O servidor do Nexa nem sempre alcança o site da banca. O navegador do aluno pode alcançar:
+            // tenta direto antes de desistir (só funciona se o site liberar CORS).
+            if (cancelled || !canDirect) throw viaServer;
+            setProgress(0);
+            pdf = await open(true);
+            if (!cancelled) setDirect(true);
+          }
         }
         if (cancelled) return;
         const first = await pdf.getPage(1);
@@ -249,9 +264,11 @@ export function PdfViewer({
                   Abrir no site oficial
                 </a>
               )}
-              <a href={downloadHref} className="underline">
-                Baixar o arquivo
-              </a>
+              {!readsDirect(officialUrl) && (
+                <a href={downloadHref} className="underline">
+                  Baixar o arquivo
+                </a>
+              )}
             </div>
           </div>
         ) : !doc ? (

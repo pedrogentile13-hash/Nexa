@@ -87,3 +87,25 @@ describe('explainUpstreamStatus', () => {
     expect(explain(418)).toMatch(/418/);
   });
 });
+
+import { readsDirect } from './exam-file-proxy';
+
+describe('readsDirect', () => {
+  it('lê direto os arquivos do INEP (o servidor não alcança, o navegador sim)', () => {
+    expect(
+      readsDirect(
+        'https://download.inep.gov.br/enem/provas_e_gabaritos/2024_PV_impresso_D1_CD1.pdf',
+      ),
+    ).toBe(true);
+  });
+  it('as outras bancas continuam pelo servidor', () => {
+    expect(readsDirect('https://www.fuvest.br/wp-content/uploads/prova.pdf')).toBe(false);
+    expect(readsDirect('https://www.comvest.unicamp.br/prova.pdf')).toBe(false);
+  });
+  it('recusa http, endereço inválido e vazio', () => {
+    expect(readsDirect('http://download.inep.gov.br/x.pdf')).toBe(false);
+    expect(readsDirect('não é url')).toBe(false);
+    expect(readsDirect(null)).toBe(false);
+    expect(readsDirect('https://download.inep.gov.br.golpe.com/x.pdf')).toBe(false);
+  });
+});

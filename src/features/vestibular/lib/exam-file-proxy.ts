@@ -22,6 +22,27 @@ export const OFFICIAL_FILE_HOSTS = [
   'www.ime.eb.mil.br',
 ] as const;
 
+/**
+ * Sites que o navegador do aluno lê DIRETO (mandam `Access-Control-Allow-Origin: *`) e que o servidor do Nexa
+ * na Hostinger não alcança. O INEP recusa a conexão do servidor (502 em menos de 1 s, conferido em 12/11/2026),
+ * mas responde ao navegador no Brasil: o caderno abre direto, sem passar pelo servidor.
+ */
+export const DIRECT_READ_HOSTS = ['download.inep.gov.br'] as const;
+
+/** O arquivo deve ser lido direto do site oficial (sem passar pelo servidor do Nexa)? */
+export function readsDirect(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  try {
+    const url = new URL(raw);
+    return (
+      url.protocol === 'https:' &&
+      (DIRECT_READ_HOSTS as readonly string[]).includes(url.host.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Maior arquivo que o servidor aceita repassar (um caderno do ENEM tem 20 a 40 MB). */
 export const MAX_EXAM_FILE_BYTES = 120 * 1024 * 1024;
 

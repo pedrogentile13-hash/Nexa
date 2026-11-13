@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import type { EssayThemeItem } from '@/features/essay/server/queries';
 import type { ExamFileItem, VestibularResource } from '../server/queries';
 import { ExamCover } from './exam-cover';
+import { readsDirect } from '../lib/exam-file-proxy';
 
 function FileRow({ file }: { file: ExamFileItem }) {
   // Caderno e gabarito abrem DENTRO do Nexa (visualizador); só a página oficial abre fora.
@@ -28,8 +29,10 @@ function FileRow({ file }: { file: ExamFileItem }) {
               Ler aqui
             </Link>
             <a
-              href={`/api/provas/arquivo/${file.id}?download=1`}
-              download
+              {...(readsDirect(file.url)
+                ? // INEP: o servidor do Nexa não alcança; o arquivo baixa direto do site oficial.
+                  { href: file.url, target: '_blank', rel: 'noopener noreferrer' }
+                : { href: `/api/provas/arquivo/${file.id}?download=1`, download: true })}
               className="border-border hover:bg-surface-2 inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors"
             >
               <Download className="size-4" aria-hidden />
@@ -52,7 +55,17 @@ function FileRow({ file }: { file: ExamFileItem }) {
   );
 }
 
-function Section({ id, title, hint, children }: { id: string; title: string; hint?: string; children: React.ReactNode }) {
+function Section({
+  id,
+  title,
+  hint,
+  children,
+}: {
+  id: string;
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-24 space-y-3">
       <div>
@@ -103,7 +116,12 @@ export function EditionFiles({
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
       <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
         <div className="w-32 lg:w-full">
-          <ExamCover examName={examName} year={year} label="Caderno e gabarito" coverUrl={coverUrl} />
+          <ExamCover
+            examName={examName}
+            year={year}
+            label="Caderno e gabarito"
+            coverUrl={coverUrl}
+          />
         </div>
         <nav aria-label="Seções da prova" className="flex flex-wrap gap-2 lg:flex-col">
           {menu.map((m) => (
@@ -119,18 +137,33 @@ export function EditionFiles({
       </aside>
 
       <div className="min-w-0 space-y-8">
-        {menu.length === 0 && <p className="text-muted text-sm">Os arquivos desta edição ainda não foram cadastrados.</p>}
+        {menu.length === 0 && (
+          <p className="text-muted text-sm">
+            Os arquivos desta edição ainda não foram cadastrados.
+          </p>
+        )}
 
         {resources.length > 0 && (
-          <Section id="questoes" title="Questões" hint="Responda no Nexa, com cronômetro e correção.">
+          <Section
+            id="questoes"
+            title="Questões"
+            hint="Responda no Nexa, com cronômetro e correção."
+          >
             <ul className="grid gap-3 sm:grid-cols-2">
               {resources.map((r) => (
                 <li key={r.id}>
-                  <Link href={`/estudar/${r.id}`} className="border-border bg-surface hover:bg-surface-2 block rounded-2xl border p-4 transition-colors">
+                  <Link
+                    href={`/estudar/${r.id}`}
+                    className="border-border bg-surface hover:bg-surface-2 block rounded-2xl border p-4 transition-colors"
+                  >
                     <p className="text-sm leading-snug font-semibold">{r.title}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {r.questionCount > 0 && <Badge>{r.questionCount} questões</Badge>}
-                      {r.myBestPercent !== null && <Badge variant={r.myBestPercent >= 60 ? 'success' : 'warning'}>Melhor: {r.myBestPercent}%</Badge>}
+                      {r.myBestPercent !== null && (
+                        <Badge variant={r.myBestPercent >= 60 ? 'success' : 'warning'}>
+                          Melhor: {r.myBestPercent}%
+                        </Badge>
+                      )}
                     </div>
                   </Link>
                 </li>
@@ -141,27 +174,50 @@ export function EditionFiles({
 
         {cadernos.length > 0 && (
           <Section id="cadernos" title="Cadernos de questões" hint="Arquivos oficiais da banca.">
-            <ul className="space-y-3">{cadernos.map((f) => <FileRow key={f.id} file={f} />)}</ul>
+            <ul className="space-y-3">
+              {cadernos.map((f) => (
+                <FileRow key={f.id} file={f} />
+              ))}
+            </ul>
           </Section>
         )}
 
         {gabaritos.length > 0 && (
           <Section id="gabaritos" title="Gabaritos" hint="Gabaritos oficiais da banca.">
-            <ul className="space-y-3">{gabaritos.map((f) => <FileRow key={f.id} file={f} />)}</ul>
+            <ul className="space-y-3">
+              {gabaritos.map((f) => (
+                <FileRow key={f.id} file={f} />
+              ))}
+            </ul>
           </Section>
         )}
 
         {paginas.length > 0 && (
-          <Section id="oficial" title="Onde baixar no site oficial" hint="O arquivo fica no site da banca; o Nexa guarda só o endereço.">
-            <ul className="space-y-3">{paginas.map((f) => <FileRow key={f.id} file={f} />)}</ul>
+          <Section
+            id="oficial"
+            title="Onde baixar no site oficial"
+            hint="O arquivo fica no site da banca; o Nexa guarda só o endereço."
+          >
+            <ul className="space-y-3">
+              {paginas.map((f) => (
+                <FileRow key={f.id} file={f} />
+              ))}
+            </ul>
           </Section>
         )}
 
         {themes.length > 0 && (
-          <Section id="redacao" title="Redação desta edição" hint="Treine com o tema que caiu na prova.">
+          <Section
+            id="redacao"
+            title="Redação desta edição"
+            hint="Treine com o tema que caiu na prova."
+          >
             <ul className="grid gap-3 sm:grid-cols-2">
               {themes.map((t) => (
-                <li key={t.id} className="border-border bg-surface flex flex-col rounded-2xl border p-4">
+                <li
+                  key={t.id}
+                  className="border-border bg-surface flex flex-col rounded-2xl border p-4"
+                >
                   <div className="flex flex-wrap gap-1.5">
                     {t.proposalNo && <Badge variant="brand">Proposta {t.proposalNo}</Badge>}
                     {t.genre && <Badge>{t.genre}</Badge>}
