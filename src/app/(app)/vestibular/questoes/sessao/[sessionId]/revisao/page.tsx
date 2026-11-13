@@ -4,7 +4,7 @@ import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { PracticeReview } from '@/features/vestibular/components/practice-review';
 import { getPracticeReview } from '@/features/vestibular/server/practice-queries';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -21,7 +21,7 @@ export default async function PracticeReviewPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
+  if (!(await isVestibularEnabled())) redirect('/hoje');
 
   const { sessionId } = await params;
   const items = await getPracticeReview(sessionId);

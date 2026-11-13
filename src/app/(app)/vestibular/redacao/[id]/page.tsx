@@ -5,7 +5,7 @@ import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { EssayLaudo } from '@/features/essay/components/essay-laudo';
 import { getEssay } from '@/features/essay/server/queries';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Laudo da redação' };
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function LaudoPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
+  if (!(await isVestibularEnabled())) redirect('/hoje');
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();

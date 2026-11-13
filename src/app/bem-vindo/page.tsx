@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { OnboardingFlow } from '@/features/onboarding/components/onboarding-flow';
 import { getSubjectCatalog } from '@/features/onboarding/server/queries';
 import { CORE_SUBJECT_SLUGS } from '@/features/onboarding/types';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { createClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -23,7 +23,7 @@ export default async function OnboardingPage() {
   const [catalog, { data: profile }, vestibularEnabled, { data: examRows }] = await Promise.all([
     getSubjectCatalog(),
     supabase.from('profiles').select('full_name, onboarded_at').eq('id', user.id).maybeSingle(),
-    isFeatureEnabled('vestibular_enabled'),
+    isVestibularEnabled(),
     supabase
       .from('exams')
       .select('id, name, organization')

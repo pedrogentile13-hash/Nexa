@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react';
 import { Pencil, Plus, School, Trash2, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Field, FormFeedback, SubmitButton } from './form-parts';
-import { deleteSchool, saveSchool, type AdminState } from '../server/actions';
+import { deleteSchool, saveSchool, setSchoolVestibular, type AdminState } from '../server/actions';
 import type { AdminSchool } from '../server/queries';
 
 /**
@@ -46,6 +46,22 @@ export function SchoolManager({ schools }: { schools: AdminSchool[] }) {
                     {school.resourceCount} {school.resourceCount === 1 ? 'item' : 'itens'}
                   </p>
                 </div>
+
+                <form action={setSchoolVestibular}>
+                  <input type="hidden" name="id" value={school.id} />
+                  <input type="hidden" name="enabled" value={String(!school.vestibularEnabled)} />
+                  <button
+                    type="submit"
+                    aria-label={`Vestibular de ${school.name}: ${school.vestibularEnabled ? 'ligado, tocar para desligar' : 'desligado, tocar para ligar'}`}
+                    className={
+                      school.vestibularEnabled
+                        ? 'bg-brand-soft text-brand h-11 shrink-0 rounded-md px-3 text-xs font-semibold'
+                        : 'bg-surface-2 text-muted h-11 shrink-0 rounded-md px-3 text-xs font-semibold'
+                    }
+                  >
+                    Vestibular {school.vestibularEnabled ? 'ligado' : 'desligado'}
+                  </button>
+                </form>
 
                 <button
                   type="button"

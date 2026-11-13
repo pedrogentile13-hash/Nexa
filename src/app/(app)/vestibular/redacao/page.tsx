@@ -4,7 +4,7 @@ import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { EssayList } from '@/features/essay/components/essay-list';
 import { listEssays } from '@/features/essay/server/queries';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 export default async function MinhasRedacoesPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
+  if (!(await isVestibularEnabled())) redirect('/hoje');
 
   const history = await listEssays(60);
 

@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server';
 import { VestibularLibrary } from '@/features/vestibular/components/vestibular-library';
 import { buildLibrary } from '@/features/vestibular/lib/library';
 import { listExamEditions, listExamFiles, listVestibularResources } from '@/features/vestibular/server/queries';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
 export default async function BancoDeProvasPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
+  if (!(await isVestibularEnabled())) redirect('/hoje');
 
   // Duas leituras: todo o conteúdo e, à parte, os simulados — assim nenhum simulado fica de fora por limite de lista.
   const [all, simulados, editions, files] = await Promise.all([

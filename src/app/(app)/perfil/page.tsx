@@ -18,6 +18,7 @@ import { getMyBirthDate, getMyConsent } from '@/features/privacy/server/queries'
 import { getPlanInfo } from '@/features/billing/server/entitlements';
 import { createClient, getCurrentUser, getNavContext } from '@/lib/supabase/server';
 import type { NotificationSettings } from '@/types/database.types';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 
 export const metadata: Metadata = {
   title: 'Perfil',
@@ -34,6 +35,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const supabase = await createClient();
   // Deduplicada por requisição — o shell já leu isto pra montar a navegação.
   const navContext = await getNavContext();
+  const vestibularOk = navContext.vestibularEnabled && (await isVestibularEnabled());
   const plan = await getPlanInfo();
 
   const [
@@ -172,7 +174,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           birthDate={birthDate}
           isAdmin={profile?.role === 'admin' || profile?.role === 'school_admin'}
           journey={navContext.journey}
-          vestibularEnabled={navContext.vestibularEnabled}
+          vestibularEnabled={vestibularOk}
           subscriptionPlan={plan.billingVisible && plan.plan !== 'school' ? plan.plan : null}
           initialTab={aba === 'assinatura' ? 'assinatura' : 'conta'}
         />

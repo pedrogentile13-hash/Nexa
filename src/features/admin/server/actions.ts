@@ -99,6 +99,21 @@ export async function deleteSchool(formData: FormData): Promise<void> {
   revalidatePath('/admin/escolas');
 }
 
+/** Liga ou desliga a área de Vestibular para os alunos de uma escola (só o admin geral). */
+export async function setSchoolVestibular(formData: FormData): Promise<void> {
+  const identity = await requireFullAdmin();
+  if (!identity.isGlobal) return;
+  const id = formData.get('id');
+  const enabled = formData.get('enabled') === 'true';
+  if (typeof id !== 'string') return;
+  const supabase = await createClient();
+  await supabase
+    .from('schools')
+    .update({ vestibular_enabled: enabled } as never)
+    .eq('id', id);
+  revalidatePath('/admin/escolas');
+}
+
 // --------------------------------------------------------------- matérias --
 
 const subjectSchema = z.object({

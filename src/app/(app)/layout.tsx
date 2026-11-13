@@ -8,6 +8,7 @@ import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { getFeatureFlags } from '@/lib/feature-flags';
 import { AdBanner } from '@/features/ads/components/ad-banner';
 import { getPlanInfo } from '@/features/billing/server/entitlements';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { unreadAnnouncementsCount } from '@/features/announcements/server/queries';
 import { SHELL_COLUMNS, readWithFallback, type ProfileReader } from '@/lib/supabase/profile-read';
 import type { Journey } from '@/types/database.types';
@@ -73,7 +74,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isAdmin = profile?.role === 'admin' || profile?.role === 'school_admin';
   const isTeacher = profile?.role === 'teacher_admin';
   const communityEnabled = flags?.community_enabled ?? false;
-  const vestibularEnabled = flags?.vestibular_enabled ?? false;
+  const vestibularEnabled = flags?.vestibular_enabled ? await isVestibularEnabled() : false;
   // "Escola" aqui é a do Nexa Escolas (conta gerenciada pela escola). Quem só escolheu uma escola no Perfil continua no Nexa padrão.
   const announcementsEnabled = Boolean(schoolRow?.data?.school_id) && plan?.plan === 'school';
   // "Professores" (chat da escola) aparece para todo aluno vinculado a uma escola; a tela explica se ainda não há professor na turma.

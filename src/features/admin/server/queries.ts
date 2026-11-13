@@ -91,6 +91,7 @@ export interface AdminSchool {
   city: string | null;
   state: string | null;
   isVerified: boolean;
+  vestibularEnabled: boolean;
   resourceCount: number;
   studentCount: number;
 }
@@ -98,11 +99,16 @@ export interface AdminSchool {
 export async function listSchools(): Promise<AdminSchool[]> {
   const supabase = await createClient();
 
-  const [schoolsRes, resourcesRes, profilesRes] = await Promise.all([
+  const [schoolsRes, resourcesRes, profilesRes, vestRes] = await Promise.all([
     supabase.from('schools').select('id, name, city, state, is_verified').order('name'),
     supabase.from('resources').select('school_id'),
     supabase.from('profiles').select('school_id'),
+    // Consulta à parte: se o SQL da chave por escola ainda não rodou, a lista de escolas continua funcionando.
+    supabase.from('schools').select('id, vestibular_enabled'),
   ]);
+  const vestibularBySchool = new Map<string, boolean>();
+  for (const row of (vestRes.data ?? []) as { id: string; vestibular_enabled?: boolean }[])
+    vestibularBySchool.set(row.id, row.vestibular_enabled ?? true);
 
   const resourceBySchool = new Map<string, number>();
   for (const row of resourcesRes.data ?? []) {
@@ -121,6 +127,7 @@ export async function listSchools(): Promise<AdminSchool[]> {
     city: s.city,
     state: s.state,
     isVerified: s.is_verified,
+    vestibularEnabled: vestibularBySchool.get(s.id) ?? true,
     resourceCount: resourceBySchool.get(s.id) ?? 0,
     studentCount: studentsBySchool.get(s.id) ?? 0,
   }));

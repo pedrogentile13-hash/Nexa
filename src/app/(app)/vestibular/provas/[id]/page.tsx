@@ -8,7 +8,7 @@ import { AnswerSheetCta } from '@/features/vestibular/components/answer-sheet-ct
 import { EditionFiles } from '@/features/vestibular/components/edition-files';
 import { getKeyTotals, listMyAttempts } from '@/features/vestibular/server/answer-sheet';
 import { getExamEdition, listExamFiles, listVestibularResources } from '@/features/vestibular/server/queries';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Prova' };
@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export default async function EdicaoDaProvaPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
+  if (!(await isVestibularEnabled())) redirect('/hoje');
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();

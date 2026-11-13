@@ -9,7 +9,7 @@ import { AnswerSheet } from '@/features/vestibular/components/answer-sheet';
 import { getKeyVariants, getSheetLayout } from '@/features/vestibular/server/answer-sheet';
 import { pairingKey } from '@/features/vestibular/lib/classify-file';
 import { getExamEdition, listExamFiles } from '@/features/vestibular/server/queries';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Cartão-resposta' };
@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export default async function FazerProvaPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ caderno?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
+  if (!(await isVestibularEnabled())) redirect('/hoje');
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();

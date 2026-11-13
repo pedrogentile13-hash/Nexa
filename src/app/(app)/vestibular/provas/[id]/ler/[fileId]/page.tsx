@@ -6,7 +6,7 @@ import { PageMain } from '@/components/layout/page-main';
 import { EditionReader } from '@/features/vestibular/components/edition-reader';
 import { isReadable } from '@/features/vestibular/lib/reader';
 import { getExamEdition, listExamFiles } from '@/features/vestibular/server/queries';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Ler a prova' };
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export default async function LerArquivoPage({ params }: { params: Promise<{ id: string; fileId: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
+  if (!(await isVestibularEnabled())) redirect('/hoje');
 
   const { id, fileId } = await params;
   const uuid = z.string().uuid();

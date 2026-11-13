@@ -6,7 +6,7 @@ import { AppHeader } from '@/components/layout/app-header';
 import { PageMain } from '@/components/layout/page-main';
 import { PracticeSetup } from '@/features/vestibular/components/practice-setup';
 import { getPracticeFilters, listPracticeSessions } from '@/features/vestibular/server/practice-queries';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 export default async function VestibularQuestoesPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
+  if (!(await isVestibularEnabled())) redirect('/hoje');
 
   const [filters, sessions] = await Promise.all([getPracticeFilters(), listPracticeSessions()]);
 

@@ -87,6 +87,8 @@ export type SchoolRow = {
   state: string | null;
   country: string;
   is_verified: boolean;
+  /** Libera a área de Vestibular para os alunos da escola (padrão ligado). */
+  vestibular_enabled?: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;

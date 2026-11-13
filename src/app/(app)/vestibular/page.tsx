@@ -13,7 +13,7 @@ import {
   listExams,
   listVestibularResources,
 } from '@/features/vestibular/server/queries';
-import { isFeatureEnabled } from '@/lib/feature-flags';
+import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 export default async function VestibularPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  if (!(await isFeatureEnabled('vestibular_enabled'))) redirect('/hoje');
+  if (!(await isVestibularEnabled())) redirect('/hoje');
 
   const [profile, exams] = await Promise.all([getVestibularProfile(), listExams()]);
 
