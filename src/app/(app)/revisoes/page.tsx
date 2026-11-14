@@ -1,3 +1,5 @@
+import { isDemoSession } from '@/lib/demo/server';
+import { ENZO } from '@/lib/demo/enzo';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -47,7 +49,7 @@ export default async function RevisoesPage() {
       />
       <RevisoesView
         items={items}
-        currentStreak={stats?.current_streak ?? 0}
+        currentStreak={(await isDemoSession()) ? ENZO.streakDays : (stats?.current_streak ?? 0)}
         platform={platform}
         redo={platform === 'vestibular' ? <RedoErrors /> : undefined}
       />

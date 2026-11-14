@@ -1,4 +1,6 @@
 import type { StaffIdentity } from '@/features/escola/server/guard';
+import type { ContentRow } from '@/features/escola/server/content-queries';
+import type { Announcement } from '@/features/announcements/server/queries';
 import type {
   ClassCard,
   HomeData,
@@ -131,9 +133,7 @@ function roster(): RosterStudent[] {
         xp: isEnzo ? 6850 : 1200 + ((n * 373) % 5200),
         level: isEnzo ? 9 : 4 + ((n * 5) % 7),
         streak: isEnzo ? 65 : (n * 11) % 40,
-        lastActive: isEnzo
-          ? '2026-11-13T15:20:00-03:00'
-          : `2026-11-${String(7 + (n % 7)).padStart(2, '0')}T${String(14 + (n % 8)).padStart(2, '0')}:10:00-03:00`,
+        lastActive: isEnzo ? '2026-11-13' : `2026-11-${String(7 + (n % 7)).padStart(2, '0')}`,
         lastSignInAt: '2026-11-13T15:20:00-03:00',
         weekMinutes: isEnzo ? 410 : 60 + ((n * 47) % 360),
       });
@@ -267,4 +267,43 @@ export function enzoSchoolHome(): HomeData {
       },
     ],
   };
+}
+
+/** Conteúdo da escola: a trilha PB4 de Português (Anglo) e alguns itens de outras matérias. */
+export function enzoSchoolContent(filters: { kind?: string; status?: string; q?: string }): ContentRow[] {
+  const r = (id: string, kind: ContentRow['kind'], title: string, subjectName: string, published: boolean, questionCount: number, updatedAt: string): ContentRow => ({
+    id, kind, title, subjectName, published, questionCount, updatedAt,
+  });
+  const all: ContentRow[] = [
+    r('demo-c1', 'simulado', 'PB4 · Simulado de Verbo de Ligação (5 questões dissertativas)', 'Português', true, 5, '2026-11-13T16:02:00-03:00'),
+    r('demo-c2', 'resumo', 'PB4 · Resumo: Verbo de Ligação', 'Português', true, 0, '2026-11-13T16:02:00-03:00'),
+    r('demo-c3', 'simulado', 'PB4 · Simulado de Modos Verbais (parte 1)', 'Português', true, 6, '2026-11-13T16:02:00-03:00'),
+    r('demo-c4', 'simulado', 'PB4 · Simulado de Modos Verbais (parte 2)', 'Português', true, 6, '2026-11-13T16:02:00-03:00'),
+    r('demo-c5', 'resumo', 'PB4 · Resumo: Modos Verbais e Formas Nominais', 'Português', true, 0, '2026-11-13T16:02:00-03:00'),
+    r('demo-c6', 'quiz', 'Quiz: funções do 2º grau', 'Matemática', true, 12, '2026-11-10T10:20:00-03:00'),
+    r('demo-c7', 'simulado', 'Simulado bimestral de Matemática', 'Matemática', false, 20, '2026-11-09T09:00:00-03:00'),
+    r('demo-c8', 'resumo', 'Cinemática: velocidade e aceleração', 'Física', true, 0, '2026-11-05T14:30:00-03:00'),
+    r('demo-c9', 'quiz', 'Quiz: genética básica', 'Biologia', false, 10, '2026-11-03T11:10:00-03:00'),
+  ];
+  const q = filters.q?.trim().toLowerCase();
+  return all.filter(
+    (c) =>
+      (!filters.kind || c.kind === filters.kind) &&
+      (filters.status !== 'publicados' || c.published) &&
+      (filters.status !== 'rascunhos' || !c.published) &&
+      (!q || c.title.toLowerCase().includes(q)),
+  );
+}
+
+/** Recados do mural (para a coordenação gerir; para o aluno, só leitura). */
+export function enzoAnnouncements(canManage: boolean, limit = 50): Announcement[] {
+  const a = (id: string, title: string, body: string, className: string | null, pinned: boolean, createdAt: string, read: number | null, audience: number | null, label: string, isRead: boolean): Announcement => ({
+    id, title, body, authorName: 'Marina Souza', className, pinned, createdAt, isRead, canManage,
+    readCount: canManage ? read : null, audienceSize: canManage ? audience : null, audienceLabel: label,
+  });
+  return [
+    a('demo-av1', 'Simulado bimestral na próxima semana', 'O simulado bimestral acontece na quinta-feira (19/11), no horário da primeira aula. Revise os resumos de Português, Matemática e Física no Nexa.', null, true, '2026-11-12T09:00:00-03:00', 142, 186, 'Toda a escola', false),
+    a('demo-av2', 'Reunião de pais: 1ª série EM', 'A reunião de pais da 1ª série do Ensino Médio será no sábado (21/11), às 9h, no auditório.', '1ª série EM A', false, '2026-11-10T14:30:00-03:00', 24, 32, 'Turma 1ª série EM A', true),
+    a('demo-av3', 'Entrega da redação do 3º bimestre', 'A redação do 3º bimestre deve ser enviada pelo Nexa até sexta-feira. A correção sai em 48 horas.', '3ª série EM A', false, '2026-11-09T11:00:00-03:00', 27, 30, 'Turma 3ª série EM A', true),
+  ].slice(0, limit);
 }

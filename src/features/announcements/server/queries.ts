@@ -1,3 +1,5 @@
+import { enzoAnnouncements } from '@/lib/demo/escola';
+import { isDemoSession, isDemoStaffSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 
 export interface Announcement {
@@ -18,6 +20,8 @@ export interface Announcement {
 
 /** Antes do SQL do mural rodar, a função não existe: devolve vazio em vez de quebrar a tela. */
 export async function listAnnouncements(limit = 50): Promise<Announcement[]> {
+  if (await isDemoStaffSession()) return enzoAnnouncements(true, limit);
+  if (await isDemoSession()) return enzoAnnouncements(false, limit);
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('list_announcements', { p_limit: limit });
   if (error || !data) return [];

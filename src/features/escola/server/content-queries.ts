@@ -1,3 +1,5 @@
+import { enzoSchoolContent } from '@/lib/demo/escola';
+import { isDemoStaffSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 import type { ResourceKind } from '@/types/database.types';
 
@@ -13,6 +15,7 @@ export interface ContentRow {
 
 /** Conteúdo que esta pessoa pode gerir (a RLS recorta: professor = as matérias dele; coordenação = a escola). Nunca o conteúdo de IA dos alunos. */
 export async function listContent(filters: { kind?: string; status?: string; q?: string }): Promise<ContentRow[]> {
+  if (await isDemoStaffSession()) return enzoSchoolContent(filters);
   const supabase = await createClient();
   let query = supabase
     .from('resources')
