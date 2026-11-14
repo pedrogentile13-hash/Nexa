@@ -21,7 +21,7 @@
 -- ============================================================================
 
 -- ------------------------------------------------------------- user_stats --
-create table public.user_stats (
+create table if not exists public.user_stats (
   user_id uuid primary key references auth.users (id) on delete cascade,
   xp integer not null default 0 check (xp >= 0),
   level smallint not null default 1 check (level >= 1),
@@ -37,17 +37,19 @@ create table public.user_stats (
   updated_at timestamptz not null default now()
 );
 
+drop trigger if exists user_stats_set_updated_at on public.user_stats;
 create trigger user_stats_set_updated_at before update on public.user_stats
   for each row execute function public.set_updated_at();
 
 alter table public.user_stats enable row level security;
 
 -- Read-only for the client. No INSERT/UPDATE/DELETE policy on purpose.
+drop policy if exists user_stats_select_own on public.user_stats;
 create policy user_stats_select_own on public.user_stats
   for select to authenticated using (user_id = auth.uid());
 
 -- -------------------------------------------------------------- xp_events --
-create table public.xp_events (
+create table if not exists public.xp_events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   amount integer not null check (amount <> 0),
@@ -60,20 +62,21 @@ create table public.xp_events (
   created_at timestamptz not null default now()
 );
 
-create index xp_events_user_date_idx on public.xp_events (user_id, local_date desc);
+create index if not exists xp_events_user_date_idx on public.xp_events (user_id, local_date desc);
 -- Idempotency: awarding the same source twice is a no-op, so a double-tapped
 -- checkbox or a retried Server Action cannot inflate XP.
-create unique index xp_events_source_uq
+create unique index if not exists xp_events_source_uq
   on public.xp_events (user_id, source_type, source_id, reason)
   where source_id is not null;
 
 alter table public.xp_events enable row level security;
 
+drop policy if exists xp_events_select_own on public.xp_events;
 create policy xp_events_select_own on public.xp_events
   for select to authenticated using (user_id = auth.uid());
 
 -- ----------------------------------------------------------- achievements --
-create table public.achievements (
+create table if not exists public.achievements (
   id text primary key, -- slug: 'streak_7', 'first_grade'
   name text not null,
   description text not null,
@@ -91,11 +94,12 @@ create table public.achievements (
 
 alter table public.achievements enable row level security;
 
+drop policy if exists achievements_select_authenticated on public.achievements;
 create policy achievements_select_authenticated on public.achievements
   for select to authenticated using (is_active);
 
 -- ------------------------------------------------------ user_achievements --
-create table public.user_achievements (
+create table if not exists public.user_achievements (
   user_id uuid not null references auth.users (id) on delete cascade,
   achievement_id text not null references public.achievements (id) on delete cascade,
   progress integer not null default 0 check (progress >= 0),
@@ -104,14 +108,16 @@ create table public.user_achievements (
   primary key (user_id, achievement_id)
 );
 
-create index user_achievements_unlocked_idx
+create index if not exists user_achievements_unlocked_idx
   on public.user_achievements (user_id, unlocked_at desc) where unlocked_at is not null;
 
+drop trigger if exists user_achievements_set_updated_at on public.user_achievements;
 create trigger user_achievements_set_updated_at before update on public.user_achievements
   for each row execute function public.set_updated_at();
 
 alter table public.user_achievements enable row level security;
 
+drop policy if exists user_achievements_select_own on public.user_achievements;
 create policy user_achievements_select_own on public.user_achievements
   for select to authenticated using (user_id = auth.uid());
 
@@ -276,6 +282,7 @@ begin
 end;
 $$;
 
+drop trigger if exists study_sessions_sync_total on public.study_sessions;
 create trigger study_sessions_sync_total
   after insert or update of duration_seconds or delete on public.study_sessions
   for each row execute function public.sync_study_total();

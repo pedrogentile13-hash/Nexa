@@ -1,0 +1,91 @@
+import { qv, type SimuladoVest } from './types';
+
+export const ENEM_NATUREZA: SimuladoVest = {
+  slug: 'enem-natureza',
+  banca: 'enem',
+  subject: 'ciencias',
+  title: 'ENEM · Ciências da Natureza',
+  subtitle: 'Física, Química e Biologia em 10 questões contextualizadas',
+  minutes: 60,
+  questoes: [
+    qv('facil', 'Um ônibus percorre 180 km entre duas cidades em 2 h 30 min, sem paradas.\n\nA velocidade média do ônibus nesse trajeto é de', ['60 km/h', '65 km/h', '72 km/h', '80 km/h', '90 km/h'], 2, 'Velocidade média = distância / tempo = 180 / 2,5 = 72 km/h. Atenção: 2 h 30 min é 2,5 h, e não 2,3 h.'),
+    qv('medio', 'Um chuveiro elétrico de 5 500 W é usado 20 minutos por dia durante 30 dias.\n\nO consumo de energia nesse período, em kWh, é de aproximadamente', ['11', '33', '55', '110', '165'], 2, 'Tempo total = 20 min × 30 = 600 min = 10 h. Energia = 5,5 kW × 10 h = 55 kWh.'),
+    qv('medio', 'O suco de limão tem pH 2 e a água pura (de torneira, sem gás) tem pH 6. O pH é definido por pH = −log [H⁺].\n\nA concentração de íons H⁺ no suco de limão é quantas vezes maior que na água?', ['4 vezes', '12 vezes', '100 vezes', '10 000 vezes', '1 000 000 vezes'], 3, 'Cada unidade de pH representa um fator 10. A diferença é 6 − 2 = 4 unidades, então a razão é 10⁴ = 10 000.'),
+    qv('medio', 'Em um lago, o despejo contínuo de esgoto doméstico aumentou muito a quantidade de nutrientes (nitrogênio e fósforo). Em poucas semanas, a água ficou verde, e peixes começaram a morrer.\n\nA mortandade de peixes ocorreu porque', [
+      'as algas liberaram toxinas que são sempre letais aos peixes.',
+      'a proliferação de algas e a decomposição aeróbia de matéria orgânica reduziram o oxigênio dissolvido na água.',
+      'o excesso de nutrientes aumentou a quantidade de oxigênio, o que intoxicou os peixes.',
+      'o esgoto elevou a temperatura da água acima de 60 °C.',
+      'os peixes passaram a consumir apenas algas e perderam a capacidade de nadar.',
+    ], 1, 'É a eutrofização: nutrientes em excesso causam florações de algas; quando elas morrem, a decomposição pelas bactérias consome o oxigênio dissolvido, e os peixes morrem por asfixia.'),
+    qv('medio', 'Um casal heterozigoto (Aa) para um gene recessivo "a", que causa uma condição, quer saber a chance de terem um filho com genótipo aa.\n\nEssa probabilidade é de', ['0%', '25%', '50%', '75%', '100%'], 1, 'Aa × Aa gera AA (25%), Aa (50%) e aa (25%). A chance de aa é 1/4 = 25%.'),
+    qv('facil', 'Para obter sal de cozinha a partir da água do mar, as salinas brasileiras utilizam grandes tanques rasos, onde a água fica exposta ao sol e ao vento.\n\nO processo físico de separação empregado é a', ['filtração.', 'decantação.', 'evaporação.', 'destilação fracionada.', 'centrifugação.'], 2, 'A água evapora e o sal (não volátil) cristaliza. Não é destilação, pois o vapor não é recolhido e condensado.'),
+    qv('medio', 'Cidades litorâneas costumam ter variação de temperatura entre o dia e a noite menor do que cidades no interior, na mesma latitude.\n\nEsse fenômeno está relacionado principalmente ao fato de a água', [
+      'ter calor específico elevado, o que faz sua temperatura variar lentamente.',
+      'ter baixa capacidade térmica e esfriar rapidamente.',
+      'refletir toda a radiação solar que recebe.',
+      'ser um bom condutor de eletricidade.',
+      'ter densidade menor que a do ar.',
+    ], 0, 'O alto calor específico da água (cerca de 1 cal/g·°C) faz com que ela demore a esquentar e a esfriar, suavizando as variações de temperatura do ar vizinho.'),
+    qv('medio', 'Pregos e portões de ferro enferrujam mais rápido em regiões litorâneas. Um fabricante passou a revestir o ferro com uma camada de zinco (galvanização), que dura mais, mesmo se riscada.\n\nO zinco protege o ferro porque', [
+      'é mais facilmente oxidado que o ferro e, assim, sofre a corrosão no lugar dele.',
+      'é menos reativo que o ferro e forma uma barreira impermeável.',
+      'impede o contato do ferro com qualquer substância.',
+      'reduz o ferro oxidado de volta ao estado metálico por aquecimento.',
+      'torna o ferro um material não metálico.',
+    ], 0, 'O zinco tem maior tendência a se oxidar que o ferro e funciona como metal de sacrifício: mesmo riscado, ele se oxida primeiro e preserva o ferro.'),
+    qv('facil', 'Após tomar a vacina contra o sarampo, uma criança não adoece quando é exposta ao vírus.\n\nIsso acontece porque a vacina', [
+      'fornece anticorpos prontos, que duram a vida toda.',
+      'estimula o sistema imunológico a produzir anticorpos e células de memória.',
+      'mata os vírus que estão no ambiente.',
+      'é um antibiótico que age contra o vírus.',
+      'altera o DNA da criança, tornando-a imune.',
+    ], 1, 'A vacina apresenta o antígeno (vírus atenuado, inativado ou parte dele) e ativa a resposta imune, gerando células de memória que respondem rápido a uma futura infecção.'),
+    qv('facil', 'O uso do cinto de segurança é obrigatório. Em uma freada brusca, os ocupantes do carro tendem a continuar se movendo para a frente.\n\nEssa tendência é explicada pela', ['lei da ação e reação.', 'lei da inércia.', 'lei da gravitação universal.', 'conservação da carga elétrica.', 'lei de Ohm.'], 1, 'Pela 1ª lei de Newton (inércia), um corpo em movimento tende a manter sua velocidade se nenhuma força o frear. O cinto fornece a força que freia o corpo junto com o carro.'),
+  ],
+};
+
+export const ENEM_HUMANAS: SimuladoVest = {
+  slug: 'enem-humanas',
+  banca: 'enem',
+  subject: 'historia',
+  title: 'ENEM · Ciências Humanas',
+  subtitle: 'História, Geografia, Filosofia e Sociologia em 10 questões',
+  minutes: 60,
+  questoes: [
+    qv('medio', 'No século XIX, as cidades industriais inglesas cresceram rapidamente. Operários, inclusive crianças, trabalhavam de 12 a 16 horas por dia em fábricas, e moravam em bairros sem saneamento.\n\nO texto descreve consequências sociais da', [
+      'Revolução Industrial, que impulsionou a urbanização e a exploração do trabalho.',
+      'Reforma Protestante, que valorizou o trabalho manual.',
+      'Revolução Francesa, que aboliu a propriedade privada.',
+      'Expansão marítima, que gerou o comércio de especiarias.',
+      'Guerra Fria, que dividiu o mundo em dois blocos.',
+    ], 0, 'Urbanização acelerada, jornadas longas, trabalho infantil e péssimas condições de moradia são marcas da Revolução Industrial.'),
+    qv('medio', 'Em 1943, o governo brasileiro reuniu em um único código as leis do trabalho: jornada de 8 horas, salário mínimo, férias remuneradas e carteira de trabalho.\n\nEssa medida está associada', ['à Constituição de 1988.', 'ao governo de Getúlio Vargas e à criação da CLT.', 'à Proclamação da República.', 'ao regime militar iniciado em 1964.', 'ao Plano Real, de 1994.'], 1, 'A Consolidação das Leis do Trabalho (CLT) foi criada em 1943, no Estado Novo de Vargas, e reuniu direitos trabalhistas que, ao mesmo tempo, aproximavam o governo dos trabalhadores.'),
+    qv('medio', 'Nas grandes cidades, é comum que as áreas centrais tenham temperaturas alguns graus mais altas do que as áreas arborizadas do entorno, fenômeno chamado ilha de calor.\n\nUm dos fatores que mais contribuem para isso é', [
+      'a presença de grandes áreas verdes no centro.',
+      'a impermeabilização do solo e a concentração de concreto e asfalto, que absorvem e retêm calor.',
+      'a redução do número de veículos nas ruas.',
+      'a proximidade com o mar, que aquece o ar.',
+      'o aumento da umidade relativa do ar pela evaporação dos rios.',
+    ], 1, 'Concreto e asfalto absorvem muito calor e o devolvem lentamente, e a falta de vegetação reduz a sombra e a evapotranspiração. Isso intensifica a temperatura urbana.'),
+    qv('medio', 'O Cerrado é chamado de "berço das águas" por abrigar nascentes de grandes bacias hidrográficas brasileiras. Nas últimas décadas, grande parte de sua vegetação nativa foi substituída por lavouras e pastagens.\n\nUma consequência ambiental dessa substituição é', [
+      'o aumento da recarga dos aquíferos.',
+      'a redução da infiltração de água no solo e o risco para as nascentes.',
+      'a ampliação da biodiversidade nativa.',
+      'a diminuição da erosão do solo.',
+      'o fim da necessidade de irrigação.',
+    ], 1, 'A vegetação nativa, com raízes profundas, facilita a infiltração da chuva. Retirada, o solo fica compactado e exposto, o que diminui a recarga e ameaça nascentes.'),
+    qv('medio', '"Imagine prisioneiros que, desde a infância, vivem acorrentados numa caverna, vendo apenas sombras projetadas na parede. Se um deles se libertasse e visse o mundo à luz do sol, entenderia que as sombras eram só aparências."\n(Adaptado de Platão, A República)\n\nNa alegoria, o prisioneiro libertado representa', [
+      'o homem que se contenta com as opiniões da maioria.',
+      'o filósofo que, pelo conhecimento, passa da aparência à verdade.',
+      'o artista que prefere a imitação à realidade.',
+      'o político que usa o medo para controlar o povo.',
+      'o cientista que se limita à observação dos sentidos.',
+    ], 1, 'Para Platão, o mundo sensível é só aparência (sombras) e o conhecimento verdadeiro vem da razão. O prisioneiro que sai da caverna é o filósofo que alcança as ideias.'),
+    qv('medio', 'Para Émile Durkheim, as formas de agir, pensar e sentir existem fora do indivíduo, são gerais em uma sociedade e se impõem a ele, mesmo que ele não perceba. Exemplos são as regras de etiqueta e o idioma.\n\nEsse conceito é chamado de', ['ação social.', 'fato social.', 'luta de classes.', 'mais-valia.', 'dominação carismática.'], 1, 'Fato social é o conceito central de Durkheim: tem as características de exterioridade, generalidade e coercitividade.'),
+    qv('facil', 'O Quilombo dos Palmares, na Serra da Barriga (atual Alagoas), existiu por quase todo o século XVII e chegou a reunir milhares de pessoas, como Zumbi.\n\nPalmares é um exemplo de', ['colônia agrícola incentivada pela Coroa.', 'resistência de africanos escravizados e seus descendentes à escravidão.', 'missão jesuítica entre os indígenas.', 'engenho de açúcar modelo.', 'núcleo urbano criado pelos holandeses.'], 1, 'Os quilombos foram comunidades de resistência formadas por pessoas que escaparam da escravidão e criaram formas próprias de organização social, econômica e cultural.'),
+    qv('medio', 'Um celular pode ter o projeto criado em um país, os minerais extraídos em outro, os componentes fabricados na Ásia, a montagem no Brasil e ser vendido no mundo todo.\n\nEssa organização da produção é característica', ['do feudalismo.', 'do mercantilismo.', 'da globalização e das cadeias produtivas globais.', 'do socialismo real.', 'da economia de subsistência.'], 2, 'Na globalização, as empresas dividem as etapas da produção entre vários países, buscando custos menores e novos mercados, o que forma cadeias globais interligadas.'),
+    qv('medio', 'Em outubro de 1962, o mundo temeu uma guerra nuclear quando os Estados Unidos descobriram mísseis soviéticos instalados em Cuba.\n\nEsse episódio ocorreu no contexto', ['da Primeira Guerra Mundial.', 'da Guerra Fria, marcada pela disputa entre EUA e URSS.', 'da Guerra do Vietnã, já encerrada.', 'do período entreguerras.', 'da Revolução Russa de 1917.'], 1, 'A Crise dos Mísseis é um dos pontos mais tensos da Guerra Fria, a disputa entre dois blocos liderados por Estados Unidos e União Soviética.'),
+    qv('medio', 'Promulgada em 1988, a Constituição brasileira ficou conhecida como "Constituição Cidadã". Ela garantiu eleições diretas, liberdade de expressão e ampliou direitos sociais.\n\nEsse documento marca', ['o início do Estado Novo.', 'a consolidação da redemocratização após a ditadura militar.', 'a Proclamação da República.', 'o fim da escravidão no Brasil.', 'a criação do Plano Real.'], 1, 'Após 21 anos de ditadura militar (1964–1985), a Constituição de 1988 consolidou a democracia e ampliou os direitos fundamentais.'),
+  ],
+};

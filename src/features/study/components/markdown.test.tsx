@@ -1,0 +1,168 @@
+import { describe, expect, it } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Markdown } from './markdown';
+
+/**
+ * O que estes testes protegem
+ *
+ * O texto renderizado aqui vem do painel, e o painel tem mais de um autor: um
+ * school_admin não tem o mesmo nível de confiança do administrador geral. Se
+ * uma `<script>` escrita no editor de resumo virasse script executado, um
+ * único autor comprometeria a sessão de todos os alunos que abrissem o resumo.
+ */
+
+function render(source: string): string {
+  return renderToStaticMarkup(<Markdown source={source} />);
+}
+
+describe('Markdown · segurança', () => {
+  it('escapa HTML em vez de executá-lo', () => {
+    const html = render('<script>alert(1)</script>');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('não deixa passar atributo de evento', () => {
+    const html = render('<img src=x onerror="alert(1)">');
+    // `onerror` continua aparecendo — como TEXTO escapado, que é o ponto. O que
+    // não pode existir é a tag: sem `<img`, não há atributo para o navegador
+    // interpretar.
+    expect(html).not.toContain('<img');
+    expect(html).toContain('&lt;img');
+    expect(html).toContain('&quot;alert(1)&quot;');
+  });
+
+  it('trata javascript: como texto, não como link', () => {
+    const html = render('[clique](javascript:alert(1))');
+    expect(html).not.toContain('href');
+  });
+});
+
+describe('Markdown · formatação', () => {
+  it('renderiza títulos em dois níveis', () => {
+    expect(render('## Equações')).toContain('<h2');
+    expect(render('### Detalhe')).toContain('<h3');
+  });
+
+  it('junta linhas soltas num parágrafo e separa por linha em branco', () => {
+    const html = render('primeira linha\nsegunda linha\n\noutro parágrafo');
+    expect((html.match(/<p/g) ?? []).length).toBe(2);
+  });
+
+  it('renderiza lista com marcador e lista numerada', () => {
+    expect(render('- um\n- dois')).toContain('<li>um</li>');
+    expect(render('1. um\n2. dois')).toContain('<li>um</li>');
+  });
+
+  it('renderiza citação', () => {
+    expect(render('> pegadinha de prova')).toContain('<blockquote');
+  });
+
+  it('aplica negrito, itálico e código na mesma varredura', () => {
+    const html = render('**forte** e *suave* e `v = v0 + a·t`');
+    expect(html).toContain('<strong');
+    expect(html).toContain('<em>suave</em>');
+    expect(html).toContain('<code');
+  });
+
+  it('não confunde negrito com itálico quando os dois se tocam', () => {
+    // Um parser em camadas transforma `**a**` em `*<em>a</em>*` e deixa
+    // asterisco solto na tela.
+    const html = render('**a** *b*');
+    expect(html).toContain('<strong class="font-semibold">a</strong>');
+    expect(html).toContain('<em>b</em>');
+    expect(html).not.toContain('*');
+  });
+
+  it('devolve vazio para texto vazio, sem parágrafo fantasma', () => {
+    expect(render('')).toBe('');
+    expect(render('\n\n')).toBe('');
+  });
+});
+
+describe('Markdown · links', () => {
+  it('só vira link o que aponta para uma página do próprio app', () => {
+    expect(render('[Abrir](/estudar/abc)')).toContain('href="/estudar/abc"');
+    for (const bad of ['[x](https://evil.com)', '[x](//evil.com)', '[x](javascript:alert(1))']) {
+      expect(render(bad)).not.toContain('<a');
+    }
+  });
+});
+
+describe('Markdown · fórmulas', () => {
+  it('reconhece fórmula entre cifrões e a entrega ao componente de matemática', () => {
+    const html = render('A equação é $x^4 - 13x^2 + 36 = 0$ mesmo.');
+    expect(html).toContain('data-math="pending"');
+    expect(html).toContain('x^4 - 13x^2 + 36 = 0');
+    // os cifrões delimitadores não aparecem no texto
+    expect(html).not.toContain('$x^4');
+  });
+
+  it('fórmula em bloco ($$ ... $$) vira bloco próprio, em uma ou várias linhas', () => {
+    expect(render('$$S = \\{-3, 3\\}$$')).toContain('data-math="pending"');
+    const multi = render('Antes\n$$\n\\sqrt{16} = 4\n$$\nDepois');
+    expect(multi).toContain('\\sqrt{16} = 4');
+    expect(multi).toContain('Depois');
+  });
+
+  it('não confunde dinheiro com fórmula', () => {
+    const html = render('Custa R$ 5 e depois R$ 10.');
+    expect(html).not.toContain('data-math');
+    expect(html).toContain('R$ 5 e depois R$ 10');
+  });
+
+  it('fórmula que nunca fechou continua visível como texto', () => {
+    const html = render('Veja:\n$$ x^2 + 1');
+    expect(html).not.toContain('data-math');
+    // O texto continua visível (e o expoente solto vira símbolo legível).
+    expect(html).toContain('x² + 1');
+  });
+
+  it('asterisco dentro da fórmula não vira itálico', () => {
+    const html = render('Conta: $2 * 3 * 4$ certo');
+    expect(html).toContain('2 * 3 * 4');
+    expect(html).not.toContain('<em>');
+  });
+
+  it('três traços viram régua horizontal', () => {
+    expect(render('Texto\n\n---\n\nOutro')).toContain('<hr');
+  });
+});
+
+const html = (s: string) => renderToStaticMarkup(<Markdown source={s} />);
+
+describe('Markdown (resumos e respostas da IA)', () => {
+  it('LaTeX solto vira símbolo legível', () => {
+    expect(html('Fórmula: \\Delta = b^2 - 4ac')).toContain('Δ = b² - 4ac');
+    expect(html('A água é H_2O')).toContain('H₂O');
+  });
+
+  it('bloco \\[ ... \\] em várias linhas vira fórmula, não texto cru', () => {
+    const out = html('\\[\n\\Delta = b^2 - 4ac\n\\]');
+    expect(out).toContain('data-math');
+    expect(out).not.toContain('\\[');
+  });
+
+  it('cruzamento com asterisco não vira itálico; *A* continua itálico', () => {
+    expect(html('Cruzando Aa * Aa e Bb * Bb')).not.toContain('<em>');
+    expect(html('O alelo *A* domina o *a*')).toContain('<em>A</em>');
+  });
+
+  it('desenha tabela com cabeçalho', () => {
+    const out = html('| genótipo | fenótipo |\n|---|---|\n| AA | dominante |\n| aa | recessivo |');
+    expect(out).toContain('<table');
+    expect(out).toContain('<th');
+    expect(out).toContain('recessivo');
+    expect(out).not.toContain('|---|');
+  });
+
+  it('lista numerada vira <ol> e com marcador vira <ul>', () => {
+    expect(html('1. um\n2. dois')).toContain('<ol');
+    expect(html('- um\n- dois')).toContain('<ul');
+  });
+
+  it('dinheiro e texto comum continuam iguais', () => {
+    expect(html('Custa R$ 5 e R$ 10.')).toContain('Custa R$ 5 e R$ 10.');
+    expect(html('Genótipo A_ e aa')).toContain('Genótipo A_ e aa');
+  });
+});

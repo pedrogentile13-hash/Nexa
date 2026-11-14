@@ -1,0 +1,178 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
+import { completeWithAI } from '@/lib/ai/provider';
+import { checkPlanQuota, refundPlanQuota } from '@/features/billing/server/quota';
+import { reportError } from '@/features/observability/server/actions';
+import { checkChatFile } from '@/features/nexa-ia/server/chat-material';
+import { readUploadedFile } from '@/features/nexa-ia/server/material-ingest';
+import { buildEssayMessages, countWords, MAX_WORDS, MIN_WORDS, parseEssayFeedback, type EssayContext, type EssayFeedback } from '../lib/essay';
+
+export type EssayState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string }
+  | { status: 'done'; theme: string; feedback: EssayFeedback; saved: boolean; id: string | null };
+
+const schema = z.object({
+  theme: z.string().trim().min(3, 'Escreva o tema da redação.').max(300),
+  themeId: z.string().uuid().optional(),
+  essay: z.string().trim().min(1, 'Cole ou escreva a redação.').max(8000, 'Texto grande demais.'),
+  tier: z.enum(['basic', 'pro']).default('basic'),
+});
+
+/**
+ * Corrige a redação (estimativa no modelo ENEM) e guarda no histórico.
+ *
+ * Se guardar falhar (SQL ainda não rodou, por exemplo), o aluno AINDA recebe a
+ * correção — ela custou uma chamada de IA e é o que ele veio buscar; só o
+ * histórico fica de fora, e a tela avisa.
+ */
+export async function correctEssay(_prev: EssayState, formData: FormData): Promise<EssayState> {
+  const rawThemeId = formData.get('themeId');
+  const parsed = schema.safeParse({
+    theme: formData.get('theme'),
+    themeId: typeof rawThemeId === 'string' && rawThemeId ? rawThemeId : undefined,
+    essay: formData.get('essay'),
+    tier: formData.get('tier') === 'pro' ? 'pro' : 'basic',
+  });
+  if (!parsed.success) return { status: 'error', message: parsed.error.issues[0]?.message ?? 'Revise os campos.' };
+
+  const words = countWords(parsed.data.essay);
+  if (words < MIN_WORDS) return { status: 'error', message: `A redação tem ${words} palavras. Escreva pelo menos ${MIN_WORDS} para eu poder avaliar.` };
+  if (words > MAX_WORDS) return { status: 'error', message: `A redação tem ${words} palavras; o máximo aqui é ${MAX_WORDS}.` };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'error', message: 'Sessão expirada.' };
+
+  const tier = parsed.data.tier;
+  const feature = tier === 'pro' ? 'essay_pro' : 'essay';
+  const quota = await checkPlanQuota(supabase, feature);
+  if (!quota.ok) return { status: 'error', message: quota.message };
+
+  // Tema do banco: usa o título oficial (não o que veio do formulário) e a contextualização.
+  let themeTitle = parsed.data.theme;
+  let themeContext: string | null = null;
+  let themeId: string | null = null;
+  let ctx: EssayContext = { tier };
+  if (parsed.data.themeId) {
+    const { data: theme } = await supabase
+      .from('essay_themes')
+      .select('id, title, context_text, genre, edition_note, correction_model, exams(name)')
+      .eq('id', parsed.data.themeId)
+      .maybeSingle();
+    if (theme) {
+      themeTitle = theme.title;
+      themeContext = theme.context_text;
+      themeId = theme.id;
+      ctx = {
+        tier,
+        model: theme.correction_model === 'outras' ? 'outras' : 'enem',
+        banca: (theme.exams as unknown as { name: string } | null)?.name ?? null,
+        genre: theme.genre,
+        note: theme.edition_note,
+      };
+    }
+  }
+
+  // PRO: calibra com redações reais já corrigidas (se o admin cadastrou alguma). Falha aqui só tira a calibração.
+  if (tier === 'pro') {
+    try {
+      const { data: refs } = await supabase.rpc('essay_calibration', { p_banca: ctx.banca ?? 'ENEM', p_limit: 2 });
+      if (refs?.length) ctx = { ...ctx, references: refs };
+    } catch {
+      // sem calibração: o PRO ainda corrige com a régua rígida
+    }
+  }
+
+  const result = await completeWithAI(buildEssayMessages(themeTitle, parsed.data.essay, themeContext, ctx), {
+    maxTokens: tier === 'pro' ? 5000 : 3000,
+    temperature: tier === 'pro' ? 0.1 : 0.2,
+    timeoutMs: tier === 'pro' ? 75_000 : 45_000,
+    tier,
+  });
+
+  if (!result.ok) {
+    await refundPlanQuota(supabase, feature, quota);
+    if (result.reason === 'content_filter') {
+      return { status: 'error', message: 'O provedor de IA recusou este texto. Confira se há algo ofensivo e tente de novo.' };
+    }
+    await reportError({
+      origin: 'server',
+      message: `Correção de redação falhou: ${result.reason}${'status' in result ? ` (HTTP ${result.status})` : ''}`,
+      pathname: '/vestibular/redacao',
+    });
+    return { status: 'error', message: 'A IA não respondeu agora — tente de novo em instantes.' };
+  }
+
+  const feedback = parseEssayFeedback(result.text, parsed.data.essay, { model: ctx.model, tier });
+  if (!feedback) {
+    await refundPlanQuota(supabase, feature, quota);
+    return { status: 'error', message: 'A IA devolveu uma correção que não consegui ler. Tente de novo (não conta no seu histórico).' };
+  }
+
+  if (ctx.model === 'outras' && ctx.banca) feedback.banca = ctx.banca;
+
+  const score = (id: number) => feedback.competencies.find((c) => c.id === id)!.score;
+  const { data: savedRow, error } = await supabase
+    .from('essay_corrections')
+    .insert({
+    user_id: user.id,
+    theme: themeTitle,
+    theme_id: themeId,
+    essay: parsed.data.essay,
+    c1: score(1),
+    c2: score(2),
+    c3: score(3),
+    c4: score(4),
+    c5: score(5),
+    feedback: feedback as unknown,
+    })
+    .select('id')
+    .single();
+
+  revalidatePath('/vestibular/redacao');
+  return { status: 'done', theme: themeTitle, feedback, saved: !error, id: savedRow?.id ?? null };
+}
+
+export async function deleteEssay(formData: FormData): Promise<void> {
+  const id = z.string().uuid().safeParse(formData.get('id'));
+  if (!id.success) return;
+  const supabase = await createClient();
+  await supabase.from('essay_corrections').delete().eq('id', id.data);
+  revalidatePath('/vestibular/redacao');
+}
+
+export type TranscribeState = { ok: true; text: string; words: number } | { ok: false; message: string };
+
+/**
+ * Lê uma foto (PNG, JPG, WebP) ou PDF da redação — inclusive escrita à mão — e devolve o TEXTO.
+ * O texto volta para a caixa da redação para o aluno conferir antes de corrigir: erro de leitura
+ * vira erro de nota, então ele nunca é corrigido às cegas.
+ */
+export async function transcribeEssayFile(formData: FormData): Promise<TranscribeState> {
+  const file = formData.get('file');
+  if (!(file instanceof File) || file.size === 0) return { ok: false, message: 'Escolha uma foto ou PDF da redação.' };
+  const check = checkChatFile(file);
+  if (!check.ok) return { ok: false, message: check.message };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: 'Sessão expirada.' };
+
+  const quota = await checkPlanQuota(supabase, 'material');
+  if (!quota.ok) return { ok: false, message: quota.message };
+
+  const read = await readUploadedFile(file);
+  if (!read.ok) return { ok: false, message: read.message };
+  const text = read.text.trim();
+  const words = countWords(text);
+  if (words < 10) return { ok: false, message: 'Não consegui ler texto nesta imagem. Tente uma foto mais nítida, com boa luz e a folha inteira.' };
+  return { ok: true, text, words };
+}
