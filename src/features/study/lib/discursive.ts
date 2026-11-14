@@ -2,7 +2,7 @@
  * Questões discursivas com correção por IA — a parte pura (sem rede nem banco), para poder testar.
  *
  * A IA nunca recebe instrução do aluno: o texto dele vai dentro de um bloco delimitado e a regra é corrigi-lo, não
- * obedecê-lo. A nota é sempre uma fração de 0 a 1 (a tela mostra "x de 10"); a partir de `PASS_RATIO` a questão conta
+ * obedecê-lo. A nota é sempre de 0 a 1 (a tela mostra "0,6 de 1"): a IA corrige de 0 a 10 e a nota é dividida por 10 (6 vira 0,6); a partir de `PASS_RATIO` a questão conta
  * como acerto no placar do quiz/simulado (o banco aplica a mesma régua em `record_discursive_grade`).
  */
 
@@ -121,10 +121,10 @@ export function parseGrade(raw: string): Grade | null {
   };
 }
 
-/** "7,5 de 10". */
+/** "0,6 de 1": a nota é de 0 a 1 (a IA corrige de 0 a 10; 6 vira 0,6). */
 export function formatScore(ratio: number): string {
-  const v = Math.round(ratio * 100) / 10;
-  return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} de 10`;
+  const v = Math.round(ratio * 100) / 100;
+  return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} de 1`;
 }
 
 export type GradeBand = 'otima' | 'boa' | 'parcial' | 'fraca';

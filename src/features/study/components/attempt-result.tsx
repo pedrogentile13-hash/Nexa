@@ -74,7 +74,7 @@ export function AttemptResult({
   essays?: EssayResult[];
 }) {
   const [filter, setFilter] = useState<'todas' | 'acertos' | 'erros'>('todas');
-  // Correções por IA pedidas AQUI (simulado: a discursiva só é corrigida depois de finalizar).
+  // Correções por IA pedidas AQUI (a discursiva é corrigida na própria questão; isto cobre a que ficou sem correção).
   const [fresh, setFresh] = useState<Record<string, DiscursiveGrade>>({});
 
   const attempt = result.attempt;

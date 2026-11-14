@@ -21,6 +21,12 @@ describe('parseGrade', () => {
     });
   });
 
+  it('a nota 6 vira 0,6 (0 a 1)', () => {
+    expect(parseGrade('{"nota": 6, "feedback": "Resposta razoável, falta o exemplo."}')?.score).toBe(0.6);
+    expect(parseGrade('{"nota": 10, "feedback": "Resposta completa e clara."}')?.score).toBe(1);
+    expect(parseGrade('{"nota": 0, "feedback": "Não responde à pergunta."}')?.score).toBe(0);
+  });
+
   it('tolera cerca de código, texto antes do JSON e vírgula decimal', () => {
     expect(
       parseGrade('```json\n{"nota": "6,5", "feedback": "Boa tentativa, mas incompleta."}\n```')
@@ -90,9 +96,10 @@ describe('buildGradingMessages', () => {
 
 describe('nota', () => {
   it('formata em português e separa as faixas', () => {
-    expect(formatScore(0.75)).toBe('7,5 de 10');
-    expect(formatScore(1)).toBe('10 de 10');
-    expect(formatScore(0)).toBe('0 de 10');
+    expect(formatScore(0.75)).toBe('0,75 de 1');
+    expect(formatScore(0.6)).toBe('0,6 de 1');
+    expect(formatScore(1)).toBe('1 de 1');
+    expect(formatScore(0)).toBe('0 de 1');
     expect(gradeBand(0.9)).toBe('otima');
     expect(gradeBand(PASS_RATIO)).toBe('boa');
     expect(gradeBand(0.4)).toBe('parcial');

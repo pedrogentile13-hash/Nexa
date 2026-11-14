@@ -74,13 +74,12 @@ export function GradeCard({ grade }: { grade: DiscursiveGrade }) {
  * Resposta de uma questão discursiva durante o quiz/simulado.
  *
  *   · O texto é salvo sozinho (some o medo de perder). Nada é conferido aqui: a nota vem do servidor.
- *   · QUIZ — "Corrigir com IA" na hora, com a devolutiva (custa moedas; se a IA falha, voltam).
- *   · SIMULADO — só guarda: a correção é pedida no gabarito, depois de finalizar (como numa prova de verdade).
+ *   · Quiz E simulado — "Corrigir com IA" na própria questão, logo depois da resposta, com a devolutiva (custa moedas;
+ *     se a IA falha, voltam). A nota é de 0 a 1.
  */
 export function DiscursiveAnswer({
   attemptId,
   questionId,
-  immediate,
   initialText,
   initialGrade,
   getSpentSeconds,
@@ -89,8 +88,6 @@ export function DiscursiveAnswer({
 }: {
   attemptId: string;
   questionId: string;
-  /** true = quiz (corrige na hora); false = simulado (corrige depois). */
-  immediate: boolean;
   initialText: string;
   initialGrade: DiscursiveGrade | null;
   getSpentSeconds: () => number;
@@ -202,7 +199,7 @@ export function DiscursiveAnswer({
 
       {grade ? (
         <GradeCard grade={grade} />
-      ) : immediate ? (
+      ) : (
         <>
           <Button
             type="button"
@@ -215,11 +212,6 @@ export function DiscursiveAnswer({
           </Button>
           {text.trim() && problem && <p className="text-muted text-xs">{problem}</p>}
         </>
-      ) : (
-        <p className="text-muted text-xs leading-relaxed">
-          Você pede a correção por IA no gabarito, depois de finalizar o simulado (
-          {COIN_COSTS.discursive} moedas por questão).
-        </p>
       )}
     </div>
   );

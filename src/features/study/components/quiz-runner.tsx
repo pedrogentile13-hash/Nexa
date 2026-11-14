@@ -371,9 +371,7 @@ export function QuizRunner({
                 ? 'Você vê se acertou logo depois de responder, com a explicação.'
                 : 'A correção aparece no fim, como numa prova. O tempo fica no topo.'}
               {discursiveCount > 0 &&
-                (isQuiz
-                  ? ' As discursivas são corrigidas por IA na hora, com devolutiva.'
-                  : ' As discursivas são corrigidas por IA depois, no gabarito.')}
+                ' As discursivas são corrigidas por IA logo depois da resposta, na própria questão, com nota de 0 a 1.'}
             </p>
 
             {error && <p className="text-danger mt-4 text-sm">{error}</p>}
@@ -698,7 +696,6 @@ export function QuizRunner({
               key={question.question_id}
               attemptId={attemptId}
               questionId={question.question_id}
-              immediate={isQuiz}
               initialText={discTexts[question.question_id] ?? ''}
               initialGrade={discGrades[question.question_id] ?? null}
               getSpentSeconds={() => {
