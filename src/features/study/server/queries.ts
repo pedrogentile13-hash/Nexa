@@ -1,3 +1,4 @@
+import { hideEmptyQuizzes } from '@/features/content/lib/question-count';
 import { isDemoSession } from '@/lib/demo/server';
 import { enzoStudyHub } from '@/lib/demo/enzo-study';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
@@ -110,9 +111,11 @@ export async function getStudyHub(
 
   // Quiz ou simulado sem nenhuma questão (carga interrompida, rascunho publicado por engano) não aparece para o aluno:
   // abriria uma tela vazia. O Admin continua mostrando "falta cadastrar questões".
-  const libraryRows = (libraryRes.data ?? []).filter(
-    (r) => !((r.kind === 'quiz' || r.kind === 'simulado') && Number(r.question_count ?? 0) === 0),
-  );
+  // (A contagem do aluno não funciona — ele não lê `questions` —, então o filtro só vale quando ela funciona.)
+  const libraryRows = hideEmptyQuizzes(libraryRes.data ?? [], (r) => ({
+    kind: r.kind,
+    count: Number(r.question_count ?? 0),
+  }));
   const allItems: LibraryItem[] = libraryRows.map((r) => ({
     id: r.id,
     kind: r.kind,

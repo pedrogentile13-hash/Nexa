@@ -1,3 +1,4 @@
+import { hideEmptyQuizzes } from '@/features/content/lib/question-count';
 import { enzoSimuladoCatalog } from '@/lib/demo/enzo-screens';
 import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
@@ -38,8 +39,8 @@ export async function getSimuladoCatalog(): Promise<SimuladoCatalogItem[]> {
     .order('published_at', { ascending: false });
 
   // Simulado sem questões (carga incompleta) não aparece para o aluno.
-  return (data ?? [])
-    .filter((r) => Number(r.question_count ?? 0) > 0)
+  // (A contagem do aluno não funciona — ele não lê `questions` —, então o filtro só vale quando ela funciona.)
+  return hideEmptyQuizzes(data ?? [], (r) => ({ kind: r.kind, count: Number(r.question_count ?? 0) }))
     .map((r) => ({
       id: r.id,
       title: r.title,
