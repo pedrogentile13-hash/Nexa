@@ -3,9 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { getFeatureFlags } from '@/lib/feature-flags';
 import { getPlanInfo } from '@/features/billing/server/entitlements';
 import { vestibularAllowed } from './vestibular-rule';
+import { isDemoSession } from '@/lib/demo/server';
 
 /** Vestibular liberado para a pessoa logada? Uma leitura por request (cache). */
 export const isVestibularEnabled = cache(async (): Promise<boolean> => {
+  // Modo demonstração: o aluno fictício tem Vestibular, mesmo com a chave geral desligada no banco.
+  if (await isDemoSession()) return true;
   const flags = await getFeatureFlags();
   if (!flags.vestibular_enabled) return false;
 

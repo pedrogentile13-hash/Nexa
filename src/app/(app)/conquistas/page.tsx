@@ -1,3 +1,5 @@
+import { isDemoSession } from '@/lib/demo/server';
+import { enzoAchievements } from '@/lib/demo/enzo-extra';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Trophy } from 'lucide-react';
@@ -26,7 +28,7 @@ export default async function AchievementsPage() {
   ]);
 
   const progressById = new Map((userAchievements ?? []).map((row) => [row.achievement_id, row]));
-  const achievementItems: AchievementListItem[] = (achievements ?? [])
+  const realAchievementItems: AchievementListItem[] = (achievements ?? [])
     .filter((a) => a.is_active || progressById.get(a.id)?.unlocked_at != null)
     .map((a) => ({
       id: a.id,
@@ -37,6 +39,8 @@ export default async function AchievementsPage() {
       threshold: a.threshold,
       unlockedAt: progressById.get(a.id)?.unlocked_at ?? null,
     }));
+  // Modo demonstração (aluno Enzo): conquistas fictícias.
+  const achievementItems = (await isDemoSession()) ? enzoAchievements() : realAchievementItems;
   const unlockedCount = achievementItems.filter((a) => a.unlockedAt != null).length;
 
   return (

@@ -1,3 +1,5 @@
+import { enzoTrilhas } from '@/lib/demo/enzo-screens';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 import type { TrackCategory } from '@/types/database.types';
 
@@ -170,6 +172,7 @@ export interface TrilhasOverview {
 }
 
 export async function getTrilhasOverview(userId: string): Promise<TrilhasOverview> {
+  if (await isDemoSession()) return enzoTrilhas();
   const supabase = await createClient();
 
   const [tracksRes, lessonsRes, recentProgressRes, masteryRes] = await Promise.all([

@@ -1,3 +1,5 @@
+import { enzoMetas, enzoLongTermGoals } from '@/lib/demo/enzo-screens';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -51,6 +53,7 @@ function weekLabel(weekStart: string): string {
 }
 
 export async function getMetasOverview(userId: string): Promise<MetasOverview> {
+  if (await isDemoSession()) return enzoMetas();
   const supabase = await createClient();
 
   // Início do mês pelo FUSO DO ALUNO, não pelo relógio do servidor — igual a
@@ -167,6 +170,7 @@ export interface LongTermGoal {
 }
 
 export async function getLongTermGoals(userId: string): Promise<LongTermGoal[]> {
+  if (await isDemoSession()) return enzoLongTermGoals();
   const supabase = await createClient();
   const { data } = await supabase
     .from('long_term_goals')

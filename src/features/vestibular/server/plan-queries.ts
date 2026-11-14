@@ -1,3 +1,5 @@
+import { enzoStudyPlan } from '@/lib/demo/enzo-vestibular-screens';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 import type {
   ExamTopicWeightSource,
@@ -34,6 +36,7 @@ export interface StudyPlan {
 }
 
 export async function getVestibularStudyPlan(limit = 20): Promise<StudyPlan> {
+  if (await isDemoSession()) return enzoStudyPlan();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('vestibular_study_plan', { p_limit: limit });
   // `phase`/`days_until` são os mesmos em toda linha (é contexto da prova, não

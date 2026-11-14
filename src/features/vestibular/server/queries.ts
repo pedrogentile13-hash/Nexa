@@ -1,3 +1,10 @@
+import {
+  enzoVestibularResources,
+  enzoExamEditions,
+  enzoExamFiles,
+} from '@/lib/demo/enzo-vestibular-screens';
+import { isDemoSession } from '@/lib/demo/server';
+import { ENZO_VESTIBULAR } from '@/lib/demo/enzo-vestibular';
 import { createClient } from '@/lib/supabase/server';
 import type { Difficulty, ExamKind, ResourceKind, StudyPlanReason } from '@/types/database.types';
 
@@ -20,6 +27,7 @@ export interface VestibularProfile {
 }
 
 export async function getVestibularProfile(): Promise<VestibularProfile | null> {
+  if (await isDemoSession()) return ENZO_VESTIBULAR.profile;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('get_vestibular_profile');
   const row = data?.[0];
@@ -46,6 +54,7 @@ export interface ExamOption {
 }
 
 export async function listExams(): Promise<ExamOption[]> {
+  if (await isDemoSession()) return ENZO_VESTIBULAR.exams;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('list_exams');
   if (error || !data) return [];
@@ -77,6 +86,7 @@ export interface VestibularOverview {
 }
 
 export async function getVestibularOverview(): Promise<VestibularOverview> {
+  if (await isDemoSession()) return ENZO_VESTIBULAR.overview;
   const supabase = await createClient();
   const { data } = await supabase.rpc('vestibular_overview');
   const row = data?.[0];
@@ -122,6 +132,7 @@ export async function listVestibularResources(
   filters: VestibularResourceFilters = {},
   limit?: number,
 ): Promise<VestibularResource[]> {
+  if (await isDemoSession()) return enzoVestibularResources();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('list_vestibular_resources', {
     p_exam_id: filters.examId ?? null,
@@ -203,6 +214,7 @@ export interface VestibularHome {
  * rápida — por isso a montagem mora em `vestibular_home()`, no banco.
  */
 export async function getVestibularHome(): Promise<VestibularHome | null> {
+  if (await isDemoSession()) return ENZO_VESTIBULAR.home;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('vestibular_home');
   const row = data?.[0];
@@ -239,6 +251,7 @@ export interface ExamEditionSummary {
 
 /** Edições cadastradas (ENEM 2025, FUVEST 2026...). Servem para listar "Em breve" quando a prova ainda não tem questões. */
 export async function listExamEditions(): Promise<ExamEditionSummary[]> {
+  if (await isDemoSession()) return enzoExamEditions();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('exam_editions')
@@ -267,6 +280,7 @@ export interface ExamFileItem {
 
 /** Arquivos publicados (endereços dos cadernos e gabaritos nos sites oficiais). */
 export async function listExamFiles(editionId?: string): Promise<ExamFileItem[]> {
+  if (await isDemoSession()) return enzoExamFiles(editionId);
   const supabase = await createClient();
   let query = supabase
     .from('exam_files')

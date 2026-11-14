@@ -2021,6 +2021,7 @@ export type Database = {
         Returns: {
           user_id: string; full_name: string; avatar_url: string | null; class_id: string; class_name: string; school_login: string | null;
           xp: number; level: number; current_streak: number; last_active: string | null; week_minutes: number;
+          last_sign_in_at: string | null;
         }[];
       };
       my_plan: {

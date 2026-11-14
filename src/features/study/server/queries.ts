@@ -1,3 +1,5 @@
+import { isDemoSession } from '@/lib/demo/server';
+import { enzoStudyHub } from '@/lib/demo/enzo-study';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { SERIES, matchesSerie } from '@/lib/design/serie';
 import type { Difficulty, ResourceKind } from '@/types/database.types';
@@ -73,6 +75,7 @@ export async function getStudyHub(
   origin: LibraryOrigin = 'todos',
   serieFilter?: string,
 ): Promise<StudyHubData> {
+  if (await isDemoSession()) return enzoStudyHub();
   const supabase = await createClient();
   const user = await getCurrentUser();
 

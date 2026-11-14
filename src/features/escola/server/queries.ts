@@ -1,3 +1,13 @@
+import { isDemoStaffSession } from '@/lib/demo/server';
+import { DEMO_STAFF_ID, demoEnabled } from '@/lib/demo/flags';
+import {
+  enzoSchoolClasses,
+  enzoSchoolRoster,
+  enzoSchoolUnassigned,
+  enzoSchoolHome,
+  enzoSchoolTeachers,
+  enzoSchoolSubjects,
+} from '@/lib/demo/escola';
 import { createClient } from '@/lib/supabase/server';
 import { listAnnouncements } from '@/features/announcements/server/queries';
 import { listPendingQuestions } from '@/features/school-chat/server/queries';
@@ -16,6 +26,7 @@ export interface ClassCard {
 }
 
 export async function listClassCards(): Promise<ClassCard[]> {
+  if (await isDemoStaffSession()) return enzoSchoolClasses();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('staff_classes_overview');
   if (error || !data) return [];
@@ -41,12 +52,18 @@ export interface RosterStudent {
   level: number;
   streak: number;
   lastActive: string | null;
+  /** Último login (auth). Null = nunca entrou. Diferente de lastActive (atividade de estudo). */
+  lastSignInAt: string | null;
   weekMinutes: number;
 }
 
 export async function listRoster(classId?: string, search?: string): Promise<RosterStudent[]> {
+  if (await isDemoStaffSession()) return enzoSchoolRoster(classId, search);
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc('staff_roster', { p_class_id: classId ?? null, p_search: search?.trim() || null });
+  const { data, error } = await supabase.rpc('staff_roster', {
+    p_class_id: classId ?? null,
+    p_search: search?.trim() || null,
+  });
   if (error || !data) return [];
   return data.map((r) => ({
     id: r.user_id,
@@ -59,11 +76,15 @@ export async function listRoster(classId?: string, search?: string): Promise<Ros
     level: r.level,
     streak: r.current_streak,
     lastActive: r.last_active,
+    lastSignInAt: r.last_sign_in_at,
     weekMinutes: r.week_minutes,
   }));
 }
 
-export async function listUnassigned(): Promise<{ id: string; name: string; login: string | null }[]> {
+export async function listUnassigned(): Promise<
+  { id: string; name: string; login: string | null }[]
+> {
+  if (await isDemoStaffSession()) return enzoSchoolUnassigned();
   const supabase = await createClient();
   const { data } = await supabase.rpc('staff_unassigned_students');
   return (data ?? []).map((s) => ({ id: s.user_id, name: s.full_name, login: s.school_login }));
@@ -74,10 +95,19 @@ export interface HomeData {
   classes: ClassCard[];
   pendingQuestions: number;
   pendingPublications: number;
-  recentNotices: { id: string; title: string; className: string | null; createdAt: string; readCount: number | null; audience: number | null; eventDate: string | null }[];
+  recentNotices: {
+    id: string;
+    title: string;
+    className: string | null;
+    createdAt: string;
+    readCount: number | null;
+    audience: number | null;
+    eventDate: string | null;
+  }[];
 }
 
 export async function getHome(staff: StaffIdentity): Promise<HomeData> {
+  if (staff.userId === DEMO_STAFF_ID && demoEnabled()) return enzoSchoolHome();
   const leader = staff.role !== 'teacher';
   const [overview, classes, pending, publications, notices] = await Promise.all([
     leader && staff.schoolId ? getSchoolOverview(staff.schoolId) : Promise.resolve(null),
@@ -94,7 +124,15 @@ export async function getHome(staff: StaffIdentity): Promise<HomeData> {
     recentNotices: notices
       .filter((n) => n.canManage)
       .slice(0, 4)
-      .map((n) => ({ id: n.id, title: n.title, className: n.className, createdAt: n.createdAt, readCount: n.readCount, audience: n.audienceSize, eventDate: null })),
+      .map((n) => ({
+        id: n.id,
+        title: n.title,
+        className: n.className,
+        createdAt: n.createdAt,
+        readCount: n.readCount,
+        audience: n.audienceSize,
+        eventDate: null,
+      })),
   };
 }
 
@@ -108,6 +146,7 @@ export interface TeacherCard {
 
 /** Professores da escola, com o que lecionam e o estado do bot de cada um. Só coordenação/direção (o banco confere). */
 export async function listTeacherCards(schoolId: string): Promise<TeacherCard[]> {
+  if (await isDemoStaffSession()) return enzoSchoolTeachers();
   const supabase = await createClient();
   const [overview, assignments] = await Promise.all([
     getSchoolOverview(schoolId),
@@ -122,7 +161,10 @@ export async function listTeacherCards(schoolId: string): Promise<TeacherCard[]>
   for (const a of assignments.data ?? []) {
     const subject = a.subject_catalog as unknown as { name: string } | null;
     const klass = a.classes as unknown as { name: string } | null;
-    byTeacher.set(a.teacher_id, [...(byTeacher.get(a.teacher_id) ?? []), { id: a.id, subject: subject?.name ?? '—', className: klass?.name ?? '—' }]);
+    byTeacher.set(a.teacher_id, [
+      ...(byTeacher.get(a.teacher_id) ?? []),
+      { id: a.id, subject: subject?.name ?? '—', className: klass?.name ?? '—' },
+    ]);
   }
 
   return (overview?.teachers ?? []).map((t) => ({
@@ -135,7 +177,12 @@ export async function listTeacherCards(schoolId: string): Promise<TeacherCard[]>
 }
 
 export async function listSubjects(): Promise<{ id: string; name: string }[]> {
+  if (await isDemoStaffSession()) return enzoSchoolSubjects();
   const supabase = await createClient();
-  const { data } = await supabase.from('subject_catalog').select('id, name').eq('is_active', true).order('sort_order');
+  const { data } = await supabase
+    .from('subject_catalog')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('sort_order');
   return data ?? [];
 }

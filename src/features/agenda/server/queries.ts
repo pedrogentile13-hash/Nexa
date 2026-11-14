@@ -1,3 +1,5 @@
+import { enzoAgenda } from '@/lib/demo/enzo-extra';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -32,6 +34,7 @@ export interface AgendaRange {
 
 /** O "hoje" do aluno, no fuso dele. Barato o bastante para ser chamado sozinho. */
 export async function getUserToday(userId: string): Promise<string> {
+  if (await isDemoSession()) return '2026-11-13';
   const supabase = await createClient();
   const { data } = await supabase.rpc('user_local_date', { p_user_id: userId });
   return (data as string | null) ?? new Date().toISOString().slice(0, 10);
@@ -44,6 +47,7 @@ export async function getUserToday(userId: string): Promise<string> {
  * redundante, sem perceber que a proteção real está no banco.
  */
 export async function getAgenda(from: string, to: string, today: string): Promise<AgendaRange> {
+  if (await isDemoSession()) return enzoAgenda(from, to, today);
   const supabase = await createClient();
 
   const [tasksRes, sessionsRes, eventsRes] = await Promise.all([

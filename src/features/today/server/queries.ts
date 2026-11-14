@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { computeOverallScore } from '@/features/performance/server/queries';
 import type { FocusCandidate } from '../lib/ranking';
+import { DEMO_USER_ID, demoEnabled } from '@/lib/demo/flags';
+import { enzoTodaySnapshot } from '@/lib/demo/enzo';
 
 /**
  * Tudo que a tela Hoje precisa, no menor número de idas ao banco.
@@ -108,6 +110,8 @@ function mondayOf(iso: string): string {
 }
 
 export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
+  // Modo demonstração: o aluno fictício não existe no banco.
+  if (userId === DEMO_USER_ID && demoEnabled()) return enzoTodaySnapshot();
   const supabase = await createClient();
 
   // O dia vem do banco, no fuso do aluno — nunca de `new Date()` no servidor,
@@ -191,7 +195,11 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
       .limit(15),
     // Dias com XP na semana: sinal único que já cobre quiz, lição, rotina,
     // tarefa e sessão de estudo — não precisa de tracking novo.
-    supabase.from('xp_events').select('local_date').gte('local_date', weekStart).lte('local_date', weekEnd),
+    supabase
+      .from('xp_events')
+      .select('local_date')
+      .gte('local_date', weekStart)
+      .lte('local_date', weekEnd),
     supabase.rpc('topic_mastery', { p_user_id: userId }),
     supabase.from('quiz_attempts').select('resource_id'),
   ]);
@@ -382,7 +390,8 @@ export async function getTodaySnapshot(userId: string): Promise<TodaySnapshot> {
   // acima — aqui só escolhe qual delas rendeu um recurso não tentado.
   let recommendedQuiz: RecommendedQuiz | null = null;
   const primaryPick = (primaryQuizRes.data ?? []).find((r) => !attemptedResourceIds.has(r.id));
-  const pick = primaryPick ?? (fallbackQuizRes.data ?? []).find((r) => !attemptedResourceIds.has(r.id));
+  const pick =
+    primaryPick ?? (fallbackQuizRes.data ?? []).find((r) => !attemptedResourceIds.has(r.id));
   if (pick) {
     recommendedQuiz = {
       id: pick.id,

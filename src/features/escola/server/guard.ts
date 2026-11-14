@@ -1,3 +1,5 @@
+import { DEMO_STAFF_IDENTITY } from '@/lib/demo/escola';
+import { isDemoStaffSession } from '@/lib/demo/server';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -14,6 +16,7 @@ export interface StaffIdentity {
 
 /** Quem está logado e é da equipe da escola (professor, coordenação, direção) ou admin geral. */
 export const getStaffIdentity = cache(async (): Promise<StaffIdentity | null> => {
+  if (await isDemoStaffSession()) return DEMO_STAFF_IDENTITY;
   const supabase = await createClient();
   const {
     data: { user },

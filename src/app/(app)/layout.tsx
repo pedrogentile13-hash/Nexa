@@ -12,6 +12,7 @@ import { isVestibularEnabled } from '@/lib/vestibular-access';
 import { unreadAnnouncementsCount } from '@/features/announcements/server/queries';
 import { SHELL_COLUMNS, readWithFallback, type ProfileReader } from '@/lib/supabase/profile-read';
 import type { Journey } from '@/types/database.types';
+import { DEMO_USER_ID, demoEnabled } from '@/lib/demo/flags';
 
 /**
  * Shell do app autenticado.
@@ -64,7 +65,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         getPlanInfo(),
       ])
     : [null, null, 0, null, null];
-  const profile = profileRaw as {
+  // Modo demonstração: o aluno fictício não tem linha em `profiles`; usa o perfil de demonstração.
+  const demo = user?.id === DEMO_USER_ID && demoEnabled();
+  const profile = (
+    demo ? { full_name: 'Enzo', avatar_url: null, role: 'student', journey: 'both' } : profileRaw
+  ) as {
     full_name: string | null;
     avatar_url: string | null;
     role: string;

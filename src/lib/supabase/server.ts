@@ -3,6 +3,30 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { env } from '@/lib/env';
 import type { Database } from '@/types/database.types';
+import type { User } from '@supabase/supabase-js';
+import { DEMO_COOKIE, DEMO_STAFF_ID, DEMO_USER_ID, demoUserIdFor } from '@/lib/demo/flags';
+
+/** Aluno fictício do modo demonstração (só com NEXA_DEMO=1 fora de produção). */
+const DEMO_USERS: Record<
+  string,
+  { id: string; email: string; user_metadata: { full_name: string } }
+> = {
+  [DEMO_USER_ID]: {
+    id: DEMO_USER_ID,
+    email: 'enzo@demo.nexa',
+    user_metadata: { full_name: 'Enzo' },
+  },
+  [DEMO_STAFF_ID]: {
+    id: DEMO_STAFF_ID,
+    email: 'marina@demo.nexa',
+    user_metadata: { full_name: 'Marina Souza' },
+  },
+};
+
+async function demoUserOrNull() {
+  const id = demoUserIdFor((await cookies()).get(DEMO_COOKIE)?.value);
+  return id ? (DEMO_USERS[id] ?? null) : null;
+}
 
 /**
  * Server client for Server Components, Server Actions and Route Handlers.
@@ -53,6 +77,8 @@ export async function createClient() {
  * cross-request leak `createClient()`'s own comment warns about.
  */
 export const getCurrentUser = cache(async () => {
+  const demoUser = await demoUserOrNull();
+  if (demoUser) return demoUser as unknown as User;
   const supabase = await createClient();
   const {
     data: { user },

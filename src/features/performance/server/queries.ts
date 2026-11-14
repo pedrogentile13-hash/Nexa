@@ -1,3 +1,5 @@
+import { enzoPerformance, enzoSimuladoHistory, ENZO_REPORT_CARD } from '@/lib/demo/enzo-screens';
+import { isDemoSession } from '@/lib/demo/server';
 import type { GradeRow } from '../lib/report-card';
 import { createClient } from '@/lib/supabase/server';
 import { xpToNextLevel } from '../lib/level';
@@ -188,12 +190,14 @@ export function mapSimuladoAttempt(row: {
 
 /** Histórico de simulados, sozinho — usado pela página de uma matéria. */
 export async function getSimuladoHistory(userId: string): Promise<SimuladoAttempt[]> {
+  if (await isDemoSession()) return enzoSimuladoHistory();
   const supabase = await createClient();
   const { data } = await supabase.rpc('simulado_history', { p_user_id: userId });
   return (data ?? []).map(mapSimuladoAttempt);
 }
 
 export async function getPerformance(userId: string): Promise<PerformanceData> {
+  if (await isDemoSession()) return enzoPerformance();
   const supabase = await createClient();
 
   const [
@@ -332,6 +336,7 @@ function startOfWeek(iso: string): string {
 
 /** Boletim por série (nota por matéria separada pela série do conteúdo). Antes do SQL rodar, volta vazio. */
 export async function getReportCardByGrade(userId: string): Promise<GradeRow[]> {
+  if (await isDemoSession()) return ENZO_REPORT_CARD;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('report_card_by_grade', { p_user_id: userId });
   return error ? [] : ((data ?? []) as GradeRow[]);

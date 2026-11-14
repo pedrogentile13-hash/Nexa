@@ -1,3 +1,5 @@
+import { enzoPracticeFilters, enzoPracticeSessions } from '@/lib/demo/enzo-vestibular-screens';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 import type { Difficulty } from '@/types/database.types';
 
@@ -21,6 +23,7 @@ export interface PracticeFilters {
 }
 
 export async function getPracticeFilters(): Promise<PracticeFilters> {
+  if (await isDemoSession()) return enzoPracticeFilters();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('practice_filters');
   if (error || !data) return { exams: [], subjects: [] };
@@ -121,6 +124,7 @@ export interface PracticeSessionSummary {
 }
 
 export async function listPracticeSessions(limit = 8): Promise<PracticeSessionSummary[]> {
+  if (await isDemoSession()) return enzoPracticeSessions();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('list_practice_sessions', { p_limit: limit });
   if (error || !data) return [];

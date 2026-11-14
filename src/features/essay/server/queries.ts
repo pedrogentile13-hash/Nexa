@@ -1,3 +1,5 @@
+import { enzoEssays, enzoEssayThemes, enzoEssay } from '@/lib/demo/enzo-vestibular-screens';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 import type { EssayFeedback } from '../lib/essay';
 
@@ -12,6 +14,7 @@ export interface EssayHistoryItem {
 
 /** Antes do SQL rodar a tabela não existe: devolve vazio em vez de quebrar a tela. */
 export async function listEssays(limit = 20): Promise<EssayHistoryItem[]> {
+  if (await isDemoSession()) return enzoEssays().slice(0, limit);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('essay_corrections')
@@ -55,6 +58,7 @@ export interface EssayThemeItem {
  * vazio e a tela cai no "tema livre".
  */
 export async function listEssayThemes(): Promise<EssayThemeItem[]> {
+  if (await isDemoSession()) return enzoEssayThemes();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('essay_themes')
@@ -85,6 +89,7 @@ export interface EssayDetail extends EssayHistoryItem {
 
 /** Uma correção inteira (texto + laudo) para a página do laudo. A política do banco só devolve as do próprio aluno. */
 export async function getEssay(id: string): Promise<EssayDetail | null> {
+  if (await isDemoSession()) return enzoEssay(id);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('essay_corrections')

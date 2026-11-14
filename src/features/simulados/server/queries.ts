@@ -1,3 +1,5 @@
+import { enzoSimuladoCatalog } from '@/lib/demo/enzo-screens';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 import type { Difficulty } from '@/types/database.types';
 
@@ -26,6 +28,7 @@ export interface SimuladoCatalogItem {
 
 /** Todos os simulados publicados e visíveis para o aluno — RLS de `v_resource_library` já resolve escola/global. */
 export async function getSimuladoCatalog(): Promise<SimuladoCatalogItem[]> {
+  if (await isDemoSession()) return enzoSimuladoCatalog();
   const supabase = await createClient();
   const { data } = await supabase
     .from('v_resource_library')

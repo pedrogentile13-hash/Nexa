@@ -1,3 +1,5 @@
+import { isDemoSession } from '@/lib/demo/server';
+import { ENZO_PROFILE, ENZO_STATS, enzoAchievements } from '@/lib/demo/enzo-extra';
 import { CoinsPanel } from '@/features/billing/components/coins-panel';
 import { getCoinBalance } from '@/features/billing/server/coins';
 import type { Metadata } from 'next';
@@ -39,8 +41,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const plan = await getPlanInfo();
 
   const [
-    { data: profile },
-    { data: stats },
+    { data: profileRaw },
+    { data: statsRaw },
     { data: userAchievements },
     { data: achievements },
     socialProfile,
@@ -63,10 +65,14 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       getMyBirthDate(),
     ]);
 
+  // Modo demonstração (aluno Enzo): perfil, nível e conquistas fictícios.
+  const demo = await isDemoSession();
+  const profile = (demo ? ENZO_PROFILE : profileRaw) as typeof profileRaw;
+  const stats = (demo ? ENZO_STATS : statsRaw) as typeof statsRaw;
   const progressById = new Map((userAchievements ?? []).map((row) => [row.achievement_id, row]));
   // Conquistas desativadas (ex.: ligadas a nota manual, removida) somem da
   // lista pra quem nunca desbloqueou — mas quem já tem o selo não o perde.
-  const achievementItems: AchievementListItem[] = (achievements ?? [])
+  const realAchievementItems: AchievementListItem[] = (achievements ?? [])
     .filter((a) => a.is_active || progressById.get(a.id)?.unlocked_at != null)
     .map((a) => ({
       id: a.id,
@@ -77,6 +83,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       threshold: a.threshold,
       unlockedAt: progressById.get(a.id)?.unlocked_at ?? null,
     }));
+  const achievementItems = demo ? enzoAchievements() : realAchievementItems;
   const unlockedCount = achievementItems.filter((a) => a.unlockedAt != null).length;
   const recentUnlocked = achievementItems
     .filter((a) => a.unlockedAt != null)

@@ -214,7 +214,7 @@ export default async function PerformancePage() {
                           )}
                         </th>
                         <td className="tabular text-muted px-2 py-3 text-center">{subject.quizzesDone + subject.simuladosDone}</td>
-                        <td className="tabular text-muted px-2 py-3 text-center">{Math.round(subject.empenhoIndex * 100)}%</td>
+                        <td className="tabular text-muted px-2 py-3 text-center">{Math.round(subject.empenhoIndex)}%</td>
                         <td
                           className={cn(
                             'tabular px-4 py-3 text-right text-base font-semibold',

@@ -1,3 +1,5 @@
+import { enzoSubjectPerformance, enzoTopicPerformance } from '@/lib/demo/enzo-vestibular-screens';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 import type { Difficulty, MasteryStatus, VestibularAnswerSource } from '@/types/database.types';
 
@@ -21,6 +23,7 @@ export interface SubjectPerformance {
 }
 
 export async function getVestibularSubjectPerformance(): Promise<SubjectPerformance[]> {
+  if (await isDemoSession()) return enzoSubjectPerformance();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('vestibular_subject_performance');
   if (error || !data) return [];
@@ -44,6 +47,7 @@ export interface TopicPerformance extends SubjectPerformance {
 export async function getVestibularTopicPerformance(
   subjectCatalogId?: string | null,
 ): Promise<TopicPerformance[]> {
+  if (await isDemoSession()) return enzoTopicPerformance().filter((t) => !subjectCatalogId || t.subjectId === subjectCatalogId);
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('vestibular_topic_performance', {
     p_subject_catalog_id: subjectCatalogId ?? null,

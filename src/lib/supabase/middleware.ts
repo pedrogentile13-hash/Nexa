@@ -2,8 +2,14 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
 import type { Database } from '@/types/database.types';
-import { encodeTenant, resolveTenant, TENANT_HEADER, type TenantRpcClient } from '@/lib/tenant/resolve';
+import {
+  encodeTenant,
+  resolveTenant,
+  TENANT_HEADER,
+  type TenantRpcClient,
+} from '@/lib/tenant/resolve';
 import { ONBOARDING_COLUMNS, readWithFallback, type ProfileReader } from './profile-read';
+import { DEMO_COOKIE, isDemoCookie } from '@/lib/demo/flags';
 
 /** Reachable without a session. */
 const PUBLIC_PREFIXES = [
@@ -28,6 +34,8 @@ const PUBLIC_PREFIXES = [
   // O Google lê este arquivo sem conta para confirmar quem pode vender anúncios no site.
   '/ads.txt',
   '/api/health',
+  // Modo demonstração: a rota some (404) fora dele; ver src/lib/demo.
+  '/api/demo',
   '/app-ads.txt',
   // Quem chama é o Stripe, sem login: a proteção é a assinatura do corpo.
   '/api/stripe/webhook',
@@ -71,6 +79,8 @@ function isPublic(pathname: string): boolean {
  * cannot reach a data screen before there is data to show.
  */
 export async function updateSession(request: NextRequest) {
+  // Modo demonstração (aluno fictício): sem sessão do Supabase, sem onboarding. Ver src/lib/demo.
+  if (isDemoCookie(request.cookies.get(DEMO_COOKIE)?.value)) return NextResponse.next({ request });
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(
@@ -102,11 +112,10 @@ export async function updateSession(request: NextRequest) {
   // `response` já foi criada acima com os cabeçalhos ORIGINAIS: sem recriá-la, o
   // cabeçalho forjado seguia adiante mesmo depois do delete (o teste pegou isto).
   response = NextResponse.next({ request });
-  const tenant = await resolveTenant(
-    request.headers,
-    supabase as unknown as TenantRpcClient,
-    { rootDomain: process.env.TENANT_ROOT_DOMAIN, proxySecret: process.env.TENANT_PROXY_SECRET },
-  );
+  const tenant = await resolveTenant(request.headers, supabase as unknown as TenantRpcClient, {
+    rootDomain: process.env.TENANT_ROOT_DOMAIN,
+    proxySecret: process.env.TENANT_PROXY_SECRET,
+  });
   if (tenant.kind === 'found') {
     // Sem recuperação de senha por e-mail no endereço da escola: quem perde a
     // senha pede uma nova à coordenação.
@@ -121,7 +130,10 @@ export async function updateSession(request: NextRequest) {
     }
     request.headers.set(TENANT_HEADER, encodeTenant(tenant.tenant));
     response = NextResponse.next({ request });
-  } else if (tenant.kind === 'unknown' && !request.nextUrl.pathname.startsWith('/escola-nao-encontrada')) {
+  } else if (
+    tenant.kind === 'unknown' &&
+    !request.nextUrl.pathname.startsWith('/escola-nao-encontrada')
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = '/escola-nao-encontrada';
     url.search = '';
@@ -185,24 +197,40 @@ export async function updateSession(request: NextRequest) {
   // leva o id do usuário, então a sessão de outra pessoa nunca o reaproveita.
   const cached = request.cookies.get(ONBOARDED_COOKIE)?.value ?? '';
   const [cachedUser, cachedJourney, cachedRole] = cached.split(':');
-  const fromCache = cachedUser === user.id && cachedJourney && ['school', 'vestibular', 'both'].includes(cachedJourney) && Boolean(cachedRole);
+  const fromCache =
+    cachedUser === user.id &&
+    cachedJourney &&
+    ['school', 'vestibular', 'both'].includes(cachedJourney) &&
+    Boolean(cachedRole);
 
-  const profile = (fromCache
-    ? { onboarded_at: 'cache', journey: cachedJourney, role: cachedRole }
-    : await readWithFallback(supabase as unknown as ProfileReader, user.id, ONBOARDING_COLUMNS.wanted, ONBOARDING_COLUMNS.guaranteed, {
-        onboarded_at: null,
-        journey: 'school',
-        role: 'student',
-      })) as { onboarded_at: string | null; journey: string | null; role: string | null } | null;
+  const profile = (
+    fromCache
+      ? { onboarded_at: 'cache', journey: cachedJourney, role: cachedRole }
+      : await readWithFallback(
+          supabase as unknown as ProfileReader,
+          user.id,
+          ONBOARDING_COLUMNS.wanted,
+          ONBOARDING_COLUMNS.guaranteed,
+          {
+            onboarded_at: null,
+            journey: 'school',
+            role: 'student',
+          },
+        )
+  ) as { onboarded_at: string | null; journey: string | null; role: string | null } | null;
 
   if (!fromCache && (profile?.onboarded_at || isStaffRole(profile?.role))) {
-    response.cookies.set(ONBOARDED_COOKIE, `${user.id}:${profile?.journey ?? 'school'}:${profile?.role ?? 'student'}`, {
-      maxAge: 600,
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-    });
+    response.cookies.set(
+      ONBOARDED_COOKIE,
+      `${user.id}:${profile?.journey ?? 'school'}:${profile?.role ?? 'student'}`,
+      {
+        maxAge: 600,
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+      },
+    );
   }
 
   const onboarded = Boolean(profile?.onboarded_at);

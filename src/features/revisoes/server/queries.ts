@@ -1,3 +1,5 @@
+import { enzoReviewQueue } from '@/lib/demo/enzo-screens';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient } from '@/lib/supabase/server';
 import type { ResourceKind } from '@/types/database.types';
 
@@ -39,6 +41,7 @@ export interface ReviewItem {
  * Sem informação do contexto dos itens, não filtra (nunca esconde revisão por engano).
  */
 export async function getReviewQueue(userId: string, platform: 'school' | 'vestibular' = 'school'): Promise<ReviewItem[]> {
+  if (await isDemoSession()) return enzoReviewQueue();
   const supabase = await createClient();
   const { data: all } = await supabase.rpc('review_queue', { p_user_id: userId });
 

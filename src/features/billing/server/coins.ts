@@ -1,3 +1,5 @@
+import { enzoCoinBalance } from '@/lib/demo/enzo-extra';
+import { isDemoSession } from '@/lib/demo/server';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { COIN_COSTS, COIN_LABEL, allowanceFor, type CoinFeature } from '@/lib/ai/coins';
@@ -12,6 +14,7 @@ export interface CoinBalance {
 
 /** Saldo de Nexa Coins do mês. `null` quando o SQL das moedas ainda não rodou (a tela só esconde o saldo). */
 export const getCoinBalance = cache(async (): Promise<CoinBalance | null> => {
+  if (await isDemoSession()) return enzoCoinBalance();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc('my_ai_coin_usage');

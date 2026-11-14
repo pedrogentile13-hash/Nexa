@@ -1,3 +1,5 @@
+import { enzoRanking } from '@/lib/demo/enzo-extra';
+import { isDemoSession } from '@/lib/demo/server';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 /**
@@ -91,6 +93,7 @@ export async function getRankingPage(filters: {
   period: RankingPeriod;
   orderBy: RankingOrderBy;
 }): Promise<RankingPage | null> {
+  if (await isDemoSession()) return enzoRanking();
   const user = await getCurrentUser();
   if (!user) return null;
 
