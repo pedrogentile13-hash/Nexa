@@ -85,3 +85,39 @@ export function buildPb4Rows(schoolId: string) {
     lessonResources,
   };
 }
+
+/**
+ * A linha da trilha como o banco a aceita. `tracks` NÃO tem `published_at` (só `resources` tem): mandar essa coluna
+ * faz o PostgREST recusar a carga inteira da trilha. Só as colunas abaixo existem.
+ */
+export const TRACK_COLUMNS = [
+  'id',
+  'school_id',
+  'subject_catalog_id',
+  'title',
+  'description',
+  'category',
+  'grade_levels',
+  'is_published',
+  'sort_order',
+  'created_by',
+] as const;
+
+export function pb4TrackInsertRow(
+  track: ReturnType<typeof buildPb4Rows>['track'],
+  subjectCatalogId: string,
+  userId: string,
+) {
+  return {
+    id: track.id,
+    school_id: track.school_id,
+    subject_catalog_id: subjectCatalogId,
+    title: track.title,
+    description: track.description,
+    category: track.category,
+    grade_levels: track.grade_levels,
+    is_published: true,
+    sort_order: track.sort_order,
+    created_by: userId,
+  };
+}

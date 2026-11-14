@@ -43,7 +43,7 @@ describe('Português 4º bimestre (PB4)', () => {
   });
 });
 
-import { buildPb4Rows } from './pb4-seed';
+import { buildPb4Rows, pb4TrackInsertRow, TRACK_COLUMNS } from './pb4-seed';
 
 describe('PB4: visibilidade (resumos públicos, simulados e trilha da escola)', () => {
   const escola = '11111111-2222-4333-8444-555555555555';
@@ -58,5 +58,17 @@ describe('PB4: visibilidade (resumos públicos, simulados e trilha da escola)', 
     expect(rows.track.school_id).toBe(escola);
     const ids = new Set([...rows.resumos, ...rows.simulados.resources].map((r) => r.id));
     for (const link of rows.lessonResources) expect(ids.has(link.resource_id)).toBe(true);
+  });
+});
+
+describe('pb4TrackInsertRow', () => {
+  it('só envia colunas que existem em `tracks` (nada de published_at, que é só de `resources`)', () => {
+    const rows = buildPb4Rows('11111111-1111-4111-8111-111111111111');
+    const row = pb4TrackInsertRow(rows.track, 'subject-id', 'user-id');
+    expect(Object.keys(row).sort()).toEqual([...TRACK_COLUMNS].sort());
+    expect(row).not.toHaveProperty('published_at');
+    expect(row.is_published).toBe(true);
+    expect(row.created_by).toBe('user-id');
+    expect(row.subject_catalog_id).toBe('subject-id');
   });
 });

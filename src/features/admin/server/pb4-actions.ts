@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { buildPb4Rows } from '@/features/content/lib/pb4-seed';
+import { buildPb4Rows, pb4TrackInsertRow } from '@/features/content/lib/pb4-seed';
 import { requireAccess } from './guard';
 import { targetSchoolId } from './target-school';
 import type { StudySeedState } from './study-seed-actions';
@@ -127,17 +127,7 @@ export async function createPb4(formData?: FormData): Promise<StudySeedState> {
   if (options.error) return fail(`Não consegui criar: ${options.error}`);
 
   const track = await insertAll(supabase, 'tracks', [
-    {
-      ...by,
-      id: rows.track.id,
-      school_id: schoolId,
-      subject_catalog_id: subject.id,
-      title: rows.track.title,
-      description: rows.track.description,
-      category: rows.track.category,
-      grade_levels: rows.track.grade_levels,
-      sort_order: rows.track.sort_order,
-    },
+    pb4TrackInsertRow(rows.track, subject.id, identity.userId),
   ]);
   if (track.error) return fail(`Não consegui criar a trilha: ${track.error}`);
   for (const [tabela, linhas] of [
