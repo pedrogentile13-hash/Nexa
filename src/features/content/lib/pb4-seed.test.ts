@@ -102,10 +102,11 @@ describe('PB4: TCs online e simulados extras', () => {
     }
   });
 
-  it('os extras ficam fora da trilha (abertos na Biblioteca)', () => {
+  it('os extras e o resumo geral estão na trilha', () => {
     const itens = TRILHA_PB4.secoes.flatMap((s) => s.licoes.flatMap((l) => l.itens));
-    expect(itens).not.toContain('pb4-verbos-e-ligacao-15');
-    expect(itens).not.toContain('pb4-rua-morgue-15');
+    expect(itens).toContain('pb4-verbos-e-ligacao-15');
+    expect(itens).toContain('pb4-rua-morgue-15');
+    expect(itens).toContain('g3-pb4-resumo-geral');
   });
 
   it('toda objetiva tem uma única resposta certa distinta das erradas', () => {

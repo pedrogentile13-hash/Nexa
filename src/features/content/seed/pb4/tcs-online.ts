@@ -3,7 +3,7 @@ import { dq, o, type PacoteG2 } from '../grande2/types';
 /**
  * Português · 4º bimestre · 9º ano. Simulados dos TCs online (um por módulo: 38, 40 e 41) e dois simulados
  * extras de 15 questões (13 objetivas + 2 dissertativas): Verbos com verbos de ligação, e "Assassinatos da Rua Morgue".
- * Os dois extras ficam FORA da trilha (a trilha libera uma etapa por vez): ficam abertos na Biblioteca.
+ * Os dois extras também entram na trilha (seção final).
  */
 const MATERIA = 'lingua-portuguesa';
 const SERIE = '9º ano' as const;

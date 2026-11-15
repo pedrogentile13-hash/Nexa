@@ -589,6 +589,73 @@ Aqui o verbo **concorda com o sujeito**: "**Enviam-se** as cartas." (plural, por
 2. Na passiva analítica, o objeto vira sujeito, e o sujeito vira agente com "por".
 3. Na sintética, tire o agente, use o verbo + se e faça a concordância com o sujeito.`,
   ),
+  resumo(
+    MATERIA,
+    SERIE,
+    'pb4-resumo-geral',
+    'Resumo Português PB4',
+    'Rua Morgue, verbos, texto didático e verbos de ligação',
+    `## 1. Assassinatos da Rua Morgue
+
+### Contexto do livro
+- **Autor:** Edgar Allan Poe, importante por ser um dos primeiros contos de detetive da literatura moderna.
+- **Detetive:** Auguste Dupin, investigador analítico que resolve o caso pela lógica e pela observação, não pela força.
+- **Narrador:** amigo de Dupin, que acompanha a investigação em primeira pessoa, sem identidade revelada.
+- **Dupin × polícia:** Dupin trabalha pelas provas e deixa que elas apontem os suspeitos; a polícia começa pelo suspeito e tenta encaixar as provas.
+- **Análise:** observar detalhes, relações entre informações e identificar elementos relevantes.
+- **Lógica:** organiza essas informações e leva à conclusão correta. Dupin usa as duas.
+
+### Resumo do livro
+- **Crime:** em Paris, duas mulheres são assassinadas dentro de casa.
+- **Mistério:** a porta e as janelas estavam trancadas por dentro e não havia pistas de quem entrou.
+- **Testemunhas:** ouviram vozes de línguas estrangeiras, o que confundiu a polícia.
+- **Desfecho:** o assassino era um orangotango que pertencia a um marinheiro. Dupin chega a essa conclusão pelo raciocínio lógico.
+
+## 2. Verbos
+
+### Definição
+Verbos são uma classe gramatical que indica **ação, estado ou fenômeno da natureza** dentro de um tempo e de um modo. O **aspecto verbal** mostra a duração da ação: início, continuidade ou conclusão.
+
+### Modos verbais
+- **Indicativo:** expressa certeza. "Eu estudo todas as tardes."
+- **Subjuntivo:** expressa dúvida ou possibilidade. "Talvez eu estude amanhã."
+- **Imperativo:** expressa ordem ou pedido. "Pegue o livro para estudar."
+
+### Tempos verbais
+- **Pretérito (passado):** ação, estado ou fenômeno que ocorreu antes do momento da fala. "Ontem eu estudei para a prova."
+- **Presente:** ação que ocorre no momento da fala. "Estou estudando para a prova." Também indica ação habitual (rotina), verdade geral (científica), fato histórico e, às vezes, futuro (para passar confiança a quem ouve).
+- **Futuro:** algo que vai acontecer depois do momento da fala. "Amanhã eu estudarei mais."
+
+### Quadro de tempos e modos
+- **Presente do indicativo:** ação que ocorre agora ou rotina. "Eu estudo todos os dias."
+- **Pretérito perfeito (indicativo):** ação totalmente concluída no passado. "Ontem eu estudei português."
+- **Pretérito imperfeito (indicativo):** ação contínua ou hábito antigo. "Antigamente, eu estudava à noite."
+- **Pretérito mais-que-perfeito (indicativo):** ação passada que aconteceu antes de outra também passada. "Quando a prova começou, eu já tinha estudado."
+- **Futuro do presente (indicativo):** ação que acontecerá depois do momento da fala. "Amanhã eu estudarei mais."
+- **Futuro do pretérito (indicativo):** ação futura que dependia de uma condição no passado. "Eu estudaria mais se tivesse tempo."
+- **Presente do subjuntivo:** desejo, dúvida ou possibilidade atual ou futura. "Talvez eu estude amanhã."
+- **Pretérito imperfeito do subjuntivo:** hipótese ou condição imaginária. "Se eu estudasse mais, tiraria nota dez."
+- **Futuro do subjuntivo:** ação futura eventual que funciona como condição. "Quando eu estudar o capítulo, te aviso."
+- **Imperativo afirmativo:** ordem, pedido, conselho ou convite para fazer algo. "Estude bastante para a prova."
+- **Imperativo negativo:** ordem, pedido, conselho ou convite para não fazer algo. "Não estude apenas na véspera do exame."
+
+## 3. Texto didático
+- **Definição:** texto cujo objetivo é informar e explicar um conteúdo de forma clara.
+- **Linguagem:** objetiva, com termos técnicos explicados.
+- **Organização:** introdução, desenvolvimento e conclusão.
+- **Recursos de apoio:** definições, exemplos, comparações, quadros e esquemas.
+- **Na prova:** identificar a finalidade do texto e os recursos usados para explicar o assunto.
+
+## 4. Verbos de ligação
+O verbo de ligação **liga o sujeito a um predicativo** (característica ou estado). Sozinho, não indica ação.
+
+**Principais:** ser, estar, permanecer, continuar, ficar, parecer, tornar-se, virar, andar.
+
+- **ser / estar:** característica ou estado. "O dia está frio."
+- **ficar / tornar-se:** mudança de estado. "Ele ficou nervoso."
+- **continuar / permanecer:** permanência. "Ela continua animada."
+- **parecer:** aparência, impressão. "Você parece cansado."`,
+  ),
 ];
 
 /* ------------------------------------------------------------------ trilha */
@@ -604,6 +671,10 @@ export const TRILHA_PB4: TrilhaG3 = {
   categoria: 'fundamental',
   series: [SERIE],
   secoes: [
+    {
+      titulo: 'Resumo geral do bimestre',
+      licoes: [L('Resumo Português PB4', 15, 'g3-pb4-resumo-geral')],
+    },
     {
       titulo: 'Verbos de ligação',
       licoes: [
@@ -636,6 +707,13 @@ export const TRILHA_PB4: TrilhaG3 = {
         L('Módulo 38: verbos', 20, 'pb4-tc-modulo-38-verbos'),
         L('Módulo 40: texto didático', 20, 'pb4-tc-modulo-40-texto-didatico'),
         L('Módulo 41: verbos de ligação', 20, 'pb4-tc-modulo-41-verbos-ligacao'),
+      ],
+    },
+    {
+      titulo: 'Simulados de revisão (15 questões)',
+      licoes: [
+        L('Simulado: verbos e verbos de ligação', 60, 'pb4-verbos-e-ligacao-15'),
+        L('Simulado: Assassinatos da Rua Morgue', 60, 'pb4-rua-morgue-15'),
       ],
     },
   ],
