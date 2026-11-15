@@ -9,6 +9,7 @@ import {
   type TenantRpcClient,
 } from '@/lib/tenant/resolve';
 import { ONBOARDING_COLUMNS, readWithFallback, type ProfileReader } from './profile-read';
+import { tenantRootDomain } from '@/lib/tenant/host';
 import { DEMO_COOKIE, isDemoCookie } from '@/lib/demo/flags';
 
 /** Reachable without a session. */
@@ -113,7 +114,7 @@ export async function updateSession(request: NextRequest) {
   // cabeçalho forjado seguia adiante mesmo depois do delete (o teste pegou isto).
   response = NextResponse.next({ request });
   const tenant = await resolveTenant(request.headers, supabase as unknown as TenantRpcClient, {
-    rootDomain: process.env.TENANT_ROOT_DOMAIN,
+    rootDomain: tenantRootDomain(),
     proxySecret: process.env.TENANT_PROXY_SECRET,
   });
   if (tenant.kind === 'found') {

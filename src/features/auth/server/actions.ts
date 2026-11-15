@@ -1,5 +1,6 @@
 'use server';
 
+import { tenantRootDomain } from '@/lib/tenant/host';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -48,7 +49,8 @@ async function currentOrigin(): Promise<string> {
  * coordenação. Esconder os botões não basta — uma Server Action pode ser
  * chamada sem passar pela tela — então cada entrada alternativa recusa aqui.
  */
-const SCHOOL_ONLY_MESSAGE = 'Neste endereço o acesso é só por login e senha, entregues pela sua escola.';
+const SCHOOL_ONLY_MESSAGE =
+  'Neste endereço o acesso é só por login e senha, entregues pela sua escola.';
 
 /**
  * E-mails fabricados para as contas das escolas (`ana@anglomorumbi.nexastudy.com.br`)
@@ -56,7 +58,7 @@ const SCHOOL_ONLY_MESSAGE = 'Neste endereço o acesso é só por login e senha, 
  * caixa não existe — e um cadastro com esse e-mail disputaria o login de um aluno.
  */
 function isSchoolAccountEmail(email: string): boolean {
-  const root = process.env.TENANT_ROOT_DOMAIN?.trim().toLowerCase();
+  const root = tenantRootDomain();
   return Boolean(root) && email.trim().toLowerCase().endsWith(`.${root}`);
 }
 
@@ -67,7 +69,6 @@ function invalid(
 ): AuthFormState {
   return { status: 'error', message, mode, field };
 }
-
 
 /**
  * Ponto único do formulário de login. O modo vem em um campo escondido, então
@@ -163,7 +164,10 @@ async function enterWithPassword(formData: FormData): Promise<AuthFormState> {
   const throttleKey = `email:${clientIp(await headers())}:${parsed.data.email.toLowerCase()}`;
   const gate = loginThrottle.hit(throttleKey);
   if (!gate.allowed) {
-    return invalid(`Muitas tentativas. Espere ${Math.ceil(gate.retryAfterSec / 60)} min e tente de novo.`, 'signin');
+    return invalid(
+      `Muitas tentativas. Espere ${Math.ceil(gate.retryAfterSec / 60)} min e tente de novo.`,
+      'signin',
+    );
   }
 
   const supabase = await createClient();
@@ -232,7 +236,10 @@ async function sendMagicLink(formData: FormData): Promise<AuthFormState> {
  * Confirma a CRIAÇÃO DA CONTA com o código de 6 dígitos que chega por e-mail.
  * O código vem do modelo "Confirm signup" do Supabase (`{{ .Token }}`) — o tamanho é o "Email OTP Length" do painel.
  */
-export async function verifySignupCode(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
+export async function verifySignupCode(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
   if (await getTenant()) return invalid(SCHOOL_ONLY_MESSAGE, 'signup');
 
   const parsed = verifyCodeSchema.safeParse({
@@ -245,16 +252,26 @@ export async function verifySignupCode(_prev: AuthFormState, formData: FormData)
   }
 
   const gate = loginThrottle.hit(`signup-code:${parsed.data.email}`);
-  if (!gate.allowed) return invalid(`Muitas tentativas. Espere ${Math.ceil(gate.retryAfterSec / 60)} min e tente de novo.`, 'signup', 'code');
+  if (!gate.allowed)
+    return invalid(
+      `Muitas tentativas. Espere ${Math.ceil(gate.retryAfterSec / 60)} min e tente de novo.`,
+      'signup',
+      'code',
+    );
 
   const supabase = await createClient();
   let error;
   try {
-    ({ error } = await supabase.auth.verifyOtp({ email: parsed.data.email, token: parsed.data.code, type: 'signup' }));
+    ({ error } = await supabase.auth.verifyOtp({
+      email: parsed.data.email,
+      token: parsed.data.code,
+      type: 'signup',
+    }));
   } catch (err) {
     error = toAuthErrorLike(err);
   }
-  if (error) return invalid('Código incorreto ou vencido. Confira ou peça um novo.', 'signup', 'code');
+  if (error)
+    return invalid('Código incorreto ou vencido. Confira ou peça um novo.', 'signup', 'code');
 
   loginThrottle.reset(`signup-code:${parsed.data.email}`);
   redirect(safeNext(parsed.data.next) as Route);

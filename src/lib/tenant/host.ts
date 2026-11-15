@@ -14,8 +14,25 @@
 
 /** Nomes que nunca viram escola, mesmo que alguém os registre por engano. */
 export const RESERVED_SUBDOMAINS = new Set([
-  'www', 'app', 'api', 'admin', 'mail', 'smtp', 'imap', 'ftp', 'cpanel', 'webmail',
-  'static', 'cdn', 'assets', 'status', 'staging', 'dev', 'test', 'beta', 'docs',
+  'www',
+  'app',
+  'api',
+  'admin',
+  'mail',
+  'smtp',
+  'imap',
+  'ftp',
+  'cpanel',
+  'webmail',
+  'static',
+  'cdn',
+  'assets',
+  'status',
+  'staging',
+  'dev',
+  'test',
+  'beta',
+  'docs',
 ]);
 
 export function normalizeHost(raw: string | null | undefined): string {
@@ -45,7 +62,12 @@ export interface RequestHostInput {
 }
 
 /** Endereço efetivo da requisição, já normalizado. */
-export function effectiveHost({ host, forwardedHost, secretHeader, expectedSecret }: RequestHostInput): string {
+export function effectiveHost({
+  host,
+  forwardedHost,
+  secretHeader,
+  expectedSecret,
+}: RequestHostInput): string {
   const forwarded = normalizeHost(forwardedHost);
   if (forwarded && expectedSecret && secretHeader && safeEqual(secretHeader, expectedSecret)) {
     return forwarded;
@@ -69,7 +91,16 @@ export function classifyHost(host: string, rootDomain: string | undefined): Tena
   if (!host.endsWith(`.${root}`)) return { kind: 'none' };
 
   const label = host.slice(0, -(root.length + 1));
-  if (label.includes('.') || !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(label)) return { kind: 'none' };
+  if (label.includes('.') || !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(label))
+    return { kind: 'none' };
   if (RESERVED_SUBDOMAINS.has(label)) return { kind: 'reserved' };
   return { kind: 'candidate', host };
+}
+
+/**
+ * Domínio das escolas. Vem de `TENANT_ROOT_DOMAIN`; se a variável sumir do servidor (reinício, deploy novo), vale o
+ * domínio oficial, para os endereços das escolas nunca caírem na página geral do Nexa.
+ */
+export function tenantRootDomain(): string {
+  return process.env.TENANT_ROOT_DOMAIN?.trim().toLowerCase() || 'nexastudy.com.br';
 }
