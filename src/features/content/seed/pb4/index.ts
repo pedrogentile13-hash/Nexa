@@ -1,5 +1,6 @@
 import { dq, o, type PacoteG2 } from '../grande2/types';
 import { resumo, type ResumoG3, type TrilhaG3 } from '../grande3/types';
+import { PACOTES_PB4_EXTRAS, PACOTES_TCS_ONLINE } from './tcs-online';
 
 /**
  * Português · 4º bimestre · 9º ano C (Anglo Morumbi). Simulados e resumos a partir das listas de exercícios
@@ -483,7 +484,15 @@ const LISTA_1: PacoteG2 = {
   ],
 };
 
-export const PACOTES_PB4: PacoteG2[] = [VERBO_LIGACAO, MODOS_1, MODOS_2, VOZES, LISTA_1];
+export const PACOTES_PB4: PacoteG2[] = [
+  VERBO_LIGACAO,
+  MODOS_1,
+  MODOS_2,
+  VOZES,
+  LISTA_1,
+  ...PACOTES_TCS_ONLINE,
+  ...PACOTES_PB4_EXTRAS,
+];
 
 /* ------------------------------------------------------------------ resumos */
 
@@ -620,6 +629,14 @@ export const TRILHA_PB4: TrilhaG3 = {
     {
       titulo: 'Lista 1: base nas 2 VA',
       licoes: [L('Simulado: notícia, conto e gramática', 45, 'pb4-lista-1-va')],
+    },
+    {
+      titulo: 'TCs online por módulo',
+      licoes: [
+        L('Módulo 38: verbos', 20, 'pb4-tc-modulo-38-verbos'),
+        L('Módulo 40: texto didático', 20, 'pb4-tc-modulo-40-texto-didatico'),
+        L('Módulo 41: verbos de ligação', 20, 'pb4-tc-modulo-41-verbos-ligacao'),
+      ],
     },
   ],
 };

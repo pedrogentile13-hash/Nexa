@@ -72,3 +72,52 @@ describe('pb4TrackInsertRow', () => {
     expect(row.subject_catalog_id).toBe('subject-id');
   });
 });
+
+describe('PB4: TCs online e simulados extras', () => {
+  const por = (slug: string) => PACOTES_PB4.find((p) => p.slug === slug)!;
+  const conta = (slug: string) => {
+    const qs = por(slug).questoes;
+    return {
+      total: qs.length,
+      obj: qs.filter((q) => q.k === 'o').length,
+      disc: qs.filter((q) => q.k === 'd').length,
+    };
+  };
+
+  it('os dois simulados extras têm 15 questões: 13 objetivas e 2 dissertativas', () => {
+    for (const slug of ['pb4-verbos-e-ligacao-15', 'pb4-rua-morgue-15']) {
+      expect(conta(slug)).toEqual({ total: 15, obj: 13, disc: 2 });
+    }
+  });
+
+  it('há um simulado por módulo (38, 40 e 41) e eles entram na trilha', () => {
+    const itens = TRILHA_PB4.secoes.flatMap((s) => s.licoes.flatMap((l) => l.itens));
+    for (const slug of [
+      'pb4-tc-modulo-38-verbos',
+      'pb4-tc-modulo-40-texto-didatico',
+      'pb4-tc-modulo-41-verbos-ligacao',
+    ]) {
+      expect(conta(slug).total).toBeGreaterThan(0);
+      expect(itens).toContain(slug);
+    }
+  });
+
+  it('os extras ficam fora da trilha (abertos na Biblioteca)', () => {
+    const itens = TRILHA_PB4.secoes.flatMap((s) => s.licoes.flatMap((l) => l.itens));
+    expect(itens).not.toContain('pb4-verbos-e-ligacao-15');
+    expect(itens).not.toContain('pb4-rua-morgue-15');
+  });
+
+  it('toda objetiva tem uma única resposta certa distinta das erradas', () => {
+    const novos = PACOTES_PB4.filter((p) => /tc-modulo|-15$/.test(p.slug));
+    expect(novos).toHaveLength(5);
+    for (const p of novos) {
+      for (const q of p.questoes) {
+        if (q.k !== 'o') continue;
+        const todas = [q.ok, ...q.wrong];
+        expect(new Set(todas).size, `${p.slug}: ${q.s.slice(0, 40)}`).toBe(todas.length);
+        expect([3, 4], `${p.slug}: ${q.s.slice(0, 50)}`).toContain(q.wrong.length);
+      }
+    }
+  });
+});
