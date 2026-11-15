@@ -670,11 +670,8 @@ export const TRILHA_PB4: TrilhaG3 = {
     'Tudo do 4º bimestre de Português do 9º ano, em ordem: verbos de ligação, modos verbais, vozes verbais e a Lista 1. Cada etapa tem um resumo e um simulado com correção pela IA.',
   categoria: 'fundamental',
   series: [SERIE],
+  // Ordem das seções: as quatro primeiras já podem existir no banco (os ids vêm da posição). Novas só entram no FIM.
   secoes: [
-    {
-      titulo: 'Resumo geral do bimestre',
-      licoes: [L('Resumo Português PB4', 15, 'g3-pb4-resumo-geral')],
-    },
     {
       titulo: 'Verbos de ligação',
       licoes: [
@@ -708,6 +705,10 @@ export const TRILHA_PB4: TrilhaG3 = {
         L('Módulo 40: texto didático', 20, 'pb4-tc-modulo-40-texto-didatico'),
         L('Módulo 41: verbos de ligação', 20, 'pb4-tc-modulo-41-verbos-ligacao'),
       ],
+    },
+    {
+      titulo: 'Resumo geral do bimestre',
+      licoes: [L('Resumo Português PB4', 15, 'g3-pb4-resumo-geral')],
     },
     {
       titulo: 'Simulados de revisão (15 questões)',
