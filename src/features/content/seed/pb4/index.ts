@@ -1,5 +1,6 @@
 import { dq, o, type PacoteG2 } from '../grande2/types';
 import { resumo, type ResumoG3, type TrilhaG3 } from '../grande3/types';
+import { SIMULADO_PROVA_PORTUGUES } from './prova-anglo';
 import { PACOTES_PB4_EXTRAS, PACOTES_TCS_ONLINE } from './tcs-online';
 
 /**
@@ -492,6 +493,7 @@ export const PACOTES_PB4: PacoteG2[] = [
   LISTA_1,
   ...PACOTES_TCS_ONLINE,
   ...PACOTES_PB4_EXTRAS,
+  SIMULADO_PROVA_PORTUGUES,
 ];
 
 /* ------------------------------------------------------------------ resumos */
@@ -716,6 +718,10 @@ export const TRILHA_PB4: TrilhaG3 = {
         L('Simulado: verbos e verbos de ligação', 60, 'pb4-verbos-e-ligacao-15'),
         L('Simulado: Assassinatos da Rua Morgue', 60, 'pb4-rua-morgue-15'),
       ],
+    },
+    {
+      titulo: 'Revisão para a prova (P7 e P8)',
+      licoes: [L('Simulado: Português para a prova', 45, 'pb4-prova-portugues-objetivo')],
     },
   ],
 };
