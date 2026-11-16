@@ -10,7 +10,7 @@ import type { StudySeedState } from '../server/study-seed-actions';
 const INITIAL: StudySeedState = { status: 'idle' };
 
 /**
- * "Conteúdo da escola": escolhe a escola e publica nela a trilha de Português do 4º bimestre.
+ * "Conteúdo da escola": escolhe a escola e publica nela o PB4 e o PA7 (trilhas, simulados e resumos).
  * Resumos ficam públicos para todas as escolas; simulados e trilha ficam só na escola escolhida.
  * (Os resumos e quizzes da Grande criação 2 e 3 já são públicos pela biblioteca geral: não se copiam por escola.)
  */
@@ -29,8 +29,9 @@ export function EscolaContentCard({ schools }: { schools: { id: string; name: st
         <School className="text-brand size-5" aria-hidden /> Conteúdo da escola
       </h2>
       <p className="text-muted mt-1 text-sm">
-        Português do 4º bimestre (9º ano C, Anglo Morumbi): os resumos ficam públicos para todas as
-        escolas; os simulados e a trilha PB4 ficam só na escola escolhida.
+        Colégio Anglo Morumbi (9º ano): PB4 (Português do 4º bimestre) e PA7 (Prova Anglo 7, com
+        Português, História, Geografia e redação). Os resumos ficam públicos; os simulados e as
+        trilhas ficam só na escola escolhida.
       </p>
       <label className="mt-3 block text-sm">
         <span className="text-muted mb-1 block text-xs">Escola</span>
@@ -50,8 +51,8 @@ export function EscolaContentCard({ schools }: { schools: { id: string; name: st
       <form action={run} className="mt-3">
         <input type="hidden" name="schoolId" value={schoolId} />
         <Button type="submit" disabled={busy || !schoolId}>
-          {busy ? <Loader2 className="animate-spin" aria-hidden /> : null} Publicar Português 4º
-          bim. nesta escola
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : null} Publicar PB4 e PA7 nesta
+          escola
         </Button>
       </form>
       <div className="border-border mt-5 border-t pt-4">

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { buildPb4Rows, pb4TrackInsertRow } from '@/features/content/lib/pb4-seed';
+import { buildPa7Rows, buildPb4Rows, pb4TrackInsertRow } from '@/features/content/lib/pb4-seed';
 import { requireAccess } from './guard';
 import { targetSchoolId } from './target-school';
 import type { StudySeedState } from './study-seed-actions';
@@ -28,33 +28,30 @@ async function insertAll(
   return { added, error: null };
 }
 
-/**
- * Português do 4º bimestre, já PUBLICADO: os resumos ficam públicos para todas as escolas, os simulados e a
- * trilha ficam só na escola escolhida. Carregar de novo não duplica.
- */
-export async function createPb4(formData?: FormData): Promise<StudySeedState> {
-  const identity = await requireAccess('/admin/conteudo');
-  const schoolId = targetSchoolId(identity, formData);
-  if (!schoolId) return fail('Escolha a escola antes de carregar.');
-  const supabase = await createClient();
+type Rows = ReturnType<typeof buildPb4Rows>;
+type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-  const { data: subject } = await supabase
-    .from('subject_catalog')
-    .select('id')
-    .eq('slug', 'lingua-portuguesa')
-    .maybeSingle();
-  if (!subject) return fail('Não encontrei a matéria Língua Portuguesa no catálogo.');
-
-  const rows = buildPb4Rows(schoolId);
+/** Publica um conjunto (resumos públicos, simulados e trilha da escola). Devolve o que foi criado ou o erro. */
+async function publishSet(
+  supabase: Supabase,
+  rows: Rows,
+  ctx: { schoolId: string; subjectId: string; userId: string },
+): Promise<{ ok: true; questions: number } | { ok: false; message: string }> {
+  const { schoolId, subjectId, userId } = ctx;
   const now = new Date().toISOString();
-  const by = { created_by: identity.userId, is_published: true, published_at: now };
+  const by = { created_by: userId, is_published: true, published_at: now };
+
+  // Cada matéria do conjunto (Português, História, Geografia…) tem o seu id no catálogo.
+  const { data: catalog } = await supabase.from('subject_catalog').select('id, slug');
+  const subjectBySlug = new Map((catalog ?? []).map((c) => [c.slug, c.id]));
+  const subjectOf = (slug: string) => subjectBySlug.get(slug) ?? subjectId;
 
   const resources = await insertAll(supabase, 'resources', [
     ...rows.resumos.map((r) => ({
       ...by,
       id: r.id,
       school_id: null,
-      subject_catalog_id: subject.id,
+      subject_catalog_id: subjectOf(r.subject_slug),
       kind: 'resumo',
       context: r.context,
       exam_id: null,
@@ -73,7 +70,7 @@ export async function createPb4(formData?: FormData): Promise<StudySeedState> {
       ...by,
       id: r.id,
       school_id: schoolId,
-      subject_catalog_id: subject.id,
+      subject_catalog_id: subjectOf(r.subject_slug),
       kind: r.kind,
       context: r.context === 'vestibular' ? 'vestibular' : 'school',
       exam_id: null,
@@ -89,7 +86,7 @@ export async function createPb4(formData?: FormData): Promise<StudySeedState> {
       sort_order: r.sort_order,
     })),
   ]);
-  if (resources.error) return fail(`Não consegui criar: ${resources.error}`);
+  if (resources.error) return { ok: false, message: `Não consegui criar: ${resources.error}` };
 
   const questions = await insertAll(
     supabase,
@@ -107,11 +104,12 @@ export async function createPb4(formData?: FormData): Promise<StudySeedState> {
     })),
   );
   if (questions.error) {
-    return fail(
-      /kind|model_answer|rubric|column/i.test(questions.error)
+    return {
+      ok: false,
+      message: /kind|model_answer|rubric|column/i.test(questions.error)
         ? 'Falta rodar o SQL das questões discursivas no Supabase (migration 20261111000200). Depois, clique de novo.'
         : `Não consegui criar: ${questions.error}`,
-    );
+    };
   }
   const options = await insertAll(
     supabase,
@@ -124,24 +122,58 @@ export async function createPb4(formData?: FormData): Promise<StudySeedState> {
       is_correct: o.is_correct,
     })),
   );
-  if (options.error) return fail(`Não consegui criar: ${options.error}`);
+  if (options.error) return { ok: false, message: `Não consegui criar: ${options.error}` };
 
   const track = await insertAll(supabase, 'tracks', [
-    pb4TrackInsertRow(rows.track, subject.id, identity.userId),
+    pb4TrackInsertRow(rows.track, subjectId, userId),
   ]);
-  if (track.error) return fail(`Não consegui criar a trilha: ${track.error}`);
+  if (track.error) return { ok: false, message: `Não consegui criar a trilha: ${track.error}` };
   for (const [tabela, linhas] of [
     ['track_sections', rows.sections],
     ['track_lessons', rows.lessons],
     ['track_lesson_resources', rows.lessonResources],
   ] as const) {
     const r = await insertAll(supabase, tabela, [...linhas]);
-    if (r.error) return fail(`Não consegui montar a trilha: ${r.error}`);
+    if (r.error) return { ok: false, message: `Não consegui montar a trilha: ${r.error}` };
+  }
+  return { ok: true, questions: questions.added };
+}
+
+/**
+ * Conteúdo do colégio, já PUBLICADO: Português do 4º bimestre (PB4) e a Prova Anglo 7 (PA7). Os resumos ficam
+ * públicos para todas as escolas; os simulados e as trilhas ficam só na escola escolhida. Carregar de novo não
+ * duplica e completa o que faltar.
+ */
+export async function createPb4(formData?: FormData): Promise<StudySeedState> {
+  const identity = await requireAccess('/admin/conteudo');
+  const schoolId = targetSchoolId(identity, formData);
+  if (!schoolId) return fail('Escolha a escola antes de carregar.');
+  const supabase = await createClient();
+
+  const { data: subject } = await supabase
+    .from('subject_catalog')
+    .select('id')
+    .eq('slug', 'lingua-portuguesa')
+    .maybeSingle();
+  if (!subject) return fail('Não encontrei a matéria Língua Portuguesa no catálogo.');
+
+  const ctx = { schoolId, subjectId: subject.id, userId: identity.userId };
+  const partes: string[] = [];
+  for (const [nome, rows] of [
+    ['PB4', buildPb4Rows(schoolId)],
+    ['PA7', buildPa7Rows(schoolId)],
+  ] as const) {
+    const r = await publishSet(supabase, rows, ctx);
+    if (!r.ok) return fail(`${nome}: ${r.message}`);
+    partes.push(
+      `${nome}: ${rows.resumos.length} resumos, ${rows.simulados.resources.length} simulados e a trilha`,
+    );
   }
 
   revalidatePath('/admin/conteudo');
+  revalidatePath('/estudar');
   return {
     status: 'done',
-    message: `Publicado: ${rows.resumos.length} resumos (públicos para todas as escolas), ${rows.simulados.resources.length} simulados e a trilha PB4 (fechados para a escola escolhida). Questões: ${questions.added}. Quem já tinha carregado antes só recebeu o que faltava.`,
+    message: `Publicado. ${partes.join(' · ')}. Resumos ficam públicos; simulados e trilhas, só na escola escolhida. Quem já tinha carregado antes só recebeu o que faltava.`,
   };
 }
