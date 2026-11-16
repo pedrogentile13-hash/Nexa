@@ -3,6 +3,14 @@ import { isDemoSession } from '@/lib/demo/server';
 import { enzoStudyHub } from '@/lib/demo/enzo-study';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { SERIES, matchesSerie } from '@/lib/design/serie';
+import { getTenant } from '@/lib/tenant/server';
+import {
+  buildColegioView,
+  findColegio,
+  pickYear,
+  type ColegioItem,
+  type ColegioView,
+} from '../lib/colegio';
 import type { Difficulty, ResourceKind } from '@/types/database.types';
 import type {
   EvaluationCriterion,
@@ -46,7 +54,7 @@ export interface LibraryItem {
   mine: boolean;
 }
 
-export type LibraryOrigin = 'todos' | 'plataforma' | 'meus';
+export type LibraryOrigin = 'todos' | 'plataforma' | 'meus' | 'colegio';
 
 export interface StudyHubData {
   items: LibraryItem[];
@@ -58,6 +66,10 @@ export interface StudyHubData {
   mySerie: string | null;
   continueItem: (LibraryItem & { positionSeconds: number }) | null;
   tracks: { id: string; title: string; subjectName: string; done: number; total: number }[];
+  /** Quarto filtro da Biblioteca: só aparece para alunos de um colégio com coleção (Nexa Escolas). */
+  colegioTab: { label: string; short: string } | null;
+  /** Blocos do colégio (só quando o filtro está aberto). */
+  colegio: ColegioView | null;
 }
 
 const EMPTY_COUNTS: Record<ResourceKind, number> = {
@@ -75,6 +87,7 @@ export async function getStudyHub(
   bimestreFilter?: number,
   origin: LibraryOrigin = 'todos',
   serieFilter?: string,
+  yearFilter?: string,
 ): Promise<StudyHubData> {
   if (await isDemoSession()) return enzoStudyHub();
   const supabase = await createClient();
@@ -173,8 +186,64 @@ export async function getStudyHub(
     count: serieCount.get(s.value) ?? 0,
   }));
   const { data: me } = user
-    ? await supabase.from('profiles').select('grade_level').eq('id', user.id).maybeSingle()
+    ? await supabase
+        .from('profiles')
+        .select('grade_level, school_id')
+        .eq('id', user.id)
+        .maybeSingle()
     : { data: null };
+
+  // Quarto filtro: o colégio do aluno (se tiver coleção própria). Falha aberto: qualquer erro = sem o filtro.
+  let colegioTab: StudyHubData['colegioTab'] = null;
+  let colegio: ColegioView | null = null;
+  try {
+    const tenant = await getTenant();
+    let schoolName: string | null = tenant?.name ?? null;
+    if (!schoolName && me?.school_id) {
+      const { data: school } = await supabase
+        .from('schools')
+        .select('name')
+        .eq('id', me.school_id)
+        .maybeSingle();
+      schoolName = school?.name ?? null;
+    }
+    const config = findColegio(schoolName);
+    if (config) {
+      colegioTab = { label: config.label, short: config.short };
+      if (origin === 'colegio') {
+        const { data: tagged } = await supabase
+          .from('resources')
+          .select('id, tags')
+          .overlaps(
+            'tags',
+            config.blocks.map((b) => b.tag),
+          );
+        const tagsById = new Map((tagged ?? []).map((r) => [r.id, r.tags ?? []]));
+        // Busca direta (não depende do limite de 400 da lista geral): o acervo do colégio nunca fica de fora.
+        const { data: rows } = tagsById.size
+          ? await supabase
+              .from('v_resource_library')
+              .select('*')
+              .in('id', [...tagsById.keys()])
+          : { data: [] as typeof libraryRes.data };
+        const items: ColegioItem[] = (rows ?? []).map((r) => ({
+          id: r.id,
+          kind: r.kind,
+          title: r.title,
+          subjectName: r.subject_name,
+          subjectColor: r.subject_color,
+          questionCount: Number(r.question_count ?? 0),
+          durationSeconds: r.duration_seconds,
+          progressPercent: Number(progressByResource.get(r.id)?.progress_percent ?? 0),
+          tags: tagsById.get(r.id) ?? [],
+        }));
+        colegio = buildColegioView(config, items, pickYear(config, yearFilter));
+      }
+    }
+  } catch {
+    colegioTab = null;
+    colegio = null;
+  }
   const mySerie = SERIES.find((s) => s.value === me?.grade_level)?.value ?? null;
 
   // "Continuar de onde parou": o mais recente que começou e não terminou.
@@ -219,6 +288,8 @@ export async function getStudyHub(
     mySerie,
     continueItem,
     tracks,
+    colegioTab,
+    colegio,
   };
 }
 

@@ -23,7 +23,14 @@ const KINDS: ResourceKind[] = [
 export default async function StudyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ materia?: string; formato?: string; bimestre?: string; origem?: string; serie?: string }>;
+  searchParams: Promise<{
+    materia?: string;
+    formato?: string;
+    bimestre?: string;
+    origem?: string;
+    serie?: string;
+    ano?: string;
+  }>;
 }) {
   const params = await searchParams;
   const kindFilter = KINDS.includes(params.formato as ResourceKind)
@@ -32,9 +39,12 @@ export default async function StudyPage({
   const bimestreNum = Number(params.bimestre);
   const bimestreFilter = [1, 2, 3, 4].includes(bimestreNum) ? bimestreNum : undefined;
 
-  const origin = params.origem === 'meus' || params.origem === 'plataforma' ? params.origem : 'todos';
+  const origin =
+    params.origem === 'meus' || params.origem === 'plataforma' || params.origem === 'colegio'
+      ? params.origem
+      : 'todos';
   const serieFilter = SERIES.some((s) => s.value === params.serie) ? params.serie : undefined;
-  const data = await getStudyHub(params.materia, bimestreFilter, origin, serieFilter);
+  const data = await getStudyHub(params.materia, bimestreFilter, origin, serieFilter, params.ano);
 
   return (
     <>

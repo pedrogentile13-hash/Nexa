@@ -114,5 +114,7 @@ export function enzoStudyHub(): StudyHubData {
       },
       { id: 'demo-trilha-bio', title: 'Citologia', subjectName: 'Biologia', done: 4, total: 4 },
     ],
+    colegioTab: null,
+    colegio: null,
   };
 }

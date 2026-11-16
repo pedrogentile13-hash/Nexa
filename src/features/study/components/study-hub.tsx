@@ -7,11 +7,15 @@ import { cn } from '@/lib/utils';
 import { DeleteCreationButton } from '@/features/nexa-ia/components/delete-creation-button';
 import { PopEmptyState, popEmptyStateActionClass } from '@/components/ui/empty-state';
 import { subjectColorVars } from '@/lib/design/subject-colors';
-import { RESOURCE_KIND_COLOR as KIND_COLOR, RESOURCE_KIND_ICON as ICONS } from '@/lib/design/resource-kind';
+import {
+  RESOURCE_KIND_COLOR as KIND_COLOR,
+  RESOURCE_KIND_ICON as ICONS,
+} from '@/lib/design/resource-kind';
 import { KIND_META, KIND_ORDER, humanDuration } from '../lib/format';
 import { BIMESTRES } from '@/lib/design/bimestre';
 import { SERIES, serieOptionLabel } from '@/lib/design/serie';
 import type { StudyHubData } from '../server/queries';
+import { ColegioLibrary } from './colegio-library';
 import type { ResourceKind } from '@/types/database.types';
 
 /**
@@ -42,7 +46,10 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
 
   let visible = kindFilter ? data.items.filter((i) => i.kind === kindFilter) : data.items;
   if (bimestreFilter) visible = visible.filter((i) => i.bimestre === Number(bimestreFilter));
-  if (serieFilter) visible = visible.filter((i) => i.gradeLevels.length === 0 || i.gradeLevels.includes(serieFilter));
+  if (serieFilter)
+    visible = visible.filter(
+      (i) => i.gradeLevels.length === 0 || i.gradeLevels.includes(serieFilter),
+    );
 
   const hasBimestre = data.items.some((i) => i.bimestre);
   const hasSeries = data.series.length > 0;
@@ -50,13 +57,21 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-8 md:px-6 md:pt-6 lg:px-8">
       {/* ------------------------------------------------------- origem -- */}
-      <div role="tablist" aria-label="De onde vem o conteúdo" className="bg-surface-2 grid grid-cols-3 gap-1 rounded-2xl p-1 md:max-w-xl">
+      <div
+        role="tablist"
+        aria-label="De onde vem o conteúdo"
+        className={cn(
+          'bg-surface-2 grid gap-1 rounded-2xl p-1',
+          data.colegioTab ? 'grid-cols-4 md:max-w-2xl' : 'grid-cols-3 md:max-w-xl',
+        )}
+      >
         {(
           [
             ['todos', 'Tudo'],
             ['plataforma', 'Da plataforma'],
             ['meus', 'Meus conteúdos'],
-          ] as const
+            ...(data.colegioTab ? [['colegio', data.colegioTab.short]] : []),
+          ] as [string, string][]
         ).map(([value, label]) => (
           <button
             key={value}
@@ -64,6 +79,7 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
             role="tab"
             aria-selected={origin === value}
             onClick={() => setParam('origem', value === 'todos' ? null : value)}
+            title={value === 'colegio' ? data.colegioTab?.label : undefined}
             className={cn(
               'h-10 min-w-0 truncate rounded-xl px-2 text-sm font-medium transition-colors',
               origin === value ? 'bg-surface text-brand-text shadow-sm' : 'text-muted',
@@ -74,282 +90,317 @@ export function StudyHub({ data, kindFilter }: { data: StudyHubData; kindFilter?
         ))}
       </div>
 
-      {/* ------------------------------------------------------ filtros -- */}
-      {/* Menus suspensos, não fileiras de botões rolando para o lado: com 10+
+      {origin === 'colegio' && data.colegio ? (
+        <ColegioLibrary data={data.colegio} />
+      ) : (
+        <>
+          {/* ------------------------------------------------------ filtros -- */}
+          {/* Menus suspensos, não fileiras de botões rolando para o lado: com 10+
           matérias a fileira escondia metade das opções. */}
-      {(data.subjects.length > 0 || hasBimestre || hasSeries) && (
-        <div className="grid grid-cols-2 gap-2.5 md:max-w-3xl md:grid-cols-3">
-          {data.subjects.length > 0 && (
-            <FilterSelect
-              label="Matéria"
-              value={subjectFilter ?? ''}
-              onChange={(v) => setParam('materia', v || null)}
-              allLabel="Todas as matérias"
-              options={data.subjects.map((subject) => ({ value: subject.id, label: subject.name }))}
-              className={hasBimestre ? undefined : 'col-span-2'}
-            />
+          {(data.subjects.length > 0 || hasBimestre || hasSeries) && (
+            <div className="grid grid-cols-2 gap-2.5 md:max-w-3xl md:grid-cols-3">
+              {data.subjects.length > 0 && (
+                <FilterSelect
+                  label="Matéria"
+                  value={subjectFilter ?? ''}
+                  onChange={(v) => setParam('materia', v || null)}
+                  allLabel="Todas as matérias"
+                  options={data.subjects.map((subject) => ({
+                    value: subject.id,
+                    label: subject.name,
+                  }))}
+                  className={hasBimestre ? undefined : 'col-span-2'}
+                />
+              )}
+              {hasSeries && (
+                <FilterSelect
+                  label="Série"
+                  value={serieFilter ?? ''}
+                  onChange={(v) => setParam('serie', v || null)}
+                  allLabel="Todas as séries"
+                  options={SERIES.filter((s) => data.series.some((x) => x.value === s.value)).map(
+                    (s) => ({ value: s.value, label: serieOptionLabel(s) }),
+                  )}
+                />
+              )}
+              {hasBimestre && (
+                <FilterSelect
+                  label="Bimestre"
+                  value={bimestreFilter ?? ''}
+                  onChange={(v) => setParam('bimestre', v || null)}
+                  allLabel="Todos os bimestres"
+                  options={BIMESTRES.map((b) => ({ value: String(b.value), label: b.label }))}
+                  className={data.subjects.length > 0 ? undefined : 'col-span-2'}
+                />
+              )}
+            </div>
           )}
-          {hasSeries && (
-            <FilterSelect
-              label="Série"
-              value={serieFilter ?? ''}
-              onChange={(v) => setParam('serie', v || null)}
-              allLabel="Todas as séries"
-              options={SERIES.filter((s) => data.series.some((x) => x.value === s.value)).map((s) => ({ value: s.value, label: serieOptionLabel(s) }))}
-            />
+          {data.mySerie && !serieFilter && hasSeries && (
+            <button
+              type="button"
+              onClick={() => setParam('serie', data.mySerie)}
+              className="bg-brand-soft text-brand-text -mt-2 inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold"
+            >
+              Ver só a minha série ({data.mySerie})
+            </button>
           )}
-          {hasBimestre && (
-            <FilterSelect
-              label="Bimestre"
-              value={bimestreFilter ?? ''}
-              onChange={(v) => setParam('bimestre', v || null)}
-              allLabel="Todos os bimestres"
-              options={BIMESTRES.map((b) => ({ value: String(b.value), label: b.label }))}
-              className={data.subjects.length > 0 ? undefined : 'col-span-2'}
-            />
-          )}
-        </div>
-      )}
-      {data.mySerie && !serieFilter && hasSeries && (
-        <button
-          type="button"
-          onClick={() => setParam('serie', data.mySerie)}
-          className="bg-brand-soft text-brand-text -mt-2 inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold"
-        >
-          Ver só a minha série ({data.mySerie})
-        </button>
-      )}
 
-      {/* --------------------------------------------------- continuar -- */}
-      {data.continueItem && !kindFilter && !bimestreFilter && !serieFilter && (
-        <section>
-          <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
-            Continuar de onde parou
-          </h2>
-          <Link
-            href={`/estudar/${data.continueItem.id}`}
-            style={subjectColorVars(data.continueItem.subjectColor)}
-            className="border-border bg-surface hover:bg-surface-2 block overflow-hidden rounded-lg border transition-colors"
-          >
-            <div className="flex items-center gap-3 p-3.5">
-              <span
-                aria-hidden
-                className="grid size-11 shrink-0 place-items-center rounded-lg"
-                style={{ backgroundColor: 'var(--subject-soft)', color: 'var(--subject-on-soft)' }}
+          {/* --------------------------------------------------- continuar -- */}
+          {data.continueItem && !kindFilter && !bimestreFilter && !serieFilter && (
+            <section>
+              <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
+                Continuar de onde parou
+              </h2>
+              <Link
+                href={`/estudar/${data.continueItem.id}`}
+                style={subjectColorVars(data.continueItem.subjectColor)}
+                className="border-border bg-surface hover:bg-surface-2 block overflow-hidden rounded-lg border transition-colors"
               >
-                {(() => {
-                  const Icon = ICONS[data.continueItem.kind];
-                  return <Icon className="size-5" />;
-                })()}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{data.continueItem.title}</p>
-                <p className="text-muted text-xs">
-                  {data.continueItem.subjectName} · {Math.round(data.continueItem.progressPercent)}%
-                </p>
-              </div>
-            </div>
-            <div className="bg-surface-2 h-1.5">
-              <div
-                className="h-full rounded-r-full"
-                style={{
-                  width: `${data.continueItem.progressPercent}%`,
-                  backgroundColor: 'var(--subject-base)',
-                }}
-              />
-            </div>
-          </Link>
-        </section>
-      )}
-
-      {/* ---------------------------------------------------- formatos -- */}
-      {!kindFilter && !bimestreFilter && !serieFilter && (
-        <section>
-          <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
-            Formatos
-          </h2>
-          <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-            {KIND_ORDER.filter((kind) => data.countsByKind[kind] > 0).map((kind) => {
-              const Icon = ICONS[kind];
-              const count = data.countsByKind[kind];
-              return (
-                <li key={kind} className="min-w-0" style={subjectColorVars(KIND_COLOR[kind])}>
-                  <Link
-                    href={{ pathname: '/estudar', query: { formato: kind } }}
-                    className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
+                <div className="flex items-center gap-3 p-3.5">
+                  <span
+                    aria-hidden
+                    className="grid size-11 shrink-0 place-items-center rounded-lg"
+                    style={{
+                      backgroundColor: 'var(--subject-soft)',
+                      color: 'var(--subject-on-soft)',
+                    }}
                   >
-                    <span
-                      aria-hidden
-                      className="grid size-10 shrink-0 place-items-center rounded-lg"
-                      style={{ backgroundColor: 'var(--subject-soft)', color: 'var(--subject-on-soft)' }}
-                    >
-                      <Icon className="size-5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold">
-                        {KIND_META[kind].plural}
-                      </span>
-                      <span className="text-muted text-xs tabular-nums">
-                        {count} {count === 1 ? 'item' : 'itens'}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-            {origin !== 'meus' && data.tracks.length > 0 && (
-              <li className="min-w-0">
-                <Link
-                  href="/trilhas"
-                  className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
-                >
-                  <span aria-hidden className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-lg">
-                    <RouteIcon className="size-5" />
+                    {(() => {
+                      const Icon = ICONS[data.continueItem.kind];
+                      return <Icon className="size-5" />;
+                    })()}
                   </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold">Trilhas</span>
-                    <span className="text-muted text-xs tabular-nums">
-                      {data.tracks.length} {data.tracks.length === 1 ? 'trilha' : 'trilhas'}
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            )}
-          </ul>
-        </section>
-      )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{data.continueItem.title}</p>
+                    <p className="text-muted text-xs">
+                      {data.continueItem.subjectName} ·{' '}
+                      {Math.round(data.continueItem.progressPercent)}%
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-surface-2 h-1.5">
+                  <div
+                    className="h-full rounded-r-full"
+                    style={{
+                      width: `${data.continueItem.progressPercent}%`,
+                      backgroundColor: 'var(--subject-base)',
+                    }}
+                  />
+                </div>
+              </Link>
+            </section>
+          )}
 
-      {/* ----------------------------------------------------- trilhas -- */}
-      {!kindFilter && origin !== 'meus' && data.tracks.length > 0 && (
-        <section>
-          <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
-            Trilhas por matéria
-          </h2>
-          {/* `min-w-0` em cada item não é decoração: item de grid nasce com
+          {/* ---------------------------------------------------- formatos -- */}
+          {!kindFilter && !bimestreFilter && !serieFilter && (
+            <section>
+              <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
+                Formatos
+              </h2>
+              <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+                {KIND_ORDER.filter((kind) => data.countsByKind[kind] > 0).map((kind) => {
+                  const Icon = ICONS[kind];
+                  const count = data.countsByKind[kind];
+                  return (
+                    <li key={kind} className="min-w-0" style={subjectColorVars(KIND_COLOR[kind])}>
+                      <Link
+                        href={{ pathname: '/estudar', query: { formato: kind } }}
+                        className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
+                      >
+                        <span
+                          aria-hidden
+                          className="grid size-10 shrink-0 place-items-center rounded-lg"
+                          style={{
+                            backgroundColor: 'var(--subject-soft)',
+                            color: 'var(--subject-on-soft)',
+                          }}
+                        >
+                          <Icon className="size-5" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold">
+                            {KIND_META[kind].plural}
+                          </span>
+                          <span className="text-muted text-xs tabular-nums">
+                            {count} {count === 1 ? 'item' : 'itens'}
+                          </span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+                {origin !== 'meus' && data.tracks.length > 0 && (
+                  <li className="min-w-0">
+                    <Link
+                      href="/trilhas"
+                      className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
+                    >
+                      <span
+                        aria-hidden
+                        className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-lg"
+                      >
+                        <RouteIcon className="size-5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">Trilhas</span>
+                        <span className="text-muted text-xs tabular-nums">
+                          {data.tracks.length} {data.tracks.length === 1 ? 'trilha' : 'trilhas'}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                )}
+              </ul>
+            </section>
+          )}
+
+          {/* ----------------------------------------------------- trilhas -- */}
+          {!kindFilter && origin !== 'meus' && data.tracks.length > 0 && (
+            <section>
+              <h2 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
+                Trilhas por matéria
+              </h2>
+              {/* `min-w-0` em cada item não é decoração: item de grid nasce com
               `min-width: auto`, e o título usa `truncate` (nowrap), cujo
               min-content é a largura INTEIRA do texto. Sem isso a lista estoura
               a viewport no celular — foi assim que 38px de rolagem horizontal
               apareceram ao trocar `space-y` por `grid`. */}
-          <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {data.tracks.map((track) => (
-              <li key={track.id} className="min-w-0">
-                <Link
-                  href={`/trilhas/${track.id}`}
-                  className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
-                >
-                  <span
-                    aria-hidden
-                    className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-lg"
-                  >
-                    <RouteIcon className="size-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{track.title}</span>
-                    <span className="text-muted text-xs">
-                      {track.total === 0
-                        ? 'sem lições ainda'
-                        : `lição ${Math.min(track.done + 1, track.total)} de ${track.total}`}
-                    </span>
-                  </span>
-                  {track.total > 0 && (
-                    <span className="text-subtle shrink-0 text-xs font-semibold tabular-nums">
-                      {Math.round((track.done / track.total) * 100)}%
-                    </span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* ------------------------------------------------------- itens -- */}
-      <section>
-        {kindFilter && (
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-muted text-xs font-semibold tracking-wide uppercase">
-              {KIND_META[kindFilter].plural}
-            </h2>
-            <Link
-              href="/estudar"
-              className="text-brand-text h-11 text-sm leading-[44px] font-medium"
-            >
-              Ver todos os formatos
-            </Link>
-          </div>
-        )}
-
-        {visible.length === 0 ? (
-          <EmptyLibrary
-            filtered={Boolean(subjectFilter || kindFilter || bimestreFilter || serieFilter || origin !== 'todos')}
-            kind={kindFilter}
-          />
-        ) : (
-          <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {visible.slice(0, 60).map((item) => {
-              const Icon = ICONS[item.kind];
-              const duration = humanDuration(item.durationSeconds);
-              return (
-                <li key={item.id} className="relative min-w-0" style={subjectColorVars(item.subjectColor)}>
-                  <Link
-                    href={`/estudar/${item.id}`}
-                    className={cn(
-                      'border-border bg-surface hover:bg-surface-2 relative flex items-center gap-3 overflow-hidden rounded-lg border p-3.5 transition-colors',
-                      item.mine && 'pr-14',
-                    )}
-                  >
-                    <span
-                      aria-hidden
-                      className="absolute inset-y-0 left-0 w-1"
-                      style={{ backgroundColor: 'var(--subject-base)' }}
-                    />
-                    <span
-                      aria-hidden
-                      className="ml-1 grid size-9 shrink-0 place-items-center rounded-md"
-                      style={{
-                        backgroundColor: 'var(--subject-soft)',
-                        color: 'var(--subject-on-soft)',
-                      }}
+              <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {data.tracks.map((track) => (
+                  <li key={track.id} className="min-w-0">
+                    <Link
+                      href={`/trilhas/${track.id}`}
+                      className="border-border bg-surface hover:bg-surface-2 flex items-center gap-3 rounded-lg border p-3.5 transition-colors"
                     >
-                      <Icon className="size-4" />
-                    </span>
+                      <span
+                        aria-hidden
+                        className="bg-brand-soft text-brand-text grid size-10 shrink-0 place-items-center rounded-lg"
+                      >
+                        <RouteIcon className="size-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{track.title}</span>
+                        <span className="text-muted text-xs">
+                          {track.total === 0
+                            ? 'sem lições ainda'
+                            : `lição ${Math.min(track.done + 1, track.total)} de ${track.total}`}
+                        </span>
+                      </span>
+                      {track.total > 0 && (
+                        <span className="text-subtle shrink-0 text-xs font-semibold tabular-nums">
+                          {Math.round((track.done / track.total) * 100)}%
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5">
-                        <span className="min-w-0 truncate text-sm font-semibold">{item.title}</span>
-                        {item.mine && (
-                          <span className="bg-brand-soft text-brand-text shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold">Meu</span>
+          {/* ------------------------------------------------------- itens -- */}
+          <section>
+            {kindFilter && (
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-muted text-xs font-semibold tracking-wide uppercase">
+                  {KIND_META[kindFilter].plural}
+                </h2>
+                <Link
+                  href="/estudar"
+                  className="text-brand-text h-11 text-sm leading-[44px] font-medium"
+                >
+                  Ver todos os formatos
+                </Link>
+              </div>
+            )}
+
+            {visible.length === 0 ? (
+              <EmptyLibrary
+                filtered={Boolean(
+                  subjectFilter ||
+                  kindFilter ||
+                  bimestreFilter ||
+                  serieFilter ||
+                  origin !== 'todos',
+                )}
+                kind={kindFilter}
+              />
+            ) : (
+              <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {visible.slice(0, 60).map((item) => {
+                  const Icon = ICONS[item.kind];
+                  const duration = humanDuration(item.durationSeconds);
+                  return (
+                    <li
+                      key={item.id}
+                      className="relative min-w-0"
+                      style={subjectColorVars(item.subjectColor)}
+                    >
+                      <Link
+                        href={`/estudar/${item.id}`}
+                        className={cn(
+                          'border-border bg-surface hover:bg-surface-2 relative flex items-center gap-3 overflow-hidden rounded-lg border p-3.5 transition-colors',
+                          item.mine && 'pr-14',
                         )}
-                      </span>
-                      <span className="text-muted block truncate text-xs">
-                        {[
-                          item.subjectName,
-                          item.topicName,
-                          duration,
-                          item.questionCount > 0 ? `${item.questionCount} questões` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </span>
-                    </span>
+                      >
+                        <span
+                          aria-hidden
+                          className="absolute inset-y-0 left-0 w-1"
+                          style={{ backgroundColor: 'var(--subject-base)' }}
+                        />
+                        <span
+                          aria-hidden
+                          className="ml-1 grid size-9 shrink-0 place-items-center rounded-md"
+                          style={{
+                            backgroundColor: 'var(--subject-soft)',
+                            color: 'var(--subject-on-soft)',
+                          }}
+                        >
+                          <Icon className="size-4" />
+                        </span>
 
-                    {item.progressPercent > 0 && (
-                      <span className="text-subtle shrink-0 text-xs font-semibold tabular-nums">
-                        {Math.round(item.progressPercent)}%
-                      </span>
-                    )}
-                  </Link>
-                  {item.mine && (
-                    <div className="absolute top-1/2 right-2 -translate-y-1/2">
-                      <DeleteCreationButton resourceId={item.id} title={item.title} />
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1.5">
+                            <span className="min-w-0 truncate text-sm font-semibold">
+                              {item.title}
+                            </span>
+                            {item.mine && (
+                              <span className="bg-brand-soft text-brand-text shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                                Meu
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-muted block truncate text-xs">
+                            {[
+                              item.subjectName,
+                              item.topicName,
+                              duration,
+                              item.questionCount > 0 ? `${item.questionCount} questões` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </span>
+
+                        {item.progressPercent > 0 && (
+                          <span className="text-subtle shrink-0 text-xs font-semibold tabular-nums">
+                            {Math.round(item.progressPercent)}%
+                          </span>
+                        )}
+                      </Link>
+                      {item.mine && (
+                        <div className="absolute top-1/2 right-2 -translate-y-1/2">
+                          <DeleteCreationButton resourceId={item.id} title={item.title} />
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
@@ -427,7 +478,10 @@ function FilterSelect({
             </option>
           ))}
         </select>
-        <ChevronDown aria-hidden className="text-subtle pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
+        <ChevronDown
+          aria-hidden
+          className="text-subtle pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2"
+        />
       </span>
     </label>
   );
