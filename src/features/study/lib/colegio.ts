@@ -2,7 +2,7 @@ import type { ResourceKind } from '@/types/database.types';
 
 /**
  * Biblioteca do colégio ("Nexa Escolas"): o quarto filtro da Biblioteca. Mostra o conteúdo feito para as provas da
- * escola, em blocos como a estante do Vestibular: ano → matéria → prova (PB4, PA7…). Fica só no Nexa Escolas, e só
+ * escola, em blocos como a estante do Vestibular: ano → matéria → prova (PB4, PA7, PA8…). Fica só no Nexa Escolas, e só
  * para alunos de um colégio que tem coleção cadastrada aqui.
  *
  * Cada prova é identificada por UMA tag que o carregador do Admin põe nos conteúdos (ver `PB4_TAG` e `PA7_TAG`).
@@ -55,6 +55,15 @@ export const COLEGIOS: ColegioConfig[] = [
         tag: 'pa7-prova-anglo',
         from: '#4C1D95',
         to: '#7C3AED',
+      },
+      {
+        code: 'PA8',
+        year: 2026,
+        title: 'PA8',
+        subtitle: 'Prova Anglo 8 · 9º ano',
+        tag: 'pa8-prova-anglo',
+        from: '#0F4C3A',
+        to: '#10B981',
       },
     ],
   },

@@ -3,6 +3,7 @@ import { buildGrande3Seed, type Grande3Rows } from './grande3-seed';
 import { uuidV5 } from './study-seed';
 import { PACOTES_PB4, PB4_TAG, RESUMOS_PB4, TRILHA_PB4 } from '../seed/pb4';
 import { PA7_TAG, PACOTES_PA7, RESUMOS_PA7, TRILHA_PA7 } from '../seed/pa7';
+import { PA8_TAG, PACOTES_PA8, RESUMOS_PA8, TRILHA_PA8 } from '../seed/pa8';
 import type { PacoteG2 } from '../seed/grande2/types';
 import type { ResumoG3, TrilhaG3 } from '../seed/grande3/types';
 
@@ -124,6 +125,19 @@ export function buildPa7Rows(schoolId: string) {
     pacotes: PACOTES_PA7,
     trilha: TRILHA_PA7,
     sortOrder: 51,
+    chainPerSection: true,
+  });
+}
+
+/** Prova Anglo 8 (PA8), 9º ano, 2026: Matemática e Ciências (dia 2). */
+export function buildPa8Rows(schoolId: string) {
+  return buildAngloRows(schoolId, {
+    idPrefix: 'pa8',
+    tag: PA8_TAG,
+    resumos: RESUMOS_PA8,
+    pacotes: PACOTES_PA8,
+    trilha: TRILHA_PA8,
+    sortOrder: 52,
     chainPerSection: true,
   });
 }

@@ -2,7 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { buildPa7Rows, buildPb4Rows, pb4TrackInsertRow } from '@/features/content/lib/pb4-seed';
+import {
+  buildPa7Rows,
+  buildPa8Rows,
+  buildPb4Rows,
+  pb4TrackInsertRow,
+} from '@/features/content/lib/pb4-seed';
 import { requireAccess } from './guard';
 import { targetSchoolId } from './target-school';
 import type { StudySeedState } from './study-seed-actions';
@@ -140,7 +145,7 @@ async function publishSet(
 }
 
 /**
- * Conteúdo do colégio, já PUBLICADO: Português do 4º bimestre (PB4) e a Prova Anglo 7 (PA7). Os resumos ficam
+ * Conteúdo do colégio, já PUBLICADO: Português do 4º bimestre (PB4), a Prova Anglo 7 (PA7) e a Prova Anglo 8 (PA8). Os resumos ficam
  * públicos para todas as escolas; os simulados e as trilhas ficam só na escola escolhida. Carregar de novo não
  * duplica e completa o que faltar.
  */
@@ -162,6 +167,7 @@ export async function createPb4(formData?: FormData): Promise<StudySeedState> {
   for (const [nome, rows] of [
     ['PB4', buildPb4Rows(schoolId)],
     ['PA7', buildPa7Rows(schoolId)],
+    ['PA8', buildPa8Rows(schoolId)],
   ] as const) {
     const r = await publishSet(supabase, rows, ctx);
     if (!r.ok) return fail(`${nome}: ${r.message}`);

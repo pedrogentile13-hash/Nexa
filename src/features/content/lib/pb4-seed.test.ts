@@ -43,8 +43,15 @@ describe('Português 4º bimestre (PB4)', () => {
   });
 });
 
-import { buildPa7Rows, buildPb4Rows, pb4TrackInsertRow, TRACK_COLUMNS } from './pb4-seed';
+import {
+  buildPa7Rows,
+  buildPa8Rows,
+  buildPb4Rows,
+  pb4TrackInsertRow,
+  TRACK_COLUMNS,
+} from './pb4-seed';
 import { PACOTES_PA7, RESUMOS_PA7, TRILHA_PA7 } from '../seed/pa7';
+import { PACOTES_PA8, RESUMOS_PA8, TRILHA_PA8 } from '../seed/pa8';
 
 describe('PB4: visibilidade (resumos públicos, simulados e trilha da escola)', () => {
   const escola = '11111111-2222-4333-8444-555555555555';
@@ -190,5 +197,64 @@ describe('PA7 · Prova Anglo 7', () => {
     expect(pa7.track.id).not.toBe(pb4.track.id);
     const idsPb4 = new Set(pb4.simulados.resources.map((r) => r.id));
     for (const r of pa7.simulados.resources) expect(idsPb4.has(r.id)).toBe(false);
+  });
+});
+
+describe('PA8 · Prova Anglo 8 (Matemática e Ciências)', () => {
+  const por = (slug: string) => PACOTES_PA8.find((p) => p.slug === slug)!;
+
+  it('tem 4 simulados base e 4 de nível prova, todos objetivos e com 10 questões', () => {
+    for (const m of ['matematica', 'fisica', 'quimica', 'biologia']) {
+      for (const t of ['base', 'prova']) {
+        const qs = por(`pa8-${t}-${m}`).questoes;
+        expect(qs, `${t}-${m}`).toHaveLength(10);
+        expect(qs.every((q) => q.k === 'o')).toBe(true);
+      }
+    }
+  });
+
+  it('o simulado final tem 32 objetivas: 16 de Matemática e 16 de Ciências (8 + 4 + 4)', () => {
+    const qs = por('pa8-final').questoes;
+    expect(qs).toHaveLength(32);
+    expect(qs.every((q) => q.k === 'o')).toBe(true);
+  });
+
+  it('toda objetiva tem 5 alternativas distintas e uma explicação, sem alternativas no enunciado', () => {
+    for (const p of PACOTES_PA8) {
+      for (const q of p.questoes) {
+        if (q.k !== 'o') continue;
+        const todas = [q.ok, ...q.wrong];
+        expect(todas, `${p.slug}: ${q.s.slice(0, 40)}`).toHaveLength(5);
+        expect(new Set(todas).size, `${p.slug}: ${q.s.slice(0, 40)}`).toBe(5);
+        expect(q.e.length).toBeGreaterThan(20);
+        expect(q.s, `${p.slug}: ${q.s.slice(0, 40)}`).not.toMatch(/^[A-E]\) /m);
+      }
+    }
+  });
+
+  it('há um micro resumo por módulo: 19 de Matemática, 8 de Física, 3 de Química e 6 de Biologia', () => {
+    const n = (m: string) => RESUMOS_PA8.filter((r) => r.subject === m).length;
+    expect([n('matematica'), n('fisica'), n('quimica'), n('biologia')]).toEqual([19, 8, 3, 6]);
+  });
+
+  it('todo item da trilha existe e cada matéria abre livre', () => {
+    const conhecidos = new Set([
+      ...PACOTES_PA8.map((p) => p.slug),
+      ...RESUMOS_PA8.map((r) => r.slug),
+    ]);
+    for (const s of TRILHA_PA8.secoes)
+      for (const l of s.licoes) for (const i of l.itens) expect(conhecidos.has(i), i).toBe(true);
+    const rows = buildPa8Rows('11111111-2222-4333-8444-555555555555');
+    const livres = rows.lessons.filter((l) => l.unlock_after_lesson_id === null);
+    expect(livres).toHaveLength(TRILHA_PA8.secoes.length);
+    const ids = new Set([...rows.resumos, ...rows.simulados.resources].map((r) => r.id));
+    for (const link of rows.lessonResources) expect(ids.has(link.resource_id)).toBe(true);
+  });
+
+  it('sai com a tag da prova e ids diferentes dos do PA7', () => {
+    const escola = '11111111-2222-4333-8444-555555555555';
+    const pa8 = buildPa8Rows(escola);
+    for (const r of pa8.simulados.resources) expect(r.tags).toContain('pa8-prova-anglo');
+    expect(pa8.track.id).not.toBe(buildPa7Rows(escola).track.id);
   });
 });
