@@ -1,0 +1,325 @@
+import {
+  enzoVestibularResources,
+  enzoExamEditions,
+  enzoExamFiles,
+} from '@/lib/demo/enzo-vestibular-screens';
+import { isDemoSession } from '@/lib/demo/server';
+import { ENZO_VESTIBULAR } from '@/lib/demo/enzo-vestibular';
+import { createClient } from '@/lib/supabase/server';
+import type { Difficulty, ExamKind, ResourceKind, StudyPlanReason } from '@/types/database.types';
+
+/**
+ * Leituras do Nexa Vestibular.
+ *
+ * Tudo passa por RPC `security definer` (mesmo padrão da Community): a
+ * listagem de conteúdo reaproveita `can_view_resource` — a MESMA função que
+ * decide visibilidade de qualquer conteúdo do Nexa — em vez de reimplementar
+ * regra de acesso aqui.
+ */
+
+export interface VestibularProfile {
+  mainExamId: string | null;
+  mainExamName: string | null;
+  mainExamSlug: string | null;
+  targetYear: number | null;
+  graduationYear: number | null;
+  dailyStudyMinutes: number | null;
+}
+
+export async function getVestibularProfile(): Promise<VestibularProfile | null> {
+  if (await isDemoSession()) return ENZO_VESTIBULAR.profile;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('get_vestibular_profile');
+  const row = data?.[0];
+  if (error || !row) return null;
+
+  return {
+    mainExamId: row.main_exam_id,
+    mainExamName: row.main_exam_name,
+    mainExamSlug: row.main_exam_slug,
+    targetYear: row.target_year,
+    graduationYear: row.graduation_year,
+    dailyStudyMinutes: row.daily_study_minutes,
+  };
+}
+
+export interface ExamOption {
+  id: string;
+  slug: string;
+  name: string;
+  organization: string | null;
+  kind: ExamKind;
+  nextEditionYear: number | null;
+  nextApplicationDate: string | null;
+}
+
+export async function listExams(): Promise<ExamOption[]> {
+  if (await isDemoSession()) return ENZO_VESTIBULAR.exams;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('list_exams');
+  if (error || !data) return [];
+
+  return data.map((e) => ({
+    id: e.id,
+    slug: e.slug,
+    name: e.name,
+    organization: e.organization,
+    kind: e.kind,
+    nextEditionYear: e.next_edition_year,
+    nextApplicationDate: e.next_application_date,
+  }));
+}
+
+export interface VestibularOverview {
+  examName: string | null;
+  editionYear: number | null;
+  applicationDate: string | null;
+  daysUntil: number | null;
+  questionsAnswered: number;
+  correctAnswers: number;
+  accuracyPercent: number | null;
+  quizzesDone: number;
+  simuladosDone: number;
+  /** Sessões de treino avulso já encerradas (Fase 1) — não são "simulados". */
+  practicesDone: number;
+  essaysSubmitted: number;
+}
+
+export async function getVestibularOverview(): Promise<VestibularOverview> {
+  if (await isDemoSession()) return ENZO_VESTIBULAR.overview;
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('vestibular_overview');
+  const row = data?.[0];
+
+  return {
+    examName: row?.exam_name ?? null,
+    editionYear: row?.edition_year ?? null,
+    applicationDate: row?.application_date ?? null,
+    daysUntil: row?.days_until ?? null,
+    questionsAnswered: row?.questions_answered ?? 0,
+    correctAnswers: row?.correct_answers ?? 0,
+    accuracyPercent: row?.accuracy_percent ?? null,
+    quizzesDone: row?.quizzes_done ?? 0,
+    simuladosDone: row?.simulados_done ?? 0,
+    practicesDone: row?.practices_done ?? 0,
+    essaysSubmitted: row?.essays_submitted ?? 0,
+  };
+}
+
+export interface VestibularResource {
+  id: string;
+  kind: ResourceKind;
+  title: string;
+  description: string | null;
+  subjectName: string;
+  subjectColor: string;
+  examName: string | null;
+  editionYear: number | null;
+  difficulty: Difficulty;
+  questionCount: number;
+  timeLimitSeconds: number | null;
+  myBestPercent: number | null;
+}
+
+export interface VestibularResourceFilters {
+  examId?: string | null;
+  year?: number | null;
+  subjectCatalogId?: string | null;
+  kind?: string | null;
+}
+
+export async function listVestibularResources(
+  filters: VestibularResourceFilters = {},
+  limit?: number,
+): Promise<VestibularResource[]> {
+  if (await isDemoSession()) return enzoVestibularResources();
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('list_vestibular_resources', {
+    p_exam_id: filters.examId ?? null,
+    p_year: filters.year ?? null,
+    p_subject_catalog_id: filters.subjectCatalogId ?? null,
+    p_kind: filters.kind ?? null,
+    ...(limit ? { p_limit: limit } : {}),
+  });
+  if (error || !data) return [];
+
+  // Quiz ou simulado sem questões (carga incompleta) não aparece para o aluno.
+  return data
+    .filter(
+      (r) => !((r.kind === 'quiz' || r.kind === 'simulado') && Number(r.question_count ?? 0) === 0),
+    )
+    .map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      title: r.title,
+      description: r.description,
+      subjectName: r.subject_name,
+      subjectColor: r.subject_color,
+      examName: r.exam_name,
+      editionYear: r.edition_year,
+      difficulty: r.difficulty,
+      questionCount: r.question_count,
+      timeLimitSeconds: r.time_limit_seconds,
+      myBestPercent: r.my_best_percent,
+    }));
+}
+
+/** Matérias que realmente têm conteúdo de vestibular — evita filtro que não filtra nada. */
+export async function listVestibularSubjects(): Promise<{ id: string; name: string }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('resources')
+    .select('subject_catalog_id, subject_catalog(name)')
+    .eq('context', 'vestibular')
+    .eq('is_published', true);
+
+  const seen = new Map<string, string>();
+  for (const row of data ?? []) {
+    const subject = row.subject_catalog as unknown as { name: string } | null;
+    if (subject && !seen.has(row.subject_catalog_id))
+      seen.set(row.subject_catalog_id, subject.name);
+  }
+  return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/* ---- Home do vestibulando ----------------------------------------------- */
+
+export interface VestibularHome {
+  fullName: string | null;
+  examName: string | null;
+  targetYear: number | null;
+  targetCourse: string | null;
+  targetInstitution: string | null;
+  applicationDate: string | null;
+  daysUntil: number | null;
+  dailyGoalMinutes: number;
+  minutesToday: number;
+  streakDays: number;
+  questionsToday: number;
+  accuracyWeek: number | null;
+  pendingErrors: number;
+  nextTopicId: string | null;
+  nextTopicName: string | null;
+  nextTopicSubject: string | null;
+  nextTopicReason: StudyPlanReason | null;
+  openSessionId: string | null;
+}
+
+/**
+ * Tudo que a primeira tela do vestibulando precisa, num round-trip só.
+ *
+ * Eram seis consultas (contagem regressiva, meta do dia, sequência, foco de
+ * hoje, erro pendente, acerto da semana) numa tela que abre todo dia. Seis
+ * idas ao banco em série fazem o app parecer lento mesmo quando cada uma é
+ * rápida — por isso a montagem mora em `vestibular_home()`, no banco.
+ */
+export async function getVestibularHome(): Promise<VestibularHome | null> {
+  if (await isDemoSession()) return ENZO_VESTIBULAR.home;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('vestibular_home');
+  const row = data?.[0];
+  if (error || !row) return null;
+
+  return {
+    fullName: row.full_name,
+    examName: row.exam_name,
+    targetYear: row.target_year,
+    targetCourse: row.target_course,
+    targetInstitution: row.target_institution,
+    applicationDate: row.application_date,
+    daysUntil: row.days_until,
+    dailyGoalMinutes: row.daily_goal_minutes ?? 0,
+    minutesToday: row.minutes_today,
+    streakDays: row.streak_days,
+    questionsToday: Number(row.questions_today),
+    accuracyWeek: row.accuracy_week === null ? null : Number(row.accuracy_week),
+    pendingErrors: Number(row.pending_errors),
+    nextTopicId: row.next_topic_id,
+    nextTopicName: row.next_topic_name,
+    nextTopicSubject: row.next_topic_subject,
+    nextTopicReason: row.next_topic_reason,
+    openSessionId: row.open_session_id,
+  };
+}
+
+export interface ExamEditionSummary {
+  id: string;
+  year: number;
+  examName: string;
+  coverUrl: string | null;
+}
+
+/** Edições cadastradas (ENEM 2025, FUVEST 2026...). Servem para listar "Em breve" quando a prova ainda não tem questões. */
+export async function listExamEditions(): Promise<ExamEditionSummary[]> {
+  if (await isDemoSession()) return enzoExamEditions();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('exam_editions')
+    .select('id, year, exams(name, cover_url)')
+    .order('year', { ascending: false });
+  if (error || !data) return [];
+  return data.map((e) => {
+    const exam = e.exams as unknown as { name: string; cover_url: string | null } | null;
+    return {
+      id: e.id,
+      year: e.year,
+      examName: exam?.name ?? 'Prova',
+      coverUrl: exam?.cover_url ?? null,
+    };
+  });
+}
+
+export interface ExamFileItem {
+  id: string;
+  editionId: string;
+  kind: 'caderno' | 'gabarito' | 'pagina';
+  label: string;
+  url: string;
+  source: string | null;
+}
+
+/** Arquivos publicados (endereços dos cadernos e gabaritos nos sites oficiais). */
+export async function listExamFiles(editionId?: string): Promise<ExamFileItem[]> {
+  if (await isDemoSession()) return enzoExamFiles(editionId);
+  const supabase = await createClient();
+  let query = supabase
+    .from('exam_files')
+    .select('id, exam_edition_id, kind, label, url, source')
+    .order('sort_order')
+    .order('label');
+  if (editionId) query = query.eq('exam_edition_id', editionId);
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return data.map((f) => ({
+    id: f.id,
+    editionId: f.exam_edition_id,
+    kind: f.kind,
+    label: f.label,
+    url: f.url,
+    source: f.source,
+  }));
+}
+
+export interface ExamEditionDetail {
+  id: string;
+  year: number;
+  examName: string;
+  coverUrl: string | null;
+}
+
+export async function getExamEdition(id: string): Promise<ExamEditionDetail | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('exam_editions')
+    .select('id, year, exams(name, cover_url)')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  const exam = data.exams as unknown as { name: string; cover_url: string | null } | null;
+  return {
+    id: data.id,
+    year: data.year,
+    examName: exam?.name ?? 'Prova',
+    coverUrl: exam?.cover_url ?? null,
+  };
+}

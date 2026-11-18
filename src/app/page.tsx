@@ -1,291 +1,95 @@
-import { Check, Target, TrendingUp } from 'lucide-react';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import {
-  computeSubjectTerm,
-  formatGrade,
-  requiredUniformScoreForPending,
-  type GradeActivity,
-  type GradingScheme,
-} from '@/features/grades';
-import { SUBJECT_COLORS, subjectColorVars } from '@/lib/design/subject-colors';
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { BookOpenCheck, GraduationCap, ShieldCheck, Sparkles, Target } from 'lucide-react';
+import { CookiePreferencesButton } from '@/features/analytics/components/cookie-banner';
+import { getCurrentUser } from '@/lib/supabase/server';
+import { isNativeAppRequest } from '@/lib/native-server';
+import { getTenant } from '@/lib/tenant/server';
 
-/**
- * Etapa 1 verification page.
- *
- * Not a product screen — it is the artifact that makes the foundation checkable
- * without a database: the design tokens rendered in both themes, and the grade
- * engine computing README Parte 2's worked example live on the server. It is
- * replaced by `/hoje` in Etapa 3.
- */
-
-const scheme: GradingScheme = {
-  id: 'demo',
-  name: 'Padrão da escola',
-  gradeMin: 0,
-  gradeMax: 10,
-  passingGrade: 6,
-  decimals: 1,
-  roundingMode: 'half_up',
-  categories: [
-    {
-      id: 'pb',
-      name: 'Prova Bimestral',
-      shortCode: 'PB',
-      weightPercent: 35,
-      dropLowest: 0,
-      sequence: 1,
-    },
-    {
-      id: 'va',
-      name: 'Verificação de Aprendizagem',
-      shortCode: 'VA',
-      weightPercent: 35,
-      dropLowest: 0,
-      sequence: 2,
-    },
-    {
-      id: 'ql',
-      name: 'Qualitativa',
-      shortCode: 'QL',
-      weightPercent: 30,
-      dropLowest: 0,
-      sequence: 3,
-    },
-  ],
+export const metadata: Metadata = {
+  title: 'Nexa Study — estude com inteligência',
+  description:
+    'Nexa Study reúne resumos, simulados, revisões e uma assistente de IA para estudantes da escola e do vestibular, com acompanhamento para escolas.',
 };
 
-const activities: GradeActivity[] = [
-  {
-    id: '1',
-    categoryId: 'pb',
-    title: 'Lista 1',
-    score: 8,
-    maxScore: null,
-    weight: 2,
-    isDropped: false,
-    replacesActivityId: null,
-  },
-  {
-    id: '2',
-    categoryId: 'pb',
-    title: 'Lista 2',
-    score: 10,
-    maxScore: null,
-    weight: 1,
-    isDropped: false,
-    replacesActivityId: null,
-  },
-  {
-    id: '3',
-    categoryId: 'pb',
-    title: 'Prova',
-    score: 6,
-    maxScore: null,
-    weight: 7,
-    isDropped: false,
-    replacesActivityId: null,
-  },
-  {
-    id: '4',
-    categoryId: 'va',
-    title: 'VA 1',
-    score: null,
-    maxScore: null,
-    weight: 1,
-    isDropped: false,
-    replacesActivityId: null,
-  },
-  {
-    id: '5',
-    categoryId: 'ql',
-    title: 'Participação',
-    score: null,
-    maxScore: null,
-    weight: 1,
-    isDropped: false,
-    replacesActivityId: null,
-  },
+export const dynamic = 'force-dynamic';
+
+const FEATURES = [
+  { Icon: BookOpenCheck, title: 'Resumos, simulados e revisões', text: 'Conteúdo organizado por matéria, com revisão espaçada do que você errou para fixar de verdade.' },
+  { Icon: Sparkles, title: 'NexaAI, sua assistente de estudos', text: 'Tire dúvidas, peça um resumo ou um simulado a partir dos seus próprios PDFs e fotos do caderno.' },
+  { Icon: Target, title: 'Nexa Vestibular', text: 'Plano de estudo até a data da prova, banco de questões, central de erros e correção de redação no modelo ENEM.' },
+  { Icon: GraduationCap, title: 'Para escolas', text: 'Cada escola tem o seu endereço, turmas, comunicados e acompanhamento para professores, coordenação e direção.' },
 ];
 
-const TARGET = 8;
-
-export default function FoundationPage() {
-  const result = computeSubjectTerm({ scheme, activities, targetGrade: TARGET });
-  const requirement = requiredUniformScoreForPending({ scheme, activities }, TARGET);
+/**
+ * Página inicial pública do Nexa padrão. Quem já entrou segue para o app; no endereço de uma escola
+ * (que tem entrada própria) vai direto ao login.
+ */
+export default async function RootPage() {
+  if (await getCurrentUser()) redirect('/hoje');
+  // No app, a porta de entrada é o login — a página de apresentação é do site.
+  if ((await getTenant()) || (await isNativeAppRequest())) redirect('/login');
 
   return (
-    <main className="pt-safe mx-auto w-full max-w-2xl px-4 pb-16">
-      <header className="flex items-center justify-between py-6">
-        <div className="flex items-center gap-3">
-          <span
-            aria-hidden
-            className="bg-brand text-brand-fg grid size-10 place-items-center rounded-xl text-lg font-bold"
-          >
-            N
-          </span>
-          <div>
-            <h1 className="text-lg leading-tight font-semibold">Nexa</h1>
-            <p className="text-subtle text-xs">Your Academic Operating System</p>
-          </div>
-        </div>
-        <ThemeToggle />
+    <div className="bg-bg min-h-dvh">
+      <header className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
+        <span className="flex items-center gap-2 text-lg font-bold tracking-tight">
+          {/* eslint-disable-next-line @next/next/no-img-element -- marca fixa e leve */}
+          <img src="/brand/logo-mark.webp" alt="" aria-hidden className="size-8" />
+          Nexa Study
+        </span>
+        <Link href="/login" className="bg-brand text-brand-fg inline-flex h-10 items-center rounded-full px-5 text-sm font-semibold">
+          Entrar
+        </Link>
       </header>
 
-      <Badge variant="brand" className="mb-3">
-        Etapa 1 · fundação, banco e motor de cálculo
-      </Badge>
-      <p className="text-muted mb-8 text-sm leading-relaxed">
-        Esta página existe só para verificar a base. O banco tem 20 tabelas com RLS, 5 views de
-        cálculo e 15 testes SQL; o motor de notas tem 31 testes. Ela é substituída pela tela{' '}
-        <strong className="text-text font-medium">Hoje</strong> na Etapa 3.
-      </p>
-
-      {/* ── Grade engine, running the README example ─────────────────────── */}
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="text-brand size-4" aria-hidden />
-            Matemática · 1º Bimestre
-          </CardTitle>
-          <CardDescription>Exemplo do README Parte 2, calculado no servidor.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-subtle text-xs">Média atual</p>
-              <p className="tabular text-4xl leading-none font-semibold">
-                {formatGrade(result.averageCurrent, scheme.decimals)}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-subtle text-xs">Meta</p>
-              <p className="tabular text-brand-text text-xl font-semibold">
-                {formatGrade(TARGET, 1)}
-              </p>
-            </div>
+      <main>
+        <section className="mx-auto max-w-5xl px-5 pt-8 pb-14 text-center md:pt-16">
+          <h1 className="mx-auto max-w-2xl text-4xl leading-tight font-bold tracking-tight md:text-5xl">Estude com mais foco, em qualquer lugar.</h1>
+          <p className="text-muted mx-auto mt-4 max-w-xl text-base leading-relaxed md:text-lg">
+            Resumos, simulados, revisões e uma assistente de inteligência artificial feitos para quem está na escola e para quem vai prestar vestibular.
+          </p>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Link href="/login" className="bg-brand text-brand-fg inline-flex h-12 items-center rounded-full px-7 text-sm font-semibold">
+              Começar agora
+            </Link>
+            <Link href="/politica-de-privacidade" className="border-border bg-surface inline-flex h-12 items-center rounded-full border px-7 text-sm font-semibold">
+              Como cuidamos dos seus dados
+            </Link>
           </div>
+        </section>
 
-          <div>
-            <div className="text-muted mb-1.5 flex items-center justify-between text-xs">
-              <span>Bimestre lançado</span>
-              <span className="tabular">{Math.round(result.coveragePercent)}%</span>
-            </div>
-            <Progress
-              value={result.coveragePercent}
-              label="Percentual do bimestre já lançado"
-              tone="brand"
-            />
+        <section aria-label="O que você encontra" className="mx-auto grid max-w-5xl gap-4 px-5 pb-16 sm:grid-cols-2">
+          {FEATURES.map(({ Icon, title, text }) => (
+            <article key={title} className="bg-surface border-border rounded-3xl border p-6 shadow-sm">
+              <span className="bg-brand-soft text-brand-text mb-4 grid size-11 place-items-center rounded-2xl">
+                <Icon className="size-5" aria-hidden />
+              </span>
+              <h2 className="text-lg font-semibold">{title}</h2>
+              <p className="text-muted mt-1.5 text-sm leading-relaxed">{text}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="mx-auto max-w-3xl px-5 pb-16">
+          <div className="bg-surface-2 flex items-start gap-4 rounded-3xl p-6">
+            <ShieldCheck className="text-success mt-0.5 size-6 shrink-0" aria-hidden />
+            <p className="text-muted text-sm leading-relaxed">
+              O Nexa foi pensado para estudantes, incluindo menores de idade: a IA só responde sobre estudos, os conteúdos criados por você são privados e as escolas controlam o que os seus alunos veem.
+            </p>
           </div>
+        </section>
+      </main>
 
-          <ul className="divide-border divide-y">
-            {result.categories.map((c) => (
-              <li key={c.category.id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {c.category.shortCode ?? c.category.name}
-                    <span className="text-subtle ml-1.5 text-xs font-normal">
-                      {c.category.weightPercent}%
-                    </span>
-                  </p>
-                  <p className="text-subtle text-xs">
-                    {c.countedCount > 0
-                      ? `${c.countedCount} nota${c.countedCount > 1 ? 's' : ''} · peso ${c.countedWeight}`
-                      : 'nada lançado'}
-                  </p>
-                </div>
-                <span
-                  className={
-                    c.average === null
-                      ? 'text-subtle tabular text-sm'
-                      : 'tabular text-lg font-semibold'
-                  }
-                >
-                  {formatGrade(c.average, scheme.decimals)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-
-      {/* ── The solver: the question the README asks and nothing answered ── */}
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="text-brand size-4" aria-hidden />
-            Quanto falta para a média {formatGrade(TARGET, 0)}?
-          </CardTitle>
-          <CardDescription>
-            Resolvido a partir das notas que já existem e do que ainda está pendente.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {requirement.status === 'possible' && (
-            <p className="text-sm leading-relaxed">
-              Você precisa de{' '}
-              <strong className="tabular text-brand-text text-lg">
-                {formatGrade(requirement.requiredScore, 1)}
-              </strong>{' '}
-              em cada uma das {requirement.pendingCount} avaliações que faltam. Melhor cenário
-              possível hoje:{' '}
-              <span className="tabular font-medium">
-                {formatGrade(requirement.bestPossibleFinal, 1)}
-              </span>
-              .
-            </p>
-          )}
-          {requirement.status === 'reached' && (
-            <p className="text-success flex items-center gap-2 text-sm">
-              <Check className="size-4" aria-hidden />
-              Meta já garantida, independentemente do que vier.
-            </p>
-          )}
-          {requirement.status === 'impossible' && (
-            <p className="text-sm leading-relaxed">
-              A meta não é mais alcançável neste bimestre. O máximo possível é{' '}
-              <span className="tabular font-medium">
-                {formatGrade(requirement.bestPossibleFinal, 1)}
-              </span>
-              .
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── Palette ───────────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Paleta de disciplinas</CardTitle>
-          <CardDescription>
-            Tokens com valor para tema claro e escuro. Disciplinas guardam o token, nunca um hex.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ul className="flex flex-wrap gap-1.5">
-            {Object.values(SUBJECT_COLORS).map((color) => (
-              <li
-                key={color.token}
-                style={{
-                  ...subjectColorVars(color.token),
-                  backgroundColor: 'var(--subject-soft)',
-                  color: 'var(--subject-on-soft)',
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-              >
-                <span
-                  aria-hidden
-                  className="size-2 rounded-full"
-                  style={{ backgroundColor: 'var(--subject-base)' }}
-                />
-                {color.label}
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-    </main>
+      <footer className="border-border border-t py-6 text-center text-xs">
+        <nav className="text-muted flex justify-center gap-5">
+          <Link href="/politica-de-privacidade" className="hover:text-text underline-offset-2 hover:underline">Política de privacidade</Link>
+          <Link href="/termos-de-uso" className="hover:text-text underline-offset-2 hover:underline">Termos de uso</Link>
+          <CookiePreferencesButton className="hover:text-text underline-offset-2 hover:underline" />
+        </nav>
+        <p className="text-subtle mt-3">© {new Date().getFullYear()} Nexa Study</p>
+      </footer>
+    </div>
   );
 }

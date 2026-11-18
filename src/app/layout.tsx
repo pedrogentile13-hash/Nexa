@@ -1,6 +1,16 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { headers } from 'next/headers';
+import { AppSplash } from '@/components/layout/app-splash';
+import { SchoolBrandProvider } from '@/components/layout/school-brand';
+import { ADSENSE_CLIENT, ADSENSE_SCRIPT, GA_INIT } from '@/features/ads/lib/config';
+import { CookieBanner } from '@/features/analytics/components/cookie-banner';
+import { AppAuthBridge } from '@/features/auth/components/app-auth-bridge';
+import { AppIntro } from '@/components/layout/app-intro';
+import { ServiceWorker } from '@/components/service-worker';
+import { isNativeAppRequest } from '@/lib/native-server';
+import { decodeTenant, tenantCss, TENANT_HEADER } from '@/lib/tenant/resolve';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -10,18 +20,19 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Nexa',
-    template: '%s · Nexa',
+    default: 'Nexa Study',
+    template: '%s · Nexa Study',
   },
   description:
-    'Nexa organiza sua vida acadêmica: o que fazer hoje, suas notas, sua rotina e sua evolução em um só lugar.',
-  applicationName: 'Nexa',
+    'Nexa Study organiza sua vida acadêmica: o que fazer hoje, seu desempenho automático, sua rotina e sua evolução em um só lugar.',
+  applicationName: 'Nexa Study',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
-    // Installed from the iOS share sheet, Nexa opens without Safari chrome —
-    // the difference between "an app" and "a website", per README Parte 3.
+    // Installed from the iOS share sheet, Nexa Study opens without Safari
+    // chrome — the difference between "an app" and "a website", per README
+    // Parte 3.
     capable: true,
-    title: 'Nexa',
+    title: 'Nexa Study',
     statusBarStyle: 'default',
   },
   formatDetection: {
@@ -54,9 +65,11 @@ export const viewport: Viewport = {
  * start. It has to be inline and synchronous in <head> — any React-driven
  * approach runs after the browser has already painted.
  */
-const themeScript = `
+const themeScript = (lockLogin: boolean) => `
 (function () {
   try {
+    // A tela de login é sempre clara (combina melhor; vale para escolas, site e app).
+    if (${lockLogin} && location.pathname === '/login') return;
     var stored = localStorage.getItem('nexa-theme');
     var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (stored === 'dark' || (stored !== 'light' && prefersDark)) {
@@ -66,13 +79,46 @@ const themeScript = `
 })();
 `;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Escola do endereço (definida pelo middleware). Só as CORES entram aqui; nome
+  // e logo aparecem nas telas que os usam.
+  const tenant = decodeTenant((await headers()).get(TENANT_HEADER));
+  const tenantStyle = tenantCss(tenant);
+  const nativeApp = await isNativeAppRequest();
+
   return (
     <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript(true) }} />
+        {tenantStyle && <style dangerouslySetInnerHTML={{ __html: tenantStyle }} />}
+        {/*
+          Google AdSense — no HTML bruto da primeira resposta (o rastreador do AdSense não executa JS, então
+          `next/script` não serve) e NUNCA no endereço de uma escola: lá não existe anúncio.
+          O meta `google-adsense-account` é o segundo método de verificação do site.
+        */}
+        {/* No app Android não há AdSense nem Analytics da web (lá o anúncio é o AdMob). */}
+        {!tenant && !nativeApp && (
+          <>
+            {/* Primeiro o Consent Mode (tudo negado), depois o AdSense, que lê esse estado ao carregar. */}
+            {/* Google Analytics: só depois do consentimento (script em `GA_INIT`), e fora das escolas. */}
+            <script dangerouslySetInnerHTML={{ __html: GA_INIT }} />
+            <meta name="google-adsense-account" content={ADSENSE_CLIENT} />
+            <script async src={ADSENSE_SCRIPT} crossOrigin="anonymous" />
+          </>
+        )}
       </head>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased">
+        <SchoolBrandProvider value={tenant ? { name: tenant.name, logoUrl: tenant.logoUrl } : null}>
+          <AppSplash />
+          <ServiceWorker />
+          {children}
+          {/* Sem aviso de cookies no endereço de uma escola: lá não há medição nem anúncio. */}
+          {!tenant && !nativeApp && <CookieBanner />}
+          {/* Abertura animada: só no app Android, uma vez por abertura. */}
+          {nativeApp && <AppIntro />}
+          {nativeApp && <AppAuthBridge />}
+        </SchoolBrandProvider>
+      </body>
     </html>
   );
 }
