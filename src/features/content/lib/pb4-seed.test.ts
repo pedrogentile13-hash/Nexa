@@ -258,3 +258,56 @@ describe('PA8 · Prova Anglo 8 (Matemática e Ciências)', () => {
     expect(pa8.track.id).not.toBe(buildPa7Rows(escola).track.id);
   });
 });
+
+describe('PB4: Química e Produção de Texto', () => {
+  const por = (slug: string) => PACOTES_PB4.find((p) => p.slug === slug)!;
+  const conta = (slug: string) => {
+    const qs = por(slug).questoes;
+    return {
+      obj: qs.filter((q) => q.k === 'o').length,
+      disc: qs.filter((q) => q.k === 'd').length,
+    };
+  };
+
+  it('Química: 3 simulados só objetivos, 2 com ~70% objetivas e 1 só dissertativo', () => {
+    for (const s of ['s1-acidos', 's2-bases-sais', 's3-oxidos'])
+      expect(conta(`pb4-quimica-${s}`).disc).toBe(0);
+    expect(conta('pb4-quimica-s4-misto')).toEqual({ obj: 7, disc: 3 });
+    expect(conta('pb4-quimica-s5-misto')).toEqual({ obj: 10, disc: 4 });
+    expect(conta('pb4-quimica-s6-dissertativo').obj).toBe(0);
+    expect(conta('pb4-quimica-s6-dissertativo').disc).toBeGreaterThanOrEqual(6);
+  });
+
+  it('o super simulado da prova de Química é dissertativo, com itens a) e b)', () => {
+    const { obj, disc } = conta('pb4-quimica-super');
+    expect(obj).toBe(0);
+    expect(disc).toBe(10);
+  });
+
+  it('Produção de Texto: simulado de teoria, treino por parágrafo (4) e redação completa (1)', () => {
+    expect(conta('pb4-redacao-s1-teoria').disc).toBe(0);
+    expect(conta('pb4-redacao-s2-paragrafos').disc).toBe(4);
+    expect(conta('pb4-redacao-s3-completa').disc).toBe(1);
+  });
+
+  it('há 11 resumos de Química e 7 de Produção de Texto, todos na trilha', () => {
+    const qui = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-qui-'));
+    const red = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-red-'));
+    expect([qui.length, red.length]).toEqual([11, 7]);
+    const itens = new Set(TRILHA_PB4.secoes.flatMap((s) => s.licoes.flatMap((l) => l.itens)));
+    for (const r of [...qui, ...red]) expect(itens.has(r.slug), r.slug).toBe(true);
+    for (const p of PACOTES_PB4.filter((x) => /quimica|redacao/.test(x.slug)))
+      expect(itens.has(p.slug), p.slug).toBe(true);
+  });
+
+  it('toda objetiva nova tem 5 alternativas distintas e nenhuma alternativa dentro do enunciado', () => {
+    for (const p of PACOTES_PB4.filter((x) => /quimica|redacao/.test(x.slug)))
+      for (const q of p.questoes) {
+        if (q.k !== 'o') continue;
+        const todas = [q.ok, ...q.wrong];
+        expect(todas, p.slug).toHaveLength(5);
+        expect(new Set(todas).size, `${p.slug}: ${q.s.slice(0, 40)}`).toBe(5);
+        expect(q.s).not.toMatch(/^[A-E]\) /m);
+      }
+  });
+});

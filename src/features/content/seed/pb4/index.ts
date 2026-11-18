@@ -1,6 +1,10 @@
 import { dq, o, type PacoteG2 } from '../grande2/types';
 import { resumo, type ResumoG3, type TrilhaG3 } from '../grande3/types';
 import { SIMULADO_PROVA_PORTUGUES } from './prova-anglo';
+import { PACOTES_QUIMICA_PB4 } from './quimica-simulados';
+import { RESUMOS_QUIMICA_PB4 } from './quimica-resumos';
+import { PACOTES_REDACAO_PB4 } from './redacao-simulados';
+import { RESUMOS_REDACAO_PB4 } from './redacao-resumos';
 import { PACOTES_PB4_EXTRAS, PACOTES_TCS_ONLINE } from './tcs-online';
 
 /**
@@ -494,11 +498,15 @@ export const PACOTES_PB4: PacoteG2[] = [
   ...PACOTES_TCS_ONLINE,
   ...PACOTES_PB4_EXTRAS,
   SIMULADO_PROVA_PORTUGUES,
+  ...PACOTES_QUIMICA_PB4,
+  ...PACOTES_REDACAO_PB4,
 ];
 
 /* ------------------------------------------------------------------ resumos */
 
 export const RESUMOS_PB4: ResumoG3[] = [
+  ...RESUMOS_QUIMICA_PB4,
+  ...RESUMOS_REDACAO_PB4,
   resumo(
     MATERIA,
     SERIE,
@@ -722,6 +730,54 @@ export const TRILHA_PB4: TrilhaG3 = {
     {
       titulo: 'Revisão para a prova (P7 e P8)',
       licoes: [L('Simulado: Português para a prova', 45, 'pb4-prova-portugues-objetivo')],
+    },
+    {
+      titulo: 'Química: resumos completos (módulos 8 e 9)',
+      licoes: [
+        L('Resumo: Mapa conceitual das funções inorgânicas', 12, 'g3-pb4-qui-mapa'),
+        L('Resumo: Pré-requisitos: íons, ligações e fórmulas', 12, 'g3-pb4-qui-base'),
+        L('Resumo: Ácidos (completo)', 12, 'g3-pb4-qui-acidos'),
+        L('Resumo: Nomenclatura de ácidos e ânions', 12, 'g3-pb4-qui-nomenclatura-acidos'),
+        L('Resumo: Bases (completo)', 12, 'g3-pb4-qui-bases'),
+        L('Resumo: Sais e neutralização (completo)', 12, 'g3-pb4-qui-sais'),
+        L('Resumo: Óxidos (completo)', 12, 'g3-pb4-qui-oxidos'),
+        L('Resumo: pH, indicadores e condutividade', 12, 'g3-pb4-qui-ph'),
+        L('Resumo: Química do cotidiano e meio ambiente', 12, 'g3-pb4-qui-cotidiano'),
+        L('Resumo: Ficha relâmpago da véspera', 12, 'g3-pb4-qui-ficha'),
+        L('Resumo: Como responder à prova da Prof.ª Daiane', 12, 'g3-pb4-qui-como-responder'),
+      ],
+    },
+    {
+      titulo: 'Química: simulados e super simulado',
+      licoes: [
+        L('Simulado 1: ácidos e nomenclatura (objetivo)', 40, 'pb4-quimica-s1-acidos'),
+        L('Simulado 2: bases e sais (objetivo)', 40, 'pb4-quimica-s2-bases-sais'),
+        L('Simulado 3: óxidos (objetivo)', 35, 'pb4-quimica-s3-oxidos'),
+        L('Simulado 4: ácidos, bases e neutralização (70/30)', 45, 'pb4-quimica-s4-misto'),
+        L('Simulado 5: sais e óxidos (70/30)', 60, 'pb4-quimica-s5-misto'),
+        L('Simulado 6: só dissertativo', 70, 'pb4-quimica-s6-dissertativo'),
+        L('Super simulado: prova PB4 de Química', 90, 'pb4-quimica-super'),
+      ],
+    },
+    {
+      titulo: 'Produção de Texto: resumos e repertório',
+      licoes: [
+        L('Resumo: A estrutura da redação (4 parágrafos)', 12, 'g3-pb4-red-estrutura'),
+        L('Resumo: As 5 competências explicadas', 12, 'g3-pb4-red-competencias'),
+        L('Resumo: Conectivos e coesão', 12, 'g3-pb4-red-coesao'),
+        L('Resumo: Banco de repertórios sobre cancelamento', 12, 'g3-pb4-red-repertorio'),
+        L('Resumo: O tema: cancelamento nas redes sociais', 12, 'g3-pb4-red-tema'),
+        L('Resumo: Três modelos de redação comentados', 12, 'g3-pb4-red-modelos'),
+        L('Resumo: Checklist e erros comuns', 12, 'g3-pb4-red-checklist'),
+      ],
+    },
+    {
+      titulo: 'Produção de Texto: simulados',
+      licoes: [
+        L('Simulado: teoria da redação Enem', 45, 'pb4-redacao-s1-teoria'),
+        L('Simulado: treino por parágrafo', 60, 'pb4-redacao-s2-paragrafos'),
+        L('Simulado: redação completa sobre cancelamento', 50, 'pb4-redacao-s3-completa'),
+      ],
     },
   ],
 };

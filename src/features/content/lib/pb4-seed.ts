@@ -113,6 +113,7 @@ export function buildPb4Rows(schoolId: string) {
     pacotes: PACOTES_PB4,
     trilha: TRILHA_PB4,
     sortOrder: 50,
+    chainPerSection: true,
   });
 }
 
