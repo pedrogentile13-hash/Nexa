@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { o, type PacoteG2 } from '../seed/grande2/types';
 import { problemasDeTamanho } from './balanco-alternativas';
+import { PACOTES_PA8 } from '../seed/pa8';
 import { PACOTES_QUIMICA_PB4 } from '../seed/pb4/quimica-simulados';
 import { PACOTES_REDACAO_PB4 } from '../seed/pb4/redacao-simulados';
 
@@ -48,8 +49,10 @@ describe('regra do tamanho das alternativas (a certa não pode aparecer pelo tam
     expect(problemasDeTamanho(p)).toEqual([]);
   });
 
-  it('os simulados de Química e de Produção de Texto do PB4 respeitam a regra', () => {
-    const todos = [...PACOTES_QUIMICA_PB4, ...PACOTES_REDACAO_PB4].flatMap(problemasDeTamanho);
+  it('os simulados do PA8 e os de Química e Produção de Texto do PB4 respeitam a regra', () => {
+    const todos = [...PACOTES_PA8, ...PACOTES_QUIMICA_PB4, ...PACOTES_REDACAO_PB4].flatMap(
+      problemasDeTamanho,
+    );
     expect(todos).toEqual([]);
   });
 });
