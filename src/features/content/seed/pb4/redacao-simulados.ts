@@ -5,7 +5,7 @@ import { dq, o, type PacoteG2, type QuestaoG2 } from '../grande2/types';
  * 4 parágrafos) com o tema "cancelamento nas redes sociais". Mesma regra de tamanho das alternativas.
  */
 
-const MATERIA = 'lingua-portuguesa';
+const MATERIA = 'producao-de-texto';
 const SERIE = '9º ano' as const;
 
 /* ============================================================ SIMULADO · TEORIA (15 objetivas) */

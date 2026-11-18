@@ -5,7 +5,7 @@ import { resumo, type ResumoG3 } from '../grande3/types';
  * "cancelamento nas redes sociais". Resumos de estudo do Nexa (os modelos são originais).
  */
 const S = '9º ano' as const;
-const PT = 'lingua-portuguesa';
+const PT = 'producao-de-texto';
 
 export const RESUMOS_REDACAO_PB4: ResumoG3[] = [
   resumo(
