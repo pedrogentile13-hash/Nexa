@@ -311,3 +311,56 @@ describe('PB4: Química e Produção de Texto', () => {
       }
   });
 });
+
+describe('PB4: Matemática', () => {
+  const por = (slug: string) => PACOTES_PB4.find((p) => p.slug === slug)!;
+  const conta = (slug: string) => {
+    const qs = por(slug).questoes;
+    return {
+      obj: qs.filter((q) => q.k === 'o').length,
+      disc: qs.filter((q) => q.k === 'd').length,
+    };
+  };
+  const matematica = () => PACOTES_PB4.filter((x) => x.slug.startsWith('pb4-mat-'));
+
+  it('5 simulados objetivos, 1 misto 70/30, 1 só dissertativo e o super simulado', () => {
+    expect(conta('pb4-mat-s1-volume')).toEqual({ obj: 10, disc: 0 });
+    expect(conta('pb4-mat-s2-trigonometria')).toEqual({ obj: 10, disc: 0 });
+    expect(conta('pb4-mat-s3-equacoes')).toEqual({ obj: 14, disc: 0 });
+    expect(conta('pb4-mat-s4-fracoes')).toEqual({ obj: 10, disc: 0 });
+    expect(conta('pb4-mat-s5-funcoes')).toEqual({ obj: 10, disc: 0 });
+    expect(conta('pb4-mat-s6-misto')).toEqual({ obj: 7, disc: 3 });
+    expect(conta('pb4-mat-s7-dissertativo')).toEqual({ obj: 0, disc: 8 });
+    expect(conta('pb4-mat-super')).toEqual({ obj: 0, disc: 10 });
+    expect(matematica()).toHaveLength(8);
+  });
+
+  it('há 10 resumos de Matemática, todos na trilha junto com os simulados', () => {
+    const mat = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-mat-'));
+    expect(mat).toHaveLength(10);
+    const itens = new Set(TRILHA_PB4.secoes.flatMap((s) => s.licoes.flatMap((l) => l.itens)));
+    for (const r of mat) expect(itens.has(r.slug), r.slug).toBe(true);
+    for (const p of matematica()) expect(itens.has(p.slug), p.slug).toBe(true);
+  });
+
+  it('toda objetiva tem 5 alternativas distintas, explicação e nenhuma alternativa no enunciado', () => {
+    for (const p of matematica())
+      for (const q of p.questoes) {
+        if (q.k !== 'o') continue;
+        const todas = [q.ok, ...q.wrong];
+        expect(todas, p.slug).toHaveLength(5);
+        expect(new Set(todas).size, `${p.slug}: ${q.s.slice(0, 40)}`).toBe(5);
+        expect(q.e.length).toBeGreaterThan(20);
+        expect(q.s).not.toMatch(/^[A-E]\) /m);
+      }
+  });
+
+  it('toda dissertativa tem resposta esperada e pelo menos 3 critérios', () => {
+    for (const p of matematica())
+      for (const q of p.questoes) {
+        if (q.k !== 'd') continue;
+        expect(q.ref.length, p.slug).toBeGreaterThan(30);
+        expect(q.crit.split('\n').length, p.slug).toBeGreaterThanOrEqual(3);
+      }
+  });
+});

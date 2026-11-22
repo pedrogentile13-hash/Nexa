@@ -42,7 +42,7 @@ export const COLEGIOS: ColegioConfig[] = [
         code: 'PB4',
         year: 2026,
         title: 'PB4',
-        subtitle: 'Português, Química e Produção de Texto · 4º bimestre',
+        subtitle: 'Português, Matemática, Química e Produção de Texto · 4º bimestre',
         tag: 'pb4-portugues',
         from: '#0B1B3F',
         to: '#1E4FA0',

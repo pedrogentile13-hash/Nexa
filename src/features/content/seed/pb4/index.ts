@@ -1,6 +1,8 @@
 import { dq, o, type PacoteG2 } from '../grande2/types';
 import { resumo, type ResumoG3, type TrilhaG3 } from '../grande3/types';
 import { SIMULADO_PROVA_PORTUGUES } from './prova-anglo';
+import { PACOTES_MATEMATICA_PB4 } from './matematica-simulados';
+import { RESUMOS_MATEMATICA_PB4 } from './matematica-resumos';
 import { PACOTES_QUIMICA_PB4 } from './quimica-simulados';
 import { RESUMOS_QUIMICA_PB4 } from './quimica-resumos';
 import { PACOTES_REDACAO_PB4 } from './redacao-simulados';
@@ -500,6 +502,7 @@ export const PACOTES_PB4: PacoteG2[] = [
   SIMULADO_PROVA_PORTUGUES,
   ...PACOTES_QUIMICA_PB4,
   ...PACOTES_REDACAO_PB4,
+  ...PACOTES_MATEMATICA_PB4,
 ];
 
 /* ------------------------------------------------------------------ resumos */
@@ -507,6 +510,7 @@ export const PACOTES_PB4: PacoteG2[] = [
 export const RESUMOS_PB4: ResumoG3[] = [
   ...RESUMOS_QUIMICA_PB4,
   ...RESUMOS_REDACAO_PB4,
+  ...RESUMOS_MATEMATICA_PB4,
   resumo(
     MATERIA,
     SERIE,
@@ -777,6 +781,34 @@ export const TRILHA_PB4: TrilhaG3 = {
         L('Simulado: teoria da redação Enem', 45, 'pb4-redacao-s1-teoria'),
         L('Simulado: treino por parágrafo', 60, 'pb4-redacao-s2-paragrafos'),
         L('Simulado: redação completa sobre cancelamento', 50, 'pb4-redacao-s3-completa'),
+      ],
+    },
+    {
+      titulo: 'Matemática: resumos completos',
+      licoes: [
+        L('Resumo: O que cai e como estudar', 10, 'g3-pb4-mat-roteiro'),
+        L('Resumo: Volume de prisma e de cilindro', 12, 'g3-pb4-mat-volume'),
+        L('Resumo: Trigonometria no triângulo retângulo', 12, 'g3-pb4-mat-trigonometria'),
+        L('Resumo: Equações irracionais', 12, 'g3-pb4-mat-irracional'),
+        L('Resumo: Equações biquadradas', 12, 'g3-pb4-mat-biquadrada'),
+        L('Resumo: Equações literais', 12, 'g3-pb4-mat-literal'),
+        L('Resumo: Redução a uma equação do 2º grau', 12, 'g3-pb4-mat-reducao'),
+        L('Resumo: Frações algébricas', 12, 'g3-pb4-mat-fracoes'),
+        L('Resumo: Funções afim e quadrática', 12, 'g3-pb4-mat-funcoes'),
+        L('Resumo: Ficha relâmpago da véspera', 10, 'g3-pb4-mat-ficha'),
+      ],
+    },
+    {
+      titulo: 'Matemática: simulados e super simulado',
+      licoes: [
+        L('Simulado 1: volume de prisma e cilindro', 30, 'pb4-mat-s1-volume'),
+        L('Simulado 2: trigonometria', 30, 'pb4-mat-s2-trigonometria'),
+        L('Simulado 3: equações (VA 2 a 5)', 45, 'pb4-mat-s3-equacoes'),
+        L('Simulado 4: frações algébricas', 35, 'pb4-mat-s4-fracoes'),
+        L('Simulado 5: funções', 30, 'pb4-mat-s5-funcoes'),
+        L('Simulado 6: misto (70/30)', 45, 'pb4-mat-s6-misto'),
+        L('Simulado 7: só dissertativo', 80, 'pb4-mat-s7-dissertativo'),
+        L('Super simulado: prova PB4 de Matemática', 90, 'pb4-mat-super'),
       ],
     },
   ],
