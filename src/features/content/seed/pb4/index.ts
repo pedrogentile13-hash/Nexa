@@ -813,7 +813,10 @@ export const TRILHA_PB4: TrilhaG3 = {
     },
     {
       titulo: 'Matemática: lista da Andréia',
-      licoes: [L('Lista da Andréia (vale nota), resolvida', 40, 'g3-pb4-mat-lista')],
+      licoes: [
+        L('Simulado: Lista da Andréia (vale nota)', 60, 'pb4-mat-lista'),
+        L('Resumo: Lista da Andréia resolvida', 40, 'g3-pb4-mat-lista'),
+      ],
     },
   ],
 };

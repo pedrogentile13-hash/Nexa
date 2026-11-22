@@ -708,6 +708,105 @@ const SUPER: QuestaoG2[] = [
   ),
 ];
 
+/* ============================================================ LISTA DA ANDRÉIA (10 dissertativas, fiel ao PDF) */
+
+const LISTA: QuestaoG2[] = [
+  dq(
+    'medio',
+    'Um bombom é vendido nas embalagens A e B, de volumes iguais. A é um paralelepípedo reto-retângulo de altura 15 cm e base quadrada de área 144 cm² (lado x). B é um cilindro circular reto de diâmetro x e altura h. Determine x, o volume de A e a altura h de B.',
+    'x² = 144, então x = 12 cm. V(A) = 144 · 15 = 2 160 cm³. Raio de B = 6: 36π · h = 2 160, logo h = 60/π cm (≈ 19,1 cm).',
+    [
+      'Acha x = 12 cm',
+      'Calcula V(A) = 2 160 cm³',
+      'Usa o raio 6 na área do círculo',
+      'Iguala os volumes e chega a h = 60/π',
+    ],
+  ),
+  dq(
+    'medio',
+    'Em um triângulo retângulo de hipotenusa 8 e ângulo agudo de 40°, calcule o cateto x (adjacente) e o cateto y (oposto). Use cos 40° ≈ 0,77 e sen 40° ≈ 0,64 (aproximação até centésimos).',
+    'x = 8 · cos 40° = 8 · 0,77 = 6,16 ≈ 6,2. y = 8 · sen 40° = 8 · 0,64 = 5,12 ≈ 5,1.',
+    [
+      'Usa cos = adjacente/hipotenusa',
+      'Usa sen = oposto/hipotenusa',
+      'Chega a x ≈ 6,2',
+      'Chega a y ≈ 5,1',
+    ],
+  ),
+  dq(
+    'facil',
+    'Complete a tabela com sen, cos e tg dos ângulos de 30°, 45° e 60°.',
+    '30°: sen 1/2, cos √3/2, tg √3/3. 45°: sen √2/2, cos √2/2, tg 1. 60°: sen √3/2, cos 1/2, tg √3.',
+    ['Acerta os 3 senos', 'Acerta os 3 cossenos', 'Acerta as 3 tangentes (tg = sen/cos)'],
+  ),
+  dq(
+    'medio',
+    'Resolva as equações irracionais em ℝ: a) √(5x + 1) + 1 = x; b) √(y + 10) − √(2y − 5) = 0; c) √(4a + 5) = a.',
+    'a) √(5x+1) = x − 1, então x² − 7x = 0, x = 0 ou 7; só x = 7 serve. S = {7}. b) y + 10 = 2y − 5, y = 15 (confere). S = {15}. c) a² − 4a − 5 = 0, a = 5 ou −1; só a = 5 serve. S = {5}.',
+    [
+      'Isola a raiz e eleva ao quadrado',
+      'Resolve a equação do 2º grau de a) e c)',
+      'Confere as raízes e descarta x = 0 (a) e a = −1 (c)',
+      'Respostas finais S = {7}, {15} e {5}',
+    ],
+  ),
+  dq(
+    'medio',
+    'Simplificando a fração algébrica (x² − 9y²) / (ax − 3ay + bx − 3by), obtém-se o quê?',
+    'Numerador: (x − 3y)(x + 3y). Denominador: a(x − 3y) + b(x − 3y) = (x − 3y)(a + b). Resultado: (x + 3y)/(a + b), com x ≠ 3y e a ≠ −b.',
+    [
+      'Fatora o numerador como diferença de quadrados',
+      'Fatora o denominador por agrupamento',
+      'Corta o fator comum (x − 3y)',
+      'Resposta (x + 3y)/(a + b)',
+    ],
+  ),
+  dq(
+    'facil',
+    'Uma torre vertical de 12 m é vista sob um ângulo de 30° por uma pessoa, no mesmo plano horizontal da base. Determine a distância x da pessoa até a base. Dado: tg 30° = 0,58.',
+    'tg 30° = 12/x, então 0,58 · x = 12 e x = 12/0,58 ≈ 20,7 m.',
+    ['Escreve tg 30° = 12/x', 'Isola x corretamente', 'Chega a x ≈ 20,7 m'],
+  ),
+  dq(
+    'facil',
+    'Uma pessoa vê o topo de um prédio sob um ângulo de 30°, a 60 m da base dele (terreno plano). Qual é a altura do prédio?',
+    'tg 30° = h/60, com tg 30° = √3/3. h = 60 · √3/3 = 20√3 m ≈ 34,6 m (√3 ≈ 1,73).',
+    ['Usa a tangente', 'Usa tg 30° = √3/3', 'Chega a 20√3 m ≈ 34,6 m'],
+  ),
+  dq(
+    'dificil',
+    'Resolva as equações: a) 2x² + 5 = (x² + 1)²; b) x²(x² − 2x + 1) = −x(2x² − 2x); c) 16x⁴ + 9 = 40x²; d) m⁴ − 3m² − 4 = 0; e) y⁴ − 20y² + 36 = 0; f) √(a² + 3) = 2a².',
+    'a) x⁴ = 4, S = {−√2, √2}. b) x⁴ − x² = 0, S = {−1, 0, 1}. c) t = x²: 16t² − 40t + 9 = 0, t = 9/4 ou 1/4, S = {±3/2, ±1/2}. d) t² − 3t − 4 = 0, t = 4 (descarta −1), S = {−2, 2}. e) t² − 20t + 36 = 0, t = 18 ou 2, S = {±3√2, ±√2}. f) 4a⁴ − a² − 3 = 0, a² = 1, S = {−1, 1} (confere).',
+    [
+      'Desenvolve (x² + 1)² e simplifica em a) e b)',
+      'Usa a troca t = x² (ou m², y², a²) e resolve o 2º grau',
+      'Descarta t negativo e volta com ±√t',
+      'Confere as raízes da equação irracional f)',
+    ],
+  ),
+  dq(
+    'medio',
+    'Simplifique a expressão (ax² − ay²) / (x² − 2xy + y²).',
+    'Numerador: a(x − y)(x + y). Denominador: (x − y)². Resultado: a(x + y)/(x − y), com x ≠ y.',
+    [
+      'Coloca a em evidência e fatora x² − y²',
+      'Reconhece x² − 2xy + y² = (x − y)²',
+      'Corta (x − y) e escreve a(x + y)/(x − y)',
+    ],
+  ),
+  dq(
+    'dificil',
+    'Calcule a soma (−x² + 4x − 1)/(x² − 1) + (x − 2)/(x + 1).',
+    'x² − 1 = (x − 1)(x + 1). Segunda fração: (x − 2)(x − 1)/(x² − 1) = (x² − 3x + 2)/(x² − 1). Soma dos numeradores: x + 1. Resultado: (x + 1)/((x − 1)(x + 1)) = 1/(x − 1).',
+    [
+      'Usa x² − 1 como denominador comum',
+      'Multiplica a 2ª fração por (x − 1)',
+      'Soma os numeradores e obtém x + 1',
+      'Simplifica para 1/(x − 1)',
+    ],
+  ),
+];
+
 const pacote = (
   slug: string,
   title: string,
@@ -729,6 +828,14 @@ const pacote = (
 });
 
 export const PACOTES_MATEMATICA_PB4: PacoteG2[] = [
+  pacote(
+    'pb4-mat-lista',
+    'Lista da Andréia · Matemática PB4 (vale nota)',
+    'Os 10 exercícios da "Listinha linda para treinar e vale nota"',
+    'A lista oficial da Prof.ª Andréia, exatamente como no PDF. Resolva sem calculadora e mostre as contas. A IA corrige com o gabarito e os critérios.',
+    60,
+    LISTA,
+  ),
   pacote(
     'pb4-mat-s1-volume',
     'Simulado 1 · Volume de prisma e cilindro (PB4 Matemática)',

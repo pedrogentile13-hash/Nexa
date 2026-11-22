@@ -332,7 +332,8 @@ describe('PB4: Matemática', () => {
     expect(conta('pb4-mat-s6-misto')).toEqual({ obj: 7, disc: 3 });
     expect(conta('pb4-mat-s7-dissertativo')).toEqual({ obj: 0, disc: 8 });
     expect(conta('pb4-mat-super')).toEqual({ obj: 0, disc: 10 });
-    expect(matematica()).toHaveLength(8);
+    expect(conta('pb4-mat-lista')).toEqual({ obj: 0, disc: 10 });
+    expect(matematica()).toHaveLength(9);
   });
 
   it('há 11 resumos de Matemática (10 + a lista da Andréia), todos na trilha junto com os simulados', () => {
