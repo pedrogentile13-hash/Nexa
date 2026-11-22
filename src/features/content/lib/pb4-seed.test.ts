@@ -335,9 +335,10 @@ describe('PB4: Matemática', () => {
     expect(matematica()).toHaveLength(8);
   });
 
-  it('há 10 resumos de Matemática, todos na trilha junto com os simulados', () => {
+  it('há 11 resumos de Matemática (10 + a lista da Andréia), todos na trilha junto com os simulados', () => {
     const mat = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-mat-'));
-    expect(mat).toHaveLength(10);
+    expect(mat).toHaveLength(11);
+    expect(mat.some((r) => r.slug === 'g3-pb4-mat-lista')).toBe(true);
     const itens = new Set(TRILHA_PB4.secoes.flatMap((s) => s.licoes.flatMap((l) => l.itens)));
     for (const r of mat) expect(itens.has(r.slug), r.slug).toBe(true);
     for (const p of matematica()) expect(itens.has(p.slug), p.slug).toBe(true);

@@ -358,4 +358,106 @@ O roteiro manda estudar "toda a parte de função do caderno" e os exercícios r
 2. **Verifique** raízes de equação irracional.
 3. Escreva a **resposta final** destacada (caneta ou marca-texto).`,
   ),
+  resumo(
+    MA,
+    S,
+    'pb4-mat-lista',
+    'Matemática PB4 · Lista da Andréia (vale nota), resolvida',
+    'Os 10 exercícios da "Listinha linda para treinar e vale nota", com a resolução passo a passo',
+    `## Como usar
+Esta é a **lista oficial da Prof.ª Andréia** (9º ano, conteúdo PB do 4º bimestre). Ela **vale nota**. **Tente cada exercício sozinho, sem calculadora**, e só depois confira a resolução aqui. Na prova, mostre as contas.
+
+## 1) Bombom: volume do paralelepípedo e do cilindro
+Embalagem A: base **144 cm²** e altura **15 cm**. Embalagem B: cilindro com diâmetro **x** (o mesmo x do lado da base de A). Os volumes são **iguais**.
+- Base quadrada: x² = 144 → **x = 12 cm**.
+- V(A) = 144 · 15 = **2160 cm³**.
+- Cilindro: raio = 12 / 2 = 6 → Aᵦ = π · 6² = 36π.
+- V(B) = 36π · h = 2160 → **h = 60/π cm** (≈ 19,1 cm com π ≈ 3,14).
+
+## 2) Triângulo com 40°: calcule x e y
+Hipotenusa = **8**. O lado **x** é o cateto **adjacente** a 40° e **y** é o **oposto**.
+- Tabela: **cos 40° ≈ 0,77** e **sen 40° ≈ 0,64**.
+- cos 40° = x / 8 → x = 8 · 0,77 = 6,16 → **x ≈ 6,2**.
+- sen 40° = y / 8 → y = 8 · 0,64 = 5,12 → **y ≈ 5,1**.
+
+## 3) Tabela dos ângulos notáveis (decore!)
+| | 30° | 45° | 60° |
+|---|---|---|---|
+| **sen** | 1/2 | √2/2 | √3/2 |
+| **cos** | √3/2 | √2/2 | 1/2 |
+| **tg** | √3/3 | 1 | √3 |
+
+## 4) Equações irracionais (U = ℝ)
+**a) √(5x + 1) + 1 = x**
+- Isole a raiz: √(5x + 1) = x − 1.
+- Eleve ao quadrado: 5x + 1 = x² − 2x + 1 → x² − 7x = 0 → x = 0 ou x = 7.
+- **Confira:** x = 0 → √1 + 1 = 2 ≠ 0 ✗. x = 7 → √36 + 1 = 7 ✓.
+- **S = {7}**.
+
+**b) √(y + 10) − √(2y − 5) = 0**
+- Passe uma raiz para o outro lado: √(y + 10) = √(2y − 5).
+- Eleve ao quadrado: y + 10 = 2y − 5 → **y = 15**.
+- **Confira:** √25 − √25 = 0 ✓. **S = {15}**.
+
+**c) √(4a + 5) = a**
+- Eleve ao quadrado: 4a + 5 = a² → a² − 4a − 5 = 0 → a = 5 ou a = −1.
+- **Confira:** a = 5 → √25 = 5 ✓. a = −1 → √1 = 1 ≠ −1 ✗.
+- **S = {5}**.
+
+## 5) Fração algébrica
+(x² − 9y²) / (ax − 3ay + bx − 3by)
+- Numerador (diferença de quadrados): (x − 3y)(x + 3y).
+- Denominador (agrupamento): a(x − 3y) + b(x − 3y) = (x − 3y)(a + b).
+- Corte o fator comum (x − 3y): **(x + 3y) / (a + b)**, com x ≠ 3y e a ≠ −b.
+
+## 6) Torre de 12 m vista sob 30°
+tg 30° = cateto oposto / cateto adjacente = 12 / x, com tg 30° = 0,58.
+- 0,58 · x = 12 → x = 12 / 0,58 → **x ≈ 20,7 m**.
+
+## 7) Altura do prédio (30° e 60 m de distância)
+tg 30° = h / 60, com tg 30° = √3/3 (tabela do exercício 3).
+- h = 60 · √3/3 = **20√3 m**, ou **≈ 34,6 m** (com √3 ≈ 1,73).
+
+## 8) Equações (biquadradas e redutíveis)
+**a) 2x² + 5 = (x² + 1)²**
+- (x² + 1)² = x⁴ + 2x² + 1 → x⁴ = 4 → x² = 2 (x² = −2 não existe).
+- **S = {−√2, √2}**.
+
+**b) x²(x² − 2x + 1) = −x(2x² − 2x)**
+- x⁴ − 2x³ + x² = −2x³ + 2x² → x⁴ − x² = 0 → x²(x² − 1) = 0.
+- **S = {−1, 0, 1}**.
+
+**c) 16x⁴ + 9 = 40x²**
+- x² = t: 16t² − 40t + 9 = 0 → Δ = 1600 − 576 = 1024 → t = (40 ± 32) / 32 → t = 9/4 ou t = 1/4.
+- **S = {−3/2, −1/2, 1/2, 3/2}**.
+
+**d) m⁴ − 3m² − 4 = 0**
+- m² = t: t² − 3t − 4 = 0 → t = 4 ou t = −1 (descarte, negativo).
+- m² = 4 → **S = {−2, 2}**.
+
+**e) y⁴ − 20y² + 36 = 0**
+- y² = t: t² − 20t + 36 = 0 → Δ = 256 → t = 18 ou t = 2.
+- **S = {−3√2, −√2, √2, 3√2}**, pois √18 = 3√2.
+
+**f) √(a² + 3) = 2a²**
+- Eleve ao quadrado: a² + 3 = 4a⁴ → 4a⁴ − a² − 3 = 0 → a² = t: 4t² − t − 3 = 0.
+- Δ = 49 → t = 1 ou t = −3/4 (descarte). Então a² = 1 → a = ±1.
+- **Confira:** a = 1 e a = −1 dão √4 = 2 = 2 · 1 ✓. **S = {−1, 1}**.
+
+## 9) Simplificação
+(ax² − ay²) / (x² − 2xy + y²)
+- Numerador: a(x² − y²) = a(x − y)(x + y). Denominador: (x − y)² (quadrado da diferença).
+- Corte um fator (x − y): **a(x + y) / (x − y)**, com x ≠ y.
+- *(No PDF o denominador aparece como "x − 2xy + y²"; é x² − 2xy + y², o quadrado da diferença.)*
+
+## 10) Soma de frações algébricas
+(−x² + 4x − 1) / (x² − 1) + (x − 2) / (x + 1)
+- x² − 1 = (x − 1)(x + 1), que será o denominador comum.
+- A 2ª fração, multiplicada em cima e embaixo por (x − 1): (x − 2)(x − 1) / (x² − 1) = (x² − 3x + 2) / (x² − 1).
+- Some os numeradores: −x² + 4x − 1 + x² − 3x + 2 = **x + 1**.
+- Resultado: (x + 1) / ((x − 1)(x + 1)) = **1 / (x − 1)**, com x ≠ 1 e x ≠ −1.
+
+## Dica final
+Depois de resolver, faça o **Simulado 1** (volume), o **2** (trigonometria), o **3** (equações) e o **4** (frações): eles treinam as mesmas ideias com números diferentes.`,
+  ),
 ];

@@ -811,5 +811,9 @@ export const TRILHA_PB4: TrilhaG3 = {
         L('Super simulado: prova PB4 de Matemática', 90, 'pb4-mat-super'),
       ],
     },
+    {
+      titulo: 'Matemática: lista da Andréia',
+      licoes: [L('Lista da Andréia (vale nota), resolvida', 40, 'g3-pb4-mat-lista')],
+    },
   ],
 };
