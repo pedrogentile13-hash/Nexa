@@ -3,6 +3,8 @@ import { resumo, type ResumoG3, type TrilhaG3 } from '../grande3/types';
 import { SIMULADO_PROVA_PORTUGUES } from './prova-anglo';
 import { PACOTES_MATEMATICA_PB4 } from './matematica-simulados';
 import { RESUMOS_MATEMATICA_PB4 } from './matematica-resumos';
+import { PACOTES_GEOGRAFIA_PB4 } from './geografia-simulados';
+import { RESUMOS_GEOGRAFIA_PB4 } from './geografia-resumos';
 import { PACOTES_QUIMICA_PB4 } from './quimica-simulados';
 import { RESUMOS_QUIMICA_PB4 } from './quimica-resumos';
 import { PACOTES_REDACAO_PB4 } from './redacao-simulados';
@@ -503,6 +505,7 @@ export const PACOTES_PB4: PacoteG2[] = [
   ...PACOTES_QUIMICA_PB4,
   ...PACOTES_REDACAO_PB4,
   ...PACOTES_MATEMATICA_PB4,
+  ...PACOTES_GEOGRAFIA_PB4,
 ];
 
 /* ------------------------------------------------------------------ resumos */
@@ -511,6 +514,7 @@ export const RESUMOS_PB4: ResumoG3[] = [
   ...RESUMOS_QUIMICA_PB4,
   ...RESUMOS_REDACAO_PB4,
   ...RESUMOS_MATEMATICA_PB4,
+  ...RESUMOS_GEOGRAFIA_PB4,
   resumo(
     MATERIA,
     SERIE,
@@ -816,6 +820,35 @@ export const TRILHA_PB4: TrilhaG3 = {
       licoes: [
         L('Simulado: Lista da Andréia (vale nota)', 60, 'pb4-mat-lista'),
         L('Resumo: Lista da Andréia resolvida', 40, 'g3-pb4-mat-lista'),
+      ],
+    },
+    {
+      titulo: 'Geografia: resumos completos',
+      licoes: [
+        L('Resumo: O que cai e como estudar', 10, 'g3-pb4-geo-roteiro'),
+        L('Resumo: Como responder à prova dissertativa', 12, 'g3-pb4-geo-como-responder'),
+        L('Resumo: Japão, território e natureza', 12, 'g3-pb4-geo-japao-territorio'),
+        L('Resumo: Japão, da Era Meiji ao milagre', 14, 'g3-pb4-geo-japao-historia'),
+        L('Resumo: Japão, população e envelhecimento', 12, 'g3-pb4-geo-japao-demografia'),
+        L('Resumo: Japão, economia e geopolítica', 12, 'g3-pb4-geo-japao-economia'),
+        L('Resumo: China e Japão na VA', 12, 'g3-pb4-geo-china-va'),
+        L('Resumo: Oceania, natureza e povos', 12, 'g3-pb4-geo-oceania-natureza'),
+        L('Resumo: Oceania, economia e geopolítica', 12, 'g3-pb4-geo-oceania-economia'),
+        L('Resumo: ONU, origem e Conselho de Segurança', 12, 'g3-pb4-geo-onu-origem'),
+        L('Resumo: ONU, órgãos e agências', 12, 'g3-pb4-geo-onu-orgaos'),
+        L('Resumo: ONU, missões de paz e Agenda 2030', 12, 'g3-pb4-geo-onu-acoes'),
+        L('Resumo: Ficha relâmpago da véspera', 10, 'g3-pb4-geo-ficha'),
+      ],
+    },
+    {
+      titulo: 'Geografia: simulados e prova',
+      licoes: [
+        L('Simulado 1: Japão, território e história', 25, 'pb4-geo-s1-japao-territorio-historia'),
+        L('Simulado 2: Japão, população e economia', 25, 'pb4-geo-s2-japao-populacao-economia'),
+        L('Simulado 3: Oceania', 25, 'pb4-geo-s3-oceania'),
+        L('Simulado 4: ONU', 30, 'pb4-geo-s4-onu'),
+        L('Simulado 5: misto', 35, 'pb4-geo-s5-misto'),
+        L('Simulação real: prova PB4 de Geografia', 90, 'pb4-geo-prova'),
       ],
     },
   ],

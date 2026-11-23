@@ -366,3 +366,53 @@ describe('PB4: Matemática', () => {
       }
   });
 });
+
+describe('PB4: Geografia', () => {
+  const por = (slug: string) => PACOTES_PB4.find((p) => p.slug === slug)!;
+  const conta = (slug: string) => {
+    const qs = por(slug).questoes;
+    return {
+      obj: qs.filter((q) => q.k === 'o').length,
+      disc: qs.filter((q) => q.k === 'd').length,
+    };
+  };
+  const geografia = () => PACOTES_PB4.filter((x) => x.slug.startsWith('pb4-geo-'));
+
+  it('5 simulados objetivos e a simulação real da prova, dissertativa', () => {
+    expect(conta('pb4-geo-s1-japao-territorio-historia')).toEqual({ obj: 12, disc: 0 });
+    expect(conta('pb4-geo-s2-japao-populacao-economia')).toEqual({ obj: 12, disc: 0 });
+    expect(conta('pb4-geo-s3-oceania')).toEqual({ obj: 12, disc: 0 });
+    expect(conta('pb4-geo-s4-onu')).toEqual({ obj: 14, disc: 0 });
+    expect(conta('pb4-geo-s5-misto')).toEqual({ obj: 15, disc: 0 });
+    expect(conta('pb4-geo-prova')).toEqual({ obj: 0, disc: 5 });
+    expect(geografia()).toHaveLength(6);
+  });
+
+  it('há 13 resumos de Geografia, todos na trilha junto com os simulados', () => {
+    const geo = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-geo-'));
+    expect(geo).toHaveLength(13);
+    const itens = new Set(TRILHA_PB4.secoes.flatMap((s) => s.licoes.flatMap((l) => l.itens)));
+    for (const r of geo) expect(itens.has(r.slug), r.slug).toBe(true);
+    for (const p of geografia()) expect(itens.has(p.slug), p.slug).toBe(true);
+  });
+
+  it('toda objetiva tem 5 alternativas distintas, explicação e nenhuma alternativa no enunciado', () => {
+    for (const p of geografia())
+      for (const q of p.questoes) {
+        if (q.k !== 'o') continue;
+        const todas = [q.ok, ...q.wrong];
+        expect(todas, p.slug).toHaveLength(5);
+        expect(new Set(todas).size, `${p.slug}: ${q.s.slice(0, 40)}`).toBe(5);
+        expect(q.e.length).toBeGreaterThan(20);
+        expect(q.s).not.toMatch(/^[A-E]\) /m);
+      }
+  });
+
+  it('a prova real tem 5 dissertativas com gabarito e pelo menos 4 critérios', () => {
+    for (const q of por('pb4-geo-prova').questoes) {
+      if (q.k !== 'd') continue;
+      expect(q.ref.length).toBeGreaterThan(200);
+      expect(q.crit.split('\n').length).toBeGreaterThanOrEqual(4);
+    }
+  });
+});
