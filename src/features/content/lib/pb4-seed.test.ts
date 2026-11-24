@@ -416,3 +416,66 @@ describe('PB4: Geografia', () => {
     }
   });
 });
+
+describe('PB4: História e Física', () => {
+  const por = (slug: string) => PACOTES_PB4.find((p) => p.slug === slug)!;
+  const conta = (slug: string) => {
+    const qs = por(slug).questoes;
+    return {
+      obj: qs.filter((q) => q.k === 'o').length,
+      disc: qs.filter((q) => q.k === 'd').length,
+    };
+  };
+  const itensTrilha = () =>
+    new Set(TRILHA_PB4.secoes.flatMap((s) => s.licoes.flatMap((l) => l.itens)));
+
+  it('História: o do professor tem as 25 questões do roteiro, mais um perto da prova e um objetivo', () => {
+    expect(conta('pb4-his-s1-professor')).toEqual({ obj: 0, disc: 25 });
+    expect(conta('pb4-his-s2-prova')).toEqual({ obj: 0, disc: 7 });
+    expect(conta('pb4-his-s3-objetivo')).toEqual({ obj: 20, disc: 0 });
+  });
+
+  it('Física: a lista da professora tem as 9 objetivas, 8 dissertativas perto da prova e 21 objetivas', () => {
+    expect(conta('pb4-fis-s1-lista')).toEqual({ obj: 9, disc: 0 });
+    expect(conta('pb4-fis-s2-prova')).toEqual({ obj: 0, disc: 8 });
+    expect(conta('pb4-fis-s3-objetivo')).toEqual({ obj: 21, disc: 0 });
+  });
+
+  it('só 3 simulados por matéria e poucos resumos, todos na trilha', () => {
+    const his = PACOTES_PB4.filter((p) => p.slug.startsWith('pb4-his-'));
+    const fis = PACOTES_PB4.filter((p) => p.slug.startsWith('pb4-fis-'));
+    expect(his).toHaveLength(3);
+    expect(fis).toHaveLength(3);
+    const rHis = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-his-'));
+    const rFis = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-fis-'));
+    expect(rHis).toHaveLength(3);
+    expect(rFis).toHaveLength(2);
+    const itens = itensTrilha();
+    for (const x of [...his, ...fis, ...rHis, ...rFis])
+      expect(itens.has(x.slug), x.slug).toBe(true);
+  });
+
+  it('o resumo do Pedro de História está publicado com o título do Pedro', () => {
+    const r = RESUMOS_PB4.find((x) => x.slug === 'g3-pb4-his-pedro')!;
+    expect(r.title).toMatch(/Pedro/);
+  });
+
+  it('a lista da professora mantém a ordem e o gabarito original (a certa varia de posição no site)', () => {
+    const qs = por('pb4-fis-s1-lista').questoes;
+    expect(qs).toHaveLength(9);
+    const alts = qs.map((q) => (q.k === 'o' ? q.wrong.length + 1 : 0));
+    expect(alts).toEqual([4, 4, 4, 5, 5, 5, 5, 5, 5]);
+  });
+
+  it('toda objetiva tem alternativas distintas, explicação e nenhuma letra dentro das alternativas', () => {
+    const todos = [...PACOTES_PB4.filter((p) => /^pb4-(his|fis)-/.test(p.slug))];
+    for (const p of todos)
+      for (const q of p.questoes) {
+        if (q.k !== 'o') continue;
+        const alt = [q.ok, ...q.wrong];
+        expect(new Set(alt).size, `${p.slug}: ${q.s.slice(0, 40)}`).toBe(alt.length);
+        expect(q.e.length).toBeGreaterThan(20);
+        for (const a of alt) expect(a, p.slug).not.toMatch(/^[A-Ea-e]\) /);
+      }
+  });
+});

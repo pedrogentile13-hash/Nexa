@@ -3,6 +3,10 @@ import { resumo, type ResumoG3, type TrilhaG3 } from '../grande3/types';
 import { SIMULADO_PROVA_PORTUGUES } from './prova-anglo';
 import { PACOTES_MATEMATICA_PB4 } from './matematica-simulados';
 import { RESUMOS_MATEMATICA_PB4 } from './matematica-resumos';
+import { PACOTES_FISICA_PB4 } from './fisica-simulados';
+import { RESUMOS_FISICA_PB4 } from './fisica-resumos';
+import { PACOTES_HISTORIA_PB4 } from './historia-simulados';
+import { RESUMOS_HISTORIA_PB4 } from './historia-resumos';
 import { PACOTES_GEOGRAFIA_PB4 } from './geografia-simulados';
 import { RESUMOS_GEOGRAFIA_PB4 } from './geografia-resumos';
 import { PACOTES_QUIMICA_PB4 } from './quimica-simulados';
@@ -506,6 +510,8 @@ export const PACOTES_PB4: PacoteG2[] = [
   ...PACOTES_REDACAO_PB4,
   ...PACOTES_MATEMATICA_PB4,
   ...PACOTES_GEOGRAFIA_PB4,
+  ...PACOTES_HISTORIA_PB4,
+  ...PACOTES_FISICA_PB4,
 ];
 
 /* ------------------------------------------------------------------ resumos */
@@ -515,6 +521,8 @@ export const RESUMOS_PB4: ResumoG3[] = [
   ...RESUMOS_REDACAO_PB4,
   ...RESUMOS_MATEMATICA_PB4,
   ...RESUMOS_GEOGRAFIA_PB4,
+  ...RESUMOS_HISTORIA_PB4,
+  ...RESUMOS_FISICA_PB4,
   resumo(
     MATERIA,
     SERIE,
@@ -849,6 +857,37 @@ export const TRILHA_PB4: TrilhaG3 = {
         L('Simulado 4: ONU', 30, 'pb4-geo-s4-onu'),
         L('Simulado 5: misto', 35, 'pb4-geo-s5-misto'),
         L('Simulação real: prova PB4 de Geografia', 90, 'pb4-geo-prova'),
+      ],
+    },
+    {
+      titulo: 'História: resumos',
+      licoes: [
+        L('Resumo do Pedro: Ditadura e redemocratização', 25, 'g3-pb4-his-pedro'),
+        L('Resumo: Módulo 13, os anos de chumbo', 12, 'g3-pb4-his-anos-de-chumbo'),
+        L('Resumo: Módulos 15 e 16, fichas por conceito', 12, 'g3-pb4-his-fichas'),
+      ],
+    },
+    {
+      titulo: 'História: simulados',
+      licoes: [
+        L('Simulado 1: o do professor (25 questões do roteiro)', 90, 'pb4-his-s1-professor'),
+        L('Simulado 2: perto da prova', 60, 'pb4-his-s2-prova'),
+        L('Simulado 3: objetivo de revisão', 40, 'pb4-his-s3-objetivo'),
+      ],
+    },
+    {
+      titulo: 'Física: resumos',
+      licoes: [
+        L('Resumo: Magnetismo e eletromagnetismo', 15, 'g3-pb4-fis-magnetismo'),
+        L('Resumo: Astronomia', 15, 'g3-pb4-fis-astronomia'),
+      ],
+    },
+    {
+      titulo: 'Física: simulados',
+      licoes: [
+        L('Simulado 1: idêntico à lista da professora', 30, 'pb4-fis-s1-lista'),
+        L('Simulado 2: perto da prova', 60, 'pb4-fis-s2-prova'),
+        L('Simulado 3: objetivo de revisão', 45, 'pb4-fis-s3-objetivo'),
       ],
     },
   ],
