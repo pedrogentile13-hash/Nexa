@@ -3,12 +3,121 @@ import { resumo, type ResumoG3 } from '../grande3/types';
 /**
  * PB4 · Física (9º ano, Prof.ª "Dé"): Magnetismo e Eletromagnetismo (Apostila 3, módulos 11 e 12) e Astronomia
  * (Apostila 4, módulos 15 e 16). A prova é só teoria, sem cálculos. Dois resumos só, divididos por parte.
- * O resumo do Pedro de Física entra aqui como `pb4-fis-pedro` quando o arquivo estiver disponível.
+ * O primeiro resumo é o do Pedro (`pb4-fis-pedro`), e os outros dois são divididos por parte.
  */
 const S = '9º ano' as const;
 const FI = 'fisica';
 
 export const RESUMOS_FISICA_PB4: ResumoG3[] = [
+  resumo(
+    FI,
+    S,
+    'pb4-fis-pedro',
+    'Resumo do Pedro · Magnetismo, eletromagnetismo e astronomia',
+    'Quadros de comparação, tecnologias pela descrição e o checklist de pegadinhas da professora',
+    `## 1. Magnetismo (AP3, M11)
+**Ímãs, polos e linhas de indução**
+- Todo ímã tem dois polos: Norte (N) e Sul (S). **Polos iguais repelem; polos diferentes atraem.**
+- Ao quebrar um ímã, cada pedaço vira um novo ímã N-S: **não se obtém um polo isolado**.
+- As linhas de campo fora do ímã **saem de N e entram em S**; indicam direção e sentido do campo. Quanto mais próximas, mais intenso o campo.
+
+**Atração, repulsão e bússolas**
+- **Atração:** N de um ímã diante do S de outro; as linhas se conectam. **Repulsão:** N-N ou S-S; as linhas se afastam da região entre os ímãs.
+- A ponta da agulha da bússola é seu polo norte; a agulha se alinha ao campo local e é **reta e tangente** à linha de campo (não se curva).
+
+> **Pegadinha:** norte geográfico da Terra ≈ sul magnético terrestre; sul geográfico ≈ norte magnético. O polo N da bússola é atraído pelo sul magnético próximo ao norte geográfico.
+
+**Campo da Terra e auroras**
+- O campo magnético terrestre ajuda a orientar a bússola e desvia/canaliza partículas carregadas vindas do espaço.
+- **Aurora boreal:** região polar do Hemisfério Norte. **Aurora austral:** região polar do Hemisfério Sul. Partículas energéticas interagem com gases da atmosfera, produzindo luz.
+- Padrão da lista: separar ímãs, trem Maglev, interpretar três bússolas e identificar o hemisfério da aurora.
+
+## 2. Eletromagnetismo (AP3, M12)
+**Duas relações que NÃO podem ser confundidas**
+| Corrente → campo | Variação de fluxo magnético → tensão |
+|---|---|
+| Corrente elétrica produz campo magnético em torno do condutor | **Indução eletromagnética (Faraday):** a mudança do fluxo magnético através do circuito gera tensão e pode produzir corrente se houver caminho fechado |
+| Ex.: eletroímã, campainha, motor elétrico | Ex.: dínamo, gerador, carregador sem fio, fogão por indução |
+
+> **Regra decisiva:** ímã e bobina parados entre si, sem outra mudança do fluxo, **não induzem corrente**. Aproximar ou afastar um ímã (ou girar a bobina) muda o fluxo e pode gerar corrente.
+
+**Tecnologias: reconheça pela descrição**
+| Dispositivo | Como funciona / transformação |
+|---|---|
+| Eletroímã / campainha | Corrente na bobina → campo magnético → atração de peça metálica; a campainha aciona o mecanismo |
+| Alto-falante | Corrente variável na bobina interage com campo magnético → vibração do cone → som |
+| Motor elétrico | Corrente em condutor dentro de campo magnético → força/torque → movimento (elétrica → mecânica) |
+| Gerador / dínamo | Movimento relativo entre bobina e campo → variação do fluxo → tensão/corrente (mecânica → elétrica) |
+| Carregamento sem fio | Corrente alternada na base → campo variável → tensão induzida na bobina receptora |
+| Fogão de indução | Campo magnético variável induz correntes no recipiente adequado, que se aquece |
+
+**Hidrelétrica e aplicações**
+- Água represada escoa → gira a turbina → gira o conjunto do gerador (ímã/bobinas em movimento relativo) → variação do fluxo magnético → produção de energia elétrica.
+- A mesma lógica de indução aparece em geradores eólicos e termelétricos; muda a fonte que faz a turbina girar.
+- Questão da lista: **dínamo de bicicleta**: sem rotação, não há a variação necessária do fluxo e a lâmpada não acende; somente ter um ímã presente não basta.
+- Outra aplicação: **magnetohipertermia** usa campo alternado para provocar aquecimento em nanopartículas magnéticas.
+
+## 3. O nascimento da Astronomia (AP4, M15)
+**Por que a Astronomia importa?** Permitiu construir calendários, organizar a agricultura, orientar viagens e navegação, marcar estações e desenvolver instrumentos e tecnologias. **Etnoastronomia:** estuda como diferentes povos e etnias observam, interpretam e usam o céu; esses conhecimentos fazem parte de suas culturas.
+
+**Modelos do Universo: compare**
+| Geocentrismo | Heliocentrismo |
+|---|---|
+| Terra no centro; modelo associado a **Aristóteles** e sistematizado por **Ptolomeu** | **Sol** no centro do Sistema Solar; proposta moderna de **Copérnico**, aprimorada por observações e leis |
+| Explicava movimentos aparentes a partir da Terra, com mecanismos como **epiciclos** | **Galileu:** observações telescópicas (fases de Vênus e luas de Júpiter). **Kepler:** órbitas elípticas |
+
+Atenção: heliocentrismo diz respeito ao **Sistema Solar**, não ao Sol como centro de todo o Universo.
+
+**Evidências da forma aproximadamente esférica da Terra**
+- **Eclipses lunares:** a sombra da Terra projetada na Lua é arredondada.
+- **Constelações:** ao mudar de latitude, mudam as estrelas observáveis e sua posição no céu.
+- **Navios e horizonte:** objetos distantes somem gradualmente de baixo para cima.
+- **Eratóstenes:** comparou sombras solares em localidades diferentes para estimar a circunferência terrestre.
+
+**Constelações e hemisférios**
+- **Cruzeiro do Sul:** referência característica do céu austral; não é visível das latitudes mais altas do Hemisfério Norte.
+- **Ursa Menor / Estrela Polar:** referências do céu do Hemisfério Norte; a visibilidade muda com a latitude.
+
+> **Conexão com a lista:** um viajante no extremo norte NÃO deve usar o Cruzeiro do Sul como referência; a lista o apresenta como alternativa incorreta na questão de auroras.
+
+## 4. Sistema Solar (AP4, M16)
+- **Hierarquia:** Universo → galáxias → Via Láctea → Sistema Solar → Sol, planetas e outros corpos. O Sistema Solar formou-se há cerca de **4,6 bilhões de anos** de uma nuvem de gás e poeira.
+- **Corpos luminosos** emitem luz própria (estrelas, como o Sol). **Iluminados** refletem luz (planetas, luas, asteroides).
+
+**Planetas na ordem a partir do Sol**
+| Planeta | Característica distintiva |
+|---|---|
+| Mercúrio | Menor planeta, rochoso, mais próximo do Sol |
+| Vênus | Atmosfera muito densa; efeito estufa intenso; superfície muito quente |
+| Terra | Água líquida abundante à superfície e vida conhecida |
+| Marte | Planeta rochoso avermelhado; atmosfera rarefeita |
+| Júpiter | Maior planeta; gigante gasoso e Grande Mancha Vermelha |
+| Saturno | Gigante gasoso, com anéis muito evidentes |
+| Urano | Gigante gelado; eixo de rotação muito inclinado |
+| Netuno | Gigante gelado, mais distante do Sol entre os oito planetas |
+
+**Memorize:** Mercúrio → Vênus → Terra → Marte → Júpiter → Saturno → Urano → Netuno. Quatro rochosos internos; quatro gigantes externos.
+
+**Astros: não confunda as definições**
+| Termo | O que é |
+|---|---|
+| Estrela | Corpo que produz luz própria por processos físicos em seu interior (ex.: Sol) |
+| Planeta | Orbita uma estrela, tem forma aproximadamente esférica e domina a vizinhança de sua órbita |
+| Planeta anão | Orbita o Sol, é aproximadamente esférico, mas não limpou sua vizinhança orbital (ex.: Plutão) |
+| Satélite natural | Corpo que orbita um planeta ou outro corpo maior (ex.: Lua) |
+| Cometa | Corpo rico em gelo e poeira; próximo ao Sol pode formar coma e cauda |
+| Asteroide | Corpo predominantemente rochoso/metálico que orbita o Sol |
+| Meteoroide | Pequeno corpo natural no espaço |
+| Meteoro | Fenômeno luminoso ao atravessar a atmosfera: a "estrela cadente" |
+| Meteorito | Fragmento de um corpo espacial que atinge o solo |
+
+## Checklist de pegadinhas da professora
+- ☐ Polaridades N/S e repulsão; ☐ agulha da bússola tangente; ☐ norte geográfico ≈ sul magnético.
+- ☐ Corrente produz campo ≠ indução por fluxo variável; ☐ gerador ≠ motor; ☐ ímã parado não basta.
+- ☐ Boreal x austral; ☐ geocentrismo x heliocentrismo; ☐ planetas x anões; ☐ meteoroide x meteoro x meteorito.
+
+*Resumo escrito por Pedro, a partir do roteiro de Física e da lista de nove exercícios de magnetismo e eletromagnetismo.*`,
+  ),
   resumo(
     FI,
     S,

@@ -449,7 +449,8 @@ describe('PB4: História e Física', () => {
     const rHis = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-his-'));
     const rFis = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-fis-'));
     expect(rHis).toHaveLength(3);
-    expect(rFis).toHaveLength(2);
+    expect(rFis).toHaveLength(3);
+    expect(rFis.some((r) => r.slug === 'g3-pb4-fis-pedro')).toBe(true);
     const itens = itensTrilha();
     for (const x of [...his, ...fis, ...rHis, ...rFis])
       expect(itens.has(x.slug), x.slug).toBe(true);

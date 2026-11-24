@@ -878,6 +878,7 @@ export const TRILHA_PB4: TrilhaG3 = {
     {
       titulo: 'Física: resumos',
       licoes: [
+        L('Resumo do Pedro: Magnetismo, eletromagnetismo e astronomia', 20, 'g3-pb4-fis-pedro'),
         L('Resumo: Magnetismo e eletromagnetismo', 15, 'g3-pb4-fis-magnetismo'),
         L('Resumo: Astronomia', 15, 'g3-pb4-fis-astronomia'),
       ],
