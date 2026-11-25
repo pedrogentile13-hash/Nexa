@@ -18,7 +18,7 @@
 -- ---------------------------------------------------------------- schools --
 -- Shared catalog: any authenticated user may read it (autocomplete) and
 -- contribute a missing school. Verified rows are curated and locked.
-create table public.schools (
+create table if not exists public.schools (
   id uuid primary key default gen_random_uuid(),
   name text not null check (length(btrim(name)) between 2 and 160),
   city text,
@@ -30,27 +30,31 @@ create table public.schools (
   updated_at timestamptz not null default now()
 );
 
-create index schools_name_trgm_idx on public.schools using gin (name gin_trgm_ops);
-create index schools_state_idx on public.schools (state) where state is not null;
+create index if not exists schools_name_trgm_idx on public.schools using gin (name gin_trgm_ops);
+create index if not exists schools_state_idx on public.schools (state) where state is not null;
 
+drop trigger if exists schools_set_updated_at on public.schools;
 create trigger schools_set_updated_at before update on public.schools
   for each row execute function public.set_updated_at();
 
 alter table public.schools enable row level security;
 
+drop policy if exists schools_select_authenticated on public.schools;
 create policy schools_select_authenticated on public.schools
   for select to authenticated using (true);
 
+drop policy if exists schools_insert_own on public.schools;
 create policy schools_insert_own on public.schools
   for insert to authenticated with check (created_by = auth.uid() and is_verified = false);
 
+drop policy if exists schools_update_own_unverified on public.schools;
 create policy schools_update_own_unverified on public.schools
   for update to authenticated
   using (created_by = auth.uid() and is_verified = false)
   with check (created_by = auth.uid() and is_verified = false);
 
 -- --------------------------------------------------------------- profiles --
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   full_name text,
   avatar_url text,
@@ -70,19 +74,23 @@ create table public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create index profiles_school_id_idx on public.profiles (school_id) where school_id is not null;
+create index if not exists profiles_school_id_idx on public.profiles (school_id) where school_id is not null;
 
+drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at before update on public.profiles
   for each row execute function public.set_updated_at();
 
 alter table public.profiles enable row level security;
 
+drop policy if exists profiles_select_own on public.profiles;
 create policy profiles_select_own on public.profiles
   for select to authenticated using (id = auth.uid());
 
+drop policy if exists profiles_insert_own on public.profiles;
 create policy profiles_insert_own on public.profiles
   for insert to authenticated with check (id = auth.uid());
 
+drop policy if exists profiles_update_own on public.profiles;
 create policy profiles_update_own on public.profiles
   for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
 
@@ -109,7 +117,7 @@ comment on function public.user_local_date is
   'Current date in the user''s configured timezone. Use for streaks, "hoje" and daily progress.';
 
 -- -------------------------------------------------------- academic_years --
-create table public.academic_years (
+create table if not exists public.academic_years (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   label text not null check (length(btrim(label)) between 1 and 40), -- "2026"
@@ -122,22 +130,24 @@ create table public.academic_years (
   constraint academic_years_user_label_uq unique (user_id, label)
 );
 
-create index academic_years_user_idx on public.academic_years (user_id);
+create index if not exists academic_years_user_idx on public.academic_years (user_id);
 -- At most one active year per user.
-create unique index academic_years_one_active_uq
+create unique index if not exists academic_years_one_active_uq
   on public.academic_years (user_id) where is_active;
 
+drop trigger if exists academic_years_set_updated_at on public.academic_years;
 create trigger academic_years_set_updated_at before update on public.academic_years
   for each row execute function public.set_updated_at();
 
 alter table public.academic_years enable row level security;
 
+drop policy if exists academic_years_all_own on public.academic_years;
 create policy academic_years_all_own on public.academic_years
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ------------------------------------------------------------------ terms --
 -- Bimestre / trimestre / semestre — the shape is data, not code.
-create table public.terms (
+create table if not exists public.terms (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   academic_year_id uuid not null references public.academic_years (id) on delete cascade,
@@ -151,15 +161,17 @@ create table public.terms (
   constraint terms_year_sequence_uq unique (academic_year_id, sequence)
 );
 
-create index terms_user_idx on public.terms (user_id);
-create index terms_year_idx on public.terms (academic_year_id);
+create index if not exists terms_user_idx on public.terms (user_id);
+create index if not exists terms_year_idx on public.terms (academic_year_id);
 -- "Which term is today in?" — the single hottest calendar lookup.
-create index terms_user_range_idx on public.terms (user_id, starts_on, ends_on);
+create index if not exists terms_user_range_idx on public.terms (user_id, starts_on, ends_on);
 
+drop trigger if exists terms_set_updated_at on public.terms;
 create trigger terms_set_updated_at before update on public.terms
   for each row execute function public.set_updated_at();
 
 alter table public.terms enable row level security;
 
+drop policy if exists terms_all_own on public.terms;
 create policy terms_all_own on public.terms
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());

@@ -10,24 +10,41 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Nexa — Your Academic Operating System',
-    short_name: 'Nexa',
+    name: 'Nexa Study — Seu estudo, mais longe.',
+    short_name: 'Nexa Study',
     description:
-      'Organize sua vida acadêmica: o que fazer hoje, suas notas, sua rotina e sua evolução.',
+      'Organize sua vida acadêmica: o que fazer hoje, seu desempenho automático, sua rotina e sua evolução.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
     lang: 'pt-BR',
     dir: 'ltr',
-    background_color: '#f6f7f9',
-    theme_color: '#2563eb',
+    // Branco, não o fundo do app (#f6f7f9): esta cor é a do splash NATIVO do
+    // Android, gerado no build do APK a partir dela + do ícone 512. O cinza
+    // deixava a tela de abertura com cara de página não carregada.
+    background_color: '#ffffff',
+    // A cor da barra de STATUS (em cima) no app instalado. Estava roxa
+    // (`--brand`) enquanto o app inteiro é claro — o TWA pega este valor no
+    // build, então a faixa de cima destoava de tudo. Agora é o mesmo fundo do
+    // app, igual ao `viewport.themeColor` do layout raiz, que é quem manda no
+    // navegador. Os dois apontavam pra cores diferentes; agora não mais.
+    theme_color: '#f6f7f9',
     categories: ['education', 'productivity'],
-    // Only the SVG is listed because only the SVG exists. Raster icons are a
-    // design asset, not code: iOS ignores SVG for the home-screen icon and
-    // Android wants a `maskable` PNG, so 180/192/512 PNGs plus a maskable
-    // variant still need to be produced before install looks right on a phone.
-    // Listing files that do not exist would make the manifest silently invalid.
-    icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+    // Gerados por scripts/generate-icons.mjs a partir de public/brand/logo-mark-src.png
+    // (a arte oficial da marca). 192/512 e maskable são necessários e nenhum
+    // substitui o outro:
+    //   • 192/512  — o que o Android usa na tela inicial e no splash
+    //   • maskable — recortado na forma do sistema (círculo, squircle, gota);
+    //                sem ele o Android desenha o ícone dentro de um quadrado
+    //                branco, que é a cara de app mal instalado
+    // O favicon vem de src/app/icon.png, e o ícone do iOS de
+    // src/app/apple-icon.png — os dois seguem a convenção de arquivo do Next,
+    // que já publica as tags <link> certas sozinho.
+    icons: [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
   };
 }
