@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { o, type PacoteG2 } from '../seed/grande2/types';
 import { problemasDeTamanho } from './balanco-alternativas';
 import { PACOTES_PA8 } from '../seed/pa8';
+import { PACOTES_BIOLOGIA_PB4 } from '../seed/pb4/biologia-simulados';
+import { PACOTES_INGLES_PB4 } from '../seed/pb4/ingles-simulados';
 import { PACOTES_FISICA_PB4 } from '../seed/pb4/fisica-simulados';
 import { PACOTES_HISTORIA_PB4 } from '../seed/pb4/historia-simulados';
 import { PACOTES_GEOGRAFIA_PB4 } from '../seed/pb4/geografia-simulados';
@@ -59,6 +61,8 @@ describe('regra do tamanho das alternativas (a certa não pode aparecer pelo tam
       ...PACOTES_MATEMATICA_PB4,
       ...PACOTES_GEOGRAFIA_PB4,
       ...PACOTES_HISTORIA_PB4,
+      ...PACOTES_BIOLOGIA_PB4,
+      ...PACOTES_INGLES_PB4,
       // o simulado 1 de Física é cópia fiel da lista da professora e não segue a regra do tamanho
       ...PACOTES_FISICA_PB4.filter((p) => p.slug !== 'pb4-fis-s1-lista'),
       ...PACOTES_QUIMICA_PB4,

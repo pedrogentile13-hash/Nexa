@@ -3,6 +3,10 @@ import { resumo, type ResumoG3, type TrilhaG3 } from '../grande3/types';
 import { SIMULADO_PROVA_PORTUGUES } from './prova-anglo';
 import { PACOTES_MATEMATICA_PB4 } from './matematica-simulados';
 import { RESUMOS_MATEMATICA_PB4 } from './matematica-resumos';
+import { PACOTES_BIOLOGIA_PB4 } from './biologia-simulados';
+import { RESUMOS_BIOLOGIA_PB4 } from './biologia-resumos';
+import { PACOTES_INGLES_PB4 } from './ingles-simulados';
+import { RESUMOS_INGLES_PB4 } from './ingles-resumos';
 import { PACOTES_FISICA_PB4 } from './fisica-simulados';
 import { RESUMOS_FISICA_PB4 } from './fisica-resumos';
 import { PACOTES_HISTORIA_PB4 } from './historia-simulados';
@@ -512,6 +516,8 @@ export const PACOTES_PB4: PacoteG2[] = [
   ...PACOTES_GEOGRAFIA_PB4,
   ...PACOTES_HISTORIA_PB4,
   ...PACOTES_FISICA_PB4,
+  ...PACOTES_BIOLOGIA_PB4,
+  ...PACOTES_INGLES_PB4,
 ];
 
 /* ------------------------------------------------------------------ resumos */
@@ -523,6 +529,8 @@ export const RESUMOS_PB4: ResumoG3[] = [
   ...RESUMOS_GEOGRAFIA_PB4,
   ...RESUMOS_HISTORIA_PB4,
   ...RESUMOS_FISICA_PB4,
+  ...RESUMOS_BIOLOGIA_PB4,
+  ...RESUMOS_INGLES_PB4,
   resumo(
     MATERIA,
     SERIE,
@@ -889,6 +897,27 @@ export const TRILHA_PB4: TrilhaG3 = {
         L('Simulado 1: idêntico à lista da professora', 30, 'pb4-fis-s1-lista'),
         L('Simulado 2: perto da prova', 60, 'pb4-fis-s2-prova'),
         L('Simulado 3: objetivo de revisão', 45, 'pb4-fis-s3-objetivo'),
+      ],
+    },
+    {
+      titulo: 'Biologia: resumo e simulados',
+      licoes: [
+        L('Resumo do Pedro: Genética, biotecnologia e doenças genéticas', 20, 'g3-pb4-bio-pedro'),
+        L('Simulado 1: Genética e sistema ABO', 30, 'pb4-bio-s1-genetica-abo'),
+        L('Simulado 2: Biotecnologia, vacinas e ética', 30, 'pb4-bio-s2-biotecnologia'),
+        L('Simulado 3: Doenças genéticas e cromossomos', 35, 'pb4-bio-s3-doencas-geneticas'),
+        L('Simulado 4: dissertativo no estilo da professora', 60, 'pb4-bio-s4-prova'),
+      ],
+    },
+    {
+      titulo: 'Inglês: resumos e simulados',
+      licoes: [
+        L('Resumo do Pedro: Unit 05', 15, 'g3-pb4-ing-pedro'),
+        L('Resumo: Unit 05 completo', 12, 'g3-pb4-ing-unit05'),
+        L('Simulado 1: Vocabulary, the environment', 25, 'pb4-ing-s1-vocabulary'),
+        L('Simulado 2: Passive voice', 25, 'pb4-ing-s2-passive'),
+        L('Simulado 3: Be allowed to, make e let', 25, 'pb4-ing-s3-allowed-make-let'),
+        L('Simulado 4: dissertativo no estilo da Teacher Betina', 60, 'pb4-ing-s4-prova'),
       ],
     },
   ],

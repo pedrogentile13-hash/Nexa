@@ -480,3 +480,63 @@ describe('PB4: História e Física', () => {
       }
   });
 });
+
+describe('PB4: Biologia e Inglês', () => {
+  const por = (slug: string) => PACOTES_PB4.find((p) => p.slug === slug)!;
+  const conta = (slug: string) => {
+    const qs = por(slug).questoes;
+    return {
+      obj: qs.filter((q) => q.k === 'o').length,
+      disc: qs.filter((q) => q.k === 'd').length,
+    };
+  };
+
+  it('Biologia: 3 simulados objetivos e 1 dissertativo no estilo da professora', () => {
+    expect(conta('pb4-bio-s1-genetica-abo')).toEqual({ obj: 12, disc: 0 });
+    expect(conta('pb4-bio-s2-biotecnologia')).toEqual({ obj: 12, disc: 0 });
+    expect(conta('pb4-bio-s3-doencas-geneticas')).toEqual({ obj: 14, disc: 0 });
+    expect(conta('pb4-bio-s4-prova')).toEqual({ obj: 0, disc: 5 });
+  });
+
+  it('Inglês: 3 simulados objetivos e 1 dissertativo no estilo da professora', () => {
+    expect(conta('pb4-ing-s1-vocabulary')).toEqual({ obj: 14, disc: 0 });
+    expect(conta('pb4-ing-s2-passive')).toEqual({ obj: 14, disc: 0 });
+    expect(conta('pb4-ing-s3-allowed-make-let')).toEqual({ obj: 14, disc: 0 });
+    expect(conta('pb4-ing-s4-prova')).toEqual({ obj: 0, disc: 5 });
+  });
+
+  it('só 4 simulados por matéria e os resumos do Pedro, tudo na trilha', () => {
+    const bio = PACOTES_PB4.filter((p) => p.slug.startsWith('pb4-bio-'));
+    const ing = PACOTES_PB4.filter((p) => p.slug.startsWith('pb4-ing-'));
+    expect(bio).toHaveLength(4);
+    expect(ing).toHaveLength(4);
+    const rBio = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-bio-'));
+    const rIng = RESUMOS_PB4.filter((r) => r.slug.startsWith('g3-pb4-ing-'));
+    expect(rBio).toHaveLength(1);
+    expect(rIng).toHaveLength(2);
+    expect(rBio[0]?.title).toMatch(/Pedro/);
+    expect(rIng.some((r) => /Pedro/.test(r.title))).toBe(true);
+    const itens = new Set(TRILHA_PB4.secoes.flatMap((s) => s.licoes.flatMap((l) => l.itens)));
+    for (const x of [...bio, ...ing, ...rBio, ...rIng])
+      expect(itens.has(x.slug), x.slug).toBe(true);
+  });
+
+  it('toda objetiva tem alternativas distintas, explicação e nenhuma letra dentro das alternativas', () => {
+    for (const p of PACOTES_PB4.filter((x) => /^pb4-(bio|ing)-/.test(x.slug)))
+      for (const q of p.questoes) {
+        if (q.k !== 'o') continue;
+        const alt = [q.ok, ...q.wrong];
+        expect(new Set(alt).size, `${p.slug}: ${q.s.slice(0, 40)}`).toBe(alt.length);
+        expect(q.e.length).toBeGreaterThan(20);
+      }
+  });
+
+  it('as dissertativas têm gabarito e pelo menos 3 critérios', () => {
+    for (const slug of ['pb4-bio-s4-prova', 'pb4-ing-s4-prova'])
+      for (const q of por(slug).questoes) {
+        if (q.k !== 'd') continue;
+        expect(q.ref.length).toBeGreaterThan(40);
+        expect(q.crit.split('\n').length).toBeGreaterThanOrEqual(3);
+      }
+  });
+});
