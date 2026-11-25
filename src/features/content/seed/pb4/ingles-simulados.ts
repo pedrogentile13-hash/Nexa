@@ -79,7 +79,7 @@ const S1: QuestaoG2[] = [
     'How do you say "plantar árvores" in English?',
     'Plant trees',
     ['Cut trees', 'Save trees', 'Burn trees', 'Climb trees'],
-    'Plant trees é plantar árvores.',
+    'Plant trees é plantar árvores, uma ação para proteger o planeta.',
   ),
   o(
     'medio',
@@ -195,21 +195,21 @@ const S2: QuestaoG2[] = [
     'What is the past participle (V3) of "take"?',
     'taken',
     ['took', 'taked', 'take'],
-    'Take, took, taken.',
+    'Take, took, taken: o particípio (V3) de take é taken.',
   ),
   o(
     'medio',
     'What is the past participle (V3) of "break"?',
     'broken',
     ['broke', 'breaked', 'break'],
-    'Break, broke, broken.',
+    'Break, broke, broken: o particípio (V3) de break é broken.',
   ),
   o(
     'medio',
     'What is the past participle (V3) of "build"?',
     'built',
     ['builded', 'build', 'builten'],
-    'Build, built, built.',
+    'Build, built, built: o particípio (V3) de build é built.',
   ),
   o(
     'medio',
